@@ -277,6 +277,16 @@ module.exports = function (Engine) {
 		return is_india(space)
 	}
 
+	function has_russian_revolution_started(game) {
+		return !!(game.events && game.events["russian_revolution"] >= 1)
+	}
+
+	function is_western_allied_persia_piece(p) {
+		let piece = data.pieces[p]
+		if (!piece) return false
+		return ["br", "fr", "in", "it", "anz"].includes(piece.nation)
+	}
+
 	// --- Control Logic ---
 
 	function is_controlled_by(game, s, faction) {
@@ -750,6 +760,12 @@ module.exports = function (Engine) {
 
 		if (is_prohibited_to_non_indian_units(s)) {
 			if (data.pieces[p].nation !== "in") return false
+		}
+
+		// Rule 19.6.3 / 18.3.8:
+		// Before the Russian Revolution, only RU and CP units may enter Azerbaijan.
+		if (area === "azerbaijan") {
+			if (!has_russian_revolution_started(game) && is_western_allied_persia_piece(p)) return false
 		}
 
 		// Rule 19.6.1: Persian Neutrality / Secret Treaty.
