@@ -100,6 +100,7 @@ exports.register = function (states, Engine, context) {
 			game.activation_cost = {}
 			game.moved = []
 			game.attacked = []
+			game.retreated = []
 			game.balkan_attack_targets = { ap: -1, ap_mo: -1, cp: -1 }
 			game.state = "activate_spaces"
 		},
@@ -114,6 +115,7 @@ exports.register = function (states, Engine, context) {
 			game.activation_cost = {}
 			game.moved = []
 			game.attacked = []
+			game.retreated = []
 			game.balkan_attack_targets = { ap: -1, ap_mo: -1, cp: -1 }
 			game.state = "activate_spaces"
 		},
@@ -215,6 +217,7 @@ exports.register = function (states, Engine, context) {
 			game.activation_cost = {}
 			game.moved = []
 			game.attacked = []
+			game.retreated = []
 			game.balkan_attack_targets = { ap: -1, ap_mo: -1, cp: -1 }
 			game.state = "activate_spaces"
 		},
@@ -434,6 +437,7 @@ exports.register = function (states, Engine, context) {
 		delete game.attack
 		delete game.combat_cards
 		delete game.eligible_attackers
+		delete game.retreated
 		delete game.advanced_stopped
 		delete game.sr_moved
 		delete game.entrenching

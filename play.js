@@ -1738,6 +1738,10 @@ function destroy_marker(list, find) {
  * @returns {HTMLElement} 控制标记的 DOM 元素。
  */
 function build_control_marker(s, faction) {
+	if (faction === "neutral") {
+		destroy_control_marker(s)
+		return null
+	}
 	const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
 	const info = faction === AP ? marker_info.control.ap : marker_info.control.cp
 	const type = faction === AP ? "ap_control" : "cp_control"
@@ -2823,6 +2827,7 @@ function update_reinforcements() {
  * @param {HTMLElement} elt - 要推入的元素。
  */
 function push_stack(stk, elt) {
+	if (!elt) return
 	stk.unshift(elt)
 	elt.my_stack = stk
 }
@@ -4267,6 +4272,7 @@ function update_space(s, pieces_in_this_space) {
 		space.stack = []
 		space.stack.name = space.name
 	}
+
 	const stack = space.stack
 	const has_pieces = !!(pieces_in_this_space && pieces_in_this_space.length > 0)
 	const has_special_marker =
@@ -4367,7 +4373,7 @@ function update_space(s, pieces_in_this_space) {
 		const ctrl = view.control[s]
 		if (ctrl !== space.faction) {
 			const m = build_control_marker(s, ctrl)
-			space_markers_bottom.push(m)
+			if (m) space_markers_bottom.push(m)
 		} else {
 			destroy_control_marker(s)
 		}

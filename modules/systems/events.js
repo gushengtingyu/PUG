@@ -983,7 +983,11 @@ module.exports = function (Engine) {
 			name: "NO PRISONERS CC",
 			name_cn: "不留活口",
 			effect_cn:
-				"(在战斗的掷骰前打出)一次攻击堆叠包含协约国阿拉伯起义部队或者同盟国部落部队的战斗中，攻击方受到的伤害-1，防御方受到的伤害-1。当你使用完这张卡后，该卡交予同盟国方并保持正面朝上，使其可以选择在一次战斗中当作战斗牌使用。以此法使用完毕的这张卡丢入弃牌堆"
+				"(在战斗的掷骰前打出)一次攻击堆叠包含协约国阿拉伯起义部队或者同盟国部落部队的战斗中，攻击方受到的伤害-1，防御方受到的伤害-1。当你使用完这张卡后，该卡交予同盟国方并保持正面朝上，使其可以选择在一次战斗中当作战斗牌使用。以此法使用完毕的这张卡丢入弃牌堆",
+			handler: function (game, ctx) {
+				log(game, "Event: NO PRISONERS CC executed.", ctx)
+				game.events["no_prisoners"] = game.turn
+			}
 		},
 		22: {
 			name: "KITCHENER'S INVASION",
@@ -1166,10 +1170,54 @@ module.exports = function (Engine) {
 			name_cn: "罗马尼亚",
 			effect_cn:
 				"——中立国参战——。(只有在巴尔干地区存在至少一个协约国LCU时才能打出)。罗马尼亚加入协约国，按照规则中的罗马尼亚参战条目放置同盟国和协约国单位。。立即启动1个包含罗马尼亚部队的地区进行战斗。。若此卡没有在俄国革命前打出，则+2VP并永久禁止该卡在剩余游戏时间当作事件打出。(除非单纯为了提升战争状态)",
+			can_play: function (game) {
+				if (game.events["russian_revolution"]) return false
+				let has_ap_lcu = false
+				for (let p = 1; p < data.pieces.length; p++) {
+					let info = data.pieces[p]
+					if (info && info.piece_class === "LCU" && get_piece_faction(p) === AP) {
+						let s = game.pieces[p]
+						if (s > 0 && is_balkans(game, s)) {
+							has_ap_lcu = true
+							break
+						}
+					}
+				}
+				return has_ap_lcu
+			},
 			handler: function (game, ctx) {
 				log(game, "Event: ROMANIA executed.", ctx)
 				game.events["romania"] = true
-			}
+				game.entry_ro = true
+
+				// Control all RO spaces to AP
+				for (let s = 1; s < data.spaces.length; s++) {
+					if (data.spaces[s] && data.spaces[s].nation === "ro") {
+						if (typeof Engine.set_control === "function") {
+							Engine.set_control(game, s, AP)
+						}
+					}
+				}
+
+				// Place RO units
+				let ro_units = [
+					"RO 1 Army", "RO 2 Army", "RO 3 Army", "RO Cavalry",
+					"RO DIV #1", "RO DIV #2", "RO DIV #3", "RO DIV #4", "RO DIV #5", "RO DIV #6"
+				]
+				for (let unit of ro_units) reinforce(game, unit, AP, "Bucharest")
+
+				// Place CP units
+				let cp_units = [
+					"GE 9 Army", "GE Falkenhayn HQ", "GE Hvy Arty",
+					"Combined BU/AH Div", "AH 1 Army", "AH 7 Army",
+					"AH DIV #1", "AH DIV #2", "AH DIV #3"
+				]
+				for (let unit of cp_units) reinforce(game, unit, CP, RESERVE)
+
+				game.active = AP
+				game.state = "event_romania_attack"
+			},
+			defer_end: true
 		},
 		30: {
 			name: "GALLIPOLI INVASION",
@@ -1680,12 +1728,20 @@ module.exports = function (Engine) {
 		60: {
 			name: "GERMAN HIGH COMMAND CC",
 			name_cn: "德国最高司令部",
-			effect_cn: "一次同盟国部队攻击/防御+1drm。"
+			effect_cn: "一次同盟国部队攻击/防御+1drm。",
+			handler: function (game, ctx) {
+				log(game, "Event: GERMAN HIGH COMMAND CC executed.", ctx)
+				game.events["german_high_command"] = game.turn
+			}
 		},
 		61: {
 			name: "SANDSTORMS & MOSQUITOES CC",
 			name_cn: "沙尘暴和疟蚊",
-			effect_cn: "一回合只能有一次，取消一次从沙漠/沼泽地区发起 或 向沙漠/沼泽地区进行的协约国攻击。"
+			effect_cn: "一回合只能有一次，取消一次从沙漠/沼泽地区发起 或 向沙漠/沼泽地区进行的协约国攻击。",
+			handler: function (game, ctx) {
+				log(game, "Event: SANDSTORMS & MOSQUITOES CC executed.", ctx)
+				game.events["sandstorms_mosquitoes"] = game.turn
+			}
 		},
 		62: {
 			name: "GOEBEN",
@@ -1760,7 +1816,11 @@ module.exports = function (Engine) {
 			name: "SAVE TIFLIS CC",
 			name_cn: "回援第比利斯",
 			effect_cn:
-				"(只能在土耳其LCU攻击俄国LCU的战斗撤退选择阶段时打出。不能在【尼古拉大公抵达第比利斯】后打出)协约国玩家需要把所有阿塞拜疆、波斯和土耳其的俄国单位向第比利斯方向撤退一格。俄国位于完好要塞内的部队、有尤德尼奇HQ驻扎的部队可以免受影响。如果不能进行合法撤退或者无法让这些部队向第比利斯方向撤退，满员的土耳其/土耳其-阿拉伯部队可以照常挺进。"
+				"(只能在土耳其LCU攻击俄国LCU的战斗撤退选择阶段时打出。不能在【尼古拉大公抵达第比利斯】后打出)协约国玩家需要把所有阿塞拜疆、波斯和土耳其的俄国单位向第比利斯方向撤退一格。俄国位于完好要塞内的部队、有尤德尼奇HQ驻扎的部队可以免受影响。如果不能进行合法撤退或者无法让这些部队向第比利斯方向撤退，满员的土耳其/土耳其-阿拉伯部队可以照常挺进。",
+			handler: function (game, ctx) {
+				log(game, "Event: SAVE TIFLIS CC executed.", ctx)
+				game.events["save_tiflis"] = game.turn
+			}
 		},
 		67: {
 			name: "LIBERATE SUEZ",
@@ -2199,17 +2259,37 @@ module.exports = function (Engine) {
 			handler: function (game, ctx) {
 				log(game, "Event: GORLICE-TARNOW executed.", ctx)
 				game.events["gorlice_tarnow"] = true
-			}
+				game.active = AP
+				game.state = "event_gorlice_tarnow_choice"
+			},
+			defer_end: true
 		},
 		87: {
 			name: "VERDUN",
 			name_cn: "凡尔登战役",
 			effect_cn:
 				"(只有在安纳托利亚地区以及加利波里地图没有协约国LCU时才能打出，**位于这些地区滩头标志上的协约国LCU不算作此列**)。协约国玩家需要选择。A: +2VP。B: 将最多4个英国/印度/澳新师移除游戏(派往西线)。。本回合德国补员点数无法使用。。(注:协约国玩家可以选择只移除2个师，并支付+1VP的代价，也可以以1LCU=3SCU的代价进行。选择移除师时，不能选择骑兵/骆驼师和英国特殊部队(例如英国波斯宪兵或者印度卫戍师等))",
+			can_play: function (game) {
+				for (let p = 1; p < data.pieces.length; p++) {
+					if (is_lcu(p) && get_piece_faction(p) === AP) {
+						let s = game.pieces[p]
+						if (s > 0) {
+							if (is_beachhead_space(game, s)) continue
+							let r = get_region(s)
+							let a = Engine.map.get_area(s)
+							if (a === "anatolia" || r === "gallipoli") return false
+						}
+					}
+				}
+				return true
+			},
 			handler: function (game, ctx) {
 				log(game, "Event: VERDUN executed.", ctx)
 				game.events["verdun"] = true
-			}
+				game.active = AP
+				game.state = "event_verdun_choice"
+			},
+			defer_end: true
 		},
 		88: {
 			name: "BULGARIA",
@@ -2294,7 +2374,10 @@ module.exports = function (Engine) {
 			handler: function (game, ctx) {
 				log(game, "Event: APIS executed.", ctx)
 				game.events["apis"] = game.turn
-			}
+				game.active = CP
+				game.state = "event_apis_eliminate"
+			},
+			defer_end: true
 		},
 		92: {
 			name: "TURKISH REINFORCEMENTS",
@@ -2343,10 +2426,29 @@ module.exports = function (Engine) {
 			name_cn: "拯救保加利亚",
 			effect_cn:
 				"(只有在保加利亚/塞尔维亚地区存在协约国LCU时才能打出)。同盟国可以以每个LCU，每三个SCU-1VP合作将位于**摧毁栏**以及**此前永久移除**的任何奥匈或者德国单位重新以减损面放置在加利西亚地区。",
+			can_play: function (game) {
+				let has_ap_lcu = false
+				for (let p = 1; p < data.pieces.length; p++) {
+					if (is_lcu(p) && get_piece_faction(p) === AP) {
+						let s = game.pieces[p]
+						if (s > 0) {
+							let nation = data.spaces[s].nation
+							if (nation === "bu" || nation === "sb") {
+								has_ap_lcu = true
+								break
+							}
+						}
+					}
+				}
+				return has_ap_lcu
+			},
 			handler: function (game, ctx) {
 				log(game, "Event: TO HELP AND SAVE YOU executed.", ctx)
 				game.events["to_help_and_save_you"] = true
-			}
+				game.active = CP
+				game.state = "event_to_help_and_save_you"
+			},
+			defer_end: true
 		},
 		96: {
 			name: "TALAAT PASHA REFORMS CABINET",
@@ -2461,11 +2563,19 @@ module.exports = function (Engine) {
 			name_cn: "罗伯逊",
 			effect_cn:
 				"(只能在1917年冬季后、【英国厌战】、【皇帝攻势】后，以及VP不小于13时打出)。协约国玩家必须选择:。A:+1VP。B:将最多3个英国/印度/澳新师移除游戏(派往西线)。。同盟国自动胜利标记左移1格。。在剩余的游戏中，每回合英国补员点数-1，协约国MO掷骰-2drm(**此外，掷骰“无”和“俄国”现在开始视为英国禁攻**)。解除同盟国在巴尔干地区的攻击限制。。(注:协约国选择移除师时，也可以以1LCU=3SCU的代价进行。选择移除师时，不能选择骑兵/骆驼师和英国特殊部队(例如英国波斯宪兵或者印度卫戍师等))",
+			can_play: function (game) {
+				let year = get_year(game)
+				let is_after_winter_1917 = year > 1917 || (year === 1917 && get_season(game) === "Winter")
+				return is_after_winter_1917 && game.events["british_war_weariness"] && game.events["kaiserschlacht"] && game.vp >= 13
+			},
 			handler: function (game, ctx) {
 				game.mo_ap_modifier -= 2
 				log(game, "ROBERTSON: AP MO Roll -2 DRM.", ctx)
 				game.events["robertson"] = true
-			}
+				game.active = AP
+				game.state = "event_robertson_choice"
+			},
+			defer_end: true
 		},
 		104: {
 			name: "BERLIN-BAGHDAD RAILROAD",
@@ -2486,7 +2596,10 @@ module.exports = function (Engine) {
 			handler: function (game, ctx) {
 				log(game, "Event: KAISERSCHLACHT executed.", ctx)
 				game.events["kaiserschlacht"] = true
-			}
+				game.active = AP
+				game.state = "event_kaiserschlacht_choice"
+			},
+			defer_end: true
 		},
 		106: {
 			name: "TURKISH REINFORCEMENTS",
@@ -2513,7 +2626,10 @@ module.exports = function (Engine) {
 			handler: function (game, ctx) {
 				log(game, "Event: CAUCASIAN ARMY REFORMS executed.", ctx)
 				game.events["caucasian_army_reforms"] = true
-			}
+				game.active = CP
+				game.state = "event_caucasian_army_reforms_eliminate"
+			},
+			defer_end: true
 		},
 		108: {
 			name: "UNRESTRICTED SUBMARINE WARFARE",

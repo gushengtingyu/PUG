@@ -1,10 +1,17 @@
-const rules = require("./rules.js")
-const Engine = require("./modules/engine.js")
+const rules = require("../rules.js")
+const Engine = require("../modules/engine.js")
+const fuzz = require("./runtime_fuzz_loop.js")
 
 const { AP } = Engine.constants
 
 function setupGame(seed) {
 	return rules.setup(seed, "Historical", { seven_hand_size: false, no_supply_warnings: false })
+}
+
+function expectRetreatedInvariant(game) {
+	if (game.retreated === undefined) return
+	expect(Array.isArray(game.retreated)).toBe(true)
+	expect(new Set(game.retreated).size).toBe(game.retreated.length)
 }
 
 function currentPlayer(game) {
@@ -35,10 +42,150 @@ function pickAction(view, salt) {
 }
 
 describe("运行时烟雾测试", () => {
-	test.each([12345, 22345, 32345, 42345])("历史剧本随机步进 seed=%i", (seed) => {
-		let game = setupGame(seed)
+	test("初始化时会创建 retreated 数组", () => {
+		let game = setupGame(12345)
+		expectRetreatedInvariant(game)
+	})
 
-		for (let step = 0; step < 120; step++) {
+	test("retreated 单位不会回到战斗单位池", () => {
+		const { data } = Engine
+		const apPiece = data.pieces.findIndex((p) => p && p.faction === "ap" && p.type !== "hq")
+		const cpPiece = data.pieces.findIndex((p) => p && p.faction === "cp" && p.type !== "hq")
+		let game = {
+			pieces: [],
+			attack: {
+				space: 1,
+				pieces: [apPiece],
+				initial_defenders: [cpPiece]
+			},
+			retreated: [cpPiece]
+		}
+		game.pieces[apPiece] = 2
+		game.pieces[cpPiece] = 1
+		let pool = Engine.combat_cards.get_battle_piece_pool(game)
+		expect(pool).toContain(apPiece)
+		expect(pool).not.toContain(cpPiece)
+	})
+
+	test("存在已退却防守方时优先进入摧毁流程", () => {
+		const { data } = Engine
+		const cpPiece = data.pieces.findIndex((p) => p && p.faction === "cp" && p.type !== "hq")
+		let game = {
+			pieces: [],
+			attack: {
+				space: 1,
+				defender_losses: 1,
+				defender: "cp",
+				attacker: "ap"
+			},
+			retreated: [cpPiece]
+		}
+		game.pieces[cpPiece] = 1
+		expect(Engine.combat.get_defender_losses_state(game)).toBe("eliminate_retreated_units")
+		game.retreated = []
+		expect(Engine.combat.get_defender_losses_state(game)).toBe("apply_defender_losses")
+	})
+
+	test("泡测参数解析支持多种子与分局步数限制", () => {
+		let options = fuzz.parseArgs([
+			"--seed=12345",
+			"--seed-step=7",
+			"--games=4",
+			"--max-steps=900",
+			"--max-steps-per-game=150",
+			"--echo-every=0",
+			"--stuck-threshold=4",
+			"--quiet"
+		])
+		expect(options.seed).toBe(12345)
+		expect(options.seedStep).toBe(7)
+		expect(options.games).toBe(4)
+		expect(options.maxSteps).toBe(900)
+		expect(options.maxStepsPerGame).toBe(150)
+		expect(options.echoEvery).toBe(1)
+		expect(options.stuckThreshold).toBe(10)
+		expect(options.quiet).toBe(true)
+	})
+
+	test("泡测运行支持多种子和分局步数预算", () => {
+		let result = fuzz.run({
+			seed: 12345,
+			seedStep: 11,
+			games: 3,
+			maxStepsPerGame: 60,
+			maxSteps: 240,
+			echoEvery: 1000,
+			stuckThreshold: 80,
+			quiet: true
+		})
+		expect(result.exitCode).toBe(0)
+		expect(result.reason).toBe("games_completed")
+		expect(result.summary.completedGames).toBe(3)
+		expect(result.summary.totalSteps).toBe(180)
+		expect(result.summary.seedsVisited).toEqual([12345, 12356, 12367])
+		expect(result.summary.completionReasons).toEqual([
+			"max_steps_per_game",
+			"max_steps_per_game",
+			"max_steps_per_game"
+		])
+		expect(result.summary.statesSeen.length).toBeGreaterThan(0)
+	})
+
+	test("泡测会把仅剩 undo 的状态记为 no_selectable_actions", () => {
+		let originalSetup = rules.setup
+		let originalView = rules.view
+		let originalAction = rules.action
+
+		rules.setup = (seed, scenario, options) => ({
+			seed,
+			scenario,
+			options,
+			state: "idle_state",
+			active: "ap",
+			turn: 1,
+			action_round: 1,
+			pieces: [],
+			control: []
+		})
+		rules.view = (game, role) => ({
+			actions: { undo: 1 },
+			active: role,
+			turn: game.turn,
+			prompt: null
+		})
+		rules.action = () => {
+			throw new Error("no action should be dispatched when only undo remains")
+		}
+
+		try {
+			let result = fuzz.run({
+				seed: 12345,
+				seedStep: 7,
+				games: 2,
+				echoEvery: 1000,
+				stuckThreshold: 50,
+				quiet: true
+			})
+			expect(result.exitCode).toBe(0)
+			expect(result.reason).toBe("games_completed")
+			expect(result.summary.completedGames).toBe(2)
+			expect(result.summary.completionReasons).toEqual(["no_selectable_actions", "no_selectable_actions"])
+			expect(result.summary.noActionEvents).toEqual([
+				{ state: "idle_state", active: "ap", prompt: null },
+				{ state: "idle_state", active: "ap", prompt: null }
+			])
+		} finally {
+			rules.setup = originalSetup
+			rules.view = originalView
+			rules.action = originalAction
+		}
+	})
+
+	test.each([12345, 22345, 32345, 42345, 52345, 62345])("历史剧本随机步进 seed=%i", (seed) => {
+		let game = setupGame(seed)
+		expectRetreatedInvariant(game)
+
+		for (let step = 0; step < 180; step++) {
 			let player = currentPlayer(game)
 			let view
 
@@ -47,7 +194,7 @@ describe("运行时烟雾测试", () => {
 			}).not.toThrow()
 
 			expect(view).toBeTruthy()
-			expect(typeof view.prompt).toBe("string")
+			expect(view.prompt === null || typeof view.prompt === "string").toBe(true)
 
 			if (game.state === "game_over") break
 
@@ -60,6 +207,7 @@ describe("运行时烟雾测试", () => {
 
 			expect(game).toBeTruthy()
 			expect(game.state).toBeTruthy()
+			expectRetreatedInvariant(game)
 		}
 	})
 })

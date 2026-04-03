@@ -102,6 +102,7 @@ module.exports = function (Engine) {
 		for (let group of groups) {
 			for (let p of group) {
 				if (seen.has(p)) continue
+				if (Array.isArray(game.retreated) && set_has(game.retreated, p)) continue
 				seen.add(p)
 				pool.push(p)
 			}

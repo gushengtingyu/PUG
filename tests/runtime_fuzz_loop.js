@@ -3,25 +3,60 @@ const Engine = require("../modules/engine.js")
 
 const { AP } = Engine.constants
 
-function parseArgs(argv) {
-	const options = {
+function createDefaultOptions() {
+	return {
 		seed: Date.now() & 0xffffffff,
+		seedStep: 1,
 		scenario: "Historical",
 		maxSteps: 0,
+		maxStepsPerGame: 0,
+		games: 1,
 		echoEvery: 200,
-		stuckThreshold: 120
+		stuckThreshold: 120,
+		quiet: false
 	}
+}
+
+function normalizeOptions(input = {}) {
+	let options = { ...createDefaultOptions(), ...input }
+	options.seed = Number(options.seed) >>> 0
+	options.seedStep = Number(options.seedStep) >>> 0
+	if (options.seedStep === 0) options.seedStep = 1
+	options.scenario = options.scenario || "Historical"
+	options.maxSteps = Number.isFinite(Number(options.maxSteps)) ? Math.max(0, Number(options.maxSteps)) : 0
+	options.maxStepsPerGame = Number.isFinite(Number(options.maxStepsPerGame))
+		? Math.max(0, Number(options.maxStepsPerGame))
+		: 0
+	options.games = Number.isFinite(Number(options.games)) ? Math.max(1, Number(options.games)) : 1
+	options.echoEvery = Number.isFinite(Number(options.echoEvery)) ? Math.max(1, Number(options.echoEvery)) : 200
+	options.stuckThreshold = Number.isFinite(Number(options.stuckThreshold))
+		? Math.max(10, Number(options.stuckThreshold))
+		: 120
+	options.quiet = !!options.quiet
+	return options
+}
+
+function parseArgs(argv) {
+	let options = createDefaultOptions()
 	for (let raw of argv) {
 		if (!raw.startsWith("--")) continue
 		let [k, v] = raw.slice(2).split("=")
+		if (k === "quiet") {
+			options.quiet = v === undefined ? true : v !== "false"
+			continue
+		}
 		if (k === "seed" && v !== undefined && !Number.isNaN(Number(v))) options.seed = Number(v) >>> 0
+		if (k === "seed-step" && v !== undefined && !Number.isNaN(Number(v))) options.seedStep = Number(v) >>> 0
 		if (k === "scenario" && v) options.scenario = v
+		if (k === "games" && v !== undefined && !Number.isNaN(Number(v))) options.games = Number(v)
 		if (k === "max-steps" && v !== undefined && !Number.isNaN(Number(v))) options.maxSteps = Number(v)
-		if (k === "echo-every" && v !== undefined && !Number.isNaN(Number(v))) options.echoEvery = Math.max(1, Number(v))
+		if (k === "max-steps-per-game" && v !== undefined && !Number.isNaN(Number(v)))
+			options.maxStepsPerGame = Number(v)
+		if (k === "echo-every" && v !== undefined && !Number.isNaN(Number(v))) options.echoEvery = Number(v)
 		if (k === "stuck-threshold" && v !== undefined && !Number.isNaN(Number(v)))
-			options.stuckThreshold = Math.max(10, Number(v))
+			options.stuckThreshold = Number(v)
 	}
-	return options
+	return normalizeOptions(options)
 }
 
 function createRng(seed) {
@@ -36,7 +71,7 @@ function createRng(seed) {
 }
 
 function currentRole(game) {
-	return game.active === AP ? "Allied Powers" : "Central Powers"
+	return game.active
 }
 
 function actionWeight(name) {
@@ -46,6 +81,7 @@ function actionWeight(name) {
 	if (name === "piece") return 9
 	if (name === "activate_move" || name === "activate_attack") return 8
 	if (name === "move" || name === "attack") return 7
+	if (name === "end_action") return 6
 	if (name === "next" || name === "done" || name === "pass" || name === "finish") return 5
 	return 4
 }
@@ -66,16 +102,22 @@ function buildChoices(actions) {
 	return choices
 }
 
-function pickChoice(choices, rand) {
+function pickChoice(choices, rand, pairCounts, sig) {
 	if (choices.length === 0) return null
+	let weightedChoices = choices.map((choice) => {
+		let pairKey = `${sig}=>${choice.name}:${choice.arg === undefined ? "" : String(choice.arg)}`
+		let repeat = pairCounts.get(pairKey) || 0
+		let effectiveWeight = choice.weight / (repeat + 1)
+		return { ...choice, pairKey, effectiveWeight }
+	})
 	let total = 0
-	for (let c of choices) total += c.weight
+	for (let c of weightedChoices) total += c.effectiveWeight
 	let cursor = rand() * total
-	for (let c of choices) {
-		cursor -= c.weight
+	for (let c of weightedChoices) {
+		cursor -= c.effectiveWeight
 		if (cursor <= 0) return c
 	}
-	return choices[choices.length - 1]
+	return weightedChoices[weightedChoices.length - 1]
 }
 
 function signatureOf(game, view) {
@@ -101,6 +143,36 @@ function signatureOf(game, view) {
 	].join("#")
 }
 
+function ensureUniqueArray(name, value) {
+	if (value === undefined) return
+	if (!Array.isArray(value)) throw new Error(`${name} must be an array`)
+	if (new Set(value).size !== value.length) throw new Error(`${name} contains duplicate entries`)
+}
+
+function validateGameInvariants(game) {
+	if (!game || typeof game !== "object") throw new Error("game must be an object")
+	if (!game.state || typeof game.state !== "string") throw new Error("game.state must be a non-empty string")
+	if (!game.active || typeof game.active !== "string") throw new Error("game.active must be a non-empty string")
+	if (!Array.isArray(game.pieces)) throw new Error("game.pieces must be an array")
+	if (!Array.isArray(game.control)) throw new Error("game.control must be an array")
+	ensureUniqueArray("game.retreated", game.retreated)
+	ensureUniqueArray("game.oos", game.oos)
+	ensureUniqueArray("game.reduced", game.reduced)
+	ensureUniqueArray("game.attacked", game.attacked)
+	ensureUniqueArray("game.moved", game.moved)
+	if (game.undo !== undefined && !Array.isArray(game.undo)) throw new Error("game.undo must be an array when present")
+}
+
+function validateViewInvariants(view, game) {
+	if (!view || typeof view !== "object") throw new Error("view must be an object")
+	if (view.prompt !== null && typeof view.prompt !== "string") throw new Error("view.prompt must be a string or null")
+	if (!view.actions || typeof view.actions !== "object") throw new Error("view.actions must be an object")
+	if (!view.active || typeof view.active !== "string") throw new Error("view.active must be a non-empty string")
+	if (!Number.isInteger(view.turn) || view.turn < 1) throw new Error("view.turn must be a positive integer")
+	ensureUniqueArray("view.attacked", view.attacked)
+	ensureUniqueArray("view.moved", view.moved)
+}
+
 function createGame(seed, scenario) {
 	return rules.setup(seed, scenario, { seven_hand_size: false, no_supply_warnings: false })
 }
@@ -109,11 +181,16 @@ function printContext(prefix, payload) {
 	console.log(prefix, JSON.stringify(payload))
 }
 
-function run() {
-	const options = parseArgs(process.argv.slice(2))
+function buildResult(exitCode, reason, summary) {
+	return { exitCode, reason, summary }
+}
+
+function run(inputOptions = {}) {
+	const options = normalizeOptions(inputOptions)
 	const rand = createRng(options.seed)
+	const report = options.quiet ? () => {} : printContext
 	let seedCursor = options.seed >>> 0
-	let gameCount = 1
+	let gameIndex = 1
 	let totalSteps = 0
 	let gameSteps = 0
 	let game = createGame(seedCursor, options.scenario)
@@ -121,48 +198,110 @@ function run() {
 	let pairCounts = new Map()
 	let recent = []
 	let lastSignature = ""
+	let statesSeen = new Set()
+	let seedsVisited = [seedCursor]
+	let maxGameSteps = 0
+	let completedGames = 0
+	let completionReasons = []
+	let noActionEvents = []
 
-	printContext("[fuzz] start", {
+	function summary(extra = {}) {
+		return {
+			seed: seedCursor,
+			startSeed: options.seed >>> 0,
+			endSeed: seedCursor,
+			scenario: options.scenario,
+			totalSteps,
+			gameSteps,
+			gameIndex,
+			gamesRequested: options.games,
+			completedGames,
+			maxGameSteps,
+			statesSeen: Array.from(statesSeen).sort(),
+			seedsVisited,
+			completionReasons,
+			noActionEvents,
+			...extra
+		}
+	}
+
+	function startNextGame(reason) {
+		completedGames += 1
+		completionReasons.push(reason)
+		maxGameSteps = Math.max(maxGameSteps, gameSteps)
+		report("[fuzz] next_game", {
+			reason,
+			totalSteps,
+			completedGames,
+			seed: seedCursor,
+			gameSteps
+		})
+		if (completedGames >= options.games) {
+			return buildResult(0, "games_completed", summary())
+		}
+		seedCursor = (seedCursor + options.seedStep) >>> 0
+		seedsVisited.push(seedCursor)
+		gameIndex = completedGames + 1
+		gameSteps = 0
+		sameSignatureCount = 0
+		pairCounts.clear()
+		recent = []
+		lastSignature = ""
+		game = createGame(seedCursor, options.scenario)
+		return null
+	}
+
+	report("[fuzz] start", {
 		seed: seedCursor,
+		seedStep: options.seedStep,
 		scenario: options.scenario,
+		games: options.games,
 		maxSteps: options.maxSteps,
+		maxStepsPerGame: options.maxStepsPerGame,
 		stuckThreshold: options.stuckThreshold
 	})
 
 	while (true) {
 		if (options.maxSteps > 0 && totalSteps >= options.maxSteps) {
-			printContext("[fuzz] done", { reason: "max_steps", totalSteps, gameCount })
-			process.exit(0)
+			maxGameSteps = Math.max(maxGameSteps, gameSteps)
+			let result = buildResult(0, "max_steps", summary())
+			report("[fuzz] done", result.summary)
+			return result
+		}
+
+		try {
+			validateGameInvariants(game)
+		} catch (error) {
+			let result = buildResult(1, "invalid_game", summary({ error: error.message, recent }))
+			report("[fuzz] invalid:game", result.summary)
+			return result
 		}
 
 		let role = currentRole(game)
 		let view
 		try {
 			view = rules.view(game, role)
+			validateViewInvariants(view, game)
 		} catch (error) {
-			printContext("[fuzz] crash:view", {
-				seed: seedCursor,
-				totalSteps,
-				gameSteps,
-				gameCount,
+			let result = buildResult(1, "crash_view", summary({
 				state: game.state,
 				active: game.active,
 				role,
 				error: error && error.stack ? error.stack : String(error),
 				recent
-			})
-			process.exit(1)
+			}))
+			report("[fuzz] crash:view", result.summary)
+			return result
 		}
 
+		statesSeen.add(game.state)
+
 		if (game.state === "game_over") {
-			seedCursor = (seedCursor + 1) >>> 0
-			gameCount += 1
-			gameSteps = 0
-			sameSignatureCount = 0
-			pairCounts.clear()
-			recent = []
-			lastSignature = ""
-			game = createGame(seedCursor, options.scenario)
+			let result = startNextGame("game_over")
+			if (result) {
+				report("[fuzz] done", result.summary)
+				return result
+			}
 			continue
 		}
 
@@ -172,53 +311,47 @@ function run() {
 		lastSignature = sig
 
 		if (sameSignatureCount >= options.stuckThreshold) {
-			printContext("[fuzz] stuck:signature", {
-				seed: seedCursor,
-				totalSteps,
-				gameSteps,
-				gameCount,
+			let result = buildResult(2, "stuck_signature", summary({
 				state: game.state,
 				active: game.active,
 				prompt: view.prompt,
 				actions: view.actions,
 				recent
-			})
-			process.exit(2)
+			}))
+			report("[fuzz] stuck:signature", result.summary)
+			return result
 		}
 
 		const choices = buildChoices(view.actions)
 		if (choices.length === 0) {
-			printContext("[fuzz] stuck:no_actions", {
-				seed: seedCursor,
-				totalSteps,
-				gameSteps,
-				gameCount,
+			noActionEvents.push({
 				state: game.state,
 				active: game.active,
-				prompt: view.prompt,
-				recent
+				prompt: view.prompt
 			})
-			process.exit(2)
+			if (noActionEvents.length > 20) noActionEvents.shift()
+			let result = startNextGame("no_selectable_actions")
+			if (result) {
+				report("[fuzz] done", result.summary)
+				return result
+			}
+			continue
 		}
 
-		const choice = pickChoice(choices, rand)
-		const pairKey = `${sig}=>${choice.name}:${choice.arg === undefined ? "" : String(choice.arg)}`
-		const pairCount = (pairCounts.get(pairKey) || 0) + 1
-		pairCounts.set(pairKey, pairCount)
+		const choice = pickChoice(choices, rand, pairCounts, sig)
+		const pairCount = (pairCounts.get(choice.pairKey) || 0) + 1
+		pairCounts.set(choice.pairKey, pairCount)
 		if (pairCount >= options.stuckThreshold) {
-			printContext("[fuzz] stuck:repeat_pair", {
-				seed: seedCursor,
-				totalSteps,
-				gameSteps,
-				gameCount,
+			let result = buildResult(2, "stuck_repeat_pair", summary({
 				state: game.state,
 				active: game.active,
 				prompt: view.prompt,
-				choice,
+				choice: { name: choice.name, arg: choice.arg },
 				repeat: pairCount,
 				recent
-			})
-			process.exit(2)
+			}))
+			report("[fuzz] stuck:repeat_pair", result.summary)
+			return result
 		}
 
 		recent.push({
@@ -228,39 +361,69 @@ function run() {
 			action: choice.name,
 			arg: choice.arg
 		})
-		if (recent.length > 40) recent.shift()
+		if (recent.length > 60) recent.shift()
 
 		try {
 			game = rules.action(game, role, choice.name, choice.arg)
+			validateGameInvariants(game)
 		} catch (error) {
-			printContext("[fuzz] crash:action", {
-				seed: seedCursor,
-				totalSteps: totalSteps + 1,
-				gameSteps: gameSteps + 1,
-				gameCount,
+			let result = buildResult(1, "crash_action", summary({
 				state: game.state,
 				active: game.active,
 				role,
-				choice,
+				choice: { name: choice.name, arg: choice.arg },
 				error: error && error.stack ? error.stack : String(error),
 				recent
-			})
-			process.exit(1)
+			}))
+			report("[fuzz] crash:action", result.summary)
+			return result
 		}
 
 		totalSteps += 1
 		gameSteps += 1
+		maxGameSteps = Math.max(maxGameSteps, gameSteps)
+
+		if (options.maxStepsPerGame > 0 && gameSteps >= options.maxStepsPerGame) {
+			let result = startNextGame("max_steps_per_game")
+			if (result) {
+				report("[fuzz] done", result.summary)
+				return result
+			}
+			continue
+		}
+
 		if (totalSteps % options.echoEvery === 0) {
-			printContext("[fuzz] progress", {
+			report("[fuzz] progress", {
 				totalSteps,
-				gameCount,
+				gameIndex,
+				gameCount: completedGames + 1,
 				seed: seedCursor,
 				gameSteps,
 				state: game.state,
-				active: game.active
+				active: game.active,
+				statesSeen: statesSeen.size
 			})
 		}
 	}
 }
 
-run()
+function main() {
+	let result = run(parseArgs(process.argv.slice(2)))
+	process.exit(result.exitCode)
+}
+
+module.exports = {
+	parseArgs,
+	normalizeOptions,
+	createRng,
+	currentRole,
+	actionWeight,
+	buildChoices,
+	pickChoice,
+	signatureOf,
+	validateGameInvariants,
+	validateViewInvariants,
+	run
+}
+
+if (require.main === module) main()

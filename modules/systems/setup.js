@@ -292,6 +292,7 @@ module.exports = function (Engine) {
 		if (!state.activated) state.activated = { move: [], attack: [] }
 		if (!Array.isArray(state.moved)) state.moved = []
 		if (!Array.isArray(state.attacked)) state.attacked = []
+		if (!Array.isArray(state.retreated)) state.retreated = []
 		if (!state.balkan_attack_targets) state.balkan_attack_targets = { ap: -1, ap_mo: -1, cp: -1 }
 		if (state.balkan_attack_targets.ap === undefined) state.balkan_attack_targets.ap = -1
 		if (state.balkan_attack_targets.ap_mo === undefined) state.balkan_attack_targets.ap_mo = -1

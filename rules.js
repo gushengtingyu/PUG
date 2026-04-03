@@ -726,7 +726,8 @@ exports.view = function (state, current) {
 		where: game.where,
 		violations: Engine.map.check_rule_violations(game),
 		supply_warnings: game.supply_warnings || [],
-		oos_pieces: game.oos || [],
+		oos: game.oos || [],
+		oos_spaces: game.oos_spaces || [],
 		entrenching: game.entrenching || [],
 		last_card: game.last_card || 0,
 		combat_cards: game.combat_cards || null,
@@ -1636,6 +1637,7 @@ function build_attack_eligibility_cache_key() {
 
 	let attacked_hash = hash_number_array(game.attacked)
 	let activated_attack_hash = hash_number_array(game.activated && game.activated.attack)
+	let retreated_hash = hash_number_array(game.retreated)
 
 	let fort_destroyed = new Uint8Array(data.spaces.length)
 	if (game.forts && Array.isArray(game.forts.destroyed)) {
@@ -1655,7 +1657,7 @@ function build_attack_eligibility_cache_key() {
 	let events_hash = hash_events_flags(game.events)
 	let faction_bit = game.active === AP || game.active === "AP" || game.active === "Allied Powers" ? 1 : 2
 
-	return `${faction_bit}|${pieces_hash}|${attacked_hash}|${activated_attack_hash}|${fort_hash}|${events_hash}`
+	return `${faction_bit}|${pieces_hash}|${attacked_hash}|${activated_attack_hash}|${retreated_hash}|${fort_hash}|${events_hash}`
 }
 
 function build_enemy_space_flag(faction) {
@@ -1671,10 +1673,21 @@ function build_enemy_space_flag(faction) {
 }
 
 function has_attack_targets(p, faction, enemy, enemy_space_flag = null) {
+	if (Array.isArray(game.retreated) && set_has(game.retreated, p)) return false
 	let s = game.pieces[p]
 	let adj = get_connected_spaces(game, s, data.pieces[p].nation, data.pieces[p].faction, p)
 	for (let t of adj) {
 		let has_enemy = enemy_space_flag ? enemy_space_flag[t] === 1 : contains_enemy_pieces(game, t, faction)
+		if (has_enemy) {
+			let defenders = get_pieces_in_space(game, t).filter((q) => Engine.game_utils.get_piece_effective_faction(game, q) === enemy)
+			if (
+				defenders.length > 0 &&
+				defenders.every((q) => Array.isArray(game.retreated) && set_has(game.retreated, q)) &&
+				!has_undestroyed_fort(game, t, enemy)
+			) {
+				has_enemy = false
+			}
+		}
 		if (has_enemy || has_undestroyed_fort(game, t, enemy)) return true
 	}
 	return false
@@ -1703,6 +1716,7 @@ function refresh_attack_eligibility() {
 		if (s && s > 0 && activated_attack_flag[s] === 1 && !is_not_on_map(p)) {
 			// Check if unit has already attacked in this action round
 			if (set_has(game.attacked, p)) continue
+			if (Array.isArray(game.retreated) && set_has(game.retreated, p)) continue
 
 			let is_active_piece = Engine.game_utils.get_piece_effective_faction(game, p) === faction
 			if (Engine.greece.is_greek_piece(p) && !Engine.greece.can_attack_piece_for_faction(game, p, faction)) {
@@ -1834,6 +1848,7 @@ function start_ops_from_event(card_index) {
 	game.activation_cost = {}
 	game.moved = []
 	game.attacked = []
+	game.retreated = []
 	reset_balkan_attack_targets()
 	if (
 		game.state_stack &&

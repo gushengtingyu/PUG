@@ -717,8 +717,6 @@ module.exports = function (Engine) {
 			return true
 		})
 
-		console.log(`[调试] get_combination_options_for_lcu: lcu=${lcu_id}, scus=${scu_ids}`)
-
 		// Sort scu_ids by value descending so we pick the most valuable ones to "save" in Reserve/Eliminated
 		scu_ids.sort((a, b) => get_piece_value(game, b) - get_piece_value(game, a))
 
@@ -730,9 +728,7 @@ module.exports = function (Engine) {
 
 			// Rule 9.7.6 Ottoman Special LCU
 			if (l.nation === "tu" && l_badge === "yellow") {
-				let match = s.nation === "tu" && (s_badge === "infantry" || s_badge === "blue")
-				console.log(`[调试] matching yellow lcu: lcu=${lcu_id}, scu=${scu_id}, match=${match}`)
-				return match
+				return s.nation === "tu" && (s_badge === "infantry" || s_badge === "blue")
 			}
 
 			// Rule 25.2.5 Substitution (Infantry > Cavalry)
@@ -746,16 +742,12 @@ module.exports = function (Engine) {
 			} else {
 				type_match = s_badge === l_badge
 			}
-			if (!type_match) {
-				console.log(`[调试] type mismatch: lcu=${lcu_id}(${l_badge}), scu=${scu_id}(${s_badge})`)
-				return false
-			}
+			if (!type_match) return false
 
 			// Rule 9.7.5 / 9.7.7: First two must match nationality
 			if (l.nation === s.nation) return true
 			if ((l.nation === "tu" || l.nation === "tua") && (s.nation === "tu" || s.nation === "tua")) return true
 			if (is_british_empire(l.nation) && is_british_empire(s.nation)) return true
-			console.log(`[调试] nation mismatch: lcu=${lcu_id}(${l.nation}), scu=${scu_id}(${s.nation})`)
 			return false
 		}
 
@@ -796,10 +788,7 @@ module.exports = function (Engine) {
 
 		// Find candidates for first two
 		let first_two_candidates = scu_ids.filter((p) => is_matching_first_two(lcu_id, p))
-		if (first_two_candidates.length < 2) {
-			console.log(`[调试] not enough first two candidates for lcu=${lcu_id}: ${first_two_candidates}`)
-			return null
-		}
+		if (first_two_candidates.length < 2) return null
 
 		// Try to form full strength combo
 		if (scu_ids.length >= 3) {
@@ -811,7 +800,6 @@ module.exports = function (Engine) {
 					if (p3) {
 						let chosen = [p1, p2, p3]
 						// No need to sort again as scu_ids was already sorted
-						console.log(`[调试] found full combo for lcu=${lcu_id}: ${chosen}`)
 						return { type: "full", pieces: chosen }
 					}
 				}
@@ -820,7 +808,6 @@ module.exports = function (Engine) {
 
 		// Try to form reduced strength combo
 		let chosen = first_two_candidates.slice(0, 2)
-		console.log(`[调试] found reduced combo for lcu=${lcu_id}: ${chosen}`)
 		return { type: "reduced", pieces: chosen }
 	}
 

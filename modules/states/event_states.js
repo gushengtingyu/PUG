@@ -755,11 +755,6 @@ module.exports = function (Engine) {
 					legal_spaces.push(`${data.spaces[s].name} (${s})`)
 				}
 			}
-			if (legal_spaces.length > 0) {
-				console.log(`[调试] 俄国势力范围合法增援地块: ${legal_spaces.join(", ")}`)
-			} else {
-				console.log("[调试] 俄国势力范围没有找到任何合法增援地块")
-			}
 			if (legal_spaces_found) {
 				res.prompt(
 					`俄国势力范围：将 ${units_str} 放置在协约国控制、空置且铁路连通俄国补给点的俄国/阿塞拜疆地区。`
@@ -2576,6 +2571,369 @@ module.exports = function (Engine) {
 				}
 				rules.goto_end_event()
 			}
+		}
+	}
+
+	states.event_romania_attack = {
+		prompt(ctx) {
+			let { game, res, rules } = ctx
+			res.prompt("罗马尼亚：立即启动1个包含罗马尼亚部队的地区进行战斗。")
+			let can_attack = false
+			for (let s = 1; s < data.spaces.length; s++) {
+				let pieces = rules.get_pieces_in_space(game, s)
+				if (pieces.some(p => data.pieces[p] && data.pieces[p].nation === "ro" && rules.can_activate_piece_in_space_to_attack(p, s))) {
+					res.space(s)
+					can_attack = true
+				}
+			}
+			if (!can_attack) res.action("done", "无法攻击")
+		},
+		space(ctx) {
+			let { game, rules, arg: s } = ctx
+			rules.push_undo()
+			game.activated = { attack: [s], move: [] }
+			game.activation_cost = {}
+			game.attacked = []
+			game.state = "choose_attack_space"
+		},
+		done(ctx) {
+			let { rules } = ctx
+			rules.goto_end_event()
+		}
+	}
+
+	states.event_gorlice_tarnow_choice = {
+		prompt(ctx) {
+			let { res } = ctx
+			res.prompt("戈尔利采-塔尔诺夫攻势：选择一项")
+			res.action("vp", "+2 VP")
+			res.action("remove_ru_lcu", "暂时移除一个俄国LCU")
+		},
+		vp(ctx) {
+			let { game, rules } = ctx
+			rules.push_undo()
+			game.vp += 2
+			rules.log("AP 选择了 +2 VP。")
+			rules.goto_end_event()
+		},
+		remove_ru_lcu(ctx) {
+			let { game, rules } = ctx
+			rules.push_undo()
+			game.state = "event_gorlice_tarnow_remove_lcu"
+		}
+	}
+
+	states.event_gorlice_tarnow_remove_lcu = {
+		prompt(ctx) {
+			let { game, res } = ctx
+			res.prompt("戈尔利采-塔尔诺夫攻势：选择一个地图上的俄国LCU暂时移除")
+			let found = false
+			for (let p = 1; p < data.pieces.length; p++) {
+				if (data.pieces[p] && data.pieces[p].nation === "ru" && Engine.game_utils.is_lcu(p)) {
+					if (!Engine.game_utils.is_not_on_map(game, p) && !Engine.game_utils.is_in_reserve(game, p)) {
+						res.piece(p)
+						found = true
+					}
+				}
+			}
+			if (!found) res.action("done", "无合法单位")
+		},
+		piece(ctx) {
+			let { game, rules, arg: p } = ctx
+			rules.push_undo()
+			rules.eliminate_piece(p, true)
+			if (!game.delayed_reinforcements) game.delayed_reinforcements = []
+			game.delayed_reinforcements.push({ turn: game.turn + 4, piece: p, space: rules.get_reserve_box(AP) })
+			rules.log(`${data.pieces[p].name} 将在 ${game.turn + 4} 回合返回预备军格。`)
+			rules.goto_end_event()
+		},
+		done(ctx) {
+			let { rules } = ctx
+			rules.goto_end_event()
+		}
+	}
+
+	states.event_verdun_choice = {
+		prompt(ctx) {
+			let { res } = ctx
+			res.prompt("凡尔登战役：选择一项")
+			res.action("vp", "+2 VP")
+			res.action("remove", "将最多4个英国/印度/澳新师（或1个集团军+1个师）移除游戏")
+		},
+		vp(ctx) {
+			let { game, rules } = ctx
+			rules.push_undo()
+			game.vp += 2
+			rules.log("AP 选择了 +2 VP。")
+			rules.goto_end_event()
+		},
+		remove(ctx) {
+			let { game, rules } = ctx
+			rules.push_undo()
+			game.state = "event_verdun_remove"
+		}
+	}
+
+	states.event_verdun_remove = {
+		prompt(ctx) {
+			let { game, res, rules } = ctx
+			let data_event = rules.get_event_data()
+			let count = data_event.count || 0
+			res.prompt(`凡尔登战役：选择要移除的单位 (${count}/4 SCU当量)`)
+			for (let p = 1; p < data.pieces.length; p++) {
+				let info = data.pieces[p]
+				if (info && info.faction === AP && (info.nation === "br" || info.nation === "in" || info.nation === "anz")) {
+					if (!Engine.game_utils.is_not_on_map(game, p)) {
+						let badge = Engine.game_utils.get_piece_badge(p)
+						if (badge !== "cavalry" && !info.name.includes("Camel") && !info.name.includes("Persian") && !info.name.includes("Garrison")) {
+							let cost = Engine.game_utils.is_lcu(p) ? 3 : 1
+							if (count + cost <= 4) res.piece(p)
+						}
+					}
+				}
+			}
+			res.action("done")
+		},
+		piece(ctx) {
+			let { game, rules, arg: p } = ctx
+			rules.push_undo()
+			let cost = Engine.game_utils.is_lcu(p) ? 3 : 1
+			let data_event = rules.get_event_data()
+			data_event.count = (data_event.count || 0) + cost
+			rules.eliminate_piece(p, true)
+			if (data_event.count >= 4) rules.goto_end_event()
+		},
+		done(ctx) {
+			let { rules } = ctx
+			rules.goto_end_event()
+		}
+	}
+
+	states.event_apis_eliminate = {
+		prompt(ctx) {
+			let { game, res } = ctx
+			res.prompt("“蜜蜂”党骚乱：选择一个塞尔维亚集团军消灭")
+			let found = false
+			for (let p = 1; p < data.pieces.length; p++) {
+				if (data.pieces[p] && data.pieces[p].nation === "sb" && data.pieces[p].name.includes("Army") && !Engine.game_utils.is_not_on_map(game, p) && !Engine.game_utils.is_in_reserve(game, p)) {
+					res.piece(p)
+					found = true
+				}
+			}
+			if (!found) res.action("done", "无合法单位")
+		},
+		piece(ctx) {
+			let { game, rules, arg: p } = ctx
+			rules.push_undo()
+			rules.eliminate_piece(p, true)
+			rules.goto_end_event()
+		},
+		done(ctx) {
+			let { rules } = ctx
+			rules.goto_end_event()
+		}
+	}
+
+	states.event_to_help_and_save_you = {
+		prompt(ctx) {
+			let { game, res, rules } = ctx
+			let data_event = rules.get_event_data()
+			let count = data_event.count || 0
+			res.prompt(`拯救保加利亚：将摧毁栏/移除栏的 AH/GE 单位以减损面放置在加利西亚 (当前已选 ${count} SCU当量, 每 3 SCU 当量 CP -1VP)。`)
+			for (let p = 1; p < data.pieces.length; p++) {
+				let info = data.pieces[p]
+				if (info && (info.nation === "ah" || info.nation === "ge")) {
+					let s = game.pieces[p]
+					if (s === Engine.constants.ELIMINATED || s === Engine.constants.REMOVED || s === Engine.constants.AP_REMOVED || s === Engine.constants.AP_ELIMINATED) {
+						res.piece(p)
+					}
+				}
+			}
+			res.action("done")
+		},
+		piece(ctx) {
+			let { game, rules, arg: p } = ctx
+			rules.push_undo()
+			let cost = Engine.game_utils.is_lcu(p) ? 3 : 1
+			let data_event = rules.get_event_data()
+			data_event.count = (data_event.count || 0) + cost
+			let vps_to_deduct = Math.floor(data_event.count / 3) - Math.floor((data_event.count - cost) / 3)
+			if (vps_to_deduct > 0) {
+				game.vp -= vps_to_deduct
+				rules.log(`拯救保加利亚：- ${vps_to_deduct} VP`)
+			}
+			let galicia = rules.find_space("Galicia")
+			game.pieces[p] = galicia
+			if (!rules.set_has(game.reduced, p)) rules.set_add(game.reduced, p)
+			rules.log(`拯救保加利亚：${data.pieces[p].name} 减损面放置在 Galicia`)
+		},
+		done(ctx) {
+			let { rules } = ctx
+			rules.goto_end_event()
+		}
+	}
+
+	states.event_robertson_choice = {
+		prompt(ctx) {
+			let { res } = ctx
+			res.prompt("罗伯逊：协约国必须选择一项")
+			res.action("vp", "+1 VP")
+			res.action("remove", "将最多3个英国/印度/澳新师移除游戏")
+		},
+		vp(ctx) {
+			let { game, rules } = ctx
+			rules.push_undo()
+			game.vp += 1
+			rules.log("AP 选择了 +1 VP。")
+			rules.goto_end_event()
+		},
+		remove(ctx) {
+			let { game, rules } = ctx
+			rules.push_undo()
+			game.state = "event_robertson_remove"
+		}
+	}
+
+	states.event_robertson_remove = {
+		prompt(ctx) {
+			let { game, res, rules } = ctx
+			let data_event = rules.get_event_data()
+			let count = data_event.count || 0
+			res.prompt(`罗伯逊：选择要移除的单位 (${count}/3 SCU当量)`)
+			for (let p = 1; p < data.pieces.length; p++) {
+				let info = data.pieces[p]
+				if (info && info.faction === AP && (info.nation === "br" || info.nation === "in" || info.nation === "anz")) {
+					if (!Engine.game_utils.is_not_on_map(game, p)) {
+						let badge = Engine.game_utils.get_piece_badge(p)
+						if (badge !== "cavalry" && !info.name.includes("Camel") && !info.name.includes("Persian") && !info.name.includes("Garrison")) {
+							let cost = Engine.game_utils.is_lcu(p) ? 3 : 1
+							if (count + cost <= 3) res.piece(p)
+						}
+					}
+				}
+			}
+			res.action("done")
+		},
+		piece(ctx) {
+			let { game, rules, arg: p } = ctx
+			rules.push_undo()
+			let cost = Engine.game_utils.is_lcu(p) ? 3 : 1
+			let data_event = rules.get_event_data()
+			data_event.count = (data_event.count || 0) + cost
+			rules.eliminate_piece(p, true)
+			if (data_event.count >= 3) rules.goto_end_event()
+		},
+		done(ctx) {
+			let { rules } = ctx
+			rules.goto_end_event()
+		}
+	}
+
+	states.event_kaiserschlacht_choice = {
+		prompt(ctx) {
+			let { res } = ctx
+			res.prompt("皇帝攻势：协约国必须选择一项")
+			res.action("vp", "+1 VP")
+			res.action("remove", "将最多3个英国/印度/澳新师移除游戏")
+		},
+		vp(ctx) {
+			let { game, rules } = ctx
+			rules.push_undo()
+			game.vp += 1
+			rules.log("AP 选择了 +1 VP。")
+			rules.goto_end_event()
+		},
+		remove(ctx) {
+			let { game, rules } = ctx
+			rules.push_undo()
+			game.state = "event_kaiserschlacht_remove"
+		}
+	}
+
+	states.event_kaiserschlacht_remove = {
+		prompt(ctx) {
+			let { game, res, rules } = ctx
+			let data_event = rules.get_event_data()
+			let count = data_event.count || 0
+			res.prompt(`皇帝攻势：选择要移除的单位 (${count}/3 SCU当量)`)
+			for (let p = 1; p < data.pieces.length; p++) {
+				let info = data.pieces[p]
+				if (info && info.faction === AP && (info.nation === "br" || info.nation === "in" || info.nation === "anz")) {
+					if (!Engine.game_utils.is_not_on_map(game, p)) {
+						let badge = Engine.game_utils.get_piece_badge(p)
+						if (badge !== "cavalry" && !info.name.includes("Camel") && !info.name.includes("Persian") && !info.name.includes("Garrison")) {
+							let cost = Engine.game_utils.is_lcu(p) ? 3 : 1
+							if (count + cost <= 3) res.piece(p)
+						}
+					}
+				}
+			}
+			res.action("done")
+		},
+		piece(ctx) {
+			let { game, rules, arg: p } = ctx
+			rules.push_undo()
+			let cost = Engine.game_utils.is_lcu(p) ? 3 : 1
+			let data_event = rules.get_event_data()
+			data_event.count = (data_event.count || 0) + cost
+			rules.eliminate_piece(p, true)
+			if (data_event.count >= 3) rules.goto_end_event()
+		},
+		done(ctx) {
+			let { rules } = ctx
+			rules.goto_end_event()
+		}
+	}
+
+	states.event_caucasian_army_reforms_eliminate = {
+		prompt(ctx) {
+			let { game, res, rules } = ctx
+			let data_event = rules.get_event_data()
+			let count = data_event.count || 0
+			res.prompt(`高加索军队重组：立即消灭4个地图上/预备军格的土耳其/土耳其-阿拉伯LCU (${count}/4)`)
+			let found = false
+			for (let p = 1; p < data.pieces.length; p++) {
+				let info = data.pieces[p]
+				if (info && info.faction === CP && (info.nation === "tu" || info.nation === "tua") && Engine.game_utils.is_lcu(p)) {
+					if (!Engine.game_utils.is_not_on_map(game, p) || Engine.game_utils.is_in_reserve(game, p)) {
+						res.piece(p)
+						found = true
+					}
+				}
+			}
+			if (!found && count < 4) res.action("done", "无足够合法单位，强制结束")
+		},
+		piece(ctx) {
+			let { game, rules, arg: p } = ctx
+			rules.push_undo()
+			let data_event = rules.get_event_data()
+			data_event.count = (data_event.count || 0) + 1
+			rules.eliminate_piece(p, true)
+			if (data_event.count >= 4) {
+				rules.reinforce(game, "TU 1 Caucasian", CP)
+				rules.reinforce(game, "TU 2 Caucasian", CP)
+				rules.goto_end_event()
+			}
+		},
+		done(ctx) {
+			let { game, rules } = ctx
+			rules.push_undo()
+			let data_event = rules.get_event_data()
+			if ((data_event.count || 0) >= 4 || !this.has_more(ctx)) {
+				rules.reinforce(game, "TU 1 Caucasian", CP)
+				rules.reinforce(game, "TU 2 Caucasian", CP)
+			}
+			rules.goto_end_event()
+		},
+		has_more(ctx) {
+			let { game } = ctx
+			for (let p = 1; p < data.pieces.length; p++) {
+				let info = data.pieces[p]
+				if (info && info.faction === CP && (info.nation === "tu" || info.nation === "tua") && Engine.game_utils.is_lcu(p)) {
+					if (!Engine.game_utils.is_not_on_map(game, p) || Engine.game_utils.is_in_reserve(game, p)) return true
+				}
+			}
+			return false
 		}
 	}
 

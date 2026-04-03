@@ -781,7 +781,7 @@ exports.register = function (states, Engine, context) {
 		retreat() {
 			let attackers = game.attack ? game.attack.pieces || [] : []
 			let defenders = get_pieces_in_space(game, game.attack.space).filter(
-				(p) => data.pieces[p].faction === game.active
+				(p) => data.pieces[p].faction === game.active && !set_has(game.retreated, p)
 			)
 			combat.retreat_units(
 				game,
@@ -1089,7 +1089,7 @@ exports.register = function (states, Engine, context) {
 
 			res.prompt(`防守方分配损失：${game.attack.defender_losses_absorbed}/${game.attack.defender_losses}`)
 			let defenders = get_pieces_in_space(game, game.attack.space).filter(
-				(p) => data.pieces[p].faction === active_faction() && data.pieces[p].type !== "hq"
+				(p) => data.pieces[p].faction === active_faction() && data.pieces[p].type !== "hq" && !set_has(game.retreated, p)
 			)
 			let fort_strength = 0
 			let defender_faction = active_faction()
@@ -1148,6 +1148,36 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
+	states.eliminate_retreated_units = {
+		prompt(res) {
+			if (!game.attack) {
+				res.prompt("无效的攻击状态.")
+				res.action("done")
+				return
+			}
+			let defender_faction = game.attack.defender || active_faction()
+			let retreated_defenders = get_pieces_in_space(game, game.attack.space).filter(
+				(p) => data.pieces[p].faction === defender_faction && set_has(game.retreated, p)
+			)
+			if (retreated_defenders.length === 0) {
+				res.prompt(`战斗结算: ${space_name(game.attack.space)}（无此前退却单位）`)
+				res.action("done")
+				return
+			}
+			res.prompt("移除本行动轮先前已退却的防守单位")
+			for (let p of retreated_defenders) res.piece(p)
+		},
+		piece(p) {
+			push_undo()
+			log(`${piece_name(p)} 因本行动轮先前已退却，在当前战斗造成损失后被摧毁。`)
+			eliminate_piece(p)
+			set_delete(game.retreated, p)
+		},
+		done() {
+			game.state = "apply_defender_losses"
+		}
+	}
+
 	/**
 	 * 进攻方分配损失状态 (Rule 12.6)
 	 *
@@ -1193,7 +1223,7 @@ exports.register = function (states, Engine, context) {
 				combat.resolve_second_fire(game, log)
 				if (game.attack.defender_losses > 0) {
 					game.active = other_faction(game.attack.attacker)
-					game.state = "apply_defender_losses"
+					game.state = combat.get_defender_losses_state(game)
 				} else {
 					end_battle_sequence()
 				}
@@ -1285,10 +1315,18 @@ exports.register = function (states, Engine, context) {
 		delete game.retreat_space
 		delete game.retreat_distance
 		delete game.retreat_from
+		delete game.retreat_first_spaces
 		game.retreat_steps_left = null
 		delete game.advance_pieces
 		delete game.advance_space
+		delete game.advance_count
+		delete game.advance_limit
+		delete game.advance_follow_mode
+		delete game.advance_follow_pieces
+		delete game.advance_yildirim_used
 		delete game.advance_trench_processed
+		delete game.post_battle_cc_resume
+		delete game.selected_piece
 		delete game.battle_result
 
 		refresh_attack_eligibility()
@@ -1506,7 +1544,7 @@ exports.register = function (states, Engine, context) {
 					game.active = game.attack?.attacker || AP
 					let resume = {
 						kind: "advance",
-						advance_space: game.retreat_space || game.attack.space,
+						advance_space: game.attack.space,
 						save_tiflis_failed: !!game.save_tiflis_failed
 					}
 					if (enter_post_battle_cc_window(resume)) {
@@ -1521,6 +1559,11 @@ exports.register = function (states, Engine, context) {
 						game.advance_pieces = get_advance_pieces(game, game.battle_result)
 						if (game.advance_pieces.length > 0) {
 							game.advance_space = resume.advance_space
+							game.advance_count = 0
+							game.advance_limit = 3
+							if (game.mcc_advance || game.ptbp_active || is_turn_event(game, "bulls_eye_directive")) {
+								game.advance_limit = 4
+							}
 							game.advance_trench_processed = false
 							game.state = "advance"
 							if (resume.save_tiflis_failed && game.battle_result.no_advance) {
@@ -1578,18 +1621,15 @@ exports.register = function (states, Engine, context) {
 				// Move piece phase
 				res.prompt(`选择 ${data.pieces[piece].name} 的撤退路径`)
 
+				let remaining_steps = game.retreat_steps_left[piece] || 1
 				let valid = get_valid_retreat_spaces(
 					game,
 					piece,
 					game.attack ? [game.attack.space] : [],
-					1,
+					remaining_steps,
 					true // ignore_stacking
 				)
-				if (game.retreat_space) {
-					valid = valid.filter((s) => s === game.retreat_space)
-				} else {
-					valid = combat.apply_retreat_priorities(game, piece, valid)
-				}
+				valid = combat.apply_retreat_priorities(game, piece, valid)
 
 				if (valid.length === 0) {
 					// Cannot retreat - Eliminate
@@ -1619,20 +1659,24 @@ exports.register = function (states, Engine, context) {
 			if (p !== null && p !== undefined) {
 				log(data.pieces[p].name + " retreats to " + data.spaces[s].name)
 				game.pieces[p] = s
-				game.retreat_from = s // Update current position for prompt
-				if (!game.retreat_space) game.retreat_space = s // Set target space for follow-up and advance logic
-
-				// Retreat control check: capture neutral spaces
-				if (!Engine.map.is_controlled_by(game, s, game.active)) {
-					if (!is_tribe(p) && data.pieces[p].type !== "hq") {
-						set_control(game, s, game.active)
-					}
+				game.retreat_from = s
+				game.retreat_space = s
+				let remaining_before_move = game.retreat_steps_left[p] || 1
+				if (remaining_before_move === (game.retreat_distance || 1)) {
+					if (!game.retreat_first_spaces) game.retreat_first_spaces = []
+					set_add(game.retreat_first_spaces, s)
 				}
-
-				let remaining = (game.retreat_steps_left[p] || 1) - 1
-				if (remaining <= 0) {
+				let remaining = remaining_before_move - 1
+				let ends_retreat_here = remaining <= 0 || Engine.map.is_region(game, s)
+				if (ends_retreat_here) {
+					if (!Engine.map.is_controlled_by(game, s, game.active)) {
+						if (!is_tribe(p) && data.pieces[p].type !== "hq") {
+							set_control(game, s, game.active)
+						}
+					}
 					set_delete(game.retreat_pieces, p)
 					delete game.retreat_steps_left[p]
+					set_add(game.retreated, p)
 				} else {
 					game.retreat_steps_left[p] = remaining
 				}
@@ -1760,6 +1804,7 @@ exports.register = function (states, Engine, context) {
 					set_delete(game.turkish_retreat_optional, p)
 				}
 				delete game.retreat_steps_left[p]
+				set_add(game.retreated, p)
 				game.selected_piece = null
 			}
 		},
@@ -1784,8 +1829,89 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
+	function get_follow_advance_spaces(p) {
+		let valid = []
+		for (let s of game.retreat_first_spaces || []) {
+			if (get_valid_advance_spaces(game, p, s).length > 0) valid.push(s)
+		}
+		return valid
+	}
+
+	function advance_piece_into_space(p, from_space, to_space) {
+		game.pieces[p] = to_space
+		if (active_faction() === CP && Engine.map.is_beachhead_space(game, to_space)) {
+			let has_ap_units = get_pieces_in_space(game, to_space).some(
+				(uid) => Engine.game_utils.get_piece_effective_faction(game, uid) === AP
+			)
+			if (!has_ap_units) {
+				if (game.beachheads) set_delete(game.beachheads, to_space)
+				if (is_non_balkan_beachhead(to_space)) {
+					update_jihad_level(game, 2)
+					let bonus = count_beachhead_captured_materiel_bonus()
+					if (bonus > 0) {
+						game.tu_rp_bonus = (game.tu_rp_bonus || 0) + bonus
+						log(`空滩头在推进中被同盟国摧毁：${space_name(to_space)}，圣战等级 +2，土耳其奖励RP +${bonus}。`)
+					} else {
+						log(`空滩头在推进中被同盟国摧毁：${space_name(to_space)}，圣战等级 +2。`)
+					}
+				} else {
+					log(`空滩头在推进中被同盟国摧毁：${space_name(to_space)}。`)
+				}
+				game.pieces[p] = from_space
+				return false
+			}
+		}
+		if (
+			has_trench(game, to_space) > 0 &&
+			!Engine.map.is_controlled_by(game, to_space, active_faction()) &&
+			!game.advance_trench_processed
+		) {
+			remove_trench(game, to_space)
+			log(`Trench in ${space_name(to_space)} removed by enemy entry.`)
+			game.advance_trench_processed = true
+		}
+		resolve_russian_winter_offensive_advance(game, p, to_space, log)
+		if (!combat.has_undestroyed_fort(game, to_space, other_faction(active_faction()))) {
+			if (!Engine.map.is_controlled_by(game, to_space, active_faction())) {
+				if (active_faction() === CP && Engine.map.is_russian_vp_space(game, to_space)) {
+					game.captured_russian_vp_in_advance = true
+				}
+				if (!is_tribe(p) && data.pieces[p].type !== "hq") {
+					set_control(game, to_space, active_faction())
+				}
+			}
+		}
+		if (Engine.greece.is_greece_neutral(game) && Engine.greece.is_athens_space(to_space)) {
+			Engine.greece.trigger_greece_entry(game, to_space, active_faction(), "战斗推进进入雅典", (msg) => log(msg))
+		}
+		return true
+	}
+
 	states.advance = {
 		prompt(res) {
+			if (game.advance_follow_mode) {
+				let selectable = (game.advance_follow_pieces || []).filter((p) => get_follow_advance_spaces(p).length > 0)
+				if (selectable.length === 0) {
+					this.end_advance()
+					return
+				}
+				res.prompt("选择继续推进的单位")
+				res.action("end_advance")
+				if (game.selected_piece === null || game.selected_piece === undefined) {
+					for (let p of selectable) res.piece(p)
+				} else if (set_has(selectable, game.selected_piece)) {
+					let p = game.selected_piece
+					res.prompt(`选择 ${data.pieces[p].name} 的继续推进地块`)
+					for (let s of get_follow_advance_spaces(p)) res.space(s)
+					res.piece(p)
+				} else {
+					game.selected_piece = null
+					for (let p of selectable) res.piece(p)
+				}
+				res.who(game.advance_follow_pieces || [])
+				return
+			}
+
 			let mandatory = []
 			if (game.mcc_advance && (game.advance_count || 0) === 0) {
 				mandatory = game.advance_pieces.filter((p) => data.pieces[p].counter === "ANZ Desert Corps")
@@ -1809,7 +1935,6 @@ exports.register = function (states, Engine, context) {
 						}
 					}
 				} else {
-					// Limit reached, but HQs or unused Yildirim can still advance
 					for (let p of game.advance_pieces) {
 						if (game.reserves_to_front_effected_pieces && set_has(game.reserves_to_front_effected_pieces, p)) {
 							continue
@@ -1829,77 +1954,22 @@ exports.register = function (states, Engine, context) {
 			res.who(game.advance_pieces)
 		},
 		piece(p) {
+			if (game.advance_follow_mode) {
+				if (game.selected_piece === p) game.selected_piece = null
+				else if (set_has(game.advance_follow_pieces || [], p)) game.selected_piece = p
+				return
+			}
+
 			log(data.pieces[p].name + " advances.")
 			let from_space = game.pieces[p]
-			game.pieces[p] = game.advance_space
-			if (active_faction() === CP && Engine.map.is_beachhead_space(game, game.advance_space)) {
-				let has_ap_units = get_pieces_in_space(game, game.advance_space).some(
-					(uid) => Engine.game_utils.get_piece_effective_faction(game, uid) === AP
-				)
-				if (!has_ap_units) {
-					if (game.beachheads) set_delete(game.beachheads, game.advance_space)
-					if (is_non_balkan_beachhead(game.advance_space)) {
-						update_jihad_level(game, 2)
-						let bonus = count_beachhead_captured_materiel_bonus()
-						if (bonus > 0) {
-							game.tu_rp_bonus = (game.tu_rp_bonus || 0) + bonus
-							log(`空滩头在推进中被同盟国摧毁：${space_name(game.advance_space)}，圣战等级 +2，土耳其奖励RP +${bonus}。`)
-						} else {
-							log(`空滩头在推进中被同盟国摧毁：${space_name(game.advance_space)}，圣战等级 +2。`)
-						}
-					} else {
-						log(`空滩头在推进中被同盟国摧毁：${space_name(game.advance_space)}。`)
-					}
-					game.pieces[p] = from_space
-					set_delete(game.advance_pieces, p)
-					this.end_advance()
-					return
-				}
+			if (!advance_piece_into_space(p, from_space, game.advance_space)) {
+				set_delete(game.advance_pieces, p)
+				this.end_advance()
+				return
 			}
 
-			// Rule 15.4.6: Trenches are removed when an enemy unit enters the space
-			// remove_trench handles Doiran's permanence
-			if (
-				has_trench(game, game.advance_space) > 0 &&
-				!Engine.map.is_controlled_by(game, game.advance_space, active_faction()) &&
-				!game.advance_trench_processed
-			) {
-				remove_trench(game, game.advance_space)
-				log(`Trench in ${space_name(game.advance_space)} removed by enemy entry.`)
-				game.advance_trench_processed = true
-			}
-
-			// PUG Rule: Russian Winter Offensive destroys Caucasus forts on advance
-			resolve_russian_winter_offensive_advance(game, p, game.advance_space, log)
-
-			// Control check: capture if not a fort and not already controlled by active faction
-			if (!combat.has_undestroyed_fort(game, game.advance_space, other_faction(active_faction()))) {
-				if (!Engine.map.is_controlled_by(game, game.advance_space, active_faction())) {
-					if (active_faction() === CP && Engine.map.is_russian_vp_space(game, game.advance_space)) {
-						game.captured_russian_vp_in_advance = true
-					}
-					if (!is_tribe(p) && data.pieces[p].type !== "hq") {
-						set_control(game, game.advance_space, active_faction())
-					}
-				}
-			}
-
-			// Rule 19.2.1: Entering neutral Athens triggers Greek entry
-			if (Engine.greece.is_greece_neutral(game) && Engine.greece.is_athens_space(game.advance_space)) {
-				Engine.greece.trigger_greece_entry(
-					game,
-					game.advance_space,
-					active_faction(),
-					"战斗推进进入雅典",
-					(msg) => log(msg)
-				)
-			}
-
-			// HQs and Heavy Artillery do not count towards advance limit
 			let is_hq = data.pieces[p].type === "hq"
 			let is_heavy_arty = Engine.game_utils.is_heavy_arty(p)
-
-			// One GE Yildirim does not count towards the limit
 			let is_yildirim = data.pieces[p].symbol === "Y" && data.pieces[p].nation === "ge"
 			let yildirim_free = false
 			if (is_yildirim && !game.advance_yildirim_used) {
@@ -1911,16 +1981,24 @@ exports.register = function (states, Engine, context) {
 				game.advance_count = (game.advance_count || 0) + 1
 			}
 
+			let can_follow = false
+			if ((game.retreat_distance || 1) > 1 && !is_advance_stop_terrain(game, game.advance_space)) {
+				can_follow = get_follow_advance_spaces(p).length > 0
+			}
+
 			if (is_advance_stop_terrain(game, game.advance_space)) {
 				if (!game.advanced_stopped) game.advanced_stopped = []
 				set_add(game.advanced_stopped, p)
 			}
 
-			bulls_eye_record_advanced_piece(game, p)
+			if (can_follow) {
+				if (!game.advance_follow_pieces) game.advance_follow_pieces = []
+				set_add(game.advance_follow_pieces, p)
+			}
 
+			bulls_eye_record_advanced_piece(game, p)
 			set_delete(game.advance_pieces, p)
 
-			// Check if we can still advance any regular units
 			let regular_left = game.advance_pieces.some((uid) => data.pieces[uid].type !== "hq")
 			let limit_reached = (game.advance_count || 0) >= (game.advance_limit || 3)
 
@@ -1935,9 +2013,16 @@ exports.register = function (states, Engine, context) {
 						)
 					))
 			) {
+				let selectable_follow = (game.advance_follow_pieces || []).filter(
+					(uid) => get_follow_advance_spaces(uid).length > 0
+				)
+				if ((game.retreat_distance || 1) > 1 && selectable_follow.length > 0) {
+					game.advance_follow_mode = true
+					game.selected_piece = null
+					return
+				}
 				this.end_advance()
 			} else if (limit_reached) {
-				// Only allow HQs or unused Yildirim if limit reached
 				let allowed = game.advance_pieces.filter((uid) => {
 					if (data.pieces[uid].type === "hq") return true
 					if (
@@ -1949,11 +2034,43 @@ exports.register = function (states, Engine, context) {
 					return false
 				})
 				if (allowed.length === 0) {
+					let selectable_follow = (game.advance_follow_pieces || []).filter(
+						(uid) => get_follow_advance_spaces(uid).length > 0
+					)
+					if ((game.retreat_distance || 1) > 1 && selectable_follow.length > 0) {
+						game.advance_follow_mode = true
+						game.selected_piece = null
+						return
+					}
 					this.end_advance()
 				}
 			}
 		},
+		space(s) {
+			if (!game.advance_follow_mode) return
+			let p = game.selected_piece
+			if (p === null || p === undefined) return
+			let valid = get_follow_advance_spaces(p)
+			if (!set_has(valid, s)) return
+			log(data.pieces[p].name + " continues advancing to " + data.spaces[s].name + ".")
+			let from_space = game.pieces[p]
+			if (!advance_piece_into_space(p, from_space, s)) {
+				set_delete(game.advance_follow_pieces, p)
+				game.selected_piece = null
+			} else {
+				set_delete(game.advance_follow_pieces, p)
+				game.selected_piece = null
+			}
+			let selectable = (game.advance_follow_pieces || []).filter((uid) => get_follow_advance_spaces(uid).length > 0)
+			if (selectable.length === 0) {
+				this.end_advance()
+			}
+		},
 		end_advance() {
+			delete game.advance_follow_mode
+			delete game.advance_follow_pieces
+			delete game.retreat_first_spaces
+			delete game.selected_piece
 			delete game.advance_yildirim_used
 			if (bulls_eye_can_extra_attack(game)) {
 				game.state = "bulls_eye_extra_attack_prompt"

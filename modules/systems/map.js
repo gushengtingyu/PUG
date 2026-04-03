@@ -2171,6 +2171,18 @@ module.exports = function (Engine) {
 		let cp_sources = get_supply_sources_from_data_cached(game, CP, false, source_cache)
 		let ap_supply = get_supplied_spaces_cached(game, supply_trace_cache, ap_sources, AP, -1, supply_context)
 		let cp_supply = get_supplied_spaces_cached(game, supply_trace_cache, cp_sources, CP, -1, supply_context)
+
+		// Rule 14.2.10: Cyprus is always in supply if no Egyptian Coup
+		if (!(game.events && game.events["egyptian_coup"])) {
+			for (let s of get_supply_eligible_space_ids()) {
+				let info = data.spaces[s]
+				if (info && (info.name === "Cyprus" || info.beach_for === "Cyprus")) {
+					ap_supply.full.add(s)
+					cp_supply.full.add(s)
+				}
+			}
+		}
+
 		let projection_ap = []
 		let projection_cp = []
 		game.supply_projection = { ap: projection_ap, cp: projection_cp }
@@ -2179,17 +2191,14 @@ module.exports = function (Engine) {
 		// Rule 14.3.3 & 15.4.6: Check all friendly controlled spaces for supply
 		for (let s of get_supply_eligible_space_ids()) {
 			let info = data.spaces[s]
-			if (
-				info &&
-				!(game.events && game.events["egyptian_coup"]) &&
-				(info.name === "Cyprus" || info.beach_for === "Cyprus")
-			) {
-				projection_ap[s] = 0
-				projection_cp[s] = 0
-				continue
-			}
 			projection_ap[s] = ap_supply.full.has(s) ? 1 : 0
 			projection_cp[s] = cp_supply.full.has(s) ? 1 : 0
+
+			// Cyprus (Rule 14.2.10) is always in supply if no coup
+			if (!(game.events && game.events["egyptian_coup"]) && (info.name === "Cyprus" || info.beach_for === "Cyprus")) {
+				continue
+			}
+
 			let faction = game.control[s]
 			if (faction === AP || faction === CP) {
 				let supply_info = faction === AP ? ap_supply : cp_supply
@@ -2242,6 +2251,15 @@ module.exports = function (Engine) {
 		let nation = p !== -1 ? data.pieces[p].nation : null
 
 		// 1. Special "Always in Supply" rules (Rule 14.2.5 - 14.2.11, Rule 16.1.5)
+		let info = data.spaces[space]
+		// Rule 14.2.10: Cyprus is always in supply if no Egyptian Coup
+		if (
+			!(game.events && game.events["egyptian_coup"]) &&
+			(info.name === "Cyprus" || info.beach_for === "Cyprus")
+		) {
+			return cache_result("FULL")
+		}
+
 		if (p !== -1) {
 			let name = data.pieces[p].name
 
