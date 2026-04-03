@@ -1480,7 +1480,10 @@ exports.register = function (states, Engine, context) {
 				game.retreat_pieces = []
 			}
 			res.who(game.retreat_pieces)
-			res.where(game.retreat_space)
+			let retreat_origin = game.attack?.space ?? game.retreat_from
+			if (retreat_origin > 0) {
+				res.where(retreat_origin)
+			}
 			if (game.retreat_space) {
 				let retreat_from = game.retreat_from ?? game.attack?.space
 				let from_name = retreat_from !== undefined ? data.spaces[retreat_from]?.name : null
@@ -1506,7 +1509,7 @@ exports.register = function (states, Engine, context) {
 					game.active = game.attack?.attacker || AP
 					let resume = {
 						kind: "advance",
-						advance_space: game.retreat_space || game.attack.space,
+						advance_space: game.attack?.space,
 						save_tiflis_failed: !!game.save_tiflis_failed
 					}
 					if (enter_post_battle_cc_window(resume)) {
@@ -1585,11 +1588,7 @@ exports.register = function (states, Engine, context) {
 					1,
 					true // ignore_stacking
 				)
-				if (game.retreat_space) {
-					valid = valid.filter((s) => s === game.retreat_space)
-				} else {
-					valid = combat.apply_retreat_priorities(game, piece, valid)
-				}
+				valid = combat.apply_retreat_priorities(game, piece, valid)
 
 				if (valid.length === 0) {
 					// Cannot retreat - Eliminate
@@ -1619,8 +1618,6 @@ exports.register = function (states, Engine, context) {
 			if (p !== null && p !== undefined) {
 				log(data.pieces[p].name + " retreats to " + data.spaces[s].name)
 				game.pieces[p] = s
-				game.retreat_from = s // Update current position for prompt
-				if (!game.retreat_space) game.retreat_space = s // Set target space for follow-up and advance logic
 
 				// Retreat control check: capture neutral spaces
 				if (!Engine.map.is_controlled_by(game, s, game.active)) {

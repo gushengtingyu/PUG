@@ -279,6 +279,27 @@ module.exports = function (Engine) {
 		}
 	}
 
+	function cleanup_russo_british_attack_state(game, rules) {
+		if (game.attack && game.attack.pieces) {
+			for (let p of game.attack.pieces) {
+				rules.set_delete(game.attacked, p)
+				rules.set_delete(game.moved, p)
+			}
+		}
+		game.attack = null
+		game.where = -1
+	}
+
+	function consume_russo_british_attack_origins(game, rules) {
+		if (!Array.isArray(game.russo_british_attack_origins) || !Array.isArray(game.russo_british_selected_spaces)) {
+			return
+		}
+		for (let s of game.russo_british_attack_origins) {
+			rules.set_delete(game.russo_british_selected_spaces, s)
+		}
+		delete game.russo_british_attack_origins
+	}
+
 	states.event_russo_british_assault_ru_assault_select_regions = {
 		prompt(ctx) {
 			let { game, res, rules } = ctx
@@ -333,7 +354,8 @@ module.exports = function (Engine) {
 
 	states.event_russo_british_assault_ru_assault_process_selection = {
 		prompt(ctx) {
-			let { game, res } = ctx
+			let { game, res, rules } = ctx
+			consume_russo_british_attack_origins(game, rules)
 			if (!game.russo_british_selected_spaces || game.russo_british_selected_spaces.length === 0) {
 				res.prompt("英俄突袭：俄军攻击结算完毕。")
 				res.action("done")
@@ -346,14 +368,9 @@ module.exports = function (Engine) {
 		done(ctx) {
 			let { game, rules } = ctx
 			// 清除最后一次攻击的状态
-			if (game.attack && game.attack.pieces) {
-				for (let p of game.attack.pieces) {
-					rules.set_delete(game.attacked, p)
-					rules.set_delete(game.moved, p)
-				}
-			}
-			game.attack = null
+			cleanup_russo_british_attack_state(game, rules)
 			delete game.russo_british_selected_spaces
+			delete game.russo_british_attack_origins
 			rules.goto_activation_done()
 		},
 		next(ctx) {
@@ -366,7 +383,6 @@ module.exports = function (Engine) {
 				}
 			}
 			game.attack = null // 重置战斗状态，为下一次俄国突袭做准备
-			game.russo_british_current_space = game.russo_british_selected_spaces.shift()
 			game.state = "event_russo_british_assault_ru_assault_select_attacker"
 		}
 	}
@@ -374,7 +390,13 @@ module.exports = function (Engine) {
 	states.event_russo_british_assault_ru_assault_select_attacker = {
 		prompt(ctx) {
 			let { game, res, rules } = ctx
-			let s = game.russo_british_current_space
+			let selected_spaces = game.russo_british_selected_spaces || []
+			if (selected_spaces.length === 0) {
+				game.state = "event_russo_british_assault_ru_assault_process_selection"
+				states[game.state].prompt(ctx)
+				return
+			}
+			let s = selected_spaces[0]
 			res.prompt(`英俄突袭：为 ${Engine.game_utils.space_name(s)} 地块的俄国部队选择攻击目标`)
 
 			if (!game.attack) {
@@ -395,10 +417,10 @@ module.exports = function (Engine) {
 				res.who(game.attack.pieces)
 			}
 
-			let pieces = rules.get_pieces_in_space(game, s)
+			let pieces = selected_spaces.flatMap((source) => rules.get_pieces_in_space(game, source))
 			let can_attack = false
 			for (let p of pieces) {
-				if (data.pieces[p].nation === "ru" && rules.can_activate_piece_in_space_to_attack(p, s)) {
+				if (data.pieces[p].nation === "ru" && rules.can_activate_piece_in_space_to_attack(p, game.pieces[p])) {
 					can_attack = true
 					// 如果尚未选择目标地块，则高亮所有可选单位以供选择
 					if (game.attack.space === -1) {
@@ -448,6 +470,10 @@ module.exports = function (Engine) {
 			let { game, rules } = ctx
 			if (game.attack && game.attack.space !== -1 && game.attack.pieces.length > 0) {
 				rules.push_undo()
+				let used_origins = [...new Set(game.attack.pieces.map((p) => game.pieces[p]))]
+				for (let source of used_origins) {
+					rules.set_delete(game.russo_british_selected_spaces, source)
+				}
 				game.attack.attacker_faction = AP
 				game.attack.keep_context = true // 保持上下文，以便后续手动清理
 				game.event_next_state = "event_russo_british_assault_ru_assault_process_selection"

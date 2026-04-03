@@ -1,5 +1,5 @@
-const rules = require("./rules.js")
-const Engine = require("./modules/engine.js")
+const rules = require("../rules.js")
+const Engine = require("../modules/engine.js")
 
 const { AP } = Engine.constants
 
