@@ -1246,6 +1246,16 @@ module.exports = function (Engine) {
 	}
 
 	function is_sr_destination_blocked_by_events(game, source, dest, faction) {
+		let source_space = data.spaces[source]
+		let dest_space = data.spaces[dest]
+		let is_sea_sr =
+			!!source_space &&
+			!!dest_space &&
+			source !== dest &&
+			!!source_space.port &&
+			!!dest_space.port
+		if (!is_sea_sr) return false
+
 		if (faction === AP && game.events && game.events["german_subs"]) {
 			if (is_aegean_east_med_port(dest) || (data.spaces[dest] && data.spaces[dest].area === "gallipoli")) {
 				return true
@@ -1323,7 +1333,6 @@ module.exports = function (Engine) {
 		if (is_caspian_sea_port(source) || is_caspian_sea_port(dest)) {
 			return can_sr_to_space(game, p, dest, faction)
 		}
-		if (is_sr_destination_blocked_by_events(game, source, dest, faction)) return false
 		if (game.control[dest] !== faction && !contains_friendly_pieces(game, dest, faction)) return false
 		let dest_status = get_supply_status(
 			game,
@@ -1522,15 +1531,6 @@ module.exports = function (Engine) {
 
 		if (source_reserve && dest_reserve) return false
 
-		// Rule 13.3.2: German Subs in the Med prohibits sending Allied SR to the E. Mediterranean or Aegean Sea
-		if (faction === AP && game.events && game.events["german_subs"]) {
-			if (is_aegean_east_med_port(s) || (data.spaces[s] && data.spaces[s].area === "gallipoli")) {
-				// Note: Rule 13.3.2 allows SR associated with Invasions, but normal SR is blocked.
-				// Since this is standard SR, we block it.
-				return false
-			}
-		}
-
 		if (source_reserve) return can_sr_from_reserve_to_space(game, p, s, faction)
 
 		if (dest_reserve) {
@@ -1543,21 +1543,6 @@ module.exports = function (Engine) {
 			return source_status !== "LIMITED"
 		}
 
-		// Rule 11.5: After blockade, CP cannot SR via non-Black Sea/Caspian Sea ports
-		if (game.events && game.events["royal_navy_blockade"] && faction === CP) {
-			let current_space = source
-			let is_current_port = data.spaces[current_space].port
-			let is_dest_port = data.spaces[s].port
-			if (is_current_port || is_dest_port) {
-				let is_current_black_caspian = is_black_sea_port(game, current_space) || is_caspian_sea_port(game, current_space)
-				let is_dest_black_caspian = is_black_sea_port(game, s) || is_caspian_sea_port(game, s)
-				// If either is a port but not in Black/Caspian Sea, block SR (representing sea transport blockade)
-				if ((is_current_port && !is_current_black_caspian) || (is_dest_port && !is_dest_black_caspian)) {
-					return false
-				}
-			}
-		}
-
 		if (game.control[s] !== faction && !contains_friendly_pieces(game, s, faction)) return false
 
 		// Rule 19.2.3: AP units may not end a move in a space with Greek units while neutral.
@@ -1568,23 +1553,23 @@ module.exports = function (Engine) {
 		if (!can_enter_region(game, p, s)) return false
 		if (!can_stack_end_in_space(game, s, [p])) return false
 
-		let sea_sr = !!data.spaces[source].port && !!data.spaces[s].port
-		if (sea_sr) {
-			if (info.piece_class === "LCU") return false
-			if (info.symbol === "H") return false
+		let rail_only = info.piece_class === "LCU"
+		if (has_sr_path(game, p, source, s, faction, rail_only)) return true
 
-			// Rule 11.5: Caspian Sea transport restrictions.
-			let source_caspian = is_caspian_sea_port(source)
-			let dest_caspian = is_caspian_sea_port(s)
-			if (source_caspian || dest_caspian) {
-				if (!source_caspian || !dest_caspian) return false
-			}
+		let sea_sr = source !== s && !!data.spaces[source].port && !!data.spaces[s].port
+		if (!sea_sr) return false
+		if (is_sr_destination_blocked_by_events(game, source, s, faction)) return false
+		if (info.piece_class === "LCU") return false
+		if (info.symbol === "H") return false
 
-			return true
+		// Rule 11.5: Caspian Sea transport restrictions.
+		let source_caspian = is_caspian_sea_port(source)
+		let dest_caspian = is_caspian_sea_port(s)
+		if (source_caspian || dest_caspian) {
+			if (!source_caspian || !dest_caspian) return false
 		}
 
-		let rail_only = info.piece_class === "LCU"
-		return has_sr_path(game, p, source, s, faction, rail_only);
+		return true
 	}
 
 	function contains_friendly_pieces(game, s, faction) {
