@@ -307,7 +307,7 @@ module.exports = function (Engine) {
 				return
 			}
 
-			if (res.game.selected_piece !== -1 && res.game.selected_piece !== undefined) {
+			if (res.game.selected_piece !== null && res.game.selected_piece !== undefined) {
 				res.who(res.game.selected_piece)
 				let p = res.game.selected_piece
 				let tribe_type = get_tribe_type(p)
@@ -332,12 +332,12 @@ module.exports = function (Engine) {
 		space(game, log, s) {
 			const { CP } = Engine.constants
 			let p = game.selected_piece
-			if (p === -1 || p === undefined) return
+			if (p === null || p === undefined) return
 			let tribe_type = get_tribe_type(p)
 			if (data.spaces[s].tribal_activity_grid !== tribe_type) return
 			if (map.contains_enemy_pieces(game, s, CP) || !map.can_stack_end_in_space(game, s, [p])) return
 			game.pieces[p] = s
-			game.selected_piece = -1
+			game.selected_piece = null
 			game.tribes_to_place--
 			log(`${piece_name(p)} 放置在 ${data.spaces[s].name}`)
 			if (game.tribes_to_place <= 0) {

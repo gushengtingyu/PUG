@@ -61,6 +61,7 @@ exports.register = function (states, Engine, context) {
 		can_piece_move_to,
 		get_piece_move_block_reason,
 		get_move_end_space_block_reason,
+		get_stack_end_block_reason,
 		is_gallipoli,
 		check_immediate_jihad_rebellion_on_entry,
 		update_jihad_level,
@@ -1069,9 +1070,15 @@ exports.register = function (states, Engine, context) {
 		},
 		piece(p) {
 			// Drop piece
+			let s = game.move.current
+			let reason = get_stack_end_block_reason(game, s, [p])
+			if (reason) {
+				log(`不能在此放下 ${piece_name(p)}：${reason}`)
+				return
+			}
 			set_delete(game.move.pieces, p)
 			set_add(game.moved, p)
-			log(`${piece_name(p)} stops moving in ${space_name(game.move.current)}`)
+			log(`${piece_name(p)} stops moving in ${space_name(s)}`)
 			if (game.move.pieces.length === 0) {
 				end_move_stack()
 			}
@@ -1110,8 +1117,8 @@ exports.register = function (states, Engine, context) {
 				game.pieces[p] = target
 				pieces_moving.push(p)
 
-				if (is_gallipoli(target)) {
-					game.move.spent_gallipoli = true
+				if (is_gallipoli(from_space) && is_gallipoli(target)) {
+					game.move.gallipoli_internal_paid = true
 				}
 			} else {
 				pieces_stopped.push(p)

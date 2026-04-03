@@ -10,6 +10,8 @@ module.exports = function (Engine) {
 		is_scu,
 		is_tribe,
 		is_regular,
+		is_removed,
+		is_eliminated,
 		is_not_on_map,
 		get_piece_nation,
 		get_piece_type,
@@ -95,6 +97,7 @@ module.exports = function (Engine) {
 		let seen = new Set()
 		let pool = []
 		let groups = [
+			game.attack.initial_attackers || [],
 			game.attack.pieces || [],
 			game.attack.initial_defenders || [],
 			get_space_pieces(game, game.attack.space)
@@ -113,7 +116,10 @@ module.exports = function (Engine) {
 	function has_damaged_or_eliminated_battle_piece(game, nations) {
 		return get_battle_piece_pool(game).some((p) => {
 			if (!nations.includes(get_piece_nation(p))) return false
-			return set_has(game.reduced, p) || is_not_on_map(game, p)
+			let info = data.pieces[p]
+			let removed_by_reserves_exception =
+				is_removed(game, p) && info && (info.symbol === "dot" || info.symbol === "triangle")
+			return set_has(game.reduced, p) || is_eliminated(game, p) || removed_by_reserves_exception
 		})
 	}
 

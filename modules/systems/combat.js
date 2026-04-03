@@ -555,10 +555,36 @@ module.exports = function (Engine) {
 		// Wait, if they must be hit last, we should just prioritize non-variable first.
 		// However, for correct "absorb as much as possible" logic, we need to generate valid paths.
 
+		function get_tree_unit_piece(unit) {
+			if (typeof unit === "object") {
+				if (unit.tree_reduced) return unit.piece
+				if (unit.simulated) return unit.parent
+			}
+			return unit
+		}
+
+		function make_tree_reduced_unit(unit) {
+			if (typeof unit === "object" && unit.tree_reduced) return unit
+			if (typeof unit === "object" && unit.simulated) {
+				return { simulated: true, tree_reduced: true, parent: unit.parent }
+			}
+			return { piece: unit, tree_reduced: true }
+		}
+
+		function get_tree_unit_lf(unit) {
+			if (typeof unit === "object" && unit.simulated) return 1
+			let piece = get_tree_unit_piece(unit)
+			if (typeof unit === "object" && unit.tree_reduced) {
+				return data.pieces[piece].rlf ?? data.pieces[piece].lf ?? 1
+			}
+			return get_piece_lf(game, piece)
+		}
+
 		// Helper to get reserve SCUs for an LCU
 		function get_available_replacements(unit) {
-			if (get_piece_class(unit) !== "LCU") return { full: [], reduced: [] }
-			let group = get_nation_group(get_piece_nation(unit))
+			let piece = get_tree_unit_piece(unit)
+			if (get_piece_class(piece) !== "LCU") return { full: [], reduced: [] }
+			let group = get_nation_group(get_piece_nation(piece))
 
 			let full = []
 			let reduced = []
@@ -589,13 +615,13 @@ module.exports = function (Engine) {
 		function build_loss_tree(parent, valid_paths) {
 			for (let i = 0; i < parent.full_strength.length; i++) {
 				let unit = parent.full_strength[i]
-				let unit_lf = typeof unit === "object" && unit.simulated ? 1 : get_piece_lf(game, unit)
+				let unit_lf = get_tree_unit_lf(unit)
 				if (unit_lf <= parent.to_satisfy) {
 					let node = {
 						picked: [...parent.picked, unit],
 						to_satisfy: parent.to_satisfy - unit_lf,
 						full_strength: parent.full_strength.filter((u) => u !== unit),
-						reduced: [...parent.reduced, unit],
+						reduced: [...parent.reduced, make_tree_reduced_unit(unit)],
 						fort_strength: parent.fort_strength,
 						options: []
 					}
@@ -605,7 +631,7 @@ module.exports = function (Engine) {
 
 			for (let i = 0; i < parent.reduced.length; i++) {
 				let unit = parent.reduced[i]
-				let unit_lf = typeof unit === "object" && unit.simulated ? 1 : get_piece_lf(game, unit)
+				let unit_lf = get_tree_unit_lf(unit)
 				if (unit_lf <= parent.to_satisfy) {
 					let node = {
 						picked: [...parent.picked, unit],
@@ -617,7 +643,7 @@ module.exports = function (Engine) {
 					}
 					// Check replacement for LCU
 					if (!(typeof unit === "object" && unit.simulated)) {
-						if (get_piece_class(unit) === "LCU") {
+						if (get_piece_class(get_tree_unit_piece(unit)) === "LCU") {
 							// Simplification: assume we can replace with an SCU with LF=1.
 							// In PUG, almost all regular SCUs have LF=1.
 							// We check if a replacement is available.
@@ -676,10 +702,7 @@ module.exports = function (Engine) {
 		let valid_units = []
 		valid_paths.forEach((path) => {
 			if (path.picked.length > 0) {
-				let first_pick = path.picked[0]
-				if (typeof first_pick === "object" && first_pick.simulated) {
-					first_pick = first_pick.parent
-				}
+				let first_pick = get_tree_unit_piece(path.picked[0])
 				if (first_pick !== "FORT" && !valid_units.includes(first_pick)) {
 					valid_units.push(first_pick)
 				}
@@ -893,20 +916,7 @@ module.exports = function (Engine) {
 		game.attack.defender_losses_absorbed = 0
 		game.attack.attacker_losses_absorbed = 0
 
-		if (result.turkish_retreat) {
-			// Rule 12.8.2: Allied losses applied FIRST, then retreat, then CP losses
-			if (game.attack.attacker_losses > 0) {
-				game.state = "apply_attacker_losses"
-			} else {
-				// No attacker losses, trigger retreat directly (CP action)
-				game.active = CP
-				game.state = "turkish_retreat"
-				game.turkish_retreat_pending = true
-				game.turkish_retreat_space = game.attack.space
-				game.turkish_retreat_mandatory = [...result.turkish_retreat_units]
-				game.turkish_retreat_optional = [...result.turkish_retreat_optional_units]
-			}
-		} else if (result.att_fire_first) {
+		if (result.att_fire_first) {
 			game.active = other_faction(game.active) // Defender takes losses first
 			game.state = get_defender_losses_state(game)
 			game.attack.second_fire = "defender"
@@ -1258,10 +1268,28 @@ module.exports = function (Engine) {
 		game.retreat_steps_left = null
 
 		if (result.turkish_retreat) {
-			game.turkish_retreat_pending = true
-			game.turkish_retreat_space = game.attack.space
-			game.turkish_retreat_mandatory = [...result.turkish_retreat_units]
-			game.turkish_retreat_optional = [...result.turkish_retreat_optional_units]
+			let alive_cp_defenders = get_pieces_in_space(game, target_space).filter(
+				(p) =>
+					get_piece_faction(p) === CP &&
+					!is_not_on_map(game, p) &&
+					!is_eliminated(game, p) &&
+					!(Array.isArray(game.retreated) && set_has(game.retreated, p))
+			)
+			let alive_cp_set = new Set(alive_cp_defenders)
+			let mandatory = (result.turkish_retreat_units || []).filter((p) => alive_cp_set.has(p))
+			let optional = (result.turkish_retreat_optional_units || []).filter((p) => alive_cp_set.has(p))
+			if (mandatory.length > 0 || optional.length > 0) {
+				game.turkish_retreat_pending = true
+				game.turkish_retreat_space = game.attack.space
+				game.turkish_retreat_mandatory = mandatory
+				game.turkish_retreat_optional = optional
+			} else {
+				result.turkish_retreat = false
+				delete game.turkish_retreat_pending
+				delete game.turkish_retreat_space
+				delete game.turkish_retreat_mandatory
+				delete game.turkish_retreat_optional
+			}
 		} else {
 			delete game.turkish_retreat_pending
 			delete game.turkish_retreat_space
@@ -1269,9 +1297,10 @@ module.exports = function (Engine) {
 			delete game.turkish_retreat_optional
 		}
 
-		if (result.turkish_retreat) {
-			game.active = other_faction(game.active)
+		if (game.turkish_retreat_pending) {
+			game.active = CP
 			game.state = "turkish_retreat"
+			game.selected_piece = null
 			return
 		}
 
@@ -1382,6 +1411,7 @@ module.exports = function (Engine) {
 						game.advance_limit = 4
 					}
 					if (game.advance_pieces.length > 0) {
+						game.active = game.attack?.attacker || game.active
 						game.advance_trench_processed = false
 						game.state = "advance"
 						if (log_fn) {
@@ -1720,7 +1750,9 @@ module.exports = function (Engine) {
 		// If defender needs to take losses or perform other actions, we will switch again.
 		game.active = (game.attack && game.attack.attacker) || AP
 
-		if (game.attack && game.attack.defender_losses > 0) {
+		let defender_losses_left =
+			(game.attack?.defender_losses || 0) - (game.attack?.defender_losses_absorbed || 0)
+		if (game.attack && defender_losses_left > 0) {
 			game.active = CP
 			game.state = get_defender_losses_state(game)
 			return
@@ -1739,6 +1771,7 @@ module.exports = function (Engine) {
 			if (!game.battle_result || !game.battle_result.no_advance) {
 				game.advance_pieces = get_advance_pieces(game, game.battle_result)
 				if (game.advance_pieces.length > 0) {
+					game.active = game.attack?.attacker || game.active
 					game.advance_space = retreat_space
 					game.advance_count = 0
 					game.advance_limit = 3

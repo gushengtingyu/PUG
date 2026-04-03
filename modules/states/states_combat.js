@@ -820,6 +820,8 @@ exports.register = function (states, Engine, context) {
 		if (game.attack && game.attack.space !== -1) {
 			log(`发起进攻：${space_name(game.attack.space)}`)
 		}
+		delete game.turkish_retreat_prev_active
+		delete game.turkish_retreat_chosen_space
 		delete game.retreat_choice_cc_done
 		delete game.retreat_choice_resume_state
 		delete game.retreat_choice_prev_active
@@ -939,7 +941,12 @@ exports.register = function (states, Engine, context) {
 			"retreat_cancel",
 			"save_tiflis_retreat",
 			"choose_lcu_replacement",
-			"post_roll_cc_defender"
+			"post_roll_cc_defender",
+			"post_battle_cc_cp",
+			"post_advance_cc_cp",
+			"retreat_choice_cc_cp",
+			"confused_orders",
+			"declare_turkish_retreat"
 		]
 		if (SUB_STATES.includes(game.state)) {
 			return
@@ -1227,15 +1234,6 @@ exports.register = function (states, Engine, context) {
 				} else {
 					end_battle_sequence()
 				}
-			} else if (game.battle_result && game.battle_result.turkish_retreat) {
-				// Rule 12.8.2: Turkish retreat happens after attacker losses but before defender losses
-				// Turkish retreat is always a CP action
-				game.active = CP
-				game.state = "turkish_retreat"
-				game.turkish_retreat_pending = true
-				game.turkish_retreat_space = game.attack.space
-				game.turkish_retreat_mandatory = [...game.battle_result.turkish_retreat_units]
-				game.turkish_retreat_optional = [...game.battle_result.turkish_retreat_optional_units]
 			} else {
 				end_battle_sequence()
 			}
@@ -1325,6 +1323,8 @@ exports.register = function (states, Engine, context) {
 		delete game.advance_follow_pieces
 		delete game.advance_yildirim_used
 		delete game.advance_trench_processed
+		delete game.turkish_retreat_prev_active
+		delete game.turkish_retreat_chosen_space
 		delete game.post_battle_cc_resume
 		delete game.selected_piece
 		delete game.battle_result
@@ -1355,7 +1355,7 @@ exports.register = function (states, Engine, context) {
 	function continue_after_post_battle_cc() {
 		let resume = game.post_battle_cc_resume
 		delete game.post_battle_cc_resume
-		game.active = game.attack?.attacker || game.active
+		game.active = game.attack?.attacker || AP
 
 		if (resume && resume.kind === "advance") {
 			if (!game.battle_result?.no_advance || resume.save_tiflis_failed) {
@@ -1698,8 +1698,27 @@ exports.register = function (states, Engine, context) {
 	states.turkish_retreat = {
 		prompt(res) {
 			if (!game.turkish_retreat_pending) {
-				game.attack = null
-				game.state = "attack"
+				finish_turkish_retreat()
+				if (states[game.state] && states[game.state].prompt) {
+					states[game.state].prompt(res)
+				}
+				return
+			}
+			let retreat_space = game.turkish_retreat_space ?? game.attack?.space
+			let is_valid_turkish_retreat_piece = (p) => retreat_space !== undefined && !is_not_on_map(p) && game.pieces[p] === retreat_space
+			game.turkish_retreat_mandatory = (game.turkish_retreat_mandatory || []).filter(is_valid_turkish_retreat_piece)
+			game.turkish_retreat_optional = (game.turkish_retreat_optional || []).filter(is_valid_turkish_retreat_piece)
+			let can_control = (p) =>
+				set_has(game.turkish_retreat_mandatory || [], p) || set_has(game.turkish_retreat_optional || [], p)
+			if (
+				game.selected_piece !== null &&
+				game.selected_piece !== undefined &&
+				!can_control(game.selected_piece)
+			) {
+				game.selected_piece = null
+			}
+			if (game.turkish_retreat_mandatory.length === 0 && game.turkish_retreat_optional.length === 0) {
+				finish_turkish_retreat()
 				if (states[game.state] && states[game.state].prompt) {
 					states[game.state].prompt(res)
 				}

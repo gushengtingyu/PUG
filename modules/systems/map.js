@@ -60,12 +60,10 @@ module.exports = function (Engine) {
 		}
 
 		// Rule 9.6.2: Gallipoli Map Movement.
-		// Moving within Gallipoli Inset costs 0 MP if we already paid the entry cost (or started there).
 		if (is_gallipoli(from) && is_gallipoli(to)) {
-			if (game.move && game.move.spent_gallipoli) {
+			if (game.move && game.move.gallipoli_internal_paid) {
 				return 0
 			}
-			// If we haven't paid yet (e.g. first move inside), it costs 1.
 			return 1
 		}
 
@@ -336,6 +334,7 @@ module.exports = function (Engine) {
 
 	let strait_edges = null
 	let strait_numbers = null
+	let bosphorus_forts_space = null
 
 	function init_strait_edges() {
 		if (strait_edges) return
@@ -395,9 +394,20 @@ module.exports = function (Engine) {
 			for (let n of strait_numbers) {
 				if (n > num && !faction_controls_strait(game, n, faction)) return false
 			}
+			if (num === 5) {
+				let bosphorus = get_bosphorus_forts_space_id()
+				if (bosphorus < 0 || !is_controlled_by(game, bosphorus, faction)) return false
+			}
 			return true
 		}
 		return true
+	}
+
+	function get_bosphorus_forts_space_id() {
+		if (bosphorus_forts_space === null) {
+			bosphorus_forts_space = find_space_by_name("The Bosphorus Forts")
+		}
+		return bosphorus_forts_space
 	}
 
 	function get_tribe_type(p) {
@@ -1230,6 +1240,16 @@ module.exports = function (Engine) {
 	}
 
 	function is_sr_destination_blocked_by_events(game, source, dest, faction) {
+		let source_space = data.spaces[source]
+		let dest_space = data.spaces[dest]
+		let is_sea_sr =
+			!!source_space &&
+			!!dest_space &&
+			source !== dest &&
+			!!source_space.port &&
+			!!dest_space.port
+		if (!is_sea_sr) return false
+
 		if (faction === AP && game.events && game.events["german_subs"]) {
 			if (is_aegean_east_med_port(dest) || (data.spaces[dest] && data.spaces[dest].area === "gallipoli")) {
 				return true
@@ -1505,16 +1525,6 @@ module.exports = function (Engine) {
 		let dest_reserve = is_reserve_space(s)
 
 		if (source_reserve && dest_reserve) return false
-
-		// Rule 13.3.2: German Subs in the Med prohibits sending Allied SR to the E. Mediterranean or Aegean Sea
-		if (faction === AP && game.events && game.events["german_subs"]) {
-			if (is_aegean_east_med_port(s) || (data.spaces[s] && data.spaces[s].area === "gallipoli")) {
-				// Note: Rule 13.3.2 allows SR associated with Invasions, but normal SR is blocked.
-				// Since this is standard SR, we block it.
-				return false
-			}
-		}
-
 		if (source_reserve) return can_sr_from_reserve_to_space(game, p, s, faction)
 
 		if (dest_reserve) {
@@ -1527,21 +1537,6 @@ module.exports = function (Engine) {
 			return source_status !== "LIMITED"
 		}
 
-		// Rule 11.5: After blockade, CP cannot SR via non-Black Sea/Caspian Sea ports
-		if (game.events && game.events["royal_navy_blockade"] && faction === CP) {
-			let current_space = source
-			let is_current_port = data.spaces[current_space].port
-			let is_dest_port = data.spaces[s].port
-			if (is_current_port || is_dest_port) {
-				let is_current_black_caspian = is_black_sea_port(game, current_space) || is_caspian_sea_port(game, current_space)
-				let is_dest_black_caspian = is_black_sea_port(game, s) || is_caspian_sea_port(game, s)
-				// If either is a port but not in Black/Caspian Sea, block SR (representing sea transport blockade)
-				if ((is_current_port && !is_current_black_caspian) || (is_dest_port && !is_dest_black_caspian)) {
-					return false
-				}
-			}
-		}
-
 		if (game.control[s] !== faction && !contains_friendly_pieces(game, s, faction)) return false
 
 		// Rule 19.2.3: AP units may not end a move in a space with Greek units while neutral.
@@ -1552,23 +1547,23 @@ module.exports = function (Engine) {
 		if (!can_enter_region(game, p, s)) return false
 		if (!can_stack_end_in_space(game, s, [p])) return false
 
-		let sea_sr = !!data.spaces[source].port && !!data.spaces[s].port
-		if (sea_sr) {
-			if (info.piece_class === "LCU") return false
-			if (info.symbol === "H") return false
+		let rail_only = info.piece_class === "LCU"
+		if (has_sr_path(game, p, source, s, faction, rail_only)) return true
 
-			// Rule 11.5: Caspian Sea transport restrictions.
-			let source_caspian = is_caspian_sea_port(source)
-			let dest_caspian = is_caspian_sea_port(s)
-			if (source_caspian || dest_caspian) {
-				if (!source_caspian || !dest_caspian) return false
-			}
+		let sea_sr = source !== s && !!data.spaces[source].port && !!data.spaces[s].port
+		if (!sea_sr) return false
+		if (is_sr_destination_blocked_by_events(game, source, s, faction)) return false
+		if (info.piece_class === "LCU") return false
+		if (info.symbol === "H") return false
 
-			return true
+		// Rule 11.5: Caspian Sea transport restrictions.
+		let source_caspian = is_caspian_sea_port(source)
+		let dest_caspian = is_caspian_sea_port(s)
+		if (source_caspian || dest_caspian) {
+			if (!source_caspian || !dest_caspian) return false
 		}
 
-		let rail_only = info.piece_class === "LCU"
-		return has_sr_path(game, p, source, s, faction, rail_only);
+		return true
 	}
 
 	function contains_friendly_pieces(game, s, faction) {
@@ -2821,6 +2816,7 @@ module.exports = function (Engine) {
 		is_stack_counted_piece,
 		can_move_stack_composition,
 		can_stack_end_in_space,
+		get_stack_end_block_reason,
 		get_move_end_space_block_reason,
 		get_piece_mf,
 		prune_exhausted_move_stack,
