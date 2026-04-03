@@ -537,10 +537,36 @@ module.exports = function (Engine) {
 		// Wait, if they must be hit last, we should just prioritize non-variable first.
 		// However, for correct "absorb as much as possible" logic, we need to generate valid paths.
 
+		function get_tree_unit_piece(unit) {
+			if (typeof unit === "object") {
+				if (unit.tree_reduced) return unit.piece
+				if (unit.simulated) return unit.parent
+			}
+			return unit
+		}
+
+		function make_tree_reduced_unit(unit) {
+			if (typeof unit === "object" && unit.tree_reduced) return unit
+			if (typeof unit === "object" && unit.simulated) {
+				return { simulated: true, tree_reduced: true, parent: unit.parent }
+			}
+			return { piece: unit, tree_reduced: true }
+		}
+
+		function get_tree_unit_lf(unit) {
+			if (typeof unit === "object" && unit.simulated) return 1
+			let piece = get_tree_unit_piece(unit)
+			if (typeof unit === "object" && unit.tree_reduced) {
+				return data.pieces[piece].rlf ?? data.pieces[piece].lf ?? 1
+			}
+			return get_piece_lf(game, piece)
+		}
+
 		// Helper to get reserve SCUs for an LCU
 		function get_available_replacements(unit) {
-			if (get_piece_class(unit) !== "LCU") return { full: [], reduced: [] }
-			let group = get_nation_group(get_piece_nation(unit))
+			let piece = get_tree_unit_piece(unit)
+			if (get_piece_class(piece) !== "LCU") return { full: [], reduced: [] }
+			let group = get_nation_group(get_piece_nation(piece))
 
 			let full = []
 			let reduced = []
@@ -571,13 +597,13 @@ module.exports = function (Engine) {
 		function build_loss_tree(parent, valid_paths) {
 			for (let i = 0; i < parent.full_strength.length; i++) {
 				let unit = parent.full_strength[i]
-				let unit_lf = typeof unit === "object" && unit.simulated ? 1 : get_piece_lf(game, unit)
+				let unit_lf = get_tree_unit_lf(unit)
 				if (unit_lf <= parent.to_satisfy) {
 					let node = {
 						picked: [...parent.picked, unit],
 						to_satisfy: parent.to_satisfy - unit_lf,
 						full_strength: parent.full_strength.filter((u) => u !== unit),
-						reduced: [...parent.reduced, unit],
+						reduced: [...parent.reduced, make_tree_reduced_unit(unit)],
 						fort_strength: parent.fort_strength,
 						options: []
 					}
@@ -587,7 +613,7 @@ module.exports = function (Engine) {
 
 			for (let i = 0; i < parent.reduced.length; i++) {
 				let unit = parent.reduced[i]
-				let unit_lf = typeof unit === "object" && unit.simulated ? 1 : get_piece_lf(game, unit)
+				let unit_lf = get_tree_unit_lf(unit)
 				if (unit_lf <= parent.to_satisfy) {
 					let node = {
 						picked: [...parent.picked, unit],
@@ -599,7 +625,7 @@ module.exports = function (Engine) {
 					}
 					// Check replacement for LCU
 					if (!(typeof unit === "object" && unit.simulated)) {
-						if (get_piece_class(unit) === "LCU") {
+						if (get_piece_class(get_tree_unit_piece(unit)) === "LCU") {
 							// Simplification: assume we can replace with an SCU with LF=1.
 							// In PUG, almost all regular SCUs have LF=1.
 							// We check if a replacement is available.
@@ -658,10 +684,7 @@ module.exports = function (Engine) {
 		let valid_units = []
 		valid_paths.forEach((path) => {
 			if (path.picked.length > 0) {
-				let first_pick = path.picked[0]
-				if (typeof first_pick === "object" && first_pick.simulated) {
-					first_pick = first_pick.parent
-				}
+				let first_pick = get_tree_unit_piece(path.picked[0])
 				if (first_pick !== "FORT" && !valid_units.includes(first_pick)) {
 					valid_units.push(first_pick)
 				}
