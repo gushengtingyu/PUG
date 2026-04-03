@@ -1781,19 +1781,17 @@ module.exports = function (Engine) {
 			if (remaining > 0) {
 				for (let p of game.reserves_to_front_pieces) {
 					let info = data.pieces[p]
+					let needs_rebuild =
+						rules.is_eliminated(game, p) ||
+						(rules.is_removed(game, p) && (info.symbol === "dot" || info.symbol === "triangle"))
 					let cost = 0
-					if (rules.is_eliminated(p)) {
+					if (needs_rebuild) {
 						cost = info.piece_class === "LCU" ? 2 : 1
 					} else if (rules.set_has(game.reduced, p)) {
 						cost = info.piece_class === "LCU" ? 1 : 0.5
 					}
 					if (cost > 0 && cost <= remaining) {
-						if (rules.is_eliminated(p)) {
-							let valid_spaces = rules.get_valid_rebuild_spaces(game, p, CP)
-							if (valid_spaces.includes(game.attack.space)) {
-								res.piece(p)
-							}
-						} else if (rules.set_has(game.reduced, p)) {
+						if (needs_rebuild || rules.set_has(game.reduced, p)) {
 							res.piece(p)
 						}
 					}
@@ -1806,8 +1804,11 @@ module.exports = function (Engine) {
 			let { game, rules, arg: p } = ctx
 			rules.push_undo()
 			let info = data.pieces[p]
+			let needs_rebuild =
+				rules.is_eliminated(game, p) ||
+				(rules.is_removed(game, p) && (info.symbol === "dot" || info.symbol === "triangle"))
 			let cost = 0
-			if (rules.is_eliminated(p)) {
+			if (needs_rebuild) {
 				cost = info.piece_class === "LCU" ? 2 : 1
 			} else if (rules.set_has(game.reduced, p)) {
 				cost = info.piece_class === "LCU" ? 1 : 0.5
@@ -1821,7 +1822,7 @@ module.exports = function (Engine) {
 				rules.set_add(game.reserves_to_front_effected_pieces, p)
 			}
 
-			if (rules.is_eliminated(p)) {
+			if (needs_rebuild) {
 				game.pieces[p] = game.attack.space
 				rules.log(`${rules.piece_name(p)} 在 ${rules.space_name(game.attack.space)} 原地重建。`)
 			} else {

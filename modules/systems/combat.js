@@ -779,6 +779,9 @@ module.exports = function (Engine) {
 		delete game.post_roll_cc_done
 		delete game.captured_russian_vp_in_advance
 		if (game.attack) delete game.attack.flank_attempt
+		if (game.attack) {
+			game.attack.initial_attackers = [...(game.attack.pieces || [])]
+		}
 		if (game.attack && game.attack.space > 0) {
 			let defender_faction = other_faction(game.active)
 			game.attack.initial_defenders = get_pieces_in_space(game, game.attack.space).filter(
