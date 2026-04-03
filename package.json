@@ -1,0 +1,35 @@
+{
+	"name": "pursuit-of-glory",
+	"version": "1.0.0",
+	"description": "Pursuit of Glory game module",
+	"main": "rules.js",
+	"scripts": {
+		"test": "jest",
+		"test:fuzz": "node tools/runtime_fuzz_loop.js",
+		"start:map-editor": "node tools/server_map_editor.js",
+		"lint": "eslint .",
+		"lint:fix": "eslint . --fix",
+		"format": "prettier --write \"**/*.{js,css,html,json}\"",
+		"format:check": "prettier --check \"**/*.{js,css,html,json}\""
+	},
+	"prettier": {
+		"tabWidth": 4,
+		"useTabs": true,
+		"singleQuote": false,
+		"semi": false,
+		"printWidth": 120,
+		"trailingComma": "none",
+		"bracketSpacing": true
+	},
+	"devDependencies": {
+		"@eslint/js": "^9.19.0",
+		"autoprefixer": "^10.4.27",
+		"eslint": "^9.19.0",
+		"eslint-config-prettier": "^9.1.0",
+		"jest": "^29.7.0",
+		"postcss": "^8.5.8",
+		"prettier": "^3.4.2",
+		"tailwindcss": "^4.2.2",
+		"vite": "^8.0.2"
+	}
+}

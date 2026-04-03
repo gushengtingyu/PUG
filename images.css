@@ -1,0 +1,891 @@
+.map-cn #map {
+	background-image: url(map.CN.jpg);
+}
+.map-en #map {
+	background-image: url(map.EN.jpg);
+}
+
+#map {
+	background-size: 100% 100%;
+}
+#reinforcements {
+	background-image: none;
+}
+
+.marker {
+	width: 75px;
+	height: 75px;
+	background-size: 75px 75px;
+	line-height: 10px;
+	font-family: var(--font-small);
+	font-size: 8px;
+	text-align: center;
+}
+
+.marker.small {
+	width: 60px;
+	height: 60px;
+	background-size: 60px 60px;
+}
+
+.marker.fort_destroyed {
+	background-image: url(pieces/fort_destroyed.webp);
+}
+
+/* SMALL MARKERS 60x60 */
+.marker.attack {
+	background-image: url(pieces/MAttack.png);
+}
+.marker.move {
+	background-image: url(pieces/MMove.png);
+}
+
+.marker.game_turn {
+	background-image: url(pieces/MTurn.png);
+}
+.marker.vp {
+	background-image: url(pieces/MVP.png);
+}
+.marker.vp.blockade {
+	background-image: url(pieces/MVPB.png);
+}
+
+/* REGULAR MARKERS 75x75 */
+.marker.ap.control {
+	background-image: url(pieces/MAPCtrl.png);
+}
+.marker.cp.control {
+	background-image: url(pieces/MCPCtrl.png);
+}
+.marker.ap.mandatory_offensive {
+	background-image: url(pieces/MAPMO.png);
+}
+.marker.cp.mandatory_offensive {
+	background-image: url(pieces/MCPMO.png);
+}
+.marker.ap.war_status {
+	background-image: url(pieces/MAPWS.png);
+}
+.marker.cp.war_status {
+	background-image: url(pieces/MCPWS.png);
+}
+.marker.beachhead {
+	background-image: url(pieces/MBCHD.png);
+}
+.marker.allied_rp {
+	background-image: url(pieces/MAPRP.PNG);
+}
+.marker.mo_modifier {
+	background-image: url(pieces/MAPMOM.png);
+}
+
+.marker.cp_rp {
+	background-image: url(pieces/MCPRP.png);
+}
+.marker.br_rp {
+	background-image: url(pieces/MBRRP.png);
+}
+.marker.ru_rp {
+	background-image: url(pieces/MRURP.png);
+}
+.marker.in_rp {
+	background-image: url(pieces/MINRP.png);
+}
+.marker.apa_rp {
+	background-image: url(pieces/MAPARP.png);
+}
+.marker.ge_rp {
+	background-image: url(pieces/MGERP.png);
+}
+.marker.tu_rp {
+	background-image: url(pieces/MTURP.png);
+}
+.marker.cpa_rp {
+	background-image: url(pieces/MCPARP.png);
+}
+.marker.ge_supply_tu {
+	background-image: url(pieces/MGETU1.png);
+}
+.marker.ru_revolution {
+	background-image: url(pieces/MRevolution.png);
+}
+.marker.russian_vp {
+	background-image: url(pieces/MRUVP.png);
+}
+.marker.jihad {
+	background-image: url(pieces/MJihad.png);
+}
+.marker.combined_war {
+	background-image: url(pieces/MCOWS.png);
+}
+.marker.ap.lcu_limit {
+	background-image: url(pieces/MAPLCURA.png);
+}
+.marker.cp.lcu_limit {
+	background-image: url(pieces/MCPLCURA.png);
+}
+.marker.cp_air_superiority {
+	background-image: url(pieces/MCPAirS.png);
+}
+.marker.u_boats_med {
+	background-image: url(pieces/MUBMed.png);
+}
+.marker.kitchener {
+	background-image: url(pieces/MKitch.png);
+}
+.marker.ww_pt {
+	background-image: url(pieces/MWWP.png);
+}
+.marker.sinai_railroad {
+	background-image: url(pieces/MSinaiRR.png);
+}
+.marker.max_tu_rp {
+	background-image: url(pieces/MMXTRP.PNG);
+}
+.marker.j_by_c {
+	background-image: url(pieces/MJXMAS.png);
+}
+.marker.persian_uprising {
+	background-image: url(pieces/MPEUPR.png);
+}
+.marker.parvus_to_berlin {
+	background-image: url(pieces/MPTB.png);
+}
+.marker.revolution_token {
+	background-image: url(pieces/MRevolution.png);
+}
+.marker.long_live_czar {
+	background-image: url(pieces/MLLTC.png);
+}
+.marker.bb_rr {
+	background-image: url(pieces/MBBRR.png);
+}
+.marker.baku_uprising {
+	background-image: url(pieces/MBAKUPR.png);
+}
+.marker.c_asia_uprising {
+	background-image: url(pieces/MCASUPR.png);
+}
+.marker.enzeli_uprising {
+	background-image: url(pieces/MENZUPR.png);
+}
+.marker.armenian_uprising {
+	background-image: url(pieces/MARUPR.png);
+}
+.marker.besieged {
+	background-image: url(pieces/MBESG.png);
+}
+.marker.out_of_supply {
+	background-image: url(pieces/oos.png);
+}
+
+.marker.ru.control {
+	background-image: url(pieces/MRUCtrl.png);
+}
+.marker.trench.ap.trench_1 {
+	background-image: url(pieces/MAPTR1.png);
+}
+.marker.trench.cp.trench_1 {
+	background-image: url(pieces/MCPTR1.png);
+}
+.marker.trench.ap.DOIR.trench_2 {
+	background-image: url(pieces/MCPDOIR2.png);
+}
+.marker.trench.cp.DOIR.trench_2 {
+	background-image: url(pieces/MCPDOIR2.png);
+}
+
+/* TEMP: For markers that are missing images, use CSS to insert some text */
+.marker::before {
+	position: absolute;
+	inset: 3px;
+	padding: 4px 0px 0px 0px;
+}
+
+/* LARGE NEUTRAL BADGE */
+.marker.neutral {
+	background-image: url(pieces/neutral.png);
+}
+
+/* ARMIES (75x75) and CORPS (60x60) removed as they are POG leftovers.
+   Unit images are now data-driven via pieces.csv */
+
+/* CARDS */
+.lang-cn .card_ap_0 {
+	background-image: url(cards.CN/card_back_ap.jpg);
+}
+.lang-cn .card_cp_0 {
+	background-image: url(cards.CN/card_back_cp.jpg);
+}
+.lang-en .card_ap_0 {
+	background-image: url(cards.EN/card_back_ap.jpg);
+}
+.lang-en .card_cp_0 {
+	background-image: url(cards.EN/card_back_cp.jpg);
+}
+
+/* AP Cards 1-55 */
+.lang-cn .card_ap_1 {
+	background-image: url(cards.CN/card_ap_01.jpg);
+}
+.lang-cn .card_ap_2 {
+	background-image: url(cards.CN/card_ap_02.jpg);
+}
+.lang-cn .card_ap_3 {
+	background-image: url(cards.CN/card_ap_03.jpg);
+}
+.lang-cn .card_ap_4 {
+	background-image: url(cards.CN/card_ap_04.jpg);
+}
+.lang-cn .card_ap_5 {
+	background-image: url(cards.CN/card_ap_05.jpg);
+}
+.lang-cn .card_ap_6 {
+	background-image: url(cards.CN/card_ap_06.jpg);
+}
+.lang-cn .card_ap_7 {
+	background-image: url(cards.CN/card_ap_07.jpg);
+}
+.lang-cn .card_ap_8 {
+	background-image: url(cards.CN/card_ap_08.jpg);
+}
+.lang-cn .card_ap_9 {
+	background-image: url(cards.CN/card_ap_09.jpg);
+}
+.lang-cn .card_ap_10 {
+	background-image: url(cards.CN/card_ap_10.jpg);
+}
+.lang-cn .card_ap_11 {
+	background-image: url(cards.CN/card_ap_11.jpg);
+}
+.lang-cn .card_ap_12 {
+	background-image: url(cards.CN/card_ap_12.jpg);
+}
+.lang-cn .card_ap_13 {
+	background-image: url(cards.CN/card_ap_13.jpg);
+}
+.lang-cn .card_ap_14 {
+	background-image: url(cards.CN/card_ap_14.jpg);
+}
+.lang-cn .card_ap_15 {
+	background-image: url(cards.CN/card_ap_15.jpg);
+}
+.lang-cn .card_ap_16 {
+	background-image: url(cards.CN/card_ap_16.jpg);
+}
+.lang-cn .card_ap_17 {
+	background-image: url(cards.CN/card_ap_17.jpg);
+}
+.lang-cn .card_ap_18 {
+	background-image: url(cards.CN/card_ap_18.jpg);
+}
+.lang-cn .card_ap_19 {
+	background-image: url(cards.CN/card_ap_19.jpg);
+}
+.lang-cn .card_ap_20 {
+	background-image: url(cards.CN/card_ap_20.jpg);
+}
+.lang-cn .card_ap_21 {
+	background-image: url(cards.CN/card_ap_21.jpg);
+}
+.lang-cn .card_ap_22 {
+	background-image: url(cards.CN/card_ap_22.jpg);
+}
+.lang-cn .card_ap_23 {
+	background-image: url(cards.CN/card_ap_23.jpg);
+}
+.lang-cn .card_ap_24 {
+	background-image: url(cards.CN/card_ap_24.jpg);
+}
+.lang-cn .card_ap_25 {
+	background-image: url(cards.CN/card_ap_25.jpg);
+}
+.lang-cn .card_ap_26 {
+	background-image: url(cards.CN/card_ap_26.jpg);
+}
+.lang-cn .card_ap_27 {
+	background-image: url(cards.CN/card_ap_27.jpg);
+}
+.lang-cn .card_ap_28 {
+	background-image: url(cards.CN/card_ap_28.jpg);
+}
+.lang-cn .card_ap_29 {
+	background-image: url(cards.CN/card_ap_29.jpg);
+}
+.lang-cn .card_ap_30 {
+	background-image: url(cards.CN/card_ap_30.jpg);
+}
+.lang-cn .card_ap_31 {
+	background-image: url(cards.CN/card_ap_31.jpg);
+}
+.lang-cn .card_ap_32 {
+	background-image: url(cards.CN/card_ap_32.jpg);
+}
+.lang-cn .card_ap_33 {
+	background-image: url(cards.CN/card_ap_33.jpg);
+}
+.lang-cn .card_ap_34 {
+	background-image: url(cards.CN/card_ap_34.jpg);
+}
+.lang-cn .card_ap_35 {
+	background-image: url(cards.CN/card_ap_35.jpg);
+}
+.lang-cn .card_ap_36 {
+	background-image: url(cards.CN/card_ap_36.jpg);
+}
+.lang-cn .card_ap_37 {
+	background-image: url(cards.CN/card_ap_37.jpg);
+}
+.lang-cn .card_ap_38 {
+	background-image: url(cards.CN/card_ap_38.jpg);
+}
+.lang-cn .card_ap_39 {
+	background-image: url(cards.CN/card_ap_39.jpg);
+}
+.lang-cn .card_ap_40 {
+	background-image: url(cards.CN/card_ap_40.jpg);
+}
+.lang-cn .card_ap_41 {
+	background-image: url(cards.CN/card_ap_41.jpg);
+}
+.lang-cn .card_ap_42 {
+	background-image: url(cards.CN/card_ap_42.jpg);
+}
+.lang-cn .card_ap_43 {
+	background-image: url(cards.CN/card_ap_43.jpg);
+}
+.lang-cn .card_ap_44 {
+	background-image: url(cards.CN/card_ap_44.jpg);
+}
+.lang-cn .card_ap_45 {
+	background-image: url(cards.CN/card_ap_45.jpg);
+}
+.lang-cn .card_ap_46 {
+	background-image: url(cards.CN/card_ap_46.jpg);
+}
+.lang-cn .card_ap_47 {
+	background-image: url(cards.CN/card_ap_47.jpg);
+}
+.lang-cn .card_ap_48 {
+	background-image: url(cards.CN/card_ap_48.jpg);
+}
+.lang-cn .card_ap_49 {
+	background-image: url(cards.CN/card_ap_49.jpg);
+}
+.lang-cn .card_ap_50 {
+	background-image: url(cards.CN/card_ap_50.jpg);
+}
+.lang-cn .card_ap_51 {
+	background-image: url(cards.CN/card_ap_51.jpg);
+}
+.lang-cn .card_ap_52 {
+	background-image: url(cards.CN/card_ap_52.jpg);
+}
+.lang-cn .card_ap_53 {
+	background-image: url(cards.CN/card_ap_53.jpg);
+}
+.lang-cn .card_ap_54 {
+	background-image: url(cards.CN/card_ap_54.jpg);
+}
+.lang-cn .card_ap_55 {
+	background-image: url(cards.CN/card_ap_55.jpg);
+}
+
+.lang-en .card_ap_1 {
+	background-image: url(cards.EN/card_ap_01.jpg);
+}
+.lang-en .card_ap_2 {
+	background-image: url(cards.EN/card_ap_02.jpg);
+}
+.lang-en .card_ap_3 {
+	background-image: url(cards.EN/card_ap_03.jpg);
+}
+.lang-en .card_ap_4 {
+	background-image: url(cards.EN/card_ap_04.jpg);
+}
+.lang-en .card_ap_5 {
+	background-image: url(cards.EN/card_ap_05.jpg);
+}
+.lang-en .card_ap_6 {
+	background-image: url(cards.EN/card_ap_06.jpg);
+}
+.lang-en .card_ap_7 {
+	background-image: url(cards.EN/card_ap_07.jpg);
+}
+.lang-en .card_ap_8 {
+	background-image: url(cards.EN/card_ap_08.jpg);
+}
+.lang-en .card_ap_9 {
+	background-image: url(cards.EN/card_ap_09.jpg);
+}
+.lang-en .card_ap_10 {
+	background-image: url(cards.EN/card_ap_10.jpg);
+}
+.lang-en .card_ap_11 {
+	background-image: url(cards.EN/card_ap_11.jpg);
+}
+.lang-en .card_ap_12 {
+	background-image: url(cards.EN/card_ap_12.jpg);
+}
+.lang-en .card_ap_13 {
+	background-image: url(cards.EN/card_ap_13.jpg);
+}
+.lang-en .card_ap_14 {
+	background-image: url(cards.EN/card_ap_14.jpg);
+}
+.lang-en .card_ap_15 {
+	background-image: url(cards.EN/card_ap_15.jpg);
+}
+.lang-en .card_ap_16 {
+	background-image: url(cards.EN/card_ap_16.jpg);
+}
+.lang-en .card_ap_17 {
+	background-image: url(cards.EN/card_ap_17.jpg);
+}
+.lang-en .card_ap_18 {
+	background-image: url(cards.EN/card_ap_18.jpg);
+}
+.lang-en .card_ap_19 {
+	background-image: url(cards.EN/card_ap_19.jpg);
+}
+.lang-en .card_ap_20 {
+	background-image: url(cards.EN/card_ap_20.jpg);
+}
+.lang-en .card_ap_21 {
+	background-image: url(cards.EN/card_ap_21.jpg);
+}
+.lang-en .card_ap_22 {
+	background-image: url(cards.EN/card_ap_22.jpg);
+}
+.lang-en .card_ap_23 {
+	background-image: url(cards.EN/card_ap_23.jpg);
+}
+.lang-en .card_ap_24 {
+	background-image: url(cards.EN/card_ap_24.jpg);
+}
+.lang-en .card_ap_25 {
+	background-image: url(cards.EN/card_ap_25.jpg);
+}
+.lang-en .card_ap_26 {
+	background-image: url(cards.EN/card_ap_26.jpg);
+}
+.lang-en .card_ap_27 {
+	background-image: url(cards.EN/card_ap_27.jpg);
+}
+.lang-en .card_ap_28 {
+	background-image: url(cards.EN/card_ap_28.jpg);
+}
+.lang-en .card_ap_29 {
+	background-image: url(cards.EN/card_ap_29.jpg);
+}
+.lang-en .card_ap_30 {
+	background-image: url(cards.EN/card_ap_30.jpg);
+}
+.lang-en .card_ap_31 {
+	background-image: url(cards.EN/card_ap_31.jpg);
+}
+.lang-en .card_ap_32 {
+	background-image: url(cards.EN/card_ap_32.jpg);
+}
+.lang-en .card_ap_33 {
+	background-image: url(cards.EN/card_ap_33.jpg);
+}
+.lang-en .card_ap_34 {
+	background-image: url(cards.EN/card_ap_34.jpg);
+}
+.lang-en .card_ap_35 {
+	background-image: url(cards.EN/card_ap_35.jpg);
+}
+.lang-en .card_ap_36 {
+	background-image: url(cards.EN/card_ap_36.jpg);
+}
+.lang-en .card_ap_37 {
+	background-image: url(cards.EN/card_ap_37.jpg);
+}
+.lang-en .card_ap_38 {
+	background-image: url(cards.EN/card_ap_38.jpg);
+}
+.lang-en .card_ap_39 {
+	background-image: url(cards.EN/card_ap_39.jpg);
+}
+.lang-en .card_ap_40 {
+	background-image: url(cards.EN/card_ap_40.jpg);
+}
+.lang-en .card_ap_41 {
+	background-image: url(cards.EN/card_ap_41.jpg);
+}
+.lang-en .card_ap_42 {
+	background-image: url(cards.EN/card_ap_42.jpg);
+}
+.lang-en .card_ap_43 {
+	background-image: url(cards.EN/card_ap_43.jpg);
+}
+.lang-en .card_ap_44 {
+	background-image: url(cards.EN/card_ap_44.jpg);
+}
+.lang-en .card_ap_45 {
+	background-image: url(cards.EN/card_ap_45.jpg);
+}
+.lang-en .card_ap_46 {
+	background-image: url(cards.EN/card_ap_46.jpg);
+}
+.lang-en .card_ap_47 {
+	background-image: url(cards.EN/card_ap_47.jpg);
+}
+.lang-en .card_ap_48 {
+	background-image: url(cards.EN/card_ap_48.jpg);
+}
+.lang-en .card_ap_49 {
+	background-image: url(cards.EN/card_ap_49.jpg);
+}
+.lang-en .card_ap_50 {
+	background-image: url(cards.EN/card_ap_50.jpg);
+}
+.lang-en .card_ap_51 {
+	background-image: url(cards.EN/card_ap_51.jpg);
+}
+.lang-en .card_ap_52 {
+	background-image: url(cards.EN/card_ap_52.jpg);
+}
+.lang-en .card_ap_53 {
+	background-image: url(cards.EN/card_ap_53.jpg);
+}
+.lang-en .card_ap_54 {
+	background-image: url(cards.EN/card_ap_54.jpg);
+}
+.lang-en .card_ap_55 {
+	background-image: url(cards.EN/card_ap_55.jpg);
+}
+
+/* CP Cards 1-55 */
+.lang-cn .card_cp_1 {
+	background-image: url(cards.CN/card_cp_01.jpg);
+}
+.lang-cn .card_cp_2 {
+	background-image: url(cards.CN/card_cp_02.jpg);
+}
+.lang-cn .card_cp_3 {
+	background-image: url(cards.CN/card_cp_03.jpg);
+}
+.lang-cn .card_cp_4 {
+	background-image: url(cards.CN/card_cp_04.jpg);
+}
+.lang-cn .card_cp_5 {
+	background-image: url(cards.CN/card_cp_05.jpg);
+}
+.lang-cn .card_cp_6 {
+	background-image: url(cards.CN/card_cp_06.jpg);
+}
+.lang-cn .card_cp_7 {
+	background-image: url(cards.CN/card_cp_07.jpg);
+}
+.lang-cn .card_cp_8 {
+	background-image: url(cards.CN/card_cp_08.jpg);
+}
+.lang-cn .card_cp_9 {
+	background-image: url(cards.CN/card_cp_09.jpg);
+}
+.lang-cn .card_cp_10 {
+	background-image: url(cards.CN/card_cp_10.jpg);
+}
+.lang-cn .card_cp_11 {
+	background-image: url(cards.CN/card_cp_11.jpg);
+}
+.lang-cn .card_cp_12 {
+	background-image: url(cards.CN/card_cp_12.jpg);
+}
+.lang-cn .card_cp_13 {
+	background-image: url(cards.CN/card_cp_13.jpg);
+}
+.lang-cn .card_cp_14 {
+	background-image: url(cards.CN/card_cp_14.jpg);
+}
+.lang-cn .card_cp_15 {
+	background-image: url(cards.CN/card_cp_15.jpg);
+}
+.lang-cn .card_cp_16 {
+	background-image: url(cards.CN/card_cp_16.jpg);
+}
+.lang-cn .card_cp_17 {
+	background-image: url(cards.CN/card_cp_17.jpg);
+}
+.lang-cn .card_cp_18 {
+	background-image: url(cards.CN/card_cp_18.jpg);
+}
+.lang-cn .card_cp_19 {
+	background-image: url(cards.CN/card_cp_19.jpg);
+}
+.lang-cn .card_cp_20 {
+	background-image: url(cards.CN/card_cp_20.jpg);
+}
+.lang-cn .card_cp_21 {
+	background-image: url(cards.CN/card_cp_21.jpg);
+}
+.lang-cn .card_cp_22 {
+	background-image: url(cards.CN/card_cp_22.jpg);
+}
+.lang-cn .card_cp_23 {
+	background-image: url(cards.CN/card_cp_23.jpg);
+}
+.lang-cn .card_cp_24 {
+	background-image: url(cards.CN/card_cp_24.jpg);
+}
+.lang-cn .card_cp_25 {
+	background-image: url(cards.CN/card_cp_25.jpg);
+}
+.lang-cn .card_cp_26 {
+	background-image: url(cards.CN/card_cp_26.jpg);
+}
+.lang-cn .card_cp_27 {
+	background-image: url(cards.CN/card_cp_27.jpg);
+}
+.lang-cn .card_cp_28 {
+	background-image: url(cards.CN/card_cp_28.jpg);
+}
+.lang-cn .card_cp_29 {
+	background-image: url(cards.CN/card_cp_29.jpg);
+}
+.lang-cn .card_cp_30 {
+	background-image: url(cards.CN/card_cp_30.jpg);
+}
+.lang-cn .card_cp_31 {
+	background-image: url(cards.CN/card_cp_31.jpg);
+}
+.lang-cn .card_cp_32 {
+	background-image: url(cards.CN/card_cp_32.jpg);
+}
+.lang-cn .card_cp_33 {
+	background-image: url(cards.CN/card_cp_33.jpg);
+}
+.lang-cn .card_cp_34 {
+	background-image: url(cards.CN/card_cp_34.jpg);
+}
+.lang-cn .card_cp_35 {
+	background-image: url(cards.CN/card_cp_35.jpg);
+}
+.lang-cn .card_cp_36 {
+	background-image: url(cards.CN/card_cp_36.jpg);
+}
+.lang-cn .card_cp_37 {
+	background-image: url(cards.CN/card_cp_37.jpg);
+}
+.lang-cn .card_cp_38 {
+	background-image: url(cards.CN/card_cp_38.jpg);
+}
+.lang-cn .card_cp_39 {
+	background-image: url(cards.CN/card_cp_39.jpg);
+}
+.lang-cn .card_cp_40 {
+	background-image: url(cards.CN/card_cp_40.jpg);
+}
+.lang-cn .card_cp_41 {
+	background-image: url(cards.CN/card_cp_41.jpg);
+}
+.lang-cn .card_cp_42 {
+	background-image: url(cards.CN/card_cp_42.jpg);
+}
+.lang-cn .card_cp_43 {
+	background-image: url(cards.CN/card_cp_43.jpg);
+}
+.lang-cn .card_cp_44 {
+	background-image: url(cards.CN/card_cp_44.jpg);
+}
+.lang-cn .card_cp_45 {
+	background-image: url(cards.CN/card_cp_45.jpg);
+}
+.lang-cn .card_cp_46 {
+	background-image: url(cards.CN/card_cp_46.jpg);
+}
+.lang-cn .card_cp_47 {
+	background-image: url(cards.CN/card_cp_47.jpg);
+}
+.lang-cn .card_cp_48 {
+	background-image: url(cards.CN/card_cp_48.jpg);
+}
+.lang-cn .card_cp_49 {
+	background-image: url(cards.CN/card_cp_49.jpg);
+}
+.lang-cn .card_cp_50 {
+	background-image: url(cards.CN/card_cp_50.jpg);
+}
+.lang-cn .card_cp_51 {
+	background-image: url(cards.CN/card_cp_51.jpg);
+}
+.lang-cn .card_cp_52 {
+	background-image: url(cards.CN/card_cp_52.jpg);
+}
+.lang-cn .card_cp_53 {
+	background-image: url(cards.CN/card_cp_53.jpg);
+}
+.lang-cn .card_cp_54 {
+	background-image: url(cards.CN/card_cp_54.jpg);
+}
+.lang-cn .card_cp_55 {
+	background-image: url(cards.CN/card_cp_55.jpg);
+}
+
+.lang-en .card_cp_1 {
+	background-image: url(cards.EN/card_cp_01.jpg);
+}
+.lang-en .card_cp_2 {
+	background-image: url(cards.EN/card_cp_02.jpg);
+}
+.lang-en .card_cp_3 {
+	background-image: url(cards.EN/card_cp_03.jpg);
+}
+.lang-en .card_cp_4 {
+	background-image: url(cards.EN/card_cp_04.jpg);
+}
+.lang-en .card_cp_5 {
+	background-image: url(cards.EN/card_cp_05.jpg);
+}
+.lang-en .card_cp_6 {
+	background-image: url(cards.EN/card_cp_06.jpg);
+}
+.lang-en .card_cp_7 {
+	background-image: url(cards.EN/card_cp_07.jpg);
+}
+.lang-en .card_cp_8 {
+	background-image: url(cards.EN/card_cp_08.jpg);
+}
+.lang-en .card_cp_9 {
+	background-image: url(cards.EN/card_cp_09.jpg);
+}
+.lang-en .card_cp_10 {
+	background-image: url(cards.EN/card_cp_10.jpg);
+}
+.lang-en .card_cp_11 {
+	background-image: url(cards.EN/card_cp_11.jpg);
+}
+.lang-en .card_cp_12 {
+	background-image: url(cards.EN/card_cp_12.jpg);
+}
+.lang-en .card_cp_13 {
+	background-image: url(cards.EN/card_cp_13.jpg);
+}
+.lang-en .card_cp_14 {
+	background-image: url(cards.EN/card_cp_14.jpg);
+}
+.lang-en .card_cp_15 {
+	background-image: url(cards.EN/card_cp_15.jpg);
+}
+.lang-en .card_cp_16 {
+	background-image: url(cards.EN/card_cp_16.jpg);
+}
+.lang-en .card_cp_17 {
+	background-image: url(cards.EN/card_cp_17.jpg);
+}
+.lang-en .card_cp_18 {
+	background-image: url(cards.EN/card_cp_18.jpg);
+}
+.lang-en .card_cp_19 {
+	background-image: url(cards.EN/card_cp_19.jpg);
+}
+.lang-en .card_cp_20 {
+	background-image: url(cards.EN/card_cp_20.jpg);
+}
+.lang-en .card_cp_21 {
+	background-image: url(cards.EN/card_cp_21.jpg);
+}
+.lang-en .card_cp_22 {
+	background-image: url(cards.EN/card_cp_22.jpg);
+}
+.lang-en .card_cp_23 {
+	background-image: url(cards.EN/card_cp_23.jpg);
+}
+.lang-en .card_cp_24 {
+	background-image: url(cards.EN/card_cp_24.jpg);
+}
+.lang-en .card_cp_25 {
+	background-image: url(cards.EN/card_cp_25.jpg);
+}
+.lang-en .card_cp_26 {
+	background-image: url(cards.EN/card_cp_26.jpg);
+}
+.lang-en .card_cp_27 {
+	background-image: url(cards.EN/card_cp_27.jpg);
+}
+.lang-en .card_cp_28 {
+	background-image: url(cards.EN/card_cp_28.jpg);
+}
+.lang-en .card_cp_29 {
+	background-image: url(cards.EN/card_cp_29.jpg);
+}
+.lang-en .card_cp_30 {
+	background-image: url(cards.EN/card_cp_30.jpg);
+}
+.lang-en .card_cp_31 {
+	background-image: url(cards.EN/card_cp_31.jpg);
+}
+.lang-en .card_cp_32 {
+	background-image: url(cards.EN/card_cp_32.jpg);
+}
+.lang-en .card_cp_33 {
+	background-image: url(cards.EN/card_cp_33.jpg);
+}
+.lang-en .card_cp_34 {
+	background-image: url(cards.EN/card_cp_34.jpg);
+}
+.lang-en .card_cp_35 {
+	background-image: url(cards.EN/card_cp_35.jpg);
+}
+.lang-en .card_cp_36 {
+	background-image: url(cards.EN/card_cp_36.jpg);
+}
+.lang-en .card_cp_37 {
+	background-image: url(cards.EN/card_cp_37.jpg);
+}
+.lang-en .card_cp_38 {
+	background-image: url(cards.EN/card_cp_38.jpg);
+}
+.lang-en .card_cp_39 {
+	background-image: url(cards.EN/card_cp_39.jpg);
+}
+.lang-en .card_cp_40 {
+	background-image: url(cards.EN/card_cp_40.jpg);
+}
+.lang-en .card_cp_41 {
+	background-image: url(cards.EN/card_cp_41.jpg);
+}
+.lang-en .card_cp_42 {
+	background-image: url(cards.EN/card_cp_42.jpg);
+}
+.lang-en .card_cp_43 {
+	background-image: url(cards.EN/card_cp_43.jpg);
+}
+.lang-en .card_cp_44 {
+	background-image: url(cards.EN/card_cp_44.jpg);
+}
+.lang-en .card_cp_45 {
+	background-image: url(cards.EN/card_cp_45.jpg);
+}
+.lang-en .card_cp_46 {
+	background-image: url(cards.EN/card_cp_46.jpg);
+}
+.lang-en .card_cp_47 {
+	background-image: url(cards.EN/card_cp_47.jpg);
+}
+.lang-en .card_cp_48 {
+	background-image: url(cards.EN/card_cp_48.jpg);
+}
+.lang-en .card_cp_49 {
+	background-image: url(cards.EN/card_cp_49.jpg);
+}
+.lang-en .card_cp_50 {
+	background-image: url(cards.EN/card_cp_50.jpg);
+}
+.lang-en .card_cp_51 {
+	background-image: url(cards.EN/card_cp_51.jpg);
+}
+.lang-en .card_cp_52 {
+	background-image: url(cards.EN/card_cp_52.jpg);
+}
+.lang-en .card_cp_53 {
+	background-image: url(cards.EN/card_cp_53.jpg);
+}
+.lang-en .card_cp_54 {
+	background-image: url(cards.EN/card_cp_54.jpg);
+}
+.lang-en .card_cp_55 {
+	background-image: url(cards.EN/card_cp_55.jpg);
+}

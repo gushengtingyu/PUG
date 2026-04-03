@@ -1,0 +1,980 @@
+"use strict"
+
+module.exports = function (Engine) {
+	const { data } = Engine
+	const exports = {}
+
+	const { ELIMINATED, RESERVE, REMOVED, REINFORCEMENTS, AP, CP } = Engine.constants
+	const { set_add, set_delete, set_has } = Engine.utils
+	const STACKING_LIMIT = 3
+
+	// === Basic Lookup ===
+
+	function get_piece_faction(p) {
+		if (p < 0 || !data.pieces[p]) return null
+		return data.pieces[p].faction
+	}
+
+	function get_reserve_box_for_piece(p) {
+		let faction = get_piece_faction(p)
+		if (is_lcu(p)) return get_lcu_reserve_box(faction)
+		return get_scu_reserve_box(faction)
+	}
+
+	function count_tribes_on_map(game) {
+		let count = 0
+		for (let p = 0; p < game.pieces.length; p++) {
+			if (is_tribe(p) && !is_not_on_map(game, p)) count++
+		}
+		return count
+	}
+
+	function find_space(name) {
+		for (let s = 1; s < data.spaces.length; s++) {
+			if (data.spaces[s] && data.spaces[s].name === name) return s
+		}
+		return -1
+	}
+
+	function find_capital(nation) {
+		for (let s = 1; s < data.spaces.length; s++) {
+			if (data.spaces[s] && data.spaces[s].nation === nation && data.spaces[s].capital === 1) return s
+		}
+		return -1
+	}
+
+	function find_piece(faction, name) {
+		for (let p = 0; p < data.pieces.length; p++) {
+			if (!data.pieces[p]) continue
+			if (
+				data.pieces[p].name === name &&
+				(faction === undefined || faction === "system" || data.pieces[p].faction === faction)
+			) {
+				return p
+			}
+		}
+		return -1
+	}
+
+	function find_piece_by_name(faction, name) {
+		return find_piece(faction, name)
+	}
+
+	function piece_name(p) {
+		if (!data.pieces[p]) return "Unknown Unit (" + p + ")"
+		return data.pieces[p].name.replace(/ /g, "\u00A0")
+	}
+
+	function space_name(s) {
+		if (!data.spaces[s]) return "Unknown Space (" + s + ")"
+		return data.spaces[s].name
+	}
+
+	function get_space_nation(s) {
+		if (!data.spaces[s]) return null
+		return data.spaces[s].nation
+	}
+
+	function get_space_faction(s) {
+		if (!data.spaces[s]) return null
+		return data.spaces[s].faction
+	}
+
+	// === Boxes & Locations ===
+
+	function get_scu_reserve_box(faction) {
+		let s = find_space(faction === AP ? "AP Reserve" : "CP Reserve")
+		return s >= 0 ? s : RESERVE
+	}
+
+	function get_lcu_reserve_box(faction) {
+		let s = find_space(faction === AP ? "AP Corps Assets" : "CP Corps Assets")
+		if (s < 0) s = get_scu_reserve_box(faction)
+		return s
+	}
+
+	function get_reserve_box(faction) {
+		return get_scu_reserve_box(faction)
+	}
+
+	function get_eliminated_box(faction) {
+		let s = find_space(faction === AP ? "AP Eliminated" : "CP Eliminated")
+		return s >= 0 ? s : ELIMINATED
+	}
+
+	function get_removed_box(faction) {
+		let s = find_space(faction === AP ? "AP Permanently Eliminated Box" : "CP Permanently Eliminated Box")
+		return s >= 0 ? s : REMOVED
+	}
+
+	function get_reinforcement_box() {
+		return REINFORCEMENTS
+	}
+
+	function get_tribe_key_space(p) {
+		let tribe_type = Engine.map.get_tribe_type(p)
+		for (let s = 1; s < data.spaces.length; s++) {
+			if (
+				(data.spaces[s].type === "Reserve Box" || data.spaces[s].map === "Reserve Box") &&
+				data.spaces[s].name === tribe_type
+			) {
+				return s
+			}
+		}
+		return -1
+	}
+
+	function get_capacity(game, s) {
+		if (Engine.map.is_unlimited_stack_space(game, s)) return 999
+		let count = 0
+		Engine.map.for_each_piece_in_space(game, s, (p) => {
+			if (Engine.map.is_stack_counted_piece(p)) count++
+		})
+		return Math.max(0, STACKING_LIMIT - count)
+	}
+
+	// === Piece Status ===
+
+	function is_in_reserve(game, p) {
+		if (p < 0 || !data.pieces[p]) return false
+		let s = game.pieces[p]
+		let info = data.pieces[p]
+		if (info.type === "tribe")
+			return (
+				s > 0 &&
+				data.spaces[s] &&
+				(data.spaces[s].type === "Reserve Box" || data.spaces[s].map === "Reserve Box")
+			)
+		let faction = info.faction
+		if (info.piece_class === "LCU") return s === get_lcu_reserve_box(faction) || s === RESERVE
+		return s === get_scu_reserve_box(faction) || s === RESERVE
+	}
+
+	function is_eliminated(game, p) {
+		if (p < 0 || !data.pieces[p]) return false
+		let s = game.pieces[p]
+		return s === get_eliminated_box(data.pieces[p].faction) || s === ELIMINATED
+	}
+
+	function is_removed(game, p) {
+		if (p < 0 || !data.pieces[p]) return false
+		let s = game.pieces[p]
+		return s === get_removed_box(data.pieces[p].faction) || s === REMOVED
+	}
+
+	function is_reinforcement(game, p) {
+		if (p < 0 || !data.pieces[p]) return false
+		let s = game.pieces[p]
+		return s === REINFORCEMENTS
+	}
+
+	function is_piece_reduced(game, p) {
+		return set_has(game.reduced, p)
+	}
+
+	function reduce_piece(game, p, log) {
+		if (is_piece_reduced(game, p)) {
+			eliminate_piece(game, p, log)
+		} else {
+			set_add(game.reduced, p)
+		}
+	}
+
+	function get_nation_group(nation) {
+		if (["br", "anz", "in"].includes(nation)) return "british_empire"
+		if (["tu", "tua"].includes(nation)) return "turkish"
+		return nation
+	}
+
+	function is_not_on_map(game, p) {
+		return is_eliminated(game, p) || is_in_reserve(game, p) || is_removed(game, p) || is_reinforcement(game, p)
+	}
+	function get_piece_cf(game, p) {
+		if (p < 0) return 0
+		if (is_hq(p)) {
+			if (set_has(game.reduced, p)) return data.pieces[p].rlf || 0
+			return data.pieces[p].lf || 0
+		}
+		if (set_has(game.reduced, p)) return data.pieces[p].rcf || 0
+		return data.pieces[p].cf || 0
+	}
+
+	function get_piece_effective_faction(game, p) {
+		let info = data.pieces[p]
+		if (!info) return null
+		if (info.nation === "gr" && Engine.greece) {
+			let greece_faction = Engine.greece.get_greece_faction(game)
+			if (greece_faction) return greece_faction
+		}
+		return info.faction
+	}
+
+	function is_lcu(p) {
+		if (p < 0 || !data.pieces[p]) return false
+		return data.pieces[p].piece_class === "LCU"
+	}
+
+	function is_scu(p) {
+		if (p < 0 || !data.pieces[p]) return false
+		return data.pieces[p].piece_class === "SCU"
+	}
+
+	function is_tribe(p) {
+		if (p < 0 || !data.pieces[p]) return false
+		return data.pieces[p].type === "tribe" || data.pieces[p].type === "tribal"
+	}
+
+	function is_irregular(p) {
+		if (p < 0 || !data.pieces[p]) return false
+		return data.pieces[p].type === "irregular"
+	}
+
+	function is_regular(p) {
+		if (p < 0 || !data.pieces[p]) return false
+		return data.pieces[p].type === "regular"
+	}
+
+	function get_piece_nation(p) {
+		if (p < 0 || !data.pieces[p]) return null
+		return data.pieces[p].nation
+	}
+
+	function get_piece_type(p) {
+		if (p < 0 || !data.pieces[p]) return null
+		return data.pieces[p].type
+	}
+
+	function has_scu_in_reserve(game, nation) {
+		for (let p = 0; p < game.pieces.length; p++) {
+			let info = data.pieces[p]
+			if (!info) continue
+			if (info.nation !== nation) continue
+			if (!is_scu(p)) continue
+			let reserve = get_reserve_box(info.faction)
+			if (game.pieces[p] === reserve || game.pieces[p] === RESERVE) return true
+		}
+		return false
+	}
+
+	function get_pieces_in_reserve(game, faction) {
+		let pieces = []
+		for (let p = 0; p < game.pieces.length; p++) {
+			if (data.pieces[p].faction === faction && is_in_reserve(game, p)) {
+				pieces.push(p)
+			}
+		}
+		return pieces
+	}
+
+	function get_pieces_in_eliminated(game, faction) {
+		let pieces = []
+		for (let p = 0; p < game.pieces.length; p++) {
+			if (data.pieces[p].faction === faction && is_eliminated(game, p)) {
+				pieces.push(p)
+			}
+		}
+		return pieces
+	}
+
+	function get_pieces_in_removed(game, faction) {
+		let pieces = []
+		for (let p = 0; p < game.pieces.length; p++) {
+			if (data.pieces[p].faction === faction && is_removed(game, p)) {
+				pieces.push(p)
+			}
+		}
+		return pieces
+	}
+
+	function get_pieces_in_reinforcements(game, faction) {
+		let pieces = []
+		for (let p = 0; p < game.pieces.length; p++) {
+			if (data.pieces[p].faction === faction && is_reinforcement(game, p)) {
+				pieces.push(p)
+			}
+		}
+		return pieces
+	}
+
+	function get_replacement_options(game, p) {
+		let info = data.pieces[p]
+		if (info.piece_class !== "LCU") return []
+
+		let full_options = []
+		let reduced_options = []
+
+		let group = get_nation_group(info.nation)
+
+		for (let i = 1; i < data.pieces.length; i++) {
+			if (!is_in_reserve(game, i)) continue
+			let replacement = data.pieces[i]
+			if (replacement.piece_class !== "SCU") continue
+			if (get_nation_group(replacement.nation) !== group) continue
+
+			// This check needs events module, we'll pass it or access via Engine
+			if (
+				Engine.events &&
+				Engine.events.is_turkish_replacement_blocked &&
+				Engine.events.is_turkish_replacement_blocked(game, i)
+			)
+				continue
+
+			if (is_piece_reduced(game, i)) reduced_options.push(i)
+			else full_options.push(i)
+		}
+
+		// Rule 12.6.5: If possible, the SCU should also be of the same type as the LCU
+		const sort_by_type = (a, b) => {
+			let type_a = data.pieces[a].type
+			let type_b = data.pieces[b].type
+			let target_type = info.type
+			if (type_a === target_type && type_b !== target_type) return -1
+			if (type_a !== target_type && type_b === target_type) return 1
+			return 0
+		}
+
+		full_options.sort(sort_by_type)
+		reduced_options.sort(sort_by_type)
+
+		if (full_options.length > 1) {
+			let names = []
+			full_options = full_options.filter((unit) => {
+				if (set_has(names, data.pieces[unit].name)) return false
+				set_add(names, data.pieces[unit].name)
+				return true
+			})
+		}
+
+		if (reduced_options.length > 1) {
+			let names = []
+			reduced_options = reduced_options.filter((unit) => {
+				if (set_has(names, data.pieces[unit].name)) return false
+				set_add(names, data.pieces[unit].name)
+				return true
+			})
+		}
+
+		return full_options.length > 0 ? full_options : reduced_options
+	}
+
+	function replace_lcu_with_scu(game, lcu, space, scu, log) {
+		game.pieces[scu] = space
+		if (game.attack && game.attack.pieces && set_has(game.attack.pieces, lcu)) {
+			set_delete(game.attack.pieces, lcu)
+			set_add(game.attack.pieces, scu)
+		}
+		if (
+			game.battle_result &&
+			game.battle_result.retreating_units &&
+			set_has(game.battle_result.retreating_units, lcu)
+		) {
+			set_delete(game.battle_result.retreating_units, lcu)
+			set_add(game.battle_result.retreating_units, scu)
+		}
+		if (
+			game.battle_result &&
+			game.battle_result.turkish_retreat_units &&
+			set_has(game.battle_result.turkish_retreat_units, lcu)
+		) {
+			set_delete(game.battle_result.turkish_retreat_units, lcu)
+			set_add(game.battle_result.turkish_retreat_units, scu)
+		}
+		if (
+			game.battle_result &&
+			game.battle_result.turkish_retreat_optional_units &&
+			set_has(game.battle_result.turkish_retreat_optional_units, lcu)
+		) {
+			set_delete(game.battle_result.turkish_retreat_optional_units, lcu)
+			set_add(game.battle_result.turkish_retreat_optional_units, scu)
+		}
+		if (log)
+			log(`LCU ${data.pieces[lcu].name} 被移除并在 ${space_name(space)} 替换为 SCU ${data.pieces[scu].name}。`)
+		return scu
+	}
+
+	function eliminate_piece(game, p, log, permanent = false) {
+		let info = data.pieces[p]
+		let space = game.pieces[p]
+		let is_lcu_pe = false
+		let replacement_scu = -1
+
+		if (info.piece_class === "LCU" && !permanent) {
+			// Rule 12.6.5: LCU replaced by SCU only if supplied
+			if (Engine.map.is_in_supply(game, space, info.faction, p)) {
+				let options = get_replacement_options(game, p)
+				if (options.length > 0) {
+					if (game.attack && options.length > 1) {
+						game.attack.replacement = {
+							unit: p,
+							space,
+							options,
+							return_state: game.state
+						}
+						game.state = "choose_lcu_replacement"
+					} else {
+						replacement_scu = replace_lcu_with_scu(game, p, space, options[0], log)
+					}
+				} else {
+					// Rule 307: If no replacement SCU, LCU is permanently eliminated
+					is_lcu_pe = true
+					if (log) log(`LCU ${data.pieces[p].name} 被摧毁，由于没有可用的 SCU 替换：永久移除。`)
+				}
+			} else {
+				// Rule 12.6.5: If unsupplied LCU is eliminated, it is permanently removed
+				is_lcu_pe = true
+				if (log) log(`未补给的 LCU ${data.pieces[p].name} 被摧毁：永久移除。`)
+			}
+		}
+
+		if (permanent || is_lcu_pe || info.badge === "dot" || info.badge === "triangle") {
+			game.pieces[p] = get_removed_box(info.faction)
+			if (log) log(`单位 ${data.pieces[p].name} 从游戏中永久移除。`)
+		} else if (is_tribe(p)) {
+			game.pieces[p] = get_eliminated_box(info.faction)
+			if (log) log(`${piece_name(p)} 被移除并送往被击败单位盒子。`)
+		} else {
+			game.pieces[p] = get_eliminated_box(data.pieces[p].faction)
+		}
+
+		// Reset unit state when eliminated
+		set_delete(game.moved, p)
+		set_delete(game.attacked, p)
+		if (game.sr_moved) set_delete(game.sr_moved, p)
+		if (game.oos) set_delete(game.oos, p)
+		if (game.entrenching) set_delete(game.entrenching, p)
+
+		// Also remove from active operations/selections to fix "tilted" UI issue
+		if (game.activated) {
+			if (Array.isArray(game.activated.move)) set_delete(game.activated.move, p)
+			if (Array.isArray(game.activated.attack)) set_delete(game.activated.attack, p)
+		}
+		if (game.attack && Array.isArray(game.attack.pieces)) set_delete(game.attack.pieces, p)
+		if (game.move && Array.isArray(game.move.pieces)) set_delete(game.move.pieces, p)
+
+		set_delete(game.reduced, p)
+
+		return replacement_scu
+	}
+
+	function add_rps(game, info, log) {
+		let rps = game.active === Engine.constants.AP ? game.rp_ap : game.rp_cp
+		if (info.rp_a) rps.a += info.rp_a
+		let block_br_rp =
+			game.active === Engine.constants.AP && game.events && game.events["parliamentary_inquiry"] === game.turn
+		if (info.rp_br && !block_br_rp) rps.br += info.rp_br
+		if (info.rp_ru) {
+			// Rule 978: No longer record RU RP after Russian Revolution Phase 1
+			if (!(game.events["russian_revolution"] >= 1)) {
+				rps.ru += info.rp_ru
+			}
+		}
+		if (info.rp_ge) rps.ge += info.rp_ge
+		if (info.rp_in) rps.in += info.rp_in
+		if (info.rp_tu) {
+			if (game.events && game.events["royal_navy_blockade"]) {
+				let max_tu_rp = Math.max(0, Number(game.tu_rp_limit ?? 25))
+				let recordable_tu_rp = Math.min(info.rp_tu, max_tu_rp)
+				if (recordable_tu_rp > 0) {
+					rps.tu += recordable_tu_rp
+				}
+				game.tu_rp_limit = max_tu_rp - recordable_tu_rp
+				if (recordable_tu_rp < info.rp_tu && log) {
+					log(
+						`由于英国皇家海军封锁，土耳其仅记录 ${recordable_tu_rp}/${info.rp_tu} RP（剩余最大补给限度 ${game.tu_rp_limit}）。`
+					)
+				}
+			} else {
+				rps.tu += info.rp_tu
+			}
+		}
+	}
+
+	function can_entrench_in_space(game, s, faction) {
+		const { map } = Engine
+		// Rule 15.4.1 & 15.4.3
+		if (!map.is_controlled_by(game, s, faction)) return false
+		if (map.is_island_base(game, s)) return false
+		if (map.is_beachhead_space(game, s)) return false
+		if (map.is_region(game, s)) return false
+
+		let terrain = data.spaces[s].terrain
+		if (terrain === "desert") return false
+
+		// Rule 15.4.3: Mountains or Swamps only with advanced nations
+		if (terrain === "mountain" || terrain === "swamp") {
+			let pieces = map.get_pieces_in_space(game, s)
+			let regulars = pieces.filter((p) => {
+				let info = data.pieces[p]
+				return info.faction === faction && !is_tribe(p) && !is_irregular(p) && !set_has(game.moved, p)
+			})
+			const ADVANCED_NATIONS = ["br", "fr", "in", "anz", "ge", "ah"]
+			let has_advanced = regulars.some((p) => ADVANCED_NATIONS.includes(data.pieces[p].nation))
+			if (!has_advanced) return false
+		} else if (terrain !== "clear" && terrain !== "forest") {
+			// Rule 15.4.1: Regular units... in a clear or forest space... may attempt to build a Trench
+			return false
+		}
+
+		// PUG Rule: Only build Level 1 trench. Cannot upgrade.
+		if (has_trench(game, s) > 0) return false
+
+		let pieces = map.get_pieces_in_space(game, s)
+		// Rule 15.4.1: Only non-moving regular Combat Units count towards building a trench.
+		let regulars = pieces.filter((p) => {
+			let info = data.pieces[p]
+			return info.faction === faction && !is_tribe(p) && !is_irregular(p) && !set_has(game.moved, p)
+		})
+
+		return regulars.length !== 0
+	}
+
+	function get_entrenching_units_in_space(game, s, faction) {
+		const { map } = Engine
+		let pieces = map.get_pieces_in_space(game, s)
+		return pieces.filter((p) => {
+			let info = data.pieces[p]
+			// Regular units count for building. Irregulars/Tribes benefit but don't help building.
+			return info.faction === faction && !is_tribe(p) && !is_irregular(p) && !set_has(game.moved, p)
+		})
+	}
+
+	function place_trench(game, s, faction) {
+		if (!game.trenches) game.trenches = []
+
+		// Rule 15.4.4: Space may never contain more than one Trench marker.
+		// Rule 15.4.4: A player can never build Level 2 trenches.
+		if (!set_has(game.trenches, s)) {
+			set_add(game.trenches, s)
+		}
+	}
+
+	function has_trench(game, s) {
+		// Check Level 2 first
+		if (game.trenches_2 && set_has(game.trenches_2, s)) return 2
+		// Check Level 1
+		if (game.trenches && set_has(game.trenches, s)) return 1
+		return 0
+	}
+
+	function remove_trench(game, s) {
+		// Rule 15.4.9: Doiran starts with a Level 2 Trench which is permanent and never removed or reduced.
+		if (data.spaces[s].name === "Doiran") return
+
+		// PUG Rule: Level 1 Trench is removed when control changes. Level 2 (Doiran) is permanent.
+		if (game.trenches) set_delete(game.trenches, s)
+		if (game.trenches_2) set_delete(game.trenches_2, s)
+	}
+	function is_hq(p) {
+		if (p < 0 || !data.pieces[p]) return false
+		return data.pieces[p].type === "hq"
+	}
+
+	function is_heavy_arty(p) {
+		if (p < 0 || !data.pieces[p]) return false
+		return data.pieces[p].name.includes("Hvy Arty")
+	}
+
+	function restore_piece(game, p) {
+		set_delete(game.reduced, p)
+	}
+
+	function get_piece_mf(p) {
+		if (p < 0 || !data.pieces[p]) return 0
+		return data.pieces[p].mf || 0
+	}
+
+	function get_piece_badge(p) {
+		if (p < 0 || !data.pieces[p]) return null
+		let badge = data.pieces[p].badge
+		return badge ? badge.toLowerCase() : null
+	}
+
+	function get_piece_class(p) {
+		if (p < 0 || !data.pieces[p]) return null
+		return data.pieces[p].piece_class
+	}
+
+	function has_rcf(p) {
+		if (p < 0 || !data.pieces[p]) return false
+		return data.pieces[p].rcf !== undefined
+	}
+
+	function get_piece_lf(game, p) {
+		if (p < 0 || !data.pieces[p]) return 0
+		let piece = data.pieces[p]
+
+		// Rule 337: "?" loss value determination for current combat
+		if (game && game.attack && game.attack.piece_lf && game.attack.piece_lf[p] !== undefined) {
+			return game.attack.piece_lf[p]
+		}
+
+		if (is_piece_reduced(game, p)) return piece.rlf ?? piece.lf ?? 1
+		return piece.lf ?? piece.rlf ?? 1
+	}
+
+	// === Season & Year ===
+
+	//dont change this function
+	function get_season(game) {
+		const TURN_SEASON = [
+			null,
+			"Fall",
+			"Winter",
+			"Spring",
+			"Summer",
+			"Fall",
+			"Winter",
+			"Spring",
+			"Summer",
+			"Fall",
+			"Winter",
+			"Spring",
+			"Summer",
+			"Fall",
+			"Winter",
+			"Spring",
+			"Summer",
+			"Fall"
+		]
+		return TURN_SEASON[game.turn]
+	}
+
+	//dont change this function
+	function get_year(game) {
+		if (game.turn <= 1) return 1914
+		if (game.turn <= 5) return 1915
+		if (game.turn <= 9) return 1916
+		if (game.turn <= 13) return 1917
+		return 1918
+	}
+
+	function is_turn_event(game, event) {
+		if (!game.events) return false
+		let val = game.events[event]
+		if (val === true) return true
+		if (typeof val === "number") return val === game.turn
+		return false
+	}
+
+	// === Unit Logic (Combined from units.js) ===
+
+	function is_british_empire(nation) {
+		return ["br", "anz", "in", "in-g", "ar", "pe"].includes(nation)
+	}
+
+	function get_available_lcus_in_reserve(game, faction) {
+		let lcus = []
+		for (let i = 1; i < data.pieces.length; i++) {
+			if (data.pieces[i].piece_class === "LCU" && data.pieces[i].faction === faction && is_in_reserve(game, i)) {
+				lcus.push(i)
+			}
+		}
+		return lcus
+	}
+
+	function get_piece_value(game, p) {
+		let info = data.pieces[p]
+		let val = 0
+		let badge = info.badge ? info.badge.toLowerCase() : ""
+		if (badge === "blue") val += 100
+		else if (badge === "infantry") val += 50
+		else if (badge === "cavalry") val += 30
+
+		if (info.nation === "tu") val += 10
+		if (info.nation === "tua") val += 5
+
+		if (!set_has(game.reduced, p)) val += 1
+		return val
+	}
+
+	function get_combination_options_for_lcu(game, lcu_id, scu_ids, space = null) {
+		const { map } = Engine
+		let lcu_info = data.pieces[lcu_id]
+		if (space !== null) {
+			if (
+				map.is_central_asia(space) ||
+				map.is_afghanistan(space) ||
+				map.is_baluchistan(space) ||
+				map.is_india(space) ||
+				map.is_persia(space)
+			) {
+				return null
+			}
+			if (
+				(map.is_russia(space) || map.is_caucasus(space)) &&
+				["fr", "br", "in", "anz"].includes(lcu_info.nation)
+			) {
+				return null
+			}
+		}
+
+		// Filter out invalid SCUs (Rule 9.7.2)
+		scu_ids = scu_ids.filter((p) => {
+			let s = data.pieces[p]
+			if (s.type === "irregular") return false
+			let badge = s.badge ? s.badge.toLowerCase() : ""
+			if (badge === "yellow") return false // Special SCUs
+			return true
+		})
+
+		console.log(`[调试] get_combination_options_for_lcu: lcu=${lcu_id}, scus=${scu_ids}`)
+
+		// Sort scu_ids by value descending so we pick the most valuable ones to "save" in Reserve/Eliminated
+		scu_ids.sort((a, b) => get_piece_value(game, b) - get_piece_value(game, a))
+
+		function is_matching_first_two(lcu_id, scu_id) {
+			let l = data.pieces[lcu_id]
+			let s = data.pieces[scu_id]
+			let l_badge = l.badge ? l.badge.toLowerCase() : ""
+			let s_badge = s.badge ? s.badge.toLowerCase() : ""
+
+			// Rule 9.7.6 Ottoman Special LCU
+			if (l.nation === "tu" && l_badge === "yellow") {
+				let match = s.nation === "tu" && (s_badge === "infantry" || s_badge === "blue")
+				console.log(`[调试] matching yellow lcu: lcu=${lcu_id}, scu=${scu_id}, match=${match}`)
+				return match
+			}
+
+			// Rule 25.2.5 Substitution (Infantry > Cavalry)
+			let type_match
+			if (l_badge === "blue") {
+				type_match = s_badge === "blue"
+			} else if (l_badge === "infantry") {
+				type_match = s_badge === "infantry" || s_badge === "blue"
+			} else if (l_badge === "cavalry") {
+				type_match = s_badge === "cavalry" || s_badge === "infantry" || s_badge === "blue"
+			} else {
+				type_match = s_badge === l_badge
+			}
+			if (!type_match) {
+				console.log(`[调试] type mismatch: lcu=${lcu_id}(${l_badge}), scu=${scu_id}(${s_badge})`)
+				return false
+			}
+
+			// Rule 9.7.5 / 9.7.7: First two must match nationality
+			if (l.nation === s.nation) return true
+			if ((l.nation === "tu" || l.nation === "tua") && (s.nation === "tu" || s.nation === "tua")) return true
+			if (is_british_empire(l.nation) && is_british_empire(s.nation)) return true
+			console.log(`[调试] nation mismatch: lcu=${lcu_id}(${l.nation}), scu=${scu_id}(${s.nation})`)
+			return false
+		}
+
+		function is_matching_third(lcu_id, scu_id) {
+			let l = data.pieces[lcu_id]
+			let s = data.pieces[scu_id]
+			let l_badge = l.badge ? l.badge.toLowerCase() : ""
+			let s_badge = s.badge ? s.badge.toLowerCase() : ""
+
+			// Rule 9.7.6 Ottoman Special LCU
+			if (l.nation === "tu" && l_badge === "yellow") {
+				return (s.nation === "tu" || s.nation === "tua") && (s_badge === "infantry" || s_badge === "blue")
+			}
+
+			// Rule 25.2.5 Substitution (Infantry > Cavalry)
+			let type_match
+			if (l_badge === "blue") {
+				type_match = s_badge === "blue"
+			} else if (l_badge === "infantry") {
+				type_match = s_badge === "infantry" || s_badge === "blue"
+			} else if (l_badge === "cavalry") {
+				type_match = s_badge === "cavalry" || s_badge === "infantry" || s_badge === "blue"
+			} else {
+				type_match = s_badge === l_badge
+			}
+			if (!type_match) return false
+
+			// Rule 9.7.7 Commonwealth
+			if (is_british_empire(l.nation)) {
+				// Rule 9.7.7: Third piece can be any of BR, IN, ANZ
+				return ["br", "in", "anz"].includes(s.nation)
+			}
+
+			// General Rule 9.7.5: same nationality as LCU
+			if (l.nation === s.nation) return true
+			return (l.nation === "tu" || l.nation === "tua") && (s.nation === "tu" || s.nation === "tua")
+		}
+
+		// Find candidates for first two
+		let first_two_candidates = scu_ids.filter((p) => is_matching_first_two(lcu_id, p))
+		if (first_two_candidates.length < 2) {
+			console.log(`[调试] not enough first two candidates for lcu=${lcu_id}: ${first_two_candidates}`)
+			return null
+		}
+
+		// Try to form full strength combo
+		if (scu_ids.length >= 3) {
+			for (let i = 0; i < first_two_candidates.length; i++) {
+				for (let j = i + 1; j < first_two_candidates.length; j++) {
+					let p1 = first_two_candidates[i]
+					let p2 = first_two_candidates[j]
+					let p3 = scu_ids.find((p) => p !== p1 && p !== p2 && is_matching_third(lcu_id, p))
+					if (p3) {
+						let chosen = [p1, p2, p3]
+						// No need to sort again as scu_ids was already sorted
+						console.log(`[调试] found full combo for lcu=${lcu_id}: ${chosen}`)
+						return { type: "full", pieces: chosen }
+					}
+				}
+			}
+		}
+
+		// Try to form reduced strength combo
+		let chosen = first_two_candidates.slice(0, 2)
+		console.log(`[调试] found reduced combo for lcu=${lcu_id}: ${chosen}`)
+		return { type: "reduced", pieces: chosen }
+	}
+
+	function can_combine_in_space(game, s, faction) {
+		const { map, supply } = Engine
+
+		let pieces = map.get_pieces_in_space(game, s)
+		// Rule 14.1.9: Limited supply units cannot organize into LCUs.
+		// Rule 14.3.1: OOS units cannot activate (including for combination).
+		let scu_ids = pieces.filter(
+			(p) => {
+				if (!is_scu(p)) return false
+				if (get_piece_effective_faction(game, p) !== faction) return false
+				if (set_has(game.moved, p)) return false
+				let status = supply.get_supply_status(game, s, faction, p)
+				return status !== "OOS" && status !== "LIMITED"
+			}
+		)
+
+		if (scu_ids.length < 2) {
+			// [调试] SCU 数量不足或不符合条件
+			return false
+		}
+
+		// Check geography
+		let terrain = data.spaces[s].terrain
+		if (terrain === "desert") {
+			// Need railway to supply source
+			if (!map.is_rail_connected_to_supply(game, s, faction)) {
+				// [调试] 沙漠地区且无铁路连接补给源
+				return false
+			}
+		}
+		if (
+			map.is_central_asia(s) ||
+			map.is_afghanistan(s) ||
+			map.is_baluchistan(s) ||
+			map.is_india(s) ||
+			map.is_persia(s)
+		) {
+			return false
+		}
+
+		// Rule 204: Restricted areas need rail connection
+		let area = map.get_restricted_area(s)
+		if (area) {
+			if (!map.is_rail_connected_to_supply(game, s, faction)) {
+				// [调试] 受限区域且无铁路连接补给源
+				return false
+			}
+			// LCU limit (Rule 9.8.3)
+			let limit = map.get_lcu_limit_for(game, faction)
+			let current_count = map.count_lcu_in_area(game, area, faction)
+			if (current_count >= limit) {
+				// [调试] 达到 LCU 限制
+				return false
+			}
+		}
+
+		// Rule 197: Turkish/TU-Arab and Bulgarian SCUs cannot combine in swamp
+		if (terrain === "swamp") {
+			if (scu_ids.some((p) => ["tu", "tua", "bu"].includes(data.pieces[p].nation))) {
+				// [调试] 土耳其/阿拉伯/保加利亚单位不能在沼泽组合
+				return false
+			}
+		}
+
+		// Rule 197: Turkish SCUs cannot combine in Egypt
+		if (map.is_egypt(s)) {
+			if (scu_ids.some((p) => ["tu", "tua"].includes(data.pieces[p].nation))) {
+				// [调试] 土耳其单位不能在埃及组合
+				return false
+			}
+		}
+
+		// Now check if any LCU can be formed
+		let lcus = get_available_lcus_in_reserve(game, faction)
+		if (lcus.length === 0) {
+			// [调试] 预备区无可用 LCU
+			return false
+		}
+
+		for (let lcu of lcus) {
+			if (get_combination_options_for_lcu(game, lcu, scu_ids, s)) return true
+		}
+
+		// [调试] 无匹配的 LCU 组合选项
+		return false
+	}
+
+	Object.assign(exports, {
+		find_space,
+		find_capital,
+		find_piece,
+		find_piece_by_name,
+		is_eliminated,
+		is_in_reserve,
+		piece_name,
+		space_name,
+		get_space_nation,
+		get_space_faction,
+		is_removed,
+		is_reinforcement,
+		is_not_on_map,
+		get_piece_faction,
+		get_reserve_box_for_piece,
+		count_tribes_on_map,
+		is_piece_reduced,
+		reduce_piece,
+		is_regular,
+		is_irregular,
+		is_tribe,
+		is_hq,
+		is_heavy_arty,
+		restore_piece,
+		get_piece_mf,
+		get_piece_badge,
+		get_piece_class,
+		has_rcf,
+		get_piece_lf,
+		get_piece_nation,
+		get_piece_type,
+		is_lcu,
+		is_scu,
+		get_nation_group,
+		get_piece_cf,
+		get_season,
+		get_year,
+		is_turn_event,
+		get_scu_reserve_box,
+		get_available_lcus_in_reserve,
+		get_combination_options_for_lcu,
+		can_combine_in_space,
+		get_lcu_reserve_box,
+		get_piece_effective_faction,
+		get_reserve_box,
+		get_capacity,
+		get_tribe_key_space,
+		get_eliminated_box,
+		get_removed_box,
+		has_scu_in_reserve,
+		get_pieces_in_reserve,
+		get_pieces_in_eliminated,
+		get_pieces_in_removed,
+		get_pieces_in_reinforcements,
+		eliminate_piece,
+		replace_lcu_with_scu,
+		add_rps,
+		has_trench,
+		place_trench,
+		remove_trench,
+		can_entrench_in_space,
+		get_entrenching_units_in_space
+	})
+
+	return exports
+}

@@ -1,0 +1,27 @@
+"use strict"
+
+const AP = "ap"
+const CP = "cp"
+const ELIMINATED = 0
+const RESERVE = -1
+const REMOVED = -2
+const REINFORCEMENTS = -3
+
+const COMMITMENT_MOBILIZATION = "mobilization"
+const COMMITMENT_LIMITED = "limited"
+const COMMITMENT_TOTAL = "total"
+
+const RUSSO_BRITISH_ASSAULT = 1
+
+module.exports = {
+	AP,
+	CP,
+	ELIMINATED,
+	RESERVE,
+	REMOVED,
+	REINFORCEMENTS,
+	COMMITMENT_MOBILIZATION,
+	COMMITMENT_LIMITED,
+	COMMITMENT_TOTAL,
+	RUSSO_BRITISH_ASSAULT
+}

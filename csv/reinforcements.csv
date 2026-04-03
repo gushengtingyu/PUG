@@ -1,0 +1,133 @@
+id,card,name,x,y,side,type
+1001,2,ANZ Elite DIV,80,135,ap,reinforcement
+1002,2,ANZ Cavalry #1,149,135,ap,reinforcement
+1003,8,BR Persian Cordon #1,253,135,ap,reinforcement
+1004,9,RU Elite DIV #3,382,135,ap,reinforcement
+1005,9,RU DIV #11 #12,451,136,ap,reinforcement
+1006,10,RU IV Caucasian,563,143,ap,reinforcement
+1007,10,RU Elite DIV #4,638,136,ap,reinforcement
+1008,10,RU DIV #13,707,136,ap,reinforcement
+1009,10,RU Cavalry #7,775,136,ap,reinforcement
+1010,11,Max TU RP,888,143,ap,reinforcement
+1011,12,Beachhead #2,88,263,ap,reinforcement
+1012,13,BR Elite DIV #1 #2,207,256,ap,reinforcement
+1013,14,Kitch.token,321,263,ap,reinforcement
+1014,16,Arab Revolt #1 #2,436,256,ap,reinforcement
+1015,16,Arab faisal Revolt,505,256,ap,reinforcement
+1016,17,RU 2/4 Special,609,256,ap,reinforcement
+1017,17,IT DIV,679,256,ap,reinforcement
+1018,17,GR National Defense,747,256,ap,reinforcement
+1019,19,ANZ Imp Camel,850,256,ap,reinforcement
+1020,19,ANZ Cavalry #2,919,256,ap,reinforcement
+1021,19,SINAI RAILROAD,994,263,ap,reinforcement
+1022,22,BR IX Corps,89,382,ap,reinforcement
+1023,22,BR Elite DIV #3,166,376,ap,reinforcement
+1024,22,BR DIV #2 #3,234,376,ap,reinforcement
+1025,22,BR Cavalry #1,302,376,ap,reinforcement
+1026,22,Beachhead #3,378,382,ap,reinforcement
+1027,23,RU DIV #14,489,376,ap,reinforcement
+1028,23,RU Cavalry #8,558,376,ap,reinforcement
+1029,23,RU Baratov HQ,627,376,ap,reinforcement
+1030,23,RU/PE Police North,695,376,ap,reinforcement
+1031,23,BR Persian Cordon #2 #3 #4,764,376,ap,reinforcement
+1032,24,SB 1 Army,89,503,ap,reinforcement
+1033,24,SB 2 Army,173,503,ap,reinforcement
+1034,24,SB 3 Army,257,503,ap,reinforcement
+1035,24,SB DIV #1 #2 #3 #4 #5 #6,333,495,ap,reinforcement
+1036,24,SB Cavalry,401,495,ap,reinforcement
+1037,25,RU V Caucasian,513,503,ap,reinforcement
+1038,25,RU Black Sea,590,495,ap,reinforcement
+1039,25,RU DIV #15,658,495,ap,reinforcement
+1040,26,IN Tigris Corps,770,503,ap,reinforcement
+1041,26,IN 2nd Corps,854,503,ap,reinforcement
+1042,26,IN DIV #7,931,495,ap,reinforcement
+1043,27,BR Elite DIV #4 #5 #6,80,615,ap,reinforcement
+1044,28,BR Maude HQ,185,615,ap,reinforcement
+1045,28,IN 15th DIV,254,615,ap,reinforcement
+1046,30,BR VIII Corps,366,624,ap,reinforcement
+1047,30,ANZ ANZAC,450,624,ap,reinforcement
+1048,30,BR DIV #4,525,615,ap,reinforcement
+1049,30,FR DIV #1 #2,594,615,ap,reinforcement
+1050,30,Beachhead #4 #5,670,623,ap,reinforcement
+1051,32,Armenian Uprising,783,615,ap,reinforcement
+1052,32,Armenian Uprising token #1 #2 #3,858,623,ap,reinforcement
+1053,33,BR Cavalry #2,972,615,ap,reinforcement
+1054,34,BR XII Corps,87,744,ap,reinforcement
+1055,34,BR XVI Corps,172,744,ap,reinforcement
+1056,34,FR Army Orient 1,256,744,ap,reinforcement
+1057,34,FR DIV #3 #4,332,735,ap,reinforcement
+1058,34,Beachhead #6,409,744,ap,reinforcement
+1059,35,BR Dunsterforce,521,735,ap,reinforcement
+1060,35,BR/PE SPers Rifles,590,735,ap,reinforcement
+1061,36,IN 17th DIV,693,735,ap,reinforcement
+1062,36,IN 18th DIV,762,735,ap,reinforcement
+1063,36,IN Cavalry #4 #5,830,735,ap,reinforcement
+1064,37,RU DIV #16 #17 #18,935,735,ap,reinforcement
+1065,40,W.W.Pt. token,89,865,ap,reinforcement
+1066,42,J By C token,209,865,ap,reinforcement
+1067,43,RU VII Caucasian,328,865,ap,reinforcement
+1068,43,RU Caucasian Cav,412,865,ap,reinforcement
+1069,43,RU Elite DIV #5 #6,488,855,ap,reinforcement
+1070,47,IN 3rd Corps,600,865,ap,reinforcement
+1071,47,IN Elite DIV #3,677,855,ap,reinforcement
+1072,47,IN Cavalry #6,745,855,ap,reinforcement
+1073,53,FR Army Orient 2,858,865,ap,reinforcement
+1074,53,FR DIV #5 #6,933,855,ap,reinforcement
+1075,53,FR D'Esperey HQ,1002,855,ap,reinforcement
+1076,54,BR XX Corps,89,983,ap,reinforcement
+1077,54,BR XXI Corps,172,983,ap,reinforcement
+1078,54,BR DIV #5 #6,248,974,ap,reinforcement
+1079,54,BR Cavalry #3,317,974,ap,reinforcement
+1080,54,ANZ Cavalry #3,387,974,ap,reinforcement
+1081,54,BR Allenby HQ,453,974,ap,reinforcement
+1082,54,BR ANA Arab,522,974,ap,reinforcement
+1083,55,ANZ Desert Corps,635,983,ap,reinforcement
+1084,55,BR DIV #7,710,974,ap,reinforcement
+1085,55,BR Cavalry #4,779,974,ap,reinforcement
+1086,0,AP Removed Box,386,1106,ap,reinforcement
+1087,0,AP Permanently Eliminated Box,686,1106,ap,reinforcement
+1101,8,Trench,90,145,cp,reinforcement
+1102,10,TU-A DIV #10,233,137,cp,reinforcement
+1103,13,TU Elite DIV #9 #10,394,137,cp,reinforcement
+1104,13,TU Cavalry #5,462,137,cp,reinforcement
+1105,18,TU-A DIV #11,567,137,cp,reinforcement
+1106,21,CP Air Superiority token,713,145,cp,reinforcement
+1107,22,U_boats in the Med token,900,145,cp,reinforcement
+1108,23,PE Uprising,81,257,cp,reinforcement
+1109,23,Persian Uprising token,158,264,cp,reinforcement
+1110,25,TU DIV #13 #14 #15 #16 #17,270,257,cp,reinforcement
+1111,25,TU Cavalry #6,338,257,cp,reinforcement
+1112,26,TU XIV Corps,450,265,cp,reinforcement
+1113,26,TU XV Corps,534,265,cp,reinforcement
+1114,26,TU XVI Corps,618,265,cp,reinforcement
+1115,26,TU XVII Corps,702,265,cp,reinforcement
+1116,26,TU-A XVIII Corps,786,264,cp,reinforcement
+1117,26,TU DIV #18,863,257,cp,reinforcement
+1118,26,TU-A DIV #12,930,257,cp,reinforcement
+1119,29,BU 4 Army,89,383,cp,reinforcement
+1120,34,Parvus to Berlin token,301,383,cp,reinforcement
+1121,34,Revolution token,385,383,cp,reinforcement
+1122,34,Long Live the Czar! token,470,383,cp,reinforcement
+1123,37,TU-A DIV #13 #14 #15 #16,580,375,cp,reinforcement
+1124,37,Trench,657,383,cp,reinforcement
+1125,44,TU Army Islam HQ,769,375,cp,reinforcement
+1126,45,GE Yildrim #1 #2 #3,918,375,cp,reinforcement
+1127,49,BB.RR token,90,503,cp,reinforcement
+1128,51,TU XX Corps,279,503,cp,reinforcement
+1129,51,TU XXII Corps,363,503,cp,reinforcement
+1130,51,TU-A Left Wing Gp,446,503,cp,reinforcement
+1131,51,TU-A DIV #17,523,496,cp,reinforcement
+1132,52,TU 1 Caucasian,635,503,cp,reinforcement
+1133,52,TU 2 Caucasian,720,503,cp,reinforcement
+1134,0,Afghan Uprising #1 #2 #3,81,676,cp,reinforcement
+1135,0,CAsia Uprising,186,677,cp,reinforcement
+1136,0,Egypt Rebel #1 #2 #3,290,677,cp,reinforcement
+1137,0,Indian Mutiny #1 #2 #3,394,677,cp,reinforcement
+1138,0,Arm Transcas #1 #2 #3,499,677,cp,reinforcement
+1139,0,Geo Transcaucasian #1 #2,567,677,cp,reinforcement
+1140,0,GE GeoProtect,636,677,cp,reinforcement
+1141,0,Baku Uprising token,713,684,cp,reinforcement
+1142,0,C.Asia Uprising token,797,684,cp,reinforcement
+1143,0,Enzeli Uprising token,881,684,cp,reinforcement
+1144,0,CP Removed Box,385,865,cp,reinforcement
+1145,0,CP Permanently Eliminated Box,686,865,cp,reinforcement
