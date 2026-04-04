@@ -279,6 +279,11 @@ module.exports = function (Engine) {
 				rules.set_delete(game.moved, p)
 			}
 		}
+		delete game.combat_cards
+		delete game.combat_cards_effected
+		delete game.battle_result
+		delete game.post_battle_cc_resume
+		delete game.post_roll_cc_done
 		game.attack = null
 		game.where = -1
 	}
@@ -843,7 +848,7 @@ module.exports = function (Engine) {
 					(piece.nation === "br" || piece.nation === "in" || piece.nation === "anz") &&
 					piece.piece_class === "SCU" &&
 					(get_piece_badge(p) === "infantry" || get_piece_badge(p) === "blue") &&
-					rules.is_in_reserve(p)
+					rules.is_in_reserve(game, p)
 				) {
 					let cost = rules.get_sr_cost(p)
 					if (count + cost <= max_count) {
@@ -1679,7 +1684,7 @@ module.exports = function (Engine) {
 
 					let cost = rules.get_replacement_cost(game, p)
 					if (cost > 0 && cost <= remaining && rules.can_afford_replacement(game, p, cost)) {
-						if (rules.is_eliminated(p)) {
+						if (rules.is_eliminated(game, p)) {
 							if (info.badge === "triangle") continue
 							let valid_spaces = rules.get_valid_rebuild_spaces(game, p, CP)
 							if (valid_spaces.length > 0) {
@@ -1705,7 +1710,7 @@ module.exports = function (Engine) {
 			if (!game.fresh_recruits_spent) game.fresh_recruits_spent = 0
 			game.fresh_recruits_spent += cost
 
-			if (rules.is_eliminated(p)) {
+			if (rules.is_eliminated(game, p)) {
 				game.state = "event_fresh_recruits_rebuild"
 				game.rebuild_piece = p
 			} else {
@@ -1761,23 +1766,10 @@ module.exports = function (Engine) {
 			res.prompt(`前线预备役: 剩余 ${remaining} 土耳其补员点数`)
 
 			if (remaining > 0) {
-				for (let p of game.reserves_to_front_pieces) {
-					let info = data.pieces[p]
-					let cost = 0
-					if (rules.is_eliminated(p)) {
-						cost = info.piece_class === "LCU" ? 2 : 1
-					} else if (rules.set_has(game.reduced, p)) {
-						cost = info.piece_class === "LCU" ? 1 : 0.5
-					}
+				for (let p of game.reserves_to_front_pieces || []) {
+					let cost = Engine.combat_cards.get_reserves_to_front_piece_cost(game, p)
 					if (cost > 0 && cost <= remaining) {
-						if (rules.is_eliminated(p)) {
-							let valid_spaces = rules.get_valid_rebuild_spaces(game, p, CP)
-							if (valid_spaces.includes(game.attack.space)) {
-								res.piece(p)
-							}
-						} else if (rules.set_has(game.reduced, p)) {
-							res.piece(p)
-						}
+						res.piece(p)
 					}
 				}
 			}
@@ -1786,14 +1778,18 @@ module.exports = function (Engine) {
 		},
 		piece(ctx) {
 			let { game, rules, arg: p } = ctx
+			if (!Array.isArray(game.reserves_to_front_pieces) || !game.reserves_to_front_pieces.includes(p)) return
+			let spent = game.reserves_to_front_spent || 0
+			let remaining = 2 - spent
+			if (remaining <= 0) return
+			let cost = Engine.combat_cards.get_reserves_to_front_piece_cost(game, p)
+			if (cost <= 0 || cost > remaining) return
+			let is_elim_or_removed_exception =
+				rules.is_eliminated(game, p) || Engine.combat_cards.is_reserves_to_front_removed_exception(game, p)
+			// 战斗后原地重建依赖当前战斗地块，缺失上下文时直接拒绝本次操作
+			if (is_elim_or_removed_exception && (!game.attack || !game.attack.space)) return
+
 			rules.push_undo()
-			let info = data.pieces[p]
-			let cost = 0
-			if (rules.is_eliminated(p)) {
-				cost = info.piece_class === "LCU" ? 2 : 1
-			} else if (rules.set_has(game.reduced, p)) {
-				cost = info.piece_class === "LCU" ? 1 : 0.5
-			}
 			rules.spend_replacement_points(game, p, cost)
 			if (!game.reserves_to_front_spent) game.reserves_to_front_spent = 0
 			game.reserves_to_front_spent += cost
@@ -1803,9 +1799,10 @@ module.exports = function (Engine) {
 				rules.set_add(game.reserves_to_front_effected_pieces, p)
 			}
 
-			if (rules.is_eliminated(p)) {
+			if (is_elim_or_removed_exception) {
 				game.pieces[p] = game.attack.space
-				rules.log(`${rules.piece_name(p)} 在 ${rules.space_name(game.attack.space)} 原地重建。`)
+				rules.set_add(game.reduced, p)
+				rules.log(`${rules.piece_name(p)} 在 ${rules.space_name(game.attack.space)} 重建。`)
 			} else {
 				rules.set_delete(game.reduced, p)
 				rules.log(`${rules.piece_name(p)} (${rules.space_name(game.pieces[p])}) 补员至满员状态。`)
@@ -2380,7 +2377,7 @@ module.exports = function (Engine) {
 			for (let name of BULGARIAN_ENTRY_AH_DIVISIONS) {
 				let p = Engine.game_utils.find_piece_by_name(CP, name)
 				if (p >= 0 && !rules.set_has(removed, p)) {
-					if (!rules.is_removed(p)) {
+					if (!rules.is_removed(game, p)) {
 						res.piece(p)
 						options++
 					}

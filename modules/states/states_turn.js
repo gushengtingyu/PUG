@@ -438,6 +438,21 @@ exports.register = function (states, Engine, context) {
 		start_mandated_offensive_phase()
 	}
 
+	function get_cp_opening_mobilization_ops4_cards() {
+		if (!Array.isArray(game.deck_cp)) return []
+		let candidates = game.deck_cp.filter((c) => {
+			let card = data.cards[c]
+			return (
+				card &&
+				card.faction === CP &&
+				card.commitment === COMMITMENT_MOBILIZATION &&
+				Number(card.ops) === 4
+			)
+		})
+		candidates.sort((a, b) => a - b)
+		return candidates
+	}
+
 	function start_mandated_offensive_phase() {
 		game.state = "mandated_offensive_phase"
 		log_h2("强制进攻阶段")
@@ -455,11 +470,13 @@ exports.register = function (states, Engine, context) {
 			game.mo_cp = MO_RUSSIA
 			game.mo_ap_fulfilled = false
 			game.mo_cp_fulfilled = false
-			// AP has initiative in each Action Round (Rule 4.0 B)
-			game.active = AP
+			game.active = CP
 			game.player_order = [AP, CP]
-
-			game.state = "acknowledge_mo_results"
+			if (!game.cp_opening_mobilization_pick_done) {
+				game.state = "cp_opening_mobilization_pick"
+			} else {
+				game.state = "acknowledge_mo_results"
+			}
 			return
 		}
 
@@ -553,6 +570,39 @@ exports.register = function (states, Engine, context) {
 
 		game.active = AP
 		game.state = "acknowledge_mo_results"
+	}
+
+	states.cp_opening_mobilization_pick = {
+		prompt(res) {
+			let candidates = get_cp_opening_mobilization_ops4_cards()
+			if (candidates.length === 0) {
+				log("开局同盟国未找到可选的动员阶段4点牌，跳过选牌。")
+				game.cp_opening_mobilization_pick_done = true
+				game.active = AP
+				game.state = "acknowledge_mo_results"
+				states.acknowledge_mo_results.prompt(res)
+				return
+			}
+			res.prompt("同盟国自选一张动员阶段4点牌加入手牌。")
+			res.hand(candidates)
+			for (let c of candidates) {
+				res.action("card", c)
+			}
+		},
+		card(c) {
+			c = Number(c)
+			if (!Number.isInteger(c)) return
+			let candidates = get_cp_opening_mobilization_ops4_cards()
+			if (!candidates.includes(c)) return
+			push_undo()
+			let idx = game.deck_cp.indexOf(c)
+			if (idx >= 0) game.deck_cp.splice(idx, 1)
+			game.hand_cp.push(c)
+			game.cp_opening_mobilization_pick_done = true
+			log(`同盟国自选牌: ${data.cards[c].name}`)
+			game.active = AP
+			game.state = "acknowledge_mo_results"
+		}
 	}
 
 	function start_war_status_phase() {

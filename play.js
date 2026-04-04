@@ -4325,7 +4325,10 @@ function update_space(s, pieces_in_this_space) {
 				el.current_image = image
 			}
 
-			const is_highlight = has_loose_id(state.action_piece, p)
+			const is_highlight =
+				has_loose_id(state.action_piece, p) ||
+				has_loose_id(state.action_advance_pieces, p) ||
+				has_loose_id(state.action_retreat_pieces, p)
 			el.classList.toggle("highlight", is_highlight)
 
 			const activated_by_action = has_loose_id(state.action_attack_piece, p) || has_loose_id(state.action_move_piece, p)
@@ -4603,7 +4606,10 @@ function update_reserve_box(space_id, piece_ids) {
 		el.classList.remove("offmap")
 		el.classList.toggle("reduced", is_reduced)
 
-		const is_highlight = has_loose_id(state.action_piece, p)
+		const is_highlight =
+			has_loose_id(state.action_piece, p) ||
+			has_loose_id(state.action_advance_pieces, p) ||
+			has_loose_id(state.action_retreat_pieces, p)
 		el.classList.toggle("highlight", is_highlight)
 
 		const is_selected = state.who_single === p || has_id(state.who_set, p)
@@ -4697,7 +4703,10 @@ function update_eliminated_box(space_id, piece_ids) {
 			el.current_image = image
 		}
 
-		const is_highlight = has_loose_id(state.action_piece, p)
+		const is_highlight =
+			has_loose_id(state.action_piece, p) ||
+			has_loose_id(state.action_advance_pieces, p) ||
+			has_loose_id(state.action_retreat_pieces, p)
 		el.classList.toggle("highlight", is_highlight)
 
 		const is_selected = state.who_single === p || has_id(state.who_set, p)
@@ -4993,6 +5002,18 @@ function on_click_piece(e, p) {
 				log_stack_debug("click_piece.send_action", e, stack, { piece: p, action: "piece" })
 				end_interaction_perf(perf_id, "click_piece.sent_action", { action: "piece" })
 				return send_action("piece", piece_noun)
+			}
+			const advance_piece_noun = get_action_noun("advance_pieces", p)
+			if (advance_piece_noun !== undefined) {
+				log_stack_debug("click_piece.send_action", e, stack, { piece: p, action: "piece" })
+				end_interaction_perf(perf_id, "click_piece.sent_action", { action: "piece" })
+				return send_action("piece", advance_piece_noun)
+			}
+			const retreat_piece_noun = get_action_noun("retreat_pieces", p)
+			if (retreat_piece_noun !== undefined) {
+				log_stack_debug("click_piece.send_action", e, stack, { piece: p, action: "piece" })
+				end_interaction_perf(perf_id, "click_piece.sent_action", { action: "piece" })
+				return send_action("piece", retreat_piece_noun)
 			}
 			for (let action in view.actions) {
 				const action_noun = get_action_noun(action, p)

@@ -100,7 +100,9 @@ module.exports = function (Engine) {
 			game.attack.initial_attackers || [],
 			game.attack.pieces || [],
 			game.attack.initial_defenders || [],
-			get_space_pieces(game, game.attack.space)
+			get_space_pieces(game, game.attack.space),
+			game.attack.eliminated_defenders || [],
+			game.attack.eliminated_attackers || []
 		]
 		for (let group of groups) {
 			for (let p of group) {
@@ -121,6 +123,22 @@ module.exports = function (Engine) {
 				is_removed(game, p) && info && (info.symbol === "dot" || info.symbol === "triangle")
 			return set_has(game.reduced, p) || is_eliminated(game, p) || removed_by_reserves_exception
 		})
+	}
+
+	function is_reserves_to_front_removed_exception(game, p) {
+		let info = data.pieces[p]
+		if (!info) return false
+		return is_removed(game, p) && (info.symbol === "dot" || info.symbol === "triangle")
+	}
+
+	function get_reserves_to_front_piece_cost(game, p) {
+		let info = data.pieces[p]
+		if (!info) return 0
+		let is_elim_or_removed_exception =
+			is_eliminated(game, p) || is_reserves_to_front_removed_exception(game, p)
+		if (is_elim_or_removed_exception) return 1
+		if (set_has(game.reduced, p)) return info.piece_class === "LCU" ? 1 : 0.5
+		return 0
 	}
 
 	function can_play_no_prisoners(game) {
@@ -215,6 +233,7 @@ module.exports = function (Engine) {
 	}
 
 	function can_play_sandstorms(game) {
+		if (game.events && game.events["sandstorms_mosquitoes"] === game.turn) return false
 		return is_desert_or_swamp_battle(game)
 	}
 
@@ -453,6 +472,8 @@ module.exports = function (Engine) {
 
 	Object.assign(exports, {
 		get_battle_piece_pool,
+		is_reserves_to_front_removed_exception,
+		get_reserves_to_front_piece_cost,
 		is_middle_east_area,
 		is_desert_or_swamp_battle,
 		can_play_no_prisoners,

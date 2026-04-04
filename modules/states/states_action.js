@@ -309,7 +309,7 @@ exports.register = function (states, Engine, context) {
 				res.prompt(`战略调整：选择要调整的单位或堆叠 (剩余 SR 点数: ${game.sr}。LCU 耗费 4 点，SCU 耗费 1 点)`)
 				let spaces = new Set()
 				for (let p = 0; p < game.pieces.length; p++) {
-					let from_reserve = is_in_reserve(p)
+					let from_reserve = is_in_reserve(game, p)
 					if (is_not_on_map(game, p) && !from_reserve) continue
 					if (from_reserve && !can_use_reserve_sr_for_piece(p)) continue
 					if (can_sr_piece(game, p, active_faction())) {
@@ -378,7 +378,7 @@ exports.register = function (states, Engine, context) {
 			res.who(p)
 			res.where(game.pieces[p])
 			res.prompt(`战略调整：选择 ${piece_name(p)} 的目的地 (SR 耗费: ${cost})`)
-			let from_reserve = is_in_reserve(p)
+			let from_reserve = is_in_reserve(game, p)
 			let destinations = get_sr_destinations(game, p, active_faction())
 			for (let s of destinations) {
 				if (from_reserve && is_reserve_space_id(s)) continue

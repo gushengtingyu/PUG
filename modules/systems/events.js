@@ -20,7 +20,6 @@ module.exports = function (Engine) {
 		is_scu,
 		is_lcu,
 		is_tribe,
-		is_regular,
 		is_eliminated,
 		is_not_on_map,
 		get_piece_faction,
@@ -604,6 +603,7 @@ module.exports = function (Engine) {
 	exports.can_play_event = function (game, card_index) {
 		let card = data.cards[card_index]
 		if (!card) return false
+		if (card.cc) return false
 		let entry = get_event_entry(card)
 		if (entry && typeof entry.can_play === "function") {
 			if (!entry.can_play(game)) return false
@@ -625,6 +625,7 @@ module.exports = function (Engine) {
 	exports.play_event = function (game, card_index, ctx) {
 		let card = data.cards[card_index]
 		if (!card) return false
+		if (card.cc) return false
 		let entry = get_event_entry(card)
 		if (entry && (entry.play || entry.handler)) {
 			let rein_key = get_rein_record_key(card, entry)
@@ -2678,6 +2679,16 @@ module.exports = function (Engine) {
 		if (!entry) continue
 		entry.id = Number(id)
 		if (entry.name) events_by_name[entry.name] = entry
+	}
+
+	for (let c = 1; c < data.cards.length; c++) {
+		let card = data.cards[c]
+		if (!card || !card.cc || !card.event) continue
+		let entry = events_by_name[card.event]
+		if (!entry) continue
+		delete entry.can_play
+		delete entry.handler
+		delete entry.play
 	}
 
 	function get_event_by_id(id) {

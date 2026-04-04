@@ -47,6 +47,48 @@ describe("运行时烟雾测试", () => {
 		expectRetreatedInvariant(game)
 	})
 
+	test("开局先进入同盟国动员4点牌选牌阶段", () => {
+		let game = setupGame(12345)
+		expect(game.state).toBe("cp_opening_mobilization_pick")
+		expect(game.active).not.toBe(AP)
+		let candidates = game.deck_cp.filter((c) => {
+			let card = Engine.data.cards[c]
+			return (
+				card &&
+				card.faction === Engine.constants.CP &&
+				card.commitment === Engine.constants.COMMITMENT_MOBILIZATION &&
+				Number(card.ops) === 4
+			)
+		})
+		expect(candidates.length).toBeGreaterThan(0)
+		let view = rules.view(game, "Central Powers")
+		expect(Array.isArray(view.actions.card)).toBe(true)
+		expect(new Set(view.actions.card)).toEqual(new Set(candidates))
+	})
+
+	test("同盟国开局选牌后进入AP确认强制进攻", () => {
+		let game = setupGame(12345)
+		let choose = game.deck_cp.find((c) => {
+			let card = Engine.data.cards[c]
+			return (
+				card &&
+				card.faction === Engine.constants.CP &&
+				card.commitment === Engine.constants.COMMITMENT_MOBILIZATION &&
+				Number(card.ops) === 4
+			)
+		})
+		let oldHand = game.hand_cp.length
+		let oldDeck = game.deck_cp.length
+		game = rules.action(game, "Central Powers", "card", choose)
+		expect(game.hand_cp.includes(choose)).toBe(true)
+		expect(game.hand_cp.length).toBe(oldHand + 1)
+		expect(game.deck_cp.includes(choose)).toBe(false)
+		expect(game.deck_cp.length).toBe(oldDeck - 1)
+		expect(game.cp_opening_mobilization_pick_done).toBe(true)
+		expect(game.state).toBe("acknowledge_mo_results")
+		expect(game.active).toBe(AP)
+	})
+
 	test("retreated 单位不会回到战斗单位池", () => {
 		const { data } = Engine
 		const apPiece = data.pieces.findIndex((p) => p && p.faction === "ap" && p.type !== "hq")

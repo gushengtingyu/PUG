@@ -1714,7 +1714,7 @@ function refresh_attack_eligibility() {
 	}
 	for (let p = 0; p < game.pieces.length; p++) {
 		let s = game.pieces[p]
-		if (s && s > 0 && activated_attack_flag[s] === 1 && !is_not_on_map(p)) {
+		if (s && s > 0 && activated_attack_flag[s] === 1 && !is_not_on_map(game, p)) {
 			// Check if unit has already attacked in this action round
 			if (set_has(game.attacked, p)) continue
 			if (Array.isArray(game.retreated) && set_has(game.retreated, p)) continue
@@ -1906,6 +1906,20 @@ function set_up_standard_decks(full) {
 	shuffle(game.deck_ap, game)
 	shuffle(game.deck_cp, game)
 
+	// Special handling for Turn 1 opening:
+	// Ensure all CP mobilization 4-ops cards are in the deck for the "opening pick" phase.
+	// We'll temporarily remove them from the deck before drawing initial hand,
+	// then put them back after drawing.
+	let special_cards = game.deck_cp.filter(c => {
+		let card = data.cards[c];
+		return card && card.faction === CP && card.commitment === COMMITMENT_MOBILIZATION && Number(card.ops) === 4;
+	});
+
+	for (let c of special_cards) {
+		let idx = game.deck_cp.indexOf(c);
+		if (idx >= 0) game.deck_cp.splice(idx, 1);
+	}
+
 	// Draw initial hands
 	while (game.hand_ap.length < game.options.hand_size) {
 		if (game.deck_ap.length > 0) game.hand_ap.push(game.deck_ap.pop())
@@ -1915,6 +1929,13 @@ function set_up_standard_decks(full) {
 		if (game.deck_cp.length > 0) game.hand_cp.push(game.deck_cp.pop())
 		else break
 	}
+
+	// Put special cards back to deck
+	for (let c of special_cards) {
+		game.deck_cp.push(c)
+	}
+	// Re-shuffle deck_cp
+	shuffle(game.deck_cp, game);
 }
 
 exports.active_faction = active_faction

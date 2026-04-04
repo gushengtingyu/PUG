@@ -4,7 +4,17 @@ module.exports = function (Engine) {
 	const { data, constants, utils, game_utils } = Engine
 	const exports = {}
 
-	const { AP, CP, COMMITMENT_MOBILIZATION, COMMITMENT_LIMITED, COMMITMENT_TOTAL } = constants
+	const {
+		AP,
+		CP,
+		RESERVE,
+		ELIMINATED,
+		REMOVED,
+		REINFORCEMENTS,
+		COMMITMENT_MOBILIZATION,
+		COMMITMENT_LIMITED,
+		COMMITMENT_TOTAL
+	} = constants
 	const { set_add, set_delete, set_has, other_faction } = utils
 	const { get_piece_effective_faction, is_lcu, is_scu, is_tribe, is_irregular, is_hq, is_in_reserve } =
 		game_utils
@@ -438,18 +448,34 @@ module.exports = function (Engine) {
 		let tribe_type = get_tribe_type(p)
 		if (!tribe_type) return true
 
-		// Rule: tribal activity grid is always allowed
-		if (data.spaces[s].tribal_activity_grid === tribe_type) return true
+		// Rule 17.1.4: Tribe Movement Range (one full move away from its tribal boxes).
+		let mf = get_piece_mf(p)
 
-		// Rule: or grids within movement range of the activity grid
-		// Check if 's' is adjacent to ANY space in the tribe's activity grid
+		let visited = new Set()
+		let queue = []
+
+		// Initial queue: all activity grid spaces
 		for (let start_s = 1; start_s < data.spaces.length; start_s++) {
 			if (data.spaces[start_s].tribal_activity_grid === tribe_type) {
-				let adj = data.spaces[start_s].connections || []
-				if (adj.includes(s)) {
-					// Rule 17.1.4 & 9.2.4: Tribes cannot move/attack/trace across Caspian green lines
-					if (is_caspian_green_connection(start_s, s)) continue
-					return true
+				if (start_s === s) return true
+				queue.push([start_s, 0])
+				visited.add(start_s)
+			}
+		}
+
+		if (mf === 0) return false
+
+		while (queue.length > 0) {
+			let [curr, dist] = queue.shift()
+			if (dist >= mf) continue
+
+			let conns = data.spaces[curr].connections || []
+			for (let next of conns) {
+				if (is_caspian_green_connection(curr, next)) continue
+				if (next === s) return true
+				if (!visited.has(next)) {
+					visited.add(next)
+					queue.push([next, dist + 1])
 				}
 			}
 		}
@@ -816,7 +842,7 @@ module.exports = function (Engine) {
 	}
 
 	function is_stack_counted_piece(p) {
-		return get_stack_special_key(p) === null && !is_tribe(p)
+		return get_stack_special_key(p) === null
 	}
 
 	function has_br_ru_mix(game, pieces) {
@@ -1135,6 +1161,7 @@ module.exports = function (Engine) {
 	}
 
 	function is_reserve_space(s) {
+		if (s === RESERVE) return true
 		if (s <= 0 || !data.spaces[s]) return false
 		let name = data.spaces[s].name
 		return (
@@ -1348,7 +1375,7 @@ module.exports = function (Engine) {
 
 	function get_sr_destinations(game, p, faction) {
 		let source = game.pieces[p]
-		if (source <= 0 || !data.spaces[source]) return []
+		if (source !== RESERVE && (source <= 0 || !data.spaces[source])) return []
 		if (set_has(game.sr_moved || [], p)) return []
 		let info = data.pieces[p]
 		if (!info || info.faction !== faction) return []
@@ -1506,6 +1533,10 @@ module.exports = function (Engine) {
 		if (info.type === "irregular" || info.type === "tribe" || is_hq(p)) return false
 		if (set_has(game.sr_moved || [], p)) return false
 		let s = game.pieces[p]
+		if (s === RESERVE) {
+			// SCUs can SR from reserve, LCUs cannot
+			return info.piece_class !== "LCU"
+		}
 		if (s <= 0 || !data.spaces[s]) return false
 		if (data.pieces[p].nation === "bu" && !can_trace_supply_to_sofia(game, p)) return false
 		if (is_reserve_space(s)) {
@@ -1518,7 +1549,8 @@ module.exports = function (Engine) {
 
 	function can_sr_to_space(game, p, s, faction) {
 		let source = game.pieces[p]
-		if (source <= 0 || !data.spaces[source] || s <= 0 || !data.spaces[s]) return false
+		if (!is_reserve_space(source) && (source <= 0 || !data.spaces[source])) return false
+		if (s <= 0 || !data.spaces[s]) return false
 		if (set_has(game.sr_moved || [], p)) return false
 		let info = data.pieces[p]
 		let source_reserve = is_reserve_space(source)
@@ -2627,8 +2659,6 @@ module.exports = function (Engine) {
 		if (is_tribe(p) || is_irregular(p)) return null
 		// Rule 7.2.3: British Empire units (including Arab Revolt/ANA) count as one nationality.
 		if (["br", "in", "anz", "ana", "ar", "pt", "can"].includes(nat)) return "br"
-		// Rule 9.2.3: US units in France/Germany (not applicable in PUG, but kept for consistency).
-		if (nat === "us") return "fr"
 		// Rule 7.2.3: Ottoman Empire units (including Senussi) count as one nationality.
 		if (nat === "tu" || nat === "tua") return "tu"
 		return nat
@@ -2851,6 +2881,7 @@ module.exports = function (Engine) {
 		get_beachhead_spaces,
 		get_supply_status,
 		is_not_on_map,
+		is_space_in_tribal_range,
 		check_rule_violations
 	})
 

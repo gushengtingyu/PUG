@@ -301,6 +301,7 @@ module.exports = function (Engine) {
 		if (!Array.isArray(state.player_order)) state.player_order = [Engine.constants.AP, Engine.constants.CP]
 		if (!Array.isArray(state.jihad_cities_flipped)) state.jihad_cities_flipped = []
 		if (state.tribes_to_place === undefined) state.tribes_to_place = 0
+		if (state.cp_opening_mobilization_pick_done === undefined) state.cp_opening_mobilization_pick_done = state.turn > 1
 		return state
 	}
 
@@ -376,7 +377,8 @@ module.exports = function (Engine) {
 			last_card: 0,
 			rollback: [],
 			rollback_state: [],
-			balkan_attack_targets: { ap: -1, ap_mo: -1, cp: -1 }
+			balkan_attack_targets: { ap: -1, ap_mo: -1, cp: -1 },
+			cp_opening_mobilization_pick_done: false
 		}
 		return normalize_game(state)
 	}

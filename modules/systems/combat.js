@@ -333,13 +333,13 @@ module.exports = function (Engine) {
 			origins.add(game.pieces[p])
 		}
 
-		// Find all HQs in origin spaces that belong to the active faction
-		let hqs = []
+		// Find all HQs / Heavy Artillery in origin spaces that belong to the active faction
+		let support_units = []
 		for (let space of origins) {
 			let pieces = get_pieces_in_space(game, space)
 			for (let p of pieces) {
-				if (get_piece_faction(p) === game.active && is_hq(p)) {
-					hqs.push(p)
+				if (get_piece_faction(p) === game.active && (is_hq(p) || is_heavy_arty(p))) {
+					support_units.push(p)
 				}
 			}
 		}
@@ -360,9 +360,9 @@ module.exports = function (Engine) {
 			return !is_piece_reduced(game, p)
 		})
 
-		for (let hq of hqs) {
-			if (!eligible.includes(hq)) {
-				eligible.push(hq)
+		for (let unit of support_units) {
+			if (!eligible.includes(unit)) {
+				eligible.push(unit)
 			}
 		}
 
@@ -795,6 +795,7 @@ module.exports = function (Engine) {
 		delete game.save_tiflis_resolved
 		delete game.save_tiflis_failed
 		delete game.post_roll_cc_done
+		delete game.post_battle_cc_done
 		delete game.captured_russian_vp_in_advance
 		if (game.attack) delete game.attack.flank_attempt
 		if (game.attack && game.attack.space > 0) {
@@ -967,7 +968,7 @@ module.exports = function (Engine) {
 			let info = data.cards[c]
 			if (!info || !info.cc) continue
 			if (info.remove) continue
-			if (c === CC_AP_NO_PRISONERS || c === CC_CP_JAFAR_PASHA) continue
+			if (c === CC_AP_NO_PRISONERS || c === CC_CP_JAFAR_PASHA || c === CC_CP_SANDSTORMS) continue
 
 			let owner = info.faction
 			let owner_won = (owner === attacker_faction && attacker_won) || (owner === defender_faction && defender_won)
@@ -1265,7 +1266,12 @@ module.exports = function (Engine) {
 		}
 
 		game.retreat_distance = result.retreat_distance || 1
+		if (game.turkish_retreat && result.retreat_needed && result.retreating_faction === CP) {
+			game.retreat_distance = 1
+		}
 		game.retreat_steps_left = null
+
+		let can_offer_post_battle_cc = !game.post_battle_cc_done && should_offer_post_battle_cc_window(game)
 
 		if (result.turkish_retreat) {
 			let alive_cp_defenders = get_pieces_in_space(game, target_space).filter(
@@ -1278,7 +1284,7 @@ module.exports = function (Engine) {
 			let alive_cp_set = new Set(alive_cp_defenders)
 			let mandatory = (result.turkish_retreat_units || []).filter((p) => alive_cp_set.has(p))
 			let optional = (result.turkish_retreat_optional_units || []).filter((p) => alive_cp_set.has(p))
-			if (mandatory.length > 0 || optional.length > 0) {
+			if (mandatory.length > 0 || optional.length > 0 || can_offer_post_battle_cc) {
 				game.turkish_retreat_pending = true
 				game.turkish_retreat_space = game.attack.space
 				game.turkish_retreat_mandatory = mandatory
@@ -1295,13 +1301,6 @@ module.exports = function (Engine) {
 			delete game.turkish_retreat_space
 			delete game.turkish_retreat_mandatory
 			delete game.turkish_retreat_optional
-		}
-
-		if (game.turkish_retreat_pending) {
-			game.active = CP
-			game.state = "turkish_retreat"
-			game.selected_piece = null
-			return
 		}
 
 		if (!game.post_roll_cc_done && defender_faction === CP) {
@@ -1326,6 +1325,20 @@ module.exports = function (Engine) {
 			result.retreat_needed = false
 			if (log_fn && result.attacker_losses >= result.defender_losses)
 				log_fn("Attacker has no full-strength units, defenders do not retreat.")
+		}
+
+		if (can_offer_post_battle_cc) {
+			game.active = CP
+			game.post_battle_cc_resume = { kind: "resolve_battle" }
+			game.state = "post_battle_cc_cp"
+			return
+		}
+
+		if (game.turkish_retreat_pending) {
+			game.active = CP
+			game.state = "turkish_retreat"
+			game.selected_piece = null
+			return
 		}
 
 		if (result.retreat_needed && defenders_in_space.length > 0) {
@@ -2530,10 +2543,8 @@ module.exports = function (Engine) {
 
 			if (att_has_special && !def_has_special) {
 				att_drm += 1
-				log_detail(log, "Cavalry/Camel/Armored Car Advantage: Attacker +1 DRM")
 			} else if (def_has_special && !att_has_special) {
 				def_drm += 1
-				log_detail(log, "Cavalry/Camel/Armored Car Advantage: Defender +1 DRM")
 			}
 		}
 
@@ -2562,10 +2573,6 @@ module.exports = function (Engine) {
 					def_drm -= penalty
 					if (bonus !== 0 || penalty !== 0) {
 						mark_effected(c)
-						let msg = `Attacker Card ${data.cards[c].name}:`
-						if (bonus !== 0) msg += ` Attacker DRM ${bonus > 0 ? "+" + bonus : bonus}`
-						if (penalty !== 0) msg += ` Defender DRM -${penalty}`
-						log_detail(log, msg)
 					}
 				}
 			}
@@ -2577,10 +2584,6 @@ module.exports = function (Engine) {
 					att_drm -= penalty
 					if (bonus !== 0 || penalty !== 0) {
 						mark_effected(c)
-						let msg = `Defender Card ${data.cards[c].name}:`
-						if (bonus !== 0) msg += ` Defender DRM ${bonus > 0 ? "+" + bonus : bonus}`
-						if (penalty !== 0) msg += ` Attacker DRM -${penalty}`
-						log_detail(log, msg)
 					}
 				}
 			}
@@ -2599,7 +2602,6 @@ module.exports = function (Engine) {
 			if (target_terrain && (target_terrain === MOUNTAIN || target_terrain === SWAMP)) {
 				att_shifts -= 1
 				att_shift_factors.push("-1 山地/沼泽")
-				log_detail(log, "Terrain Shift: -1 (Mountain/Swamp)")
 			}
 			// PUG Rule: Desert shifts attacker 1 left if attacking INTO or FROM desert
 			let target_is_desert = target_terrain === "desert"
@@ -2762,7 +2764,7 @@ module.exports = function (Engine) {
 		function apply_turkish_retreat_loss_reduction() {
 			if (turkish_retreat_active && def_losses > 0 && !turkish_loss_reduction_logged) {
 				def_losses -= 1
-				log_detail(log, "Turkish Retreat: Defender losses reduced by 1.")
+				log("Turkish Retreat: Defender losses reduced by 1.")
 				turkish_loss_reduction_logged = true
 			}
 		}
@@ -2993,7 +2995,7 @@ module.exports = function (Engine) {
 			)
 			if (is_turkish_retreat_active(game, defenders) && def_losses > 0) {
 				def_losses -= 1
-				log_detail(log, "Turkish Retreat: Defender losses reduced by 1.")
+				log("Turkish Retreat: Defender losses reduced by 1.")
 			}
 
 			game.attack.defender_losses = def_losses
