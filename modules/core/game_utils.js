@@ -126,10 +126,9 @@ module.exports = function (Engine) {
 
 	function get_capacity(game, s) {
 		if (Engine.map.is_unlimited_stack_space(game, s)) return 999
-		let count = 0
-		Engine.map.for_each_piece_in_space(game, s, (p) => {
-			if (Engine.map.is_stack_counted_piece(p)) count++
-		})
+		let pieces = Engine.map.get_pieces_in_space(game, s)
+		if (pieces.some((p) => data.pieces[p] && data.pieces[p].name === "GE GeoProtect")) return 0
+		let count = Engine.map.get_stack_count(pieces)
 		return Math.max(0, STACKING_LIMIT - count)
 	}
 
@@ -186,6 +185,44 @@ module.exports = function (Engine) {
 		return nation
 	}
 
+	function get_activation_nation_group(nation) {
+		if (["br", "in", "anz", "ana", "ar", "pt", "can"].includes(nation)) return "br"
+		if (["tu", "tua"].includes(nation)) return "tu"
+		return nation
+	}
+
+	function get_piece_nations_for_rule(game, p, purpose = "default") {
+		if (p < 0 || !data.pieces[p]) return []
+		let info = data.pieces[p]
+		let name = info.name || ""
+		if (name === "RU/PE Police North") return ["ru"]
+		if (name === "Combined BU/AH Div") return ["bu", "ah"]
+		if (name === "German 11th Army") return ["ge", "bu"]
+		if (name === "RU/SB Yugo Infantry") {
+			if (purpose !== "mo" && game && game.events && game.events["russian_revolution"] >= 4) return ["br"]
+			return ["ru", "sb"]
+		}
+		return [info.nation]
+	}
+
+	function get_piece_nation_groups_for_rule(game, p, purpose = "default") {
+		let groups = []
+		for (let nation of get_piece_nations_for_rule(game, p, purpose)) {
+			let group = purpose === "activation" ? get_activation_nation_group(nation) : get_nation_group(nation)
+			if (group) set_add(groups, group)
+		}
+		return groups
+	}
+
+	function piece_counts_as_nation_for_rule(game, p, nation, purpose = "default") {
+		return get_piece_nations_for_rule(game, p, purpose).includes(nation)
+	}
+
+	function can_piece_be_activated(p) {
+		if (p < 0 || !data.pieces[p]) return false
+		return data.pieces[p].name !== "GE GeoProtect"
+	}
+
 	function is_not_on_map(game, p) {
 		return is_eliminated(game, p) || is_in_reserve(game, p) || is_removed(game, p) || is_reinforcement(game, p)
 	}
@@ -202,6 +239,7 @@ module.exports = function (Engine) {
 	function get_piece_effective_faction(game, p) {
 		let info = data.pieces[p]
 		if (!info) return null
+		if (info.name === "GE GeoProtect") return AP
 		if (info.nation === "gr" && Engine.greece) {
 			let greece_faction = Engine.greece.get_greece_faction(game)
 			if (greece_faction) return greece_faction
@@ -933,6 +971,11 @@ module.exports = function (Engine) {
 		is_lcu,
 		is_scu,
 		get_nation_group,
+		get_activation_nation_group,
+		get_piece_nations_for_rule,
+		get_piece_nation_groups_for_rule,
+		piece_counts_as_nation_for_rule,
+		can_piece_be_activated,
 		get_piece_cf,
 		get_season,
 		get_year,

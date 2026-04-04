@@ -57,7 +57,8 @@ exports.register = function (states, Engine, context) {
 		is_stack_counted_piece,
 		is_scu,
 		get_scu_reserve_box,
-		clear_event_ctx
+		clear_event_ctx,
+		card_name
 	} = context
 
 	states.play_card = {
@@ -91,7 +92,7 @@ exports.register = function (states, Engine, context) {
 			game.card = c
 			game.last_card = c
 			let info = data.cards[c]
-			log(`${game.active} 打出 ${info.name} 并使用 ${info.ops} 行动点`)
+			log(`${game.active} 打出 ${card_name(c)} 并使用 ${info.ops} 行动点`)
 			record_action(ACTION_OPS, c)
 			discard_card(c)
 			game.ops = info.ops
@@ -129,7 +130,7 @@ exports.register = function (states, Engine, context) {
 			game.card = c
 			game.last_card = c
 			let info = data.cards[c]
-			log(`${game.active} 打出 ${info.name} 用于SR (${info.sr})`)
+			log(`${game.active} 打出 ${card_name(c)} 用于SR (${info.sr})`)
 			record_action(ACTION_SR, c)
 			discard_card(c)
 			game.sr = info.sr
@@ -145,7 +146,7 @@ exports.register = function (states, Engine, context) {
 			game.card = c
 			game.last_card = c
 			let info = data.cards[c]
-			log(`${game.active} 打出 ${info.name} 用于补员`)
+			log(`${game.active} 打出 ${card_name(c)} 用于补员`)
 			record_action(ACTION_RPS, c)
 			discard_card(c)
 			add_rps(info)
@@ -154,13 +155,13 @@ exports.register = function (states, Engine, context) {
 		play_event(c) {
 			let info = data.cards[c]
 			if (!can_play_event(game, c)) {
-				log(`${info.name} 不能作为事件打出`)
+				log(`${card_name(c)} 不能作为事件打出`)
 				return
 			}
 			push_undo()
 			game.card = c
 			game.last_card = c
-			log(`${game.active} 打出事件：${info.name}`)
+			log(`${game.active} 打出事件：${card_name(c)}`)
 			record_action(ACTION_EVENT, c)
 
 			if (info.remove) remove_card(c)
@@ -178,6 +179,7 @@ exports.register = function (states, Engine, context) {
 					start_ops_from_event,
 					start_event,
 					push_state,
+					card_name,
 					update_jihad_level: (g, amount) => update_jihad_level(g, amount)
 				})
 			) {
@@ -195,7 +197,7 @@ exports.register = function (states, Engine, context) {
 	states.card_action = {
 		prompt(res) {
 			let info = data.cards[game.card]
-			res.prompt(`打出 ${info.name}`)
+			res.prompt(`打出 ${card_name(game.card)}`)
 			let allow_sr = can_play_sr_card_this_round(active_faction())
 			let allow_rp = can_play_rp_card_this_round(active_faction())
 			if (info.ops) res.action("play_ops", game.card)
@@ -208,7 +210,7 @@ exports.register = function (states, Engine, context) {
 		play_ops(c) {
 			if (c === undefined) c = game.card
 			let info = data.cards[c]
-			log(`${game.active} 打出 ${info.name} 并使用 (${info.ops} 行动点)`)
+			log(`${game.active} 打出 ${card_name(c)} 并使用 (${info.ops} 行动点)`)
 			record_action(ACTION_OPS, c)
 			discard_card(c)
 			game.ops = info.ops
@@ -228,7 +230,7 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 			let info = data.cards[c]
-			log(`${game.active} 打出 ${info.name} 进行战略调整 (SR: ${info.sr})`)
+			log(`${game.active} 打出 ${card_name(c)} 进行战略调整 (SR: ${info.sr})`)
 			record_action(ACTION_SR, c)
 			discard_card(c)
 			game.sr = info.sr
@@ -241,7 +243,7 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 			let info = data.cards[c]
-			log(`${game.active} 打出 ${info.name} 用于补员`)
+			log(`${game.active} 打出 ${card_name(c)} 用于补员`)
 			record_action(ACTION_RPS, c)
 			discard_card(c)
 			add_rps(info)
@@ -251,10 +253,10 @@ exports.register = function (states, Engine, context) {
 			if (c === undefined) c = game.card
 			let info = data.cards[c]
 			if (!can_play_event(game, c)) {
-				log(`${info.name} 不能作为事件打出`)
+				log(`${card_name(c)} 不能作为事件打出`)
 				return
 			}
-			log(`${game.active} 打出事件：${info.name}`)
+			log(`${game.active} 打出事件：${card_name(c)}`)
 			record_action(ACTION_EVENT, c)
 
 			if (info.remove) remove_card(c)
@@ -272,6 +274,7 @@ exports.register = function (states, Engine, context) {
 					start_ops_from_event,
 					start_event,
 					push_state,
+					card_name,
 					update_jihad_level: (g, amount) => update_jihad_level(g, amount)
 				})
 			) {

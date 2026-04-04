@@ -184,13 +184,15 @@ header.Central_Powers {
 }
 
 #log .cardtip {
-	font-variant: small-caps;
+	font-weight: bold;
 }
-.cardtip.ap-card {
-	color: brown;
+
+#log .cardtip.ap-card {
+	color: #5a1a1a;
 }
-.cardtip.cp-card {
-	color: blue;
+
+#log .cardtip.cp-card {
+	color: #1a2a5a;
 }
 .piecetip.ap-unit {
 	color: brown;
@@ -561,7 +563,7 @@ header.Central_Powers {
 	contain: layout style;
 	border: 1px solid #34495e;
 	box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
-	background-color: #0d1117; /* 更暗的背景色 */
+	background-color: #0d1117;
 	min-width: 600px;
 }
 

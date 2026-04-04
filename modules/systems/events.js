@@ -26,6 +26,7 @@ module.exports = function (Engine) {
 		get_reserve_box_for_piece,
 		count_tribes_on_map,
 		get_piece_nation,
+		piece_counts_as_nation_for_rule,
 		get_piece_type,
 		get_piece_badge,
 		space_name,
@@ -99,6 +100,45 @@ module.exports = function (Engine) {
 		if (typeof text !== "string") text = String(text)
 		if (game && Array.isArray(game.log)) game.log.push(text)
 		else console.log(text)
+	}
+
+	function card_name(card, ctx) {
+		if (ctx && typeof ctx.card_name === "function") return ctx.card_name(card)
+		return Engine.card_name(card)
+	}
+
+	function card_names(cards, ctx) {
+		if (ctx && typeof ctx.card_name === "function") {
+			return Array.isArray(cards) ? cards.map((card) => ctx.card_name(card)) : []
+		}
+		return Engine.card_names(cards)
+	}
+
+	function ensure_cp_auto_victory_marker(game) {
+		if (game.cp_auto_victory_marker === undefined) game.cp_auto_victory_marker = null
+		return game.cp_auto_victory_marker
+	}
+
+	function set_cp_auto_victory_marker(game, value, ctx) {
+		let next = Number(value)
+		if (!Number.isFinite(next)) return null
+		next = Math.max(0, Math.floor(next))
+		game.cp_auto_victory_marker = next
+		log(game, `同盟国自动胜利标记设为 ${next}。`, ctx)
+		return next
+	}
+
+	function shift_cp_auto_victory_marker(game, delta, ctx, reason) {
+		if (delta === 0) return ensure_cp_auto_victory_marker(game)
+		let current = ensure_cp_auto_victory_marker(game)
+		if (!Number.isFinite(current)) return null
+		let next = Math.max(0, Math.floor(current + Number(delta)))
+		if (next !== current) {
+			game.cp_auto_victory_marker = next
+			if (reason) log(game, `${reason}：同盟国自动胜利标记移动至 ${next}。`, ctx)
+			else log(game, `同盟国自动胜利标记移动至 ${next}。`, ctx)
+		}
+		return next
 	}
 
 	function get_warm_water_port_options(game) {
@@ -425,18 +465,18 @@ module.exports = function (Engine) {
 
 	function bulls_eye_ru_attack_drm(game, defenders) {
 		if (!is_bulls_eye_active(game)) return 0
-		return defenders.some((p) => get_piece_nation(p) === "ru") ? 1 : 0
+		return defenders.some((p) => piece_counts_as_nation_for_rule(game, p, "ru")) ? 1 : 0
 	}
 
 	function bulls_eye_cleanup_scus(game) {
-		const { is_stack_counted_piece } = Engine.map || {}
+		const { get_stack_count, get_stack_counted_pieces } = Engine.map || {}
 		for (let s = 1; s < data.spaces.length; s++) {
 			let pieces = get_pieces_in_space(game, s).filter((p) => get_piece_faction(p) === CP)
 			if (pieces.length === 0) continue
-			let stack_count = pieces.filter((p) => is_stack_counted_piece && is_stack_counted_piece(p)).length
+			let stack_count = get_stack_count ? get_stack_count(pieces) : 0
 			if (stack_count > STACKING_LIMIT) {
 				let excess = stack_count - STACKING_LIMIT
-				let scus = pieces.filter((p) => is_scu(p))
+				let scus = get_stack_counted_pieces ? get_stack_counted_pieces(pieces).filter((p) => is_scu(p)) : []
 				for (let i = 0; i < excess; i++) {
 					if (scus.length > 0) {
 						let p = scus.pop()
@@ -655,7 +695,6 @@ module.exports = function (Engine) {
 				return game.turn === 1 && game.action_round === 1
 			},
 			handler: function (game, ctx) {
-				log(game, "RUSSO-BRITISH ASSAULT triggered.", ctx)
 				if (ctx && typeof ctx.start_event === "function") {
 					ctx.start_event("russo_british_assault")
 				}
@@ -671,7 +710,6 @@ module.exports = function (Engine) {
 			name_cn: "澳新增援",
 			effect_cn: "增援:(澳新步兵师)，1个澳新骑兵师",
 			handler: function (game, ctx) {
-				log(game, "Event: ANZAC REINFORCEMENTS executed.", ctx)
 				let event = start_event_data(game, ctx, "anzac_reinf")
 				game.active = AP
 				let units = ["ANZ Elite DIV", "ANZ Cavalry #1"]
@@ -683,7 +721,6 @@ module.exports = function (Engine) {
 				let cav = find_piece(AP, "ANZ Cavalry #1")
 				if (cav >= 0) {
 					set_add(game.reduced, cav)
-					log(game, "ANZ Cavalry #1 enters at reduced strength.", ctx)
 				}
 
 				game.state = "event_place_reinforcements"
@@ -705,7 +742,7 @@ module.exports = function (Engine) {
 				game.control[CYPRUS] = "ap"
 				for (let s of CYPRUS_BEACHHEADS) game.control[s] = "ap"
 
-				log(game, "EGYPTIAN COUP: Cyprus is now an Allied Island Base and Supply Source.", ctx)
+				log(game, "埃及政变: 塞浦路斯成为协约国岛屿基地", ctx)
 			}
 		},
 		4: {
@@ -730,7 +767,6 @@ module.exports = function (Engine) {
 			effect_cn:
 				"协约国玩家启动和一个俄国部队占据地区相邻的两个土耳其/土耳其-阿拉伯部队控制地区，并为每一个土军堆叠选择一个攻击目标。(意味着协约国可以通过本事件启动同盟国单位，并为其选择攻击目标)",
 			handler: function (game, ctx) {
-				log(game, "Event: ENVER GOES EAST triggered.", ctx)
 				let event = ctx && typeof ctx.start_event === "function" ? ctx.start_event("enver_goes_east") : null
 				if (event) {
 					event.enver_expected_count = 2
@@ -749,7 +785,6 @@ module.exports = function (Engine) {
 			effect_cn:
 				"+1圣战等级。增援:英国波斯宪兵师 至任何波斯大区。启动以下选项中的其中一种内的**一个地区格**的协约国单位进行移动:A:波斯大区、中亚大区B:高加索、阿塞拜疆C:美索不达米亚地区。从现在开始到游戏结束，双方玩家的部队都可以进入中立的波斯地区。",
 			handler: function (game, ctx) {
-				log(game, "Event: SECRET TREATY triggered.", ctx)
 				let event = start_event_data(game, ctx, "secret_treaty")
 				game.events["secret_treaty"] = true
 				game.active = AP
@@ -776,7 +811,6 @@ module.exports = function (Engine) {
 				return false
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: SPHERE OF INFLUENCE triggered.", ctx)
 				let event = start_event_data(game, ctx, "sphere_of_influence")
 				game.active = AP
 				let units = ["RU Elite DIV #3", "RU DIV #11", "RU DIV #12"]
@@ -792,7 +826,6 @@ module.exports = function (Engine) {
 			name_cn: "俄国增援",
 			effect_cn: "增援:(高加索第4军团)增援:1个近卫步兵师、1个步兵师、1个骑兵师",
 			handler: function (game, ctx) {
-				log(game, "Event: RUSSIAN REINFORCEMENTS executed.", ctx)
 				let event = start_event_data(game, ctx, "russian_reinf")
 				game.active = AP
 				let units = ["RU IV Caucasian", "RU Elite DIV #4", "RU DIV #13", "RU Cavalry #7"]
@@ -808,7 +841,6 @@ module.exports = function (Engine) {
 			effect_cn:
 				"把土耳其最大补给限度标记放置在25，每次土耳其打出RP卡记录其补员点数时扣除相应数值。当扣减为0时，土耳其无法通过RP卡再记录补员点数。(注:使用同盟国事件和其他规则获得的奖励补员点数、德国补员点数转换的土耳其补员点数不会影响该标志的移动。补员阶段时，若有土耳其补员点数未使用，则将最大补给限度标志向更高处移动等同于尚未使用的土耳其补员点数的格数)每个冬季回合战争状态结算阶段时-1VP，直到同盟国进入全面战争状态**和**柏林-君士坦丁堡的铁路第一次完成连通(铁路沿途地区全部被同盟国控制)。如果同盟国玩家在一个冬季回合使战争状态抵达全面战争(且完成铁路连通条件)，则封锁扣分先于同盟国战争状态调整进行(**意味着还是必须先扣这一分**)。。封锁效果**一旦**被同盟国玩家取消，则无法再适用，即使在以上两个条件都被满足后，柏林-君士坦丁堡铁路再次被协约国夺取并占据，也无法继续带来罚分效果。此后的游戏中，同盟国不能通过爱琴海、东地中海、波斯湾或红海运送补给或者战略调整。(这意味着被同盟国所控制的黑海、里海以外的港口不能给其部队提供补给，也无法接受海上SR)",
 			handler: function (game, ctx) {
-				log(game, "Event: ROYAL NAVY BLOCKADE executed.", ctx)
 				game.events["royal_navy_blockade"] = true
 				game.tu_rp_limit = 25
 				game.blockade_vp_penalty_active = true
@@ -830,7 +862,6 @@ module.exports = function (Engine) {
 				return game.events["egyptian_coup"] && get_season(game) !== "Winter"
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: PROJECT ALEXANDRIA triggered.", ctx)
 				if (ctx && typeof ctx.start_event === "function") {
 					ctx.start_event("project_alexandria")
 				}
@@ -846,7 +877,6 @@ module.exports = function (Engine) {
 			effect_cn:
 				"允许打出【海上入侵】事件(亚历山大计划除外)。协约国玩家派遣皇家海军舰队，开始掷骰并按照顺序**从加利波里沿达达尼尔海峡向上**开始对**土耳其海峡沿岸要塞**实施炮击。若掷骰结果**大于**该要塞火力值，则要塞被摧毁，并继续向上对下一个要塞进行炮击。**一旦其中一次失败，则终止一切以下步骤。**。若**炮击加利波里要塞成功并将其摧毁**，则皇家海军驶入马尔马拉海，协约国玩家获得以下效果:。❶此时协约国玩家**可以选择**是否炮击君士坦丁堡。如果选择炮击，则获得:。1、-1VP。2、+1圣战等级。❷在预备军格或者地中海东部任何协约国控制的港口增援2个英国精锐步兵师。视为基钦纳被丘吉尔说服，从西线战场调来精锐部队。。❸此时协约国玩家**还可以选择**继续炮击博斯普鲁斯海峡要塞。若本次炮击成功则该要塞被摧毁，本回合立即获得2点俄国补员点数。此后的每回合额外获得1点俄国补员点数，直到【地中海潜艇猎袭】打出为止。",
 			handler: function (game, ctx) {
-				log(game, "Event: CHURCHILL PREVAILS executed.", ctx)
 				let event = ctx && typeof ctx.start_event === "function" ? ctx.start_event("churchill_prevails") : null
 				game.events["churchill_prevails"] = true
 				if (event) event.churchill_prevails_step = 0
@@ -865,7 +895,6 @@ module.exports = function (Engine) {
 				return !game.events["lloyd_george_takes_command"]
 			},
 			handler: function (game, ctx) {
-				log(game, "KITCHENER: +1 DRM for RU in Caucasus. +1 RP for BR, IN, AP, RU.", ctx)
 				game.events["kitchener"] = game.turn
 				game.events["kitchener_conversion"] = true
 				game.rp_ap.br += 1
@@ -895,7 +924,6 @@ module.exports = function (Engine) {
 				return !(!game.events["lawrence"] || (game.jihad || 0) > 7);
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: ARAB REVOLT executed.", ctx)
 				let event = start_event_data(game, ctx, "arab_revolt")
 				game.events["arab_revolt"] = true
 				event.reinf_to_place = ["Arab faisal Revolt", "Arab Revolt #1", "Arab Revolt #2"]
@@ -931,7 +959,6 @@ module.exports = function (Engine) {
 				return others_capacity + salonika_capacity >= 3
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: ALLIED SOLIDARITY triggered.", ctx)
 				let event = start_event_data(game, ctx, "allied_solidarity")
 				game.active = AP
 				event.reinf_to_place = ["RU 2/4 Special", "IT DIV", "GR National Defense"]
@@ -947,7 +974,6 @@ module.exports = function (Engine) {
 				"(黄色事件)<当作事件打出时，正常使用此牌记录的OP点数。本回合剩余时间同盟国手牌需要持续公开>-1圣战等级。允许打出【阿拉伯起义】事件。",
 			use_ops: true,
 			handler: function (game, ctx) {
-				log(game, "Event: LAWRENCE executed.", ctx)
 				update_jihad_level(game, -1)
 				game.events["lawrence"] = true
 			}
@@ -958,14 +984,13 @@ module.exports = function (Engine) {
 			effect_cn:
 				"增援:1个澳新骑兵师，澳新帝国骆驼师。把西奈铁路标记放置在4回合后的纪录条位置。当回合标记抵达西奈铁路标记所在回合时，西奈铁路完成。一旦西奈铁路完成，接下来的游戏里，**协约国**就可以利用西奈铁路进行LCU的移动、战斗、战略调整和组合以及SCU的战略调整。(注:即使西奈铁路完成后，**同盟国**也**不能**利用该铁路进行LCU移动、战斗、战略调整和组合，这是因为一旦该铁路经过地区格被同盟国控制，英国可以选择切断输水管，继续使同盟国大规模军队的补给成为徒劳)",
 			handler: function (game, ctx) {
-				log(game, "Event: MURRAY TAKES COMMAND executed.", ctx)
 				let event = start_event_data(game, ctx, "murray_takes_command")
 				game.active = AP
 				let units = ["ANZ Cavalry #2", "ANZ Imp Camel"]
 				event.reinf_to_place = units
 
 				game.events["xinai_railway"] = game.turn + 4
-				log(game, "Sinai Railway scheduled for completion on Turn " + (game.turn + 4))
+				log(game, "西奈铁路将在第" + (game.turn + 4) + "回合完成")
 				event.reinf_logic = "is_br"
 				game.state = "event_place_reinforcements"
 			},
@@ -976,7 +1001,6 @@ module.exports = function (Engine) {
 			name_cn: "装甲车",
 			effect_cn: "一次协约国对或者在非山区、非沼泽地区的攻击/防御+1drm",
 			handler: function (game, ctx) {
-				log(game, "Event: ARMORED CARS CC executed.", ctx)
 				game.events["armored_cars"] = game.turn
 			}
 		},
@@ -986,7 +1010,6 @@ module.exports = function (Engine) {
 			effect_cn:
 				"(在战斗的掷骰前打出)一次攻击堆叠包含协约国阿拉伯起义部队或者同盟国部落部队的战斗中，攻击方受到的伤害-1，防御方受到的伤害-1。当你使用完这张卡后，该卡交予同盟国方并保持正面朝上，使其可以选择在一次战斗中当作战斗牌使用。以此法使用完毕的这张卡丢入弃牌堆",
 			handler: function (game, ctx) {
-				log(game, "Event: NO PRISONERS CC executed.", ctx)
 				game.events["no_prisoners"] = game.turn
 			}
 		},
@@ -999,7 +1022,6 @@ module.exports = function (Engine) {
 				return game.events["churchill_prevails"] && get_season(game) !== "Winter"
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: KITCHENER'S INVASION triggered.", ctx)
 				start_event_data(game, ctx, "kitcheners_invasion")
 				game.events["kitcheners_invasion"] = true
 
@@ -1045,7 +1067,6 @@ module.exports = function (Engine) {
 				return persia_capacity >= 3
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: GRAND DUKE TO TIFLIS triggered.", ctx)
 				game.events["grand_duke_to_tiflis"] = game.turn
 				if (ctx && typeof ctx.start_event === "function") {
 					ctx.start_event("grand_duke_to_tiflis")
@@ -1064,7 +1085,6 @@ module.exports = function (Engine) {
 				return game.events["serbian_collapse"];
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: THE SERBS RETURN! triggered.", ctx)
 				game.events["the_serbs_return"] = game.turn
 				let event = start_event_data(game, ctx, "the_serbs_return")
 				game.active = AP
@@ -1097,7 +1117,6 @@ module.exports = function (Engine) {
 				return true
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: RUSSIAN REINFORCEMENTS executed.", ctx)
 				let event = start_event_data(game, ctx, "russian_reinf_25")
 				game.active = AP
 				let units = ["RU V Caucasian", "RU Black Sea", "RU Elite DIV #1"]
@@ -1117,7 +1136,6 @@ module.exports = function (Engine) {
 				return true
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: INDIAN REINFORCEMENTS executed.", ctx)
 				let event = start_event_data(game, ctx, "indian_reinf_26")
 				game.active = AP
 				let units = ["IN Tigris Corps", "IN 2nd Corps", "IN DIV #7"]
@@ -1135,7 +1153,6 @@ module.exports = function (Engine) {
 				return true
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: LET THE FRENCH BLEED triggered.", ctx)
 				let event = start_event_data(game, ctx, "let_the_french_bleed")
 				game.vp -= 1
 				game.active = AP
@@ -1155,7 +1172,6 @@ module.exports = function (Engine) {
 				return true
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: MAUDE CC executed.", ctx)
 				let event = start_event_data(game, ctx, "maude_cc")
 				game.active = AP
 				let units = ["BR Maude HQ", "IN 15th DIV"]
@@ -1187,7 +1203,6 @@ module.exports = function (Engine) {
 				return has_ap_lcu
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: ROMANIA executed.", ctx)
 				game.events["romania"] = true
 				game.entry_ro = true
 
@@ -1229,7 +1244,6 @@ module.exports = function (Engine) {
 				return !(!game.events["churchill_prevails"] || get_season(game) === "Winter");
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: GALLIPOLI INVASION triggered.", ctx)
 				start_event_data(game, ctx, "gallipoli_invasion")
 				game.events["gallipoli_invasion"] = true
 
@@ -1247,7 +1261,6 @@ module.exports = function (Engine) {
 			},
 			use_ops: true,
 			handler: function (game, ctx) {
-				log(game, "RUSSIAN WINTER OFFENSIVE: +1 DRM for RU. Caucasus forts reduced to 0.", ctx)
 				game.events["russian_winter_offensive"] = game.turn
 			}
 		},
@@ -1260,7 +1273,6 @@ module.exports = function (Engine) {
 				return game.events["pan_turkism"]
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: ARMENIAN UPRISING executed.", ctx)
 				game.vp -= 1
 				game.events["armenian_uprising"] = true
 			}
@@ -1272,7 +1284,6 @@ module.exports = function (Engine) {
 				"增援:1个英国骑兵师。获得2点英国补员点数。在本场游戏剩余的时间内，可以在补员阶段将任何数量的英国补员点数转化为俄国补员点数。。在剩余的游戏时间内协约国MO掷骰+2drm。",
 			handler: function (game, ctx) {
 				game.mo_ap_modifier += 2
-				log(game, "ASQUITH/LLOYD GEORGE COALITION: AP MO Roll +2 DRM.", ctx)
 				reinforce(game, "BR Cavalry #2", AP)
 				game.events["asquith_coalition"] = true
 			}
@@ -1286,7 +1297,6 @@ module.exports = function (Engine) {
 				return !(!game.events["churchill_prevails"] || get_season(game) === "Winter");
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: SALONIKA INVASION triggered.", ctx)
 				start_event_data(game, ctx, "salonika_invasion")
 				game.events["salonika_invasion"] = true
 
@@ -1304,7 +1314,6 @@ module.exports = function (Engine) {
 			effect_cn:
 				"增援:邓斯特部队，英国南波斯洋枪队。英国南波斯洋枪队增援至英国控制波斯地区 or 波斯的一个大区，邓斯特部队**只能**增援至**被英国控制的巴格达。**。- **邓斯特部队可以只花费4点移动力作为代价跨越绿色连线。**",
 			handler: function (game, ctx) {
-				log(game, "Event: BRITISH REINFORCEMENTS triggered.", ctx)
 				let event = start_event_data(game, ctx, "british_reinf_35")
 				game.active = AP
 				event.reinf_to_place = ["BR Dunsterforce", "BR/PE SPers Rifles"]
@@ -1322,7 +1331,6 @@ module.exports = function (Engine) {
 				return true
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: INDIAN REINFORCEMENTS executed.", ctx)
 				let event = start_event_data(game, ctx, "indian_reinf")
 				game.active = AP
 				let units = ["IN Cavalry #4", "IN Cavalry #5"]
@@ -1341,7 +1349,6 @@ module.exports = function (Engine) {
 				return true
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: RUSSIAN REINFORCEMENTS executed.", ctx)
 				let event = start_event_data(game, ctx, "russian_reinf_37")
 				game.active = AP
 				let units = ["RU DIV #16", "RU DIV #17", "RU DIV #18"]
@@ -1356,7 +1363,6 @@ module.exports = function (Engine) {
 			name_cn: "皇家空军",
 			effect_cn: "任何英国/印度/澳新部队的进攻/防御+1drm。此牌第一次打出后，阻止同盟国在剩余的游戏时间打出【飞行分队】",
 			handler: function (game, ctx) {
-				log(game, "Event: ROYAL FLYING CORPS CC executed.", ctx)
 				game.events["royal_flying_corps"] = game.turn
 				game.events["royal_flying_corps_permanent"] = true
 			}
@@ -1366,7 +1372,6 @@ module.exports = function (Engine) {
 			name_cn: "坦克",
 			effect_cn: "(只能在埃及、西奈或叙利亚/巴勒斯坦的平地或者沙漠地区使用)。一次包含英国部队的进攻+1drm。",
 			handler: function (game, ctx) {
-				log(game, "Event: TANKS CC executed.", ctx)
 				game.events["tanks"] = game.turn
 			}
 		},
@@ -1380,7 +1385,6 @@ module.exports = function (Engine) {
 				return get_warm_water_port_options(game).length > 0
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: WARM WATER PORT executed.", ctx)
 				let options = get_warm_water_port_options(game)
 				if (options.length === 1) {
 					apply_warm_water_port_effect(game, options[0])
@@ -1397,7 +1401,6 @@ module.exports = function (Engine) {
 			name_cn: "贝尔福宣言",
 			effect_cn: "(只有在协约国控制耶路撒冷、雅法、海法或者纳布卢斯时才能打出)。-1VP。",
 			handler: function (game, ctx) {
-				log(game, "Event: BALFOUR DECLARATION executed.", ctx)
 				game.vp -= 1
 				game.events["balfour_declaration"] = true
 			}
@@ -1408,7 +1411,6 @@ module.exports = function (Engine) {
 			effect_cn:
 				"协约国在一个同盟国控制的**圣战城市**或者**补给点**和两个回合后的纪录条上各放置一个“圣诞节前收复圣城”标志。如果在两回合后该地区被英国/印度/澳新部队占据，则-1VP，反之+1VP。",
 			handler: function (game, ctx) {
-				log(game, "Event: JERUSALEM BY CHRISTMAS executed.", ctx)
 				game.events["jerusalem_by_christmas"] = game.turn + 2
 			}
 		},
@@ -1416,9 +1418,8 @@ module.exports = function (Engine) {
 			name: "RUSSIAN REINFORCEMENTS",
 			add_rein_record: "ru",
 			name_cn: "俄国增援",
-			effect_cn: "增援:俄国高加索骑兵军团、俄国高加索第7军团 至预备军格。。增援:2个俄国近卫步兵师。",
+			effect_cn: "增援:俄国高加索骑兵军团、俄国高加索第7军团 至预备军格。增援:2个俄国近卫步兵师。",
 			handler: function (game, ctx) {
-				log(game, "Event: RUSSIAN REINFORCEMENTS executed.", ctx)
 				// 这些去预备军格
 				reinforce(game, "RU Caucasian Cav", AP)
 				reinforce(game, "RU VII Caucasian", AP)
@@ -1441,7 +1442,6 @@ module.exports = function (Engine) {
 				return game.turn >= 13
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: WAR WEARY BALKANS CC executed.", ctx)
 				game.events["war_weary_balkans"] = game.turn
 			}
 		},
@@ -1475,7 +1475,6 @@ module.exports = function (Engine) {
 			},
 			handler: function (game, ctx) {
 				const { greece } = Engine
-				log(game, "Event: GREECE executed.", ctx)
 				greece.trigger_greece_entry(game, null, CP, "希腊事件", (msg) => log(game, msg, ctx))
 				game.events["greece_event_played"] = true
 			}
@@ -1489,7 +1488,6 @@ module.exports = function (Engine) {
 				return game.events["arab_revolt"] && game.combined_war > 29 && game.turn >= 13
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: ARAB DESERTION executed.", ctx)
 				game.events["arab_desertion"] = true
 			}
 		},
@@ -1502,7 +1500,6 @@ module.exports = function (Engine) {
 				return true
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: INDIAN REINFORCEMENTS executed.", ctx)
 				let event = start_event_data(game, ctx, "indian_reinf")
 				game.active = AP
 				let units = ["IN 3rd Corps", "IN Elite DIV #3", "IN Cavalry #6"]
@@ -1524,7 +1521,7 @@ module.exports = function (Engine) {
 			},
 			handler: function (game, ctx) {
 				game.events["turkish_war_weariness"] = true
-				log(game, "TURKISH WAR WEARINESS: Turkish RP -2 each Replacement Phase.", ctx)
+				log(game, "土耳其厌战: 每回合土耳其补员点数-2.", ctx)
 			}
 		},
 		49: {
@@ -1532,7 +1529,6 @@ module.exports = function (Engine) {
 			name_cn: "集群骑兵冲锋",
 			effect_cn: "一次由包含澳新沙漠军团的堆叠发起的攻击获得+1drm并取消所有战壕效果**(和沙漠地形效果(LCU沙漠限制效果除外)*这是可选规则的一部分，双方玩家需要在游戏开始前决定是否采用澳新沙漠军团可选规则【该规则较大地加强了澳新沙漠军团】)**。若协约国赢得这场战斗，则所有参与战斗的满员骑兵单位可以挺进最多3格。",
 			handler: function (game, ctx) {
-				log(game, "Event: MASSED CAVALRY CHARGE CC executed.", ctx)
 				game.events["massed_cavalry_charge"] = game.turn
 			}
 		},
@@ -1545,7 +1541,6 @@ module.exports = function (Engine) {
 				return game.events["allenby"]
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: PUSH TO THE BREAKING POINT CC executed.", ctx)
 				game.events["push_to_breaking_point"] = game.turn
 			}
 		},
@@ -1558,7 +1553,6 @@ module.exports = function (Engine) {
 				return game.events["allenby"]
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: HAVERSACK RUSE CC executed.", ctx)
 				game.events["haversack_ruse"] = game.turn
 			}
 		},
@@ -1571,7 +1565,6 @@ module.exports = function (Engine) {
 				return game.events["allenby"]
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: MARCH AND COUNTERMARCH CC executed.", ctx)
 				game.events["march_and_countermarch"] = game.turn
 			}
 		},
@@ -1592,7 +1585,6 @@ module.exports = function (Engine) {
 				return capacity >= 4
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: D'ESPEREY executed.", ctx)
 				let event = start_event_data(game, ctx, "desperey")
 				game.active = AP
 				event.reinf_to_place = ["FR Army Orient 2", "FR DIV #5", "FR DIV #6", "FR D'Esperey HQ"]
@@ -1612,7 +1604,6 @@ module.exports = function (Engine) {
 			},
 			handler: function (game, ctx) {
 				game.mo_ap_modifier += 1
-				log(game, "ALLENBY: AP MO Roll +1 DRM.", ctx)
 				let event = start_event_data(game, ctx, "allenby")
 				game.active = AP
 				let units = [
@@ -1639,7 +1630,6 @@ module.exports = function (Engine) {
 			},
 			handler: function (game, ctx) {
 				game.mo_ap_modifier += 2
-				log(game, "LLOYD GEORGE TAKES COMMAND: AP MO Roll +2 DRM.", ctx)
 				let event = start_event_data(game, ctx, "lloyd_george_takes_command")
 				game.active = AP
 				let units = ["ANZ Desert Corps", "BR Infantry", "BR Cavalry"]
@@ -1661,7 +1651,6 @@ module.exports = function (Engine) {
 				return (game.war_status_cp || 0) < 8
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: JIHAD executed.", ctx)
 				update_jihad_level(game, 3)
 				game.rp_cp.tu += 2
 				game.events["jihad"] = game.turn
@@ -1672,7 +1661,6 @@ module.exports = function (Engine) {
 			name_cn: "新兵征募",
 			effect_cn: "同盟国玩家获得2点土耳其补员点数，来立即进行土耳其部队的补员",
 			handler: function (game, ctx) {
-				log(game, "Event: FRESH RECRUITS executed.", ctx)
 				game.rp_cp.tu += 2
 				game.fresh_recruits_pieces = []
 				game.state = "event_fresh_recruits"
@@ -1688,7 +1676,6 @@ module.exports = function (Engine) {
 				return game.mo_cp === "enver" && !game.mo_cp_fulfilled
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: ENVER TO CONSTANTINOPLE executed.", ctx)
 				if (game.mo_cp === "enver" && !game.mo_cp_fulfilled) {
 					if (!game.mo_cp_1_fulfilled && game.mo_cp_1 !== null && game.mo_cp_1 !== undefined) {
 						game.mo_cp_1_fulfilled = true
@@ -1716,7 +1703,7 @@ module.exports = function (Engine) {
 					revealed.push(hand[index])
 					hand.splice(index, 1)
 				}
-				let revealed_names = revealed.map((c) => (data.cards[c] ? data.cards[c].name : `Unknown Card ${c}`))
+				let revealed_names = card_names(revealed, ctx)
 				log(game, `ENVER TO CONSTANTINOPLE: reveals AP cards [${revealed_names.join(", ")}]`, ctx)
 			}
 		},
@@ -1731,7 +1718,6 @@ module.exports = function (Engine) {
 			name_cn: "德国最高司令部",
 			effect_cn: "一次同盟国部队攻击/防御+1drm。",
 			handler: function (game, ctx) {
-				log(game, "Event: GERMAN HIGH COMMAND CC executed.", ctx)
 				game.events["german_high_command"] = game.turn
 			}
 		},
@@ -1740,7 +1726,6 @@ module.exports = function (Engine) {
 			name_cn: "沙尘暴和疟蚊",
 			effect_cn: "一回合只能有一次，取消一次从沙漠/沼泽地区发起 或 向沙漠/沼泽地区进行的协约国攻击。",
 			handler: function (game, ctx) {
-				log(game, "Event: SANDSTORMS & MOSQUITOES CC executed.", ctx)
 				game.events["sandstorms_mosquitoes"] = game.turn
 			}
 		},
@@ -1750,7 +1735,6 @@ module.exports = function (Engine) {
 			effect_cn:
 				"立即减少2点俄国补员点数（不能被取消）炮击巴统，掷一次骰子，结果为奇数时，摧毁巴统的要塞（要塞内的俄军不受伤害）",
 			handler: function (game, ctx) {
-				log(game, "Event: GOEBEN executed.", ctx)
 				// 立即减少 2 点俄国补员点数
 				let current_ru_rp = game.rp_ap.ru || 0
 				game.rp_ap.ru = Math.max(0, current_ru_rp - 2)
@@ -1766,7 +1750,6 @@ module.exports = function (Engine) {
 			name_cn: "德国军事顾问",
 			effect_cn: "获得1点土耳其补员点数。在任何安纳托利亚地区或者加利波里地图内的地区放置4处1级战壕",
 			handler: function (game, ctx) {
-				log(game, "Event: GERMAN MILITARY ADVISERS executed.", ctx)
 				game.rp_cp.tu += 1
 				game.active = CP
 				game.events["german_military_advisers"] = true
@@ -1795,7 +1778,6 @@ module.exports = function (Engine) {
 				return false
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: PARLIAMENTARY INQUIRY executed.", ctx)
 				game.events["parliamentary_inquiry"] = game.turn
 			}
 		},
@@ -1805,7 +1787,6 @@ module.exports = function (Engine) {
 			effect_cn:
 				"增援:1个土耳其-阿拉伯步兵师 至任何同盟国控制的美索不达米亚地区。可以立即启动一处高加索、阿赛拜疆或美索不达米亚的部队进行移动。从现在开始到游戏结束，双方玩家的部队都可以进入中立的波斯地区。",
 			handler: function (game, ctx) {
-				log(game, "Event: PERSIAN PUSH triggered.", ctx)
 				game.events["persian_push"] = true
 				game.active = CP
 				start_event_data(game, ctx, "persian_push", { reinf_to_place: ["TU-A DIV #10"] })
@@ -1819,7 +1800,6 @@ module.exports = function (Engine) {
 			effect_cn:
 				"(只能在土耳其LCU攻击俄国LCU的战斗撤退选择阶段时打出。不能在【尼古拉大公抵达第比利斯】后打出)协约国玩家需要把所有阿塞拜疆、波斯和土耳其的俄国单位向第比利斯方向撤退一格。俄国位于完好要塞内的部队、有尤德尼奇HQ驻扎的部队可以免受影响。如果不能进行合法撤退或者无法让这些部队向第比利斯方向撤退，满员的土耳其/土耳其-阿拉伯部队可以照常挺进。",
 			handler: function (game, ctx) {
-				log(game, "Event: SAVE TIFLIS CC executed.", ctx)
 				game.events["save_tiflis"] = game.turn
 			}
 		},
@@ -1833,7 +1813,6 @@ module.exports = function (Engine) {
 			},
 			use_ops: true,
 			handler: function (game, ctx) {
-				log(game, "Event: LIBERATE SUEZ executed.", ctx)
 				game.rp_cp.tu += 1
 				update_jihad_level(game, 1)
 				game.events["liberate_suez"] = game.turn
@@ -1854,7 +1833,6 @@ module.exports = function (Engine) {
 				"(黄色事件)增援: 2个土耳其精锐步兵师，1个土耳其骑兵师。获得1点土耳其补员点数，圣战等级+1，允许实施圣战叛乱。允许协约国打出【亚美尼亚起义】。",
 			use_ops: true,
 			handler: function (game, ctx) {
-				log(game, "Event: PAN-TURKISM executed.", ctx)
 				let event = start_event_data(game, ctx, "pan_turkism")
 				game.active = CP
 				let units = ["TU Elite DIV #9", "TU Elite DIV #10", "TU Cavalry #5"]
@@ -1879,7 +1857,6 @@ module.exports = function (Engine) {
 			},
 			use_ops: true,
 			handler: function (game, ctx) {
-				log(game, "Event: INDIAN MUTINY executed.", ctx)
 				update_jihad_level(game, 1)
 				game.events["indian_mutiny"] = game.turn
 				// 规则补充：本轮任何土耳其对印度部队的攻击+1drm
@@ -1893,13 +1870,12 @@ module.exports = function (Engine) {
 				"(黄色事件)当作事件打出时，正常使用此牌记录的OP点数。本回合剩余时间协约国手牌需要持续公开。+1圣战等级",
 			use_ops: true,
 			handler: function (game, ctx) {
-				log(game, "Event: DJEMEAL CRUSHES SECRET SOCIETIES executed.", ctx)
 				update_jihad_level(game, 1)
 				game.events["djemeal_crushes_secret_societies"] = game.turn
 
 				// 公开协约国手牌逻辑：直接记录 Log
 				if (game.hand_ap && game.hand_ap.length > 0) {
-					let hand_names = game.hand_ap.map((c) => data.cards[c].name_cn || data.cards[c].name)
+					let hand_names = card_names(game.hand_ap, ctx)
 					log(game, `协约国当前手牌: ${hand_names.join(", ")}`, ctx)
 				} else {
 					log(game, "协约国当前没有手牌。", ctx)
@@ -1916,7 +1892,6 @@ module.exports = function (Engine) {
 			},
 			handler: function (game, ctx) {
 				const { greece, map } = Engine
-				log(game, "Event: CONSTANTINE executed.", ctx)
 
 				// Rule 19.2.1: Neutral Greece becomes a CP ally if King Constantine is played when conditions met.
 				if (greece.is_greece_neutral(game) && greece.check_constantine_entry_conditions(game)) {
@@ -1931,7 +1906,7 @@ module.exports = function (Engine) {
 				}
 
 				// Control Salonika
-				let salonika = map.find_space("Salonika")
+				let salonika = find_space("Salonika")
 				if (salonika >= 0 && typeof Engine.set_control === "function") {
 					Engine.set_control(game, salonika, CP)
 				}
@@ -1949,16 +1924,15 @@ module.exports = function (Engine) {
 				if (game.events["constantine"]) return false
 				if (!greece.is_greece_neutral(game)) return false
 				
-				let salonika = map.find_space("Salonika")
+				let salonika = find_space("Salonika")
 				if (salonika >= 0) {
-					let pieces = map.get_pieces_in_space(game, salonika)
+					let pieces = get_pieces_in_space(game, salonika)
 					return pieces.some(p => data.pieces[p].faction === AP)
 				}
 				return false
 			},
 			handler: function (game, ctx) {
 				const { map, greece } = Engine
-				log(game, "Event: TREACHERY AT FORT RUPEL executed.", ctx)
 
 				// Identify Greek units to move (except CND)
 				let greek_units_to_move = []
@@ -1979,7 +1953,7 @@ module.exports = function (Engine) {
 					this.advance_cp_units(game, ctx)
 				}
 
-				let salonika = map.find_space("Salonika")
+				let salonika = find_space("Salonika")
 				if (salonika >= 0) {
 					// CP controls Salonika
 					if (typeof Engine.set_control === "function") {
@@ -1991,7 +1965,7 @@ module.exports = function (Engine) {
 			},
 			advance_cp_units: function (game, ctx) {
 				const { map } = Engine
-				let doiran = map.find_space("Doiran")
+				let doiran = find_space("Doiran")
 				if (doiran < 0) return
 
 				let adjacents = data.spaces[doiran].connections || []
@@ -2034,7 +2008,6 @@ module.exports = function (Engine) {
 				return game.events["arab_revolt"]
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: TURKISH REINFORCEMENTS executed.", ctx)
 				let event = start_event_data(game, ctx, "turkish_reinf_73")
 				game.active = CP
 				let units = ["TU-A DIV #11"]
@@ -2048,7 +2021,7 @@ module.exports = function (Engine) {
 							set_add(game.reduced, p)
 						}
 					}
-					log(game, "Units enter at reduced strength due to Arab Revolt.")
+					log(game, "因为阿拉伯起义，这些部队以受损面进入。")
 				}
 
 				event.reinf_logic = "is_tua"
@@ -2082,10 +2055,7 @@ module.exports = function (Engine) {
 				return ["mesopotamia", "syria_palestine", "sinai"].includes(area)
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: SURPRISE CC executed.", ctx)
 				game.events["surprise"] = game.turn
-				// When played as CC, handle_play_cc in states_combat.js already does this.
-				// But we'll implement it here as well for consistency.
 				if (game.attack) {
 					game.surprise = { remaining: 2, space: game.attack.space }
 					game.state = "surprise_sr"
@@ -2098,7 +2068,6 @@ module.exports = function (Engine) {
 			effect_cn:
 				"允许防守方选择。A:在战斗发生前后撤一格。B:在第一次掷骰结果发生后，重新进行一次掷骰。。在战斗发生后，进行一次掷骰，结果为1-3时，将其交予协约国方保持正面朝上，使其可以选择在一次战斗中当作CC使用。以此方法使用后该卡移除游戏。结果为4-6时，丢入弃牌堆。",
 			handler: function (game, ctx) {
-				log(game, "Event: JAFAR PASHA CC executed.", ctx)
 				reinforce(game, "Jafar Pasha HQ", CP)
 				game.events["jafar_pasha"] = true
 			}
@@ -2111,18 +2080,17 @@ module.exports = function (Engine) {
 				return !game.events["royal_air_force"]
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: FLIEGERABTEILUNG CC executed.", ctx)
 				game.events["fliegerabteilung"] = game.turn
 			}
 		},
 		77: {
 			name: "GERMAN SUBS IN THE MED",
 			name_cn: "地中海潜艇猎袭",
-			effect_cn: "在接下来的游戏时间里:黑海-地中海无法进行海上战略调整。协约国部队只能在雅典、萨洛尼卡、利姆诺斯岛或者任何被协约国控制的原本属于土耳其/奥匈的港口/滩头标记格获得补给。任何协约国控制下的原本属于土耳其的原本黑海补给港口无法提供补给。。禁止所有的协约国海上支持。+1VP",
+			effect_cn: "在接下来的游戏时间里:黑海-地中海无法进行海上战略调整。协约国部队只能在雅典、萨洛尼卡、利姆诺斯岛或者任何被协约国控制的原本属于土耳其/奥匈的港口/滩头标记格获得补给。任何协约国控制下的原本属于土耳其的原本黑海补给港口无法提供补给。禁止所有的协约国海上支持。+1VP",
 			handler: function (game, ctx) {
 				game.events["german_subs"] = true
 				game.events["german_subs_turn"] = game.turn
-				log(game, "GERMAN SUBS IN THE MED: Naval support blocked; Aegean supply penalties active.", ctx)
+				log(game, "地中海潜艇猎袭: 禁止所有的协约国海上支持。", ctx)
 			}
 		},
 		78: {
@@ -2135,7 +2103,6 @@ module.exports = function (Engine) {
 				return baghdad >= 0 && is_controlled_by(game, baghdad, CP)
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: GERMAN INTRIGUES IN PERSIA executed.", ctx)
 				update_jihad_level(game, 1)
 				reinforce(game, "TU Persian Insurgents", CP)
 				game.events["german_intrigue_persia"] = true
@@ -2150,7 +2117,6 @@ module.exports = function (Engine) {
 				return game.jihad >= 4
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: MISSION TO AFGHANISTAN executed.", ctx)
 				update_jihad_level(game, 1)
 				game.events["mission_to_afghanistan"] = true
 			}
@@ -2161,7 +2127,6 @@ module.exports = function (Engine) {
 			name_cn: "土耳其增援",
 			effect_cn: "增援: 5个土耳其步兵师，1个土耳其骑兵师。",
 			handler: function (game, ctx) {
-				log(game, "Event: TURKISH REINFORCEMENTS executed.", ctx)
 				let event = start_event_data(game, ctx, "turkish_reinf_80")
 				game.active = CP
 				let units = ["TU DIV #13", "TU DIV #14", "TU DIV #15", "TU DIV #16", "TU DIV #17", "TU Cavalry #6"]
@@ -2179,7 +2144,6 @@ module.exports = function (Engine) {
 			effect_cn:
 				"增援: 将土耳其第14军团、土耳其第15军团、土耳其第16军团、土耳其第17军团和土耳其-阿拉伯第18军团放置在预备军格。。增援: 1个土耳其步兵师，1个土耳其-阿拉伯步兵师。可以立即进行符合条件的LCU组合。",
 			handler: function (game, ctx) {
-				log(game, "Event: TURKISH REINFORCEMENTS executed.", ctx)
 				let event = start_event_data(game, ctx, "turkish_reinf_81")
 				game.active = CP
 				let units = [
@@ -2204,7 +2168,6 @@ module.exports = function (Engine) {
 			effect_cn:
 				"(不能在大区和滩头的战斗中使用)。- **攻击战斗**中失败的英国/印度/澳新部队堆叠需要撤退1-2格(协约国选择)，所有参与防御的同盟国单位可以穿过攻击单位挺进最多4格，**此挺进的过程可以穿越该撤退的部队堆叠来进行。**。- 若在该行动后，参与攻击的英国部队处于断补状态，则在其上放置1个围攻标志。这些部队若在损耗结算阶段仍被保持围攻状态，则正常结算因OOS消灭。。- **同盟国部队可以正常通过被围攻的英帝国部队所在格计算补给线。**",
 			handler: function (game, ctx) {
-				log(game, "Event: CATASTROPHIC ATTACK CC executed.", ctx)
 				game.events["catastrophic_attack"] = game.turn
 			}
 		},
@@ -2213,7 +2176,6 @@ module.exports = function (Engine) {
 			name_cn: "战斗至死！",
 			effect_cn: "一个完全由土耳其部队组成的堆叠在防御时视为处于1级战壕内。若已在1级战壕内则视为处于2级战壕内。",
 			handler: function (game, ctx) {
-				log(game, "Event: I ORDER YOU TO DIE CC executed.", ctx)
 				game.events["i_order_you_to_die"] = game.turn
 			}
 		},
@@ -2226,9 +2188,7 @@ module.exports = function (Engine) {
 				return game.events["berlin_constantinople_railway"] || game.events.berlin_baghdad
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: ENVER-FALKENHAYN SUMMIT executed.", ctx)
 				reinforce(game, "BU 4th Army", CP)
-
 				game.active = CP
 				let event = start_event_data(game, ctx, "enver_falkenhayn_summit")
 				event.sr_points = 8
@@ -2249,7 +2209,6 @@ module.exports = function (Engine) {
 				game.bulls_eye_sr_done = false
 				game.bulls_eye_sr_spaces = []
 				game.bulls_eye_advanced_stack = []
-				log(game, "BULL'S EYE DIRECTIVE: TU/TU-A SR, +1 DRM vs RU, extra attack enabled.", ctx)
 			}
 		},
 		86: {
@@ -2258,7 +2217,6 @@ module.exports = function (Engine) {
 			effect_cn:
 				"协约国玩家需要选择:。A: +2VP。B: 将一个地图上的俄国LCU暂时移除游戏(派往东线)，4个回合后重新放置在预备军格。。阻止继续记录本回合的俄国补员点数。",
 			handler: function (game, ctx) {
-				log(game, "Event: GORLICE-TARNOW executed.", ctx)
 				game.events["gorlice_tarnow"] = true
 				game.active = AP
 				game.state = "event_gorlice_tarnow_choice"
@@ -2285,7 +2243,6 @@ module.exports = function (Engine) {
 				return true
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: VERDUN executed.", ctx)
 				game.events["verdun"] = true
 				game.active = AP
 				game.state = "event_verdun_choice"
@@ -2295,9 +2252,8 @@ module.exports = function (Engine) {
 		88: {
 			name: "BULGARIA",
 			name_cn: "保加利亚",
-			effect_cn: "Tu:4 A:2。——中立国参战——。保加利亚加入同盟国，按照规则中的保加利亚参战条目放置同盟国和协约国单位。",
+			effect_cn: "——中立国参战——。保加利亚加入同盟国，按照规则中的保加利亚参战条目放置同盟国和协约国单位。",
 			handler: function (game, ctx) {
-				log(game, "Event: BULGARIA executed.", ctx)
 				game.events["bulgaria"] = true
 				game.entry_sb = true
 				const bulgariaPlan = Engine.collapse.get_bulgaria_entry_plan()
@@ -2349,7 +2305,6 @@ module.exports = function (Engine) {
 			effect_cn:
 				"开始进行俄国革命计时。把帕尔乌斯标志放置在这回合，把俄国革命标志放置在四回合后。把“上帝保佑沙皇”标志放置在帕尔乌斯的同一回合，随后根据俄国VP标记调整其位置。。俄国VP标记反映的是俄国在高加索战场所取得的成果。每当**接受俄国补给源补给**的俄国部队(或俄国波斯部队、亚美尼亚起义军)**占领一个非协约国原始VP点**，或者**解放一个协约国原始VP点**时，放置1个俄国占领标志，该标记向后移动一格。。每当俄国境内(俄国和阿塞拜疆)VP点被同盟国占领，或者放置了俄国占领标记的VP点被同盟国解放时，该标记向前移动一格。“上帝保佑沙皇”标志和俄国VP标志保持一致进行移动，但是当【不冻港】事件发生后，“上帝保佑沙皇”标志永远位于俄国VP标志+2的位置(革命推迟2个回合)。每个回合革命阶段，检查俄国革命标志和“上帝保佑沙皇”标志的位置。当回合纪录标志到达俄国革命标志及其以后的回合，同时满足到达“上帝保佑沙皇”标志及其以后的回合时，俄国革命开始，移除帕尔乌斯标志和“上帝保佑沙皇”标志，将俄国革命标志放置在革命进程进度条内的1位置，并在每个接下来的回合革命阶段前进一格。。- **(例外:某个回合革命阶段，当俄国占领了君士坦丁堡时，即使已经满足革命发生的条件，未发生的俄国革命不会发生，已发生的革命不会继续推进)(沙皇格勒天下第一.jpg)**",
 			handler: function (game, ctx) {
-				log(game, "Event: PARVUS TO BERLIN executed.", ctx)
 				game.events["parvus_to_berlin"] = game.turn
 				game.events["russian_revolution_timer"] = game.turn + 4
 			}
@@ -2362,9 +2317,9 @@ module.exports = function (Engine) {
 				return game.combined_war >= 32 && game.events["british_war_weariness"]
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: TOWNSHEND TO LEMNOS executed.", ctx)
 				game.vp -= 2
 				game.events["townshend_to_lemnos"] = true
+				shift_cp_auto_victory_marker(game, -1, ctx, "汤森德谈判")
 			}
 		},
 		91: {
@@ -2373,7 +2328,6 @@ module.exports = function (Engine) {
 			effect_cn:
 				"立即消灭一个塞尔维亚集团军(同盟国选择)。本回合塞尔维亚军队无法用于进攻**(但是协约国玩家在启动包含这些单位的地区时，仍需计算其启动花费)**",
 			handler: function (game, ctx) {
-				log(game, "Event: APIS executed.", ctx)
 				game.events["apis"] = game.turn
 				game.active = CP
 				game.state = "event_apis_eliminate"
@@ -2387,7 +2341,6 @@ module.exports = function (Engine) {
 			effect_cn:
 				"增援:4个土耳其-阿拉伯步兵师。在叙利亚/巴勒斯坦地区或者西奈地区增加1处战壕。。如果在【阿拉伯起义】后打出，则这些部队以受损面进入。",
 			handler: function (game, ctx) {
-				log(game, "Event: TURKISH REINFORCEMENTS executed.", ctx)
 				let reduced = !!game.events["arab_revolt"]
 				for (let unit of ["TU-A Infantry #1", "TU-A Infantry #2", "TU-A Infantry #3", "TU-A Infantry #4"]) {
 					reinforce(game, unit, CP)
@@ -2409,7 +2362,6 @@ module.exports = function (Engine) {
 			effect_cn:
 				"(可以在战斗掷骰阶段后打出。只能适用于美索不达米亚、叙利亚/巴勒斯坦或者西奈的防守战斗)。获胜的协约国部队战斗后无法挺进，战败的同盟国部队无需撤退。",
 			handler: function (game, ctx) {
-				log(game, "Event: WATER SHORTAGE CC executed.", ctx)
 				game.events["water_shortage"] = game.turn
 			}
 		},
@@ -2418,7 +2370,6 @@ module.exports = function (Engine) {
 			name_cn: "帕夏一号",
 			effect_cn: "这次战斗中，同盟国部队忽略恶劣天气修正，并可以以强火力表(LCU火力表)开火。",
 			handler: function (game, ctx) {
-				log(game, "Event: PASHA 1 CC executed.", ctx)
 				game.events["pasha_1"] = game.turn
 			}
 		},
@@ -2444,7 +2395,6 @@ module.exports = function (Engine) {
 				return has_ap_lcu
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: TO HELP AND SAVE YOU executed.", ctx)
 				game.events["to_help_and_save_you"] = true
 				game.active = CP
 				game.state = "event_to_help_and_save_you"
@@ -2460,7 +2410,6 @@ module.exports = function (Engine) {
 			},
 			handler: function (game, ctx) {
 				game.mo_cp_cancelled = true
-				log(game, "TALAAT PASHA REFORMS CABINET: CP MO cancelled for rest of game.", ctx)
 				game.events["talaat_pasha"] = true
 			}
 		},
@@ -2473,7 +2422,6 @@ module.exports = function (Engine) {
 				return game.events["russian_revolution"]
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: CZAR'S ARMORIES CC executed.", ctx)
 				game.rp_cp.tu += 4
 			}
 		},
@@ -2483,7 +2431,6 @@ module.exports = function (Engine) {
 			effect_cn:
 				"(只能在战斗掷骰后、挺进/撤退阶段前打出)。取消一次协约国的挺进和(或者)同盟国的撤退。。可以立即移动一个同盟国单位进入防守部队所在地区。(需要满足堆叠限制)",
 			handler: function (game, ctx) {
-				log(game, "Event: CONFUSED ORDERS CC executed.", ctx)
 				game.events["confused_orders"] = game.turn
 			}
 		},
@@ -2496,7 +2443,6 @@ module.exports = function (Engine) {
 				return game.events["pan_turkism"] && game.jihad >= 6
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: ARMY OF ISLAM CC executed.", ctx)
 				reinforce(game, "TU Army of Islam HQ", CP)
 				game.events["army_of_islam"] = true
 			}
@@ -2507,7 +2453,6 @@ module.exports = function (Engine) {
 			effect_cn:
 				"增援:3个德国耶尔德里姆步兵师，至任何可以连接至加利西亚的土耳其补给点。。如果法金汉HQ尚未被消灭，则还可以将其移动至存在耶尔德里姆师的地区。",
 			handler: function (game, ctx) {
-				log(game, "Event: YILDRIM executed.", ctx)
 				let event = start_event_data(game, ctx, "yildrim")
 				game.active = CP
 				let units = ["GE Yildrim #1", "GE Yildrim #2", "GE Yildrim #3"]
@@ -2529,7 +2474,6 @@ module.exports = function (Engine) {
 			},
 			use_ops: true,
 			handler: function (game, ctx) {
-				log(game, "Event: JIHAD SUPREMACY executed.", ctx)
 				for (let p = 0; p < game.pieces.length; p++) {
 					if (!data.pieces[p] || data.pieces[p].type !== "tribe") continue
 					if (!is_eliminated(game, p)) continue
@@ -2555,7 +2499,6 @@ module.exports = function (Engine) {
 				return game.jihad >= 8
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: JIHAD OFFENSIVE executed.", ctx)
 				game.events["jihad_offensive"] = game.turn
 			}
 		},
@@ -2571,8 +2514,8 @@ module.exports = function (Engine) {
 			},
 			handler: function (game, ctx) {
 				game.mo_ap_modifier -= 2
-				log(game, "ROBERTSON: AP MO Roll -2 DRM.", ctx)
 				game.events["robertson"] = true
+				shift_cp_auto_victory_marker(game, -1, ctx, "罗伯逊")
 				game.active = AP
 				game.state = "event_robertson_choice"
 			},
@@ -2583,7 +2526,6 @@ module.exports = function (Engine) {
 			name_cn: "柏林-巴格达铁路",
 			effect_cn: "完成亚达纳和阿勒颇附近的铁路修建(君士坦丁堡-大马士革的铁路完成连通)。。现在同盟国在限制地区内可以存在最多3支LCU。。+1VP",
 			handler: function (game, ctx) {
-				log(game, "Event: Berlin-Baghdad Railroad executed.", ctx)
 				game.events.berlin_baghdad = 1
 				game.vp -= 1
 				log(game, "CP gains 1 VP.", ctx)
@@ -2595,7 +2537,6 @@ module.exports = function (Engine) {
 			effect_cn:
 				"协约国玩家必须选择:。A:+1VP。B:将最多3个英国/印度/澳新师移除游戏(派往西线)。。本回合德国补员点数无法使用。。(注:协约国移除时，也可以以1LCU=3SCU的代价进行。选择移除师时，不能选择骑兵/骆驼师和英国特殊部队(例如英国波斯宪兵或者印度卫戍师等))",
 			handler: function (game, ctx) {
-				log(game, "Event: KAISERSCHLACHT executed.", ctx)
 				game.events["kaiserschlacht"] = true
 				game.active = AP
 				game.state = "event_kaiserschlacht_choice"
@@ -2608,7 +2549,6 @@ module.exports = function (Engine) {
 			name_cn: "土耳其增援",
 			effect_cn: "增援:土耳其-阿拉伯左翼集团，1个土耳其-阿拉伯步兵师。增援:土耳其第20军团、第22军团至预备军格",
 			handler: function (game, ctx) {
-				log(game, "Event: TURKISH REINFORCEMENTS executed.", ctx)
 				let event = start_event_data(game, ctx, "turkish_reinf_106")
 				game.active = CP
 				let units = ["TU-A Left Wing", "TU-A Infantry #1", "TU 20th Corps", "TU 22nd Corps"]
@@ -2625,7 +2565,6 @@ module.exports = function (Engine) {
 			effect_cn:
 				"立即消灭4个地图上/预备军格的土耳其/土耳其-阿拉伯LCU作为代价。。增援:土耳其高加索第1军团、土耳其高加索第2军团 至安纳托利亚、高加索或者加利波里的同盟国控制区域。",
 			handler: function (game, ctx) {
-				log(game, "Event: CAUCASIAN ARMY REFORMS executed.", ctx)
 				game.events["caucasian_army_reforms"] = true
 				game.active = CP
 				game.state = "event_caucasian_army_reforms_eliminate"
@@ -2642,7 +2581,6 @@ module.exports = function (Engine) {
 				return (year > 1917 || (year === 1917 && get_season(game) !== "Winter")) && game.events["german_subs"]
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: UNRESTRICTED SUBMARINE WARFARE executed.", ctx)
 				game.vp -= 1
 				game.events["unrestricted_submarine_warfare"] = true
 			}
@@ -2655,7 +2593,6 @@ module.exports = function (Engine) {
 			use_ops: true,
 			handler: function (game, ctx) {
 				game.events["yildrim_offensive"] = game.turn
-				log(game, "YILDRIM OFFENSIVE: TU/TU-A attacks +1 DRM; one Yildrim attack ignores trenches.", ctx)
 			}
 		},
 		110: {
@@ -2667,8 +2604,8 @@ module.exports = function (Engine) {
 				return game.combined_war >= 28
 			},
 			handler: function (game, ctx) {
-				log(game, "Event: BRITISH WAR WEARINESS executed.", ctx)
-				game.events["british_war_weariness"] = true
+				game.events["british_war_weariness"] = game.turn
+				set_cp_auto_victory_marker(game, 19, ctx)
 			}
 		}
 	}
@@ -2710,6 +2647,9 @@ module.exports = function (Engine) {
 	exports.is_german_subs_blocked_port = is_german_subs_blocked_port
 	exports.apply_turkish_war_weariness_rp = apply_turkish_war_weariness_rp
 	exports.is_turkish_replacement_blocked = is_turkish_replacement_blocked
+	exports.ensure_cp_auto_victory_marker = ensure_cp_auto_victory_marker
+	exports.set_cp_auto_victory_marker = set_cp_auto_victory_marker
+	exports.shift_cp_auto_victory_marker = shift_cp_auto_victory_marker
 	exports.reinforce = reinforce
 
 	return exports

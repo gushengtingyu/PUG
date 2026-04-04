@@ -1512,6 +1512,7 @@ const marker_info = {
 	// Game Status
 	game_turn: { name: "Game Turn", counter: "marker game_turn", size: 75 * SCALE },
 	vp: { name: "VP", counter: "marker vp", size: 75 * SCALE },
+	cp_auto_victory: { name: "CP Auto Victory", counter: "marker cp_auto_victory", size: 75 * SCALE },
 
 	// War Status
 	ap_war_status: { name: "AP War Status", counter: "marker ap war_status", size: 75 * SCALE },
@@ -1637,8 +1638,7 @@ function sub_card_name(match, p1) {
 	const card = cards[c]
 	if (card) {
 		const faction_class = card.faction === "ap" ? "ap-card" : "cp-card"
-		const card_class = card_class_name(c)
-		return `<span class="cardtip ${faction_class} ${card_class}" onmouseenter="on_focus_card_tip(${c})" onmouseleave="on_blur_card_tip()" onclick="on_click_card_tip(${c})">${card.name}</span>`
+		return `<span class="cardtip ${faction_class}" onmouseenter="on_focus_card_tip(${c})" onmouseleave="on_blur_card_tip()" onclick="on_click_card_tip(${c})">${card.name}</span>`
 	}
 	return `未知卡牌`
 }
@@ -3937,6 +3937,11 @@ function update_system_markers() {
 		}
 	}
 	update_general_record("vp", view.vp)
+	update_general_record(
+		"cp_auto_victory",
+		view.cp_auto_victory_marker,
+		view.cp_auto_victory_marker === undefined || view.cp_auto_victory_marker === null
+	)
 	update_general_record("ap_war_status", view.ws_ap, view.ws_ap === 0)
 	update_general_record("cp_war_status", view.ws_cp, view.ws_cp === 0)
 	update_general_record("russian_vp", view.russian_vp, view.russian_vp === undefined)

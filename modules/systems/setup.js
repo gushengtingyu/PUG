@@ -255,6 +255,11 @@ module.exports = function (Engine) {
 		if (!state.rp_rebel) state.rp_rebel = { ca: 0, af: 0, eg: 0, in: 0 }
 		if (state.tu_rp_limit === undefined) state.tu_rp_limit = 25
 		if (!state.events) state.events = {}
+		if (state.cp_auto_victory_marker === undefined) {
+			state.cp_auto_victory_marker = null
+		} else if (state.cp_auto_victory_marker !== null) {
+			state.cp_auto_victory_marker = Math.max(0, Math.floor(Number(state.cp_auto_victory_marker) || 0))
+		}
 		if (!state.pending_commitment_shuffle) state.pending_commitment_shuffle = { ap: false, cp: false }
 		if (state.pending_commitment_shuffle.ap === undefined) state.pending_commitment_shuffle.ap = false
 		if (state.pending_commitment_shuffle.cp === undefined) state.pending_commitment_shuffle.cp = false
@@ -346,6 +351,7 @@ module.exports = function (Engine) {
 			rp_rebel: { ca: 0, af: 0, eg: 0, in: 0 },
 			tu_rp_limit: 25,
 			events: {},
+			cp_auto_victory_marker: null,
 			pending_commitment_shuffle: { ap: false, cp: false },
 			war_status_ap: 0,
 			war_status_cp: 0,

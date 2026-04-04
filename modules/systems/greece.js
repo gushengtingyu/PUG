@@ -1,9 +1,10 @@
 "use strict"
 
 module.exports = function (Engine) {
-	const { data } = Engine
+	const { data, game_utils } = Engine
 	const exports = {}
 	const { AP, CP } = Engine.constants
+	const { find_space } = game_utils
 
 	function normalize_greece_faction(value) {
 		if (value === AP || value === CP) return value
@@ -144,7 +145,7 @@ module.exports = function (Engine) {
 	function check_constantine_entry_conditions(game) {
 		const { map } = Engine
 		// Condition (1): CP unit at Larissa
-		let larissa = map.find_space("Larissa")
+		let larissa = find_space("Larissa")
 		if (larissa >= 0 && map.get_pieces_in_space(game, larissa).some((p) => data.pieces[p].faction === CP)) {
 			return true
 		}
@@ -181,7 +182,7 @@ module.exports = function (Engine) {
 		}
 
 		// Rule 19.2.6: Gain control of Athens and record VP if not occupied by enemy
-		let athens = map.find_space("Athens")
+		let athens = find_space("Athens")
 		if (
 			athens >= 0 &&
 			map.get_pieces_in_space(game, athens).every((p) => data.pieces[p].faction !== entering_faction)

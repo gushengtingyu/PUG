@@ -118,6 +118,16 @@ const Engine = {
 		}
 	},
 
+	card_name(card) {
+		if (!Number.isInteger(card) || !Engine.data.cards[card]) return `Unknown Card ${card}`
+		return `c${card}`
+	},
+
+	card_names(cards) {
+		if (!Array.isArray(cards)) return []
+		return cards.map((card) => Engine.card_name(card))
+	},
+
 	update_jihad_level(game, amount) {
 		if (Engine.jihad && typeof Engine.jihad.update_jihad_level === "function") {
 			const push_state =
@@ -147,9 +157,6 @@ const Engine = {
 
 		let old_faction = game.control[s]
 		game.control[s] = faction
-		if (old_faction !== null) {
-			Engine.log(game, `${Engine.data.spaces[s].name} 控制权变更: ${old_faction} -> ${faction}`)
-		}
 
 		if (Engine.jihad && typeof Engine.jihad.on_control_changed === "function") {
 			Engine.jihad.on_control_changed(game, s, faction, {

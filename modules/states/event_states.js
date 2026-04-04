@@ -140,7 +140,7 @@ module.exports = function (Engine) {
 			if (!game.forts) game.forts = { destroyed: [] }
 			if (!game.forts.destroyed) game.forts.destroyed = []
 			rules.set_add(game.forts.destroyed, FAO)
-			rules.log("Russo-British Assault: Fao fort destroyed.")
+			rules.log("英俄突袭：法奥要塞被摧毁")
 
 			// 立即触发渲染
 			if (res && typeof res.apply === "function") {
@@ -163,7 +163,7 @@ module.exports = function (Engine) {
 
 			let pieces = rules.get_pieces_in_space(game, TO_FAO)
 			if (pieces.length > 0) {
-				rules.log(`Russo-British Assault: Units landed at ${rules.space_name(FAO)}.`)
+				rules.log(`英俄突袭：波斯湾部队登陆到 ${rules.space_name(FAO)}.`)
 				for (let p of pieces) {
 					rules.move_piece(game, p, FAO)
 				}
@@ -1802,10 +1802,10 @@ module.exports = function (Engine) {
 			if (is_elim_or_removed_exception) {
 				game.pieces[p] = game.attack.space
 				rules.set_add(game.reduced, p)
-				rules.log(`${rules.piece_name(p)} 在 ${rules.space_name(game.attack.space)} 重建。`)
+				rules.log(`> ${rules.piece_name(p)} 在 ${rules.space_name(game.attack.space)} 重建。`)
 			} else {
 				rules.set_delete(game.reduced, p)
-				rules.log(`${rules.piece_name(p)} (${rules.space_name(game.pieces[p])}) 补员至满员状态。`)
+				rules.log(`> ${rules.piece_name(p)} (${rules.space_name(game.pieces[p])}) 补员至满员状态。`)
 			}
 		},
 		done(ctx) {
@@ -2954,6 +2954,7 @@ module.exports = function (Engine) {
 	return {
 		states,
 		get_activation_prompt,
-		on_activation_done
+		on_activation_done,
+		check_liberate_suez_ops
 	}
 }

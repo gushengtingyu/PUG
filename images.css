@@ -46,6 +46,9 @@
 .marker.vp {
 	background-image: url(pieces/MVP.png);
 }
+.marker.cp_auto_victory {
+	background-image: url(pieces/MCPAV.png);
+}
 .marker.vp.blockade {
 	background-image: url(pieces/MVPB.png);
 }
@@ -126,6 +129,9 @@
 }
 .marker.cp_air_superiority {
 	background-image: url(pieces/MCPAirS.png);
+}
+.marker.ap_air_superiority {
+	background-image: url(pieces/MAPAirS.png);
 }
 .marker.u_boats_med {
 	background-image: url(pieces/MUBMed.png);

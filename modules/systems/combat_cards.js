@@ -8,17 +8,58 @@ module.exports = function (Engine) {
 	const {
 		is_lcu,
 		is_scu,
-		is_tribe,
-		is_regular,
 		is_removed,
 		is_eliminated,
-		is_not_on_map,
 		get_piece_nation,
-		get_piece_type,
-		space_name,
-		piece_name,
-		get_piece_effective_faction
+		get_piece_effective_faction,
+		piece_counts_as_nation_for_rule
 	} = game_utils
+
+	const STANDARD_CC_STATES = new Set(["play_cc_attacker", "play_cc_defender"])
+	const SINAI_SPACES = new Set([
+		"Romani",
+		"Bir el Abd",
+		"El Arish",
+		"Rafa",
+		"Magdhaba",
+		"Bir Gifgafa",
+		"Bir Hasana",
+		"Nekhl",
+		"Suez",
+		"Aqaba"
+	])
+	const SHORE_SPACES = new Set([
+		"Antalya",
+		"Adana",
+		"Alexandretta",
+		"Beirut",
+		"Haifa",
+		"Jaffa",
+		"Port Said",
+		"Alexandria",
+		"Mersa Matruh",
+		"Sollum",
+		"Ismailia",
+		"Suez",
+		"Aqaba",
+		"Jiddah",
+		"Bahrain",
+		"Abadan",
+		"Fao",
+		"Kuwait"
+	])
+	const MIDDLE_EAST_AREAS = new Set([
+		"egypt",
+		"sinai",
+		"syria_palestine",
+		"mesopotamia",
+		"arabia",
+		"arabistan",
+		"persia",
+		"anatolia"
+	])
+	const SURPRISE_AREAS = new Set(["mesopotamia", "syria_palestine", "sinai"])
+	const ARMY_OF_ISLAM_AREAS = new Set(["caucasus", "russia", "azerbaijan", "persia"])
 
 	function has_attack(game) {
 		return !!game.attack
@@ -32,34 +73,41 @@ module.exports = function (Engine) {
 		return map.get_pieces_in_space(game, s)
 	}
 
+	function get_attack_pieces(game) {
+		return game.attack?.pieces || []
+	}
+
+	function is_state(game, state) {
+		return game.state === state
+	}
+
+	function is_standard_cc_state(game) {
+		return STANDARD_CC_STATES.has(game.state)
+	}
+
+	function can_play_in_standard_cc_window(game, faction = null) {
+		if (!has_attack(game)) return false
+		if (!is_standard_cc_state(game)) return false
+		return faction === null ? true : get_active_faction(game) === faction
+	}
+
+	function can_play_in_window(game, state, faction = null) {
+		if (!has_attack(game)) return false
+		if (!is_state(game, state)) return false
+		return faction === null ? true : get_active_faction(game) === faction
+	}
+
+	function attacker_has_piece(game, predicate) {
+		return get_attack_pieces(game).some(predicate)
+	}
+
 	function is_sinai_space(name) {
-		const sinai_spaces = [
-			"Romani",
-			"Bir el Abd",
-			"El Arish",
-			"Rafa",
-			"Magdhaba",
-			"Bir Gifgafa",
-			"Bir Hasana",
-			"Nekhl",
-			"Suez",
-			"Aqaba"
-		]
-		return sinai_spaces.includes(name)
+		return SINAI_SPACES.has(name)
 	}
 
 	function is_middle_east_area(s) {
 		let area = map.get_area(s)
-		return [
-			"egypt",
-			"sinai",
-			"syria_palestine",
-			"mesopotamia",
-			"arabia",
-			"arabistan",
-			"persia",
-			"anatolia"
-		].includes(area)
+		return MIDDLE_EAST_AREAS.has(area)
 	}
 
 	function has_nation_on_side_in_battle(game, nations, faction) {
@@ -79,17 +127,16 @@ module.exports = function (Engine) {
 		}
 		return pieces.some((p) => {
 			let p_faction = get_piece_effective_faction(game, p)
-			let p_nation = get_piece_nation(p)
-			return p_faction === faction && nations.includes(p_nation)
+			return p_faction === faction && nations.some((nation) => piece_counts_as_nation_for_rule(game, p, nation))
 		})
 	}
 
 	function has_nation_in_battle(game, nations) {
 		if (!has_attack(game)) return false
-		let attackers = game.attack.pieces
+		let attackers = get_attack_pieces(game)
 		let defenders = get_space_pieces(game, game.attack.space)
 		let all = attackers.concat(defenders)
-		return all.some((p) => nations.includes(get_piece_nation(p)))
+		return all.some((p) => nations.some((nation) => piece_counts_as_nation_for_rule(game, p, nation)))
 	}
 
 	function get_battle_piece_pool(game) {
@@ -117,7 +164,7 @@ module.exports = function (Engine) {
 
 	function has_damaged_or_eliminated_battle_piece(game, nations) {
 		return get_battle_piece_pool(game).some((p) => {
-			if (!nations.includes(get_piece_nation(p))) return false
+			if (!nations.some((nation) => piece_counts_as_nation_for_rule(game, p, nation))) return false
 			let info = data.pieces[p]
 			let removed_by_reserves_exception =
 				is_removed(game, p) && info && (info.symbol === "dot" || info.symbol === "triangle")
@@ -136,88 +183,62 @@ module.exports = function (Engine) {
 		if (!info) return 0
 		let is_elim_or_removed_exception =
 			is_eliminated(game, p) || is_reserves_to_front_removed_exception(game, p)
-		if (is_elim_or_removed_exception) return 1
-		if (set_has(game.reduced, p)) return info.piece_class === "LCU" ? 1 : 0.5
+		if (is_elim_or_removed_exception || set_has(game.reduced, p)) {
+			return info.piece_class === "LCU" ? 1 : 0.5
+		}
 		return 0
 	}
 
 	function can_play_no_prisoners(game) {
-		if (!has_attack(game)) return false
-		if (game.state !== "play_cc_attacker" && game.state !== "play_cc_defender") return false
-		let attackers = game.attack.pieces
-		let has_ap_arab_attacker = attackers.some(
+		if (!can_play_in_standard_cc_window(game)) return false
+		let has_ap_arab_attacker = attacker_has_piece(
+			game,
 			(p) => data.pieces[p].faction === AP && data.pieces[p].nation === "ar"
 		)
-		let has_cp_tribe_attacker = attackers.some(
+		let has_cp_tribe_attacker = attacker_has_piece(
+			game,
 			(p) => data.pieces[p].faction === CP && data.pieces[p].type === "tribe"
 		)
 		return has_ap_arab_attacker || has_cp_tribe_attacker
 	}
 
 	function can_play_shore_bombardment(game) {
-		if (!has_attack(game)) return false
-		if (game.state !== "play_cc_attacker" && game.state !== "play_cc_defender") return false
-		const shore_spaces = [
-			"Antalya",
-			"Adana",
-			"Alexandretta",
-			"Beirut",
-			"Haifa",
-			"Jaffa",
-			"Port Said",
-			"Alexandria",
-			"Mersa Matruh",
-			"Sollum",
-			"Ismailia",
-			"Suez",
-			"Aqaba",
-			"Jiddah",
-			"Bahrain",
-			"Abadan",
-			"Fao",
-			"Kuwait"
-		]
-
+		if (!can_play_in_standard_cc_window(game)) return false
 		let target_name = data.spaces[game.attack.space].name
-		if (shore_spaces.includes(target_name)) return true
+		if (SHORE_SPACES.has(target_name)) return true
 
-		for (let p of game.attack.pieces) {
+		for (let p of get_attack_pieces(game)) {
 			let s = game.pieces[p]
-			if (shore_spaces.includes(data.spaces[s].name)) return true
+			if (SHORE_SPACES.has(data.spaces[s].name)) return true
 		}
 
 		return false
 	}
 
 	function can_play_armenian_druzhiny(game) {
-		if (!has_attack(game)) return false
-		if (game.state !== "play_cc_attacker" && game.state !== "play_cc_defender") return false
+		if (!can_play_in_standard_cc_window(game)) return false
 		let space = game.attack.space
 		if (map.is_balkans(space)) return false
 		return has_nation_on_side_in_battle(game, ["ru", "arm"], AP)
 	}
 
 	function can_play_pugnacity(game) {
-		if (!has_attack(game)) return false
-		if (game.state !== "play_cc_attacker" && game.state !== "play_cc_defender") return false
+		if (!can_play_in_standard_cc_window(game)) return false
 		return has_nation_on_side_in_battle(game, ["in"], AP)
 	}
 
 	function can_play_gurkhas(game) {
-		if (!has_attack(game)) return false
-		if (game.state !== "play_cc_attacker" && game.state !== "play_cc_defender") return false
+		if (!can_play_in_standard_cc_window(game)) return false
 		return has_nation_on_side_in_battle(game, ["br", "in"], AP)
 	}
 
 	function can_play_maude(game) {
-		if (!has_attack(game)) return false
-		if (game.state !== "play_cc_attacker" && game.state !== "play_cc_defender") return false
+		if (!can_play_in_standard_cc_window(game)) return false
 		return has_nation_on_side_in_battle(game, ["br"], AP) && has_nation_on_side_in_battle(game, ["in"], AP)
 	}
 
 	function can_play_armored_cars(game) {
-		if (!has_attack(game)) return false
-		if (game.state !== "play_cc_attacker" && game.state !== "play_cc_defender") return false
+		if (!can_play_in_standard_cc_window(game)) return false
 		let terrain = data.spaces[game.attack.space].terrain
 		return terrain !== "mountain" && terrain !== "swamp"
 	}
@@ -242,39 +263,31 @@ module.exports = function (Engine) {
 		if (game.events && game.events["royal_flying_corps_permanent"]) return false
 
 		// Surprise is defender only
-		let is_active_attacker = game.attack.pieces.some((p) => get_piece_effective_faction(game, p) === game.active)
+		let is_active_attacker = attacker_has_piece(game, (p) => get_piece_effective_faction(game, p) === game.active)
 		if (is_active_attacker) return false
 
 		if (game.active !== CP) return false
 
 		let area = map.get_area(game.attack.space)
-		return ["mesopotamia", "syria_palestine", "sinai"].includes(area)
+		return SURPRISE_AREAS.has(area)
 	}
 
 	function can_play_water_shortage(game) {
-		if (!has_attack(game)) return false
-		if (get_active_faction(game) !== CP) return false
-		if (game.state !== "post_roll_cc_defender") return false
+		if (!can_play_in_window(game, "post_roll_cc_defender", CP)) return false
 		return is_middle_east_area(game.attack.space)
 	}
 
 	function can_play_confused_orders(game) {
-		if (!has_attack(game)) return false
-		if (get_active_faction(game) !== CP) return false
-		return game.state === "post_roll_cc_defender"
+		return can_play_in_window(game, "post_roll_cc_defender", CP)
 	}
 
 	function can_play_reserves_to_front(game) {
-		if (!has_attack(game)) return false
-		if (get_active_faction(game) !== CP) return false
-		if (game.state !== "post_battle_cc_cp") return false
+		if (!can_play_in_window(game, "post_battle_cc_cp", CP)) return false
 		return has_damaged_or_eliminated_battle_piece(game, ["tu", "tua"])
 	}
 
 	function can_play_war_weary_balkans(game) {
-		if (!has_attack(game)) return false
-		if (game.state !== "play_cc_attacker" && game.state !== "play_cc_defender") return false
-		if (get_active_faction(game) !== AP) return false
+		if (!can_play_in_standard_cc_window(game, AP)) return false
 		if (game.turn < 15) return false // Rule: Cannot be played before Winter 1917 (Turn 15)
 
 		let count = 0
@@ -296,16 +309,12 @@ module.exports = function (Engine) {
 	}
 
 	function can_play_royal_flying_corps(game) {
-		if (!has_attack(game)) return false
-		if (game.state !== "play_cc_attacker" && game.state !== "play_cc_defender") return false
-		if (get_active_faction(game) !== AP) return false
+		if (!can_play_in_standard_cc_window(game, AP)) return false
 		return has_nation_on_side_in_battle(game, ["br", "in", "anz"], AP)
 	}
 
 	function can_play_tanks(game) {
-		if (!has_attack(game)) return false
-		if (game.state !== "play_cc_attacker" && game.state !== "play_cc_defender") return false
-		if (get_active_faction(game) !== AP) return false
+		if (!can_play_in_standard_cc_window(game, AP)) return false
 		let s = game.attack.space
 		let area = map.get_area(s)
 		let name = data.spaces[s].name
@@ -313,30 +322,24 @@ module.exports = function (Engine) {
 		let is_sinai = is_sinai_space(name)
 		let is_valid_area = area === "egypt" || area === "syria_palestine" || is_sinai
 		let is_valid_terrain = terrain === "clear" || terrain === "desert"
-		let has_br = game.attack.pieces.some((p) => data.pieces[p].nation === "br")
+		let has_br = attacker_has_piece(game, (p) => data.pieces[p].nation === "br")
 		return is_valid_area && is_valid_terrain && has_br
 	}
 
 	function can_play_massed_cavalry_charge(game) {
-		if (!has_attack(game)) return false
-		if (game.state !== "play_cc_attacker" && game.state !== "play_cc_defender") return false
-		if (get_active_faction(game) !== AP) return false
-		return game.attack.pieces.some((p) => data.pieces[p].counter === "ANZ Desert Corps")
+		if (!can_play_in_standard_cc_window(game, AP)) return false
+		return attacker_has_piece(game, (p) => data.pieces[p].counter === "ANZ Desert Corps")
 	}
 
 	function can_play_push_to_the_breaking_point(game) {
-		if (!has_attack(game)) return false
-		if (game.state !== "play_cc_attacker" && game.state !== "play_cc_defender") return false
-		if (get_active_faction(game) !== AP) return false
+		if (!can_play_in_standard_cc_window(game, AP)) return false
 		return !!(game.events && game.events["allenby"])
 	}
 
 	function can_play_haversack_ruse(game) {
-		if (!has_attack(game)) return false
-		if (game.state !== "play_cc_attacker" && game.state !== "play_cc_defender") return false
-		if (get_active_faction(game) !== AP) return false
+		if (!can_play_in_standard_cc_window(game, AP)) return false
 		if (!(game.events && game.events["allenby"])) return false
-		return game.attack.pieces.some((p) => data.pieces[p].nation === "br" && map.is_lcu(p))
+		return attacker_has_piece(game, (p) => data.pieces[p].nation === "br" && map.is_lcu(p))
 	}
 
 	function can_play_march_and_countermarch(game) {
@@ -360,22 +363,19 @@ module.exports = function (Engine) {
 		if (!has_attack(game)) return false
 		if (get_active_faction(game) !== CP) return false
 		if ((game.jihad || 0) < 8) return false
-		return game.attack.pieces.some((p) => ["tu", "tua"].includes(data.pieces[p].nation))
+		return attacker_has_piece(game, (p) => ["tu", "tua"].includes(data.pieces[p].nation))
 	}
 
 	function can_play_german_high_command(game) {
-		if (!has_attack(game)) return false
-		if (game.state !== "play_cc_attacker" && game.state !== "play_cc_defender") return false
-		if (get_active_faction(game) !== CP) return false
+		if (!can_play_in_standard_cc_window(game, CP)) return false
 		return true
 	}
 
 	function can_play_save_tiflis(game) {
-		if (!has_attack(game)) return false
-		if (game.state !== "retreat_choice_cc_cp") return false
+		if (!can_play_in_window(game, "retreat_choice_cc_cp")) return false
 
 		// Turkish LCU must be the attacker
-		let has_tu_lcu_attacker = game.attack.pieces.some((p) => {
+		let has_tu_lcu_attacker = attacker_has_piece(game, (p) => {
 			let p_data = data.pieces[p]
 			return p_data.nation === "tu" && game_utils.is_lcu(p)
 		})
@@ -420,7 +420,7 @@ module.exports = function (Engine) {
 			break
 		}
 
-		return has_ru_in_affected_area;
+		return has_ru_in_affected_area
 	}
 
 	function can_play_catastrophic_attack(game) {
@@ -446,9 +446,7 @@ module.exports = function (Engine) {
 	}
 
 	function can_play_czars_armories(game) {
-		if (!has_attack(game)) return false
-		if (get_active_faction(game) !== CP) return false
-		if (game.state !== "post_advance_cc_cp") return false
+		if (!can_play_in_window(game, "post_advance_cc_cp", CP)) return false
 		if (!game.events || !(game.events["russian_revolution"] >= 1)) return false
 		if (!game.captured_russian_vp_in_advance) return false
 		return has_nation_in_battle(game, ["tu", "tua"])
@@ -466,8 +464,8 @@ module.exports = function (Engine) {
 		if ((game.jihad || 0) < 6) return false
 		let s = game.attack.space
 		let area = map.get_area(s)
-		if (!["caucasus", "russia", "azerbaijan", "persia"].includes(area)) return false
-		return game.attack.pieces.some((p) => ["tu", "tua"].includes(data.pieces[p].nation))
+		if (!ARMY_OF_ISLAM_AREAS.has(area)) return false
+		return attacker_has_piece(game, (p) => ["tu", "tua"].includes(data.pieces[p].nation))
 	}
 
 	Object.assign(exports, {

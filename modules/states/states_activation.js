@@ -242,7 +242,16 @@ exports.register = function (states, Engine, context) {
 				}
 			}
 
-			res.action("done")
+			let can_done = true
+			if (game.liberate_suez_op_required) {
+				if (!Engine.event_states.check_liberate_suez_ops(game)) {
+					can_done = false
+				}
+			}
+
+			if (can_done) {
+				res.action("done")
+			}
 			if (DEBUG_ACTIVATION_TRACE) {
 				log_activation_debug("[调试][activation-perf]", {
 					phase: "activate_spaces.prompt",

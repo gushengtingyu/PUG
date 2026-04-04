@@ -45,10 +45,19 @@ module.exports = [
 	js.configs.recommended,
 	{
 		files: ["**/*.js"],
-		ignores: ["**/play.js", "**/alpine.js", "**/layout.js"],
+		ignores: ["**/play.js", "**/alpine.js", "**/layout.js", "vitest.config.js"],
 		languageOptions: {
 			ecmaVersion: 2021,
 			sourceType: "script",
+			globals: nodeGlobals
+		},
+		rules: baseRules
+	},
+	{
+		files: ["vitest.config.js"],
+		languageOptions: {
+			ecmaVersion: 2021,
+			sourceType: "module",
 			globals: nodeGlobals
 		},
 		rules: baseRules

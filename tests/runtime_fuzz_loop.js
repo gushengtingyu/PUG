@@ -1,7 +1,4 @@
 const rules = require("../rules.js")
-const Engine = require("../modules/engine.js")
-
-const { AP } = Engine.constants
 
 function createDefaultOptions() {
 	return {
@@ -102,6 +99,10 @@ function buildChoices(actions) {
 	return choices
 }
 
+function isWaitingPrompt(prompt) {
+	return typeof prompt === "string" && prompt.startsWith("等待 ")
+}
+
 function pickChoice(choices, rand, pairCounts, sig) {
 	if (choices.length === 0) return null
 	let weightedChoices = choices.map((choice) => {
@@ -163,12 +164,14 @@ function validateGameInvariants(game) {
 	if (game.undo !== undefined && !Array.isArray(game.undo)) throw new Error("game.undo must be an array when present")
 }
 
-function validateViewInvariants(view, game) {
+function validateViewInvariants(view, game, role = game.active) {
 	if (!view || typeof view !== "object") throw new Error("view must be an object")
 	if (view.prompt !== null && typeof view.prompt !== "string") throw new Error("view.prompt must be a string or null")
 	if (!view.actions || typeof view.actions !== "object") throw new Error("view.actions must be an object")
 	if (!view.active || typeof view.active !== "string") throw new Error("view.active must be a non-empty string")
 	if (!Number.isInteger(view.turn) || view.turn < 1) throw new Error("view.turn must be a positive integer")
+	if (view.active !== game.active) throw new Error("view.active must match game.active")
+	if (role === game.active && isWaitingPrompt(view.prompt)) throw new Error("active player should not receive a waiting prompt")
 	ensureUniqueArray("view.attacked", view.attacked)
 	ensureUniqueArray("view.moved", view.moved)
 }
@@ -281,7 +284,7 @@ function run(inputOptions = {}) {
 		let view
 		try {
 			view = rules.view(game, role)
-			validateViewInvariants(view, game)
+			validateViewInvariants(view, game, role)
 		} catch (error) {
 			let result = buildResult(1, "crash_view", summary({
 				state: game.state,
@@ -327,15 +330,20 @@ function run(inputOptions = {}) {
 			noActionEvents.push({
 				state: game.state,
 				active: game.active,
+				viewActive: view.active,
 				prompt: view.prompt
 			})
 			if (noActionEvents.length > 20) noActionEvents.shift()
-			let result = startNextGame("no_selectable_actions")
-			if (result) {
-				report("[fuzz] done", result.summary)
-				return result
-			}
-			continue
+			let result = buildResult(2, "active_no_selectable_actions", summary({
+				state: game.state,
+				active: game.active,
+				role,
+				prompt: view.prompt,
+				actions: view.actions,
+				recent
+			}))
+			report("[fuzz] invalid:no_actions", result.summary)
+			return result
 		}
 
 		const choice = pickChoice(choices, rand, pairCounts, sig)
@@ -419,6 +427,7 @@ module.exports = {
 	currentRole,
 	actionWeight,
 	buildChoices,
+	isWaitingPrompt,
 	pickChoice,
 	signatureOf,
 	validateGameInvariants,

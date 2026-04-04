@@ -42,6 +42,7 @@ module.exports = function (Engine) {
 		is_removed,
 		is_not_on_map,
 		get_tribe_key_space,
+		get_piece_nations_for_rule,
 		is_irregular,
 		is_tribe
 	} = Engine.game_utils
@@ -306,6 +307,7 @@ module.exports = function (Engine) {
 	}
 
 	function can_convert_ge_to_tu_unlimited(game) {
+		if (game.no_ge_to_tu_rp_conversion) return false
 		// Rule 22.3.2: Once Bulgaria becomes a CP ally AND a supply line can be traced overland by rail from Constantinople to Galicia
 		if (!game.events || !game.events["bulgaria"]) return false
 
@@ -324,267 +326,256 @@ module.exports = function (Engine) {
 		return false
 	}
 
-	function can_afford_replacement(game, p, cost) {
-		let info = data.pieces[p]
-		let nation = info.nation
-		let faction = info.faction
-		let rps = faction === AP ? game.rp_ap : game.rp_cp
+	function can_use_ge_rp_for_tu(game, cost) {
+		if (game.no_ge_to_tu_rp_conversion) return false
+		if (can_convert_ge_to_tu_unlimited(game)) return true
+		return game.ge_to_tu_rp_used + cost <= 1
+	}
 
-		// Rule 22.1.8: Turkish War Weariness check
-		if (game.events && game.events["turkish_war_weariness"]) {
-			if ((nation === "tu" || nation === "tua") && info.symbol === "triangle") {
-				return false
+	function can_use_replacement_supply_as_nation(game, p, s, nation) {
+		if (is_central_asia(s) || is_afghanistan(s)) {
+			if (can_trace_supply_to_source(game, s, CP, s)) {
+				let sources = []
+				for (let i = 1; i < data.spaces.length; i++) {
+					if (is_base_supply_source(game, i, CP) && !is_central_asia(i) && !is_afghanistan(i)) {
+						sources.push(i)
+					}
+				}
+				if (!can_trace_supply_to_source(game, s, CP, sources)) return false
 			}
 		}
 
-		// Capital control check (22.1.5)
-		if (is_capital_enemy_controlled(game, nation)) {
-			// Exceptions: SB and GR units are not affected
-			if (nation !== "sb" && nation !== "gr") return false
+		if (nation === "ge" || nation === "ah") {
+			if (can_trace_supply_to_sofia(game, p) || can_trace_supply_to_turkey(game, p)) {
+				if (!can_trace_supply_to_galicia(game, p)) return false
+			}
+		}
+		if (nation === "tu" || nation === "tua") {
+			if (can_trace_supply_to_sofia(game, p) || can_trace_supply_to_galicia(game, p)) {
+				if (!can_trace_supply_to_turkey(game, p)) return false
+			}
+		}
+		if (nation === "bu") {
+			if (can_trace_supply_to_galicia(game, p) || can_trace_supply_to_turkey(game, p)) {
+				if (!can_trace_supply_to_sofia(game, p)) return false
+			}
+		}
+		if (nation === "ru") {
+			if (can_trace_supply_to_british_source(game, p)) {
+				if (!can_trace_supply_to_russian_source(game, p)) return false
+			}
+		}
+		if (["br", "in", "anz"].includes(nation)) {
+			if (can_trace_supply_to_russian_source(game, p)) {
+				if (!can_trace_supply_to_british_source(game, p)) return false
+			}
 		}
 
-		// Rule 22.1.6: Supply Tracing Restrictions for RPs
+		return true
+	}
+
+	function is_replacement_nation_eligible(game, p, nation) {
+		let info = data.pieces[p]
+		if (!info) return false
+		if (game.events && game.events["turkish_war_weariness"] && (nation === "tu" || nation === "tua") && info.symbol === "triangle") {
+			return false
+		}
+		if (is_capital_enemy_controlled(game, nation) && nation !== "sb" && nation !== "gr") return false
 		if (!is_not_on_map(game, p)) {
 			let s = game.pieces[p]
-			if (s > 0) {
-				// Rule 22.1.6: Units using Central Asia or Afghanistan as a Limited CP Supply Source cannot take RPs
-				if (is_central_asia(s) || is_afghanistan(s)) {
-					// We need to check if they are TRACING supply solely to these
-					// But the rule says "Units using... as a Limited CP Supply Source"
-					// This usually means they are out of normal supply.
-					if (can_trace_supply_to_source(game, s, CP, s)) {
-						// If s is its own source (Limited Source)
-						// Check if it can trace to a regular source
-						let sources = []
-						for (let i = 1; i < data.spaces.length; i++) {
-							if (is_base_supply_source(game, i, CP) && !is_central_asia(i) && !is_afghanistan(i)) {
-								sources.push(i)
-							}
-						}
-						if (!can_trace_supply_to_source(game, s, CP, sources)) return false
-					}
-				}
+			if (s > 0 && !can_use_replacement_supply_as_nation(game, p, s, nation)) return false
+		}
+		return true
+	}
 
-				if (nation === "ge" || nation === "ah") {
-					// GE and AH units tracing supply solely to Sofia or Turkey cannot use RPs
-					if (can_trace_supply_to_sofia(game, p) || can_trace_supply_to_turkey(game, p)) {
-						if (!can_trace_supply_to_galicia(game, p)) return false
-					}
-				}
-				if (nation === "tu" || nation === "tua") {
-					// TU units tracing supply solely to Sofia or Galicia cannot use RPs
-					if (can_trace_supply_to_sofia(game, p) || can_trace_supply_to_galicia(game, p)) {
-						if (!can_trace_supply_to_turkey(game, p)) return false
-					}
-				}
-				if (nation === "bu") {
-					// BU units tracing supply solely to Galicia or Turkey cannot use RPs
-					if (can_trace_supply_to_galicia(game, p) || can_trace_supply_to_turkey(game, p)) {
-						if (!can_trace_supply_to_sofia(game, p)) return false
-					}
-				}
-				if (nation === "ru") {
-					// RU units tracing supply solely to BR Supply Sources may not use RPs
-					if (can_trace_supply_to_british_source(game, p)) {
-						if (!can_trace_supply_to_russian_source(game, p)) return false
-					}
-				}
-				if (["br", "in", "anz"].includes(nation)) {
-					// BR/IN/ANZ units tracing supply solely to RU Supply Sources may not use RPs
-					if (can_trace_supply_to_russian_source(game, p)) {
-						if (!can_trace_supply_to_british_source(game, p)) return false
-					}
-				}
+	function can_afford_ap_replacement_as_nation(game, p, nation, cost, rps) {
+		if (nation === "br" && rps.br >= cost) return true
+		if (nation === "ru") {
+			if (rps.ru >= cost) return true
+			if (game.events && game.events["kitchener"] && !game.br_to_ru_rp_used && rps.br >= cost) return true
+			if (game.events && game.events["asquith_lloyd_george_coalition"] && rps.br >= cost) return true
+		}
+		if (nation === "in" && rps.in >= cost) return true
+		if (["anz", "ar", "gr"].includes(nation)) return rps.br >= cost || rps.a >= cost
+		if (["fr", "ro", "sb", "pe", "arm", "geo", "it"].includes(nation)) return rps.a >= cost
+		return rps.a >= cost
+	}
+
+	function can_afford_cp_replacement_as_nation(game, p, nation, cost, rps) {
+		if (nation === "ge" && rps.ge >= cost) return true
+		if (nation === "tu" || nation === "tua") {
+			if (rps.tu >= cost) return true
+			if (rps.ge >= cost && can_use_ge_rp_for_tu(game, cost)) return true
+		}
+		if (nation === "ah") {
+			if (rps.a >= cost) return true
+			if (rps.ge >= cost && can_trace_supply_to_galicia(game, p)) return true
+		}
+		if (nation === "bu") {
+			if (rps.a >= cost) return true
+			if (rps.ge >= cost && can_trace_supply_to_galicia(game, p)) return true
+		}
+		if (nation === "gr") return rps.a >= cost || rps.ge >= cost
+		return rps.a >= cost
+	}
+
+	function spend_ap_replacement_as_nation(game, nation, cost, rps) {
+		if (nation === "br" && rps.br >= cost) {
+			rps.br -= cost
+			return true
+		}
+		if (nation === "ru") {
+			if (rps.ru >= cost) {
+				rps.ru -= cost
+				return true
+			}
+			if (game.events && game.events["kitchener"] && !game.br_to_ru_rp_used && rps.br >= cost) {
+				rps.br -= cost
+				game.br_to_ru_rp_used = true
+				return true
+			}
+			if (game.events && game.events["asquith_lloyd_george_coalition"] && rps.br >= cost) {
+				rps.br -= cost
+				return true
 			}
 		}
+		if (nation === "in" && rps.in >= cost) {
+			rps.in -= cost
+			return true
+		}
+		if (["anz", "ar", "gr"].includes(nation)) {
+			if (rps.br >= cost) {
+				rps.br -= cost
+				return true
+			}
+			if (rps.a >= cost) {
+				rps.a -= cost
+				return true
+			}
+			return false
+		}
+		if (["fr", "ro", "sb", "pe", "arm", "geo", "it"].includes(nation)) {
+			if (rps.a >= cost) {
+				rps.a -= cost
+				return true
+			}
+			return false
+		}
+		if (rps.a >= cost) {
+			rps.a -= cost
+			return true
+		}
+		return false
+	}
+
+	function spend_cp_replacement_as_nation(game, p, nation, cost, rps) {
+		if (nation === "ge" && rps.ge >= cost) {
+			rps.ge -= cost
+			return true
+		}
+		if (nation === "tu" || nation === "tua") {
+			if (rps.tu >= cost) {
+				rps.tu -= cost
+				return true
+			}
+			if (rps.ge >= cost && can_use_ge_rp_for_tu(game, cost)) {
+				rps.ge -= cost
+				if (!can_convert_ge_to_tu_unlimited(game)) game.ge_to_tu_rp_used += cost
+				return true
+			}
+			return false
+		}
+		if (nation === "ah") {
+			if (rps.a >= cost) {
+				rps.a -= cost
+				return true
+			}
+			if (rps.ge >= cost && can_trace_supply_to_galicia(game, p)) {
+				rps.ge -= cost
+				return true
+			}
+			return false
+		}
+		if (nation === "bu") {
+			if (rps.a >= cost) {
+				rps.a -= cost
+				return true
+			}
+			if (rps.ge >= cost && can_trace_supply_to_galicia(game, p)) {
+				rps.ge -= cost
+				return true
+			}
+			return false
+		}
+		if (nation === "gr") {
+			if (rps.a >= cost) {
+				rps.a -= cost
+				return true
+			}
+			if (rps.ge >= cost) {
+				rps.ge -= cost
+				return true
+			}
+			return false
+		}
+		if (rps.a >= cost) {
+			rps.a -= cost
+			return true
+		}
+		return false
+	}
+
+	function can_afford_replacement(game, p, cost) {
+		let info = data.pieces[p]
+		let faction = info.faction
+		let rps = faction === AP ? game.rp_ap : game.rp_cp
+		let nations = get_piece_nations_for_rule(game, p)
 
 		// Rebel units can use their own automatic RP
-		// Rule: 叛军单位 (Rebels) 可以使用自己的专属叛乱 RP
 		let rebel_type = get_rebel_type(info)
 		if (rebel_type && game.rp_rebel && game.rp_rebel[rebel_type] >= cost) {
 			return true
 		}
 
-		// Rule 22.1.3: CP 玩家可以使用任何友方 RP 来修复不规则单位或部落
 		if (faction === CP && can_use_any_friendly_rp(p) && has_any_cp_rp(game, cost)) {
 			return true
 		}
 
-		// Rule 22.3.3: AP RP Conversion
+		let valid_nations = nations.filter((nation) => is_replacement_nation_eligible(game, p, nation))
+		if (valid_nations.length === 0) return false
+
 		if (faction === AP) {
-			if (nation === "br" && rps.br >= cost) return true
-			if (nation === "ru") {
-				if (rps.ru >= cost) return true
-				// Rule 22.3.1: Kitchener allows 1 BR -> RU per turn
-				if (game.events && game.events["kitchener"] && !game.br_to_ru_rp_used && rps.br >= cost) return true
-				// Rule 22.3.1: Asquith/Lloyd George allows unlimited BR -> RU
-				if (game.events && game.events["asquith_lloyd_george_coalition"] && rps.br >= cost) return true
-			}
-			if (nation === "in" && rps.in >= cost) return true
-			// Rule 22.1.2: ANZ, AP-Allied GR, and Arab Revolt units can use BR or AP Allied RPs
-			if (["anz", "ar", "gr"].includes(nation)) {
-				return rps.br >= cost || rps.a >= cost
-			}
-			// Rule 22.1.2: FR, RO, SB, PE, ARM, and GEO use only AP-Allied RPs
-			if (["fr", "ro", "sb", "pe", "arm", "geo", "it"].includes(nation)) {
-				return rps.a >= cost
-			}
-			if (rps.a >= cost) return true
+			return valid_nations.some((nation) => can_afford_ap_replacement_as_nation(game, p, nation, cost, rps))
 		} else {
-			// Rule 22.3.2: CP RP Conversion
-			if (nation === "ge" && rps.ge >= cost) return true
-			if (nation === "tu" || nation === "tua") {
-				if (rps.tu >= cost) return true
-				// Rule 22.3.2: GE RP conversion for TU units
-				if (rps.ge >= cost) {
-					if (can_convert_ge_to_tu_unlimited(game)) return true
-					if (game.ge_to_tu_rp_used + cost <= 1) return true
-				}
-			}
-			if (nation === "ah") {
-				if (rps.a >= cost) return true
-				// Rule 22.3.2: GE RP conversion for AH units (must trace to Galicia)
-				if (rps.ge >= cost && can_trace_supply_to_galicia(game, p)) return true
-			}
-			if (nation === "bu") {
-				if (rps.a >= cost) return true
-				// Rule 22.3.2: GE RP conversion for BU units (must trace to Galicia)
-				if (rps.ge >= cost && can_trace_supply_to_galicia(game, p)) return true
-			}
-			// CP-Allied GR units (even if no supply line can be traced to Galicia)
-			if (nation === "gr") {
-				if (rps.a >= cost) return true
-				if (rps.ge >= cost) return true
-			}
-			if (rps.a >= cost) return true
+			return valid_nations.some((nation) => can_afford_cp_replacement_as_nation(game, p, nation, cost, rps))
 		}
-		return false
 	}
 
 	function spend_replacement_points(game, p, cost) {
 		let info = data.pieces[p]
-		let nation = info.nation
 		let faction = info.faction
 		let rps = faction === AP ? game.rp_ap : game.rp_cp
+		let nations = get_piece_nations_for_rule(game, p)
 
-		// Rebel units can use their own automatic RP
-		// Rule 22.1.3 (扩展): 优先消费叛乱专属 RP
 		let rebel_type = get_rebel_type(info)
 		if (rebel_type && game.rp_rebel && game.rp_rebel[rebel_type] >= cost) {
 			game.rp_rebel[rebel_type] -= cost
 			return
 		}
 
-		// Rule 22.1.3: CP 玩家可以使用任意友方 RP 修复部落或不规则单位
 		if (faction === CP && can_use_any_friendly_rp(p) && spend_any_cp_rp(game, cost)) {
 			return
 		}
 
+		let valid_nations = nations.filter((nation) => is_replacement_nation_eligible(game, p, nation))
+
 		if (faction === AP) {
-			if (nation === "br" && rps.br >= cost) {
-				rps.br -= cost
-				return
-			}
-			if (nation === "ru") {
-				if (rps.ru >= cost) {
-					rps.ru -= cost
-					return
-				}
-				// Kitchener 1 BR -> RU
-				if (game.events && game.events["kitchener"] && !game.br_to_ru_rp_used && rps.br >= cost) {
-					rps.br -= cost
-					game.br_to_ru_rp_used = true
-					return
-				}
-				// Asquith unlimited
-				if (game.events && game.events["asquith_lloyd_george_coalition"] && rps.br >= cost) {
-					rps.br -= cost
-					return
-				}
-			}
-			if (nation === "in" && rps.in >= cost) {
-				rps.in -= cost
-				return
-			}
-			// Rule 22.1.2: ANZ, AP-Allied GR, and Arab Revolt units can use BR or AP Allied RPs
-			if (["anz", "ar", "gr"].includes(nation)) {
-				if (rps.br >= cost) {
-					rps.br -= cost
-					return
-				}
-				if (rps.a >= cost) {
-					rps.a -= cost
-					return
-				}
-			}
-			// Rule 22.1.2: FR, RO, SB, PE, ARM, and GEO use only AP-Allied RPs
-			if (["fr", "ro", "sb", "pe", "arm", "geo", "it"].includes(nation)) {
-				if (rps.a >= cost) {
-					rps.a -= cost
-					return
-				}
-			}
-			if (rps.a >= cost) {
-				rps.a -= cost
+			for (let nation of valid_nations) {
+				if (spend_ap_replacement_as_nation(game, nation, cost, rps)) return
 			}
 		} else {
-			if (nation === "ge" && rps.ge >= cost) {
-				rps.ge -= cost
-				return
-			}
-			if (nation === "tu" || nation === "tua") {
-				if (rps.tu >= cost) {
-					rps.tu -= cost
-					return
-				}
-				// Rule 22.3.2: GE RP conversion for TU units
-				if (rps.ge >= cost) {
-					if (can_convert_ge_to_tu_unlimited(game)) {
-						rps.ge -= cost
-						return
-					}
-					if (game.ge_to_tu_rp_used + cost <= 1) {
-						rps.ge -= cost
-						game.ge_to_tu_rp_used += cost
-						return
-					}
-				}
-			}
-			if (nation === "ah") {
-				if (rps.a >= cost) {
-					rps.a -= cost
-					return
-				}
-				// GE RP for AH
-				if (rps.ge >= cost && can_trace_supply_to_galicia(game, p)) {
-					rps.ge -= cost
-					return
-				}
-			}
-			if (nation === "bu") {
-				if (rps.a >= cost) {
-					rps.a -= cost
-					return
-				}
-				// GE RP for BU
-				if (rps.ge >= cost && can_trace_supply_to_galicia(game, p)) {
-					rps.ge -= cost
-					return
-				}
-			}
-			// CP-Allied GR units
-			if (nation === "gr") {
-				if (rps.a >= cost) {
-					rps.a -= cost
-					return
-				}
-				if (rps.ge >= cost) {
-					rps.ge -= cost
-					return
-				}
-			}
-			if (rps.a >= cost) {
-				rps.a -= cost
+			for (let nation of valid_nations) {
+				if (spend_cp_replacement_as_nation(game, p, nation, cost, rps)) return
 			}
 		}
 	}

@@ -16,7 +16,19 @@ module.exports = function (Engine) {
 		COMMITMENT_TOTAL
 	} = constants
 	const { set_add, set_delete, set_has, other_faction } = utils
-	const { get_piece_effective_faction, is_lcu, is_scu, is_tribe, is_irregular, is_hq, is_in_reserve } =
+	const {
+		get_piece_effective_faction,
+		is_lcu,
+		is_scu,
+		is_tribe,
+		is_irregular,
+		is_hq,
+		is_in_reserve,
+		get_piece_nations_for_rule,
+		get_piece_nation_groups_for_rule,
+		piece_counts_as_nation_for_rule,
+		can_piece_be_activated
+	} =
 		game_utils
 	const {
 		is_greece_neutral,
@@ -52,6 +64,20 @@ module.exports = function (Engine) {
 			if (get_piece_effective_faction(game, p) === enemy) found = true
 		})
 		return found
+	}
+
+	function get_piece_connected_spaces_for_rule(game, from, p, mode = "move") {
+		let info = data.pieces[p]
+		if (!info) return []
+		let nations = get_piece_nations_for_rule(game, p)
+		if (nations.length === 0) nations = [info.nation]
+		let connected = new Set()
+		for (let nation of nations) {
+			for (let s of get_connected_spaces(game, from, nation, info.faction, p, mode)) {
+				connected.add(s)
+			}
+		}
+		return [...connected]
 	}
 
 	// --- Naval Access Logic ---
@@ -785,7 +811,7 @@ module.exports = function (Engine) {
 		if (!region && !restricted_area) return true
 
 		if (is_prohibited_to_non_indian_units(s)) {
-			if (data.pieces[p].nation !== "in") return false
+			if (!piece_counts_as_nation_for_rule(game, p, "in")) return false
 		}
 
 		// Rule 19.6.1: Persian Neutrality / Secret Treaty.
@@ -804,9 +830,8 @@ module.exports = function (Engine) {
 			}
 
 			if (data.spaces[s].terrain === "swamp") {
-				// Rule 9.3: Swamp Movement Restrictions for TU and BU LCUs.
-				let nation = data.pieces[p].nation
-				if (nation === "tu" || nation === "tua" || nation === "bu") return false
+				let nations = get_piece_nations_for_rule(game, p)
+				if (nations.length > 0 && nations.every((nation) => nation === "tu" || nation === "tua" || nation === "bu")) return false
 			}
 
 			if (restricted_area) {
@@ -841,46 +866,70 @@ module.exports = function (Engine) {
 		return null
 	}
 
+	function get_stack_counted_pieces(pieces) {
+		let counted = []
+		let has_yildirim = false
+		for (let p of pieces) {
+			let key = get_stack_special_key(p)
+			if (key === "hq" || key === "H") {
+				continue
+			}
+			if (key === "Y") {
+				if (!has_yildirim) {
+					has_yildirim = true
+					continue
+				}
+			}
+			counted.push(p)
+		}
+		return counted
+	}
+
+	function get_stack_count(pieces) {
+		return get_stack_counted_pieces(pieces).length
+	}
+
 	function is_stack_counted_piece(p) {
-		return get_stack_special_key(p) === null
+		let key = get_stack_special_key(p)
+		return key !== "hq" && key !== "H"
+	}
+
+	function get_stack_hq_count(pieces) {
+		let hqs = 0
+		for (let p of pieces) {
+			if (get_stack_special_key(p) === "hq") hqs++
+		}
+		return hqs
+	}
+
+	function get_stack_composition_reason(game, pieces) {
+		if (has_br_ru_mix(game, pieces)) return "英俄混编"
+		if (get_stack_hq_count(pieces) > 1) return "HQ超限"
+		return null
 	}
 
 	function has_br_ru_mix(game, pieces) {
 		let has_br = false
-		let has_ru = false
-		let ru_exception_count = 0
+		let ru_count = 0
+		let ru_limit = game.events && game.events["russian_revolution"] >= 4 ? 2 : 0
 		for (let p of pieces) {
-			let nation = data.pieces[p].nation
-			if (["br", "in", "anz"].includes(nation)) {
+			if (
+				piece_counts_as_nation_for_rule(game, p, "br") ||
+				piece_counts_as_nation_for_rule(game, p, "in") ||
+				piece_counts_as_nation_for_rule(game, p, "anz")
+			) {
 				has_br = true
-			} else if (nation === "ru") {
-				// Rule 8.2.2 Exception: Two RU units remaining after Russian Revolution (Stage 4) may stack with BR/IN/ANZ
-				// Also RU/SB Yugo Division can cooperate with BR/IN/ANZ
-				let is_yugo = data.pieces[p].name.includes("RU/SB Yugo")
-				if (is_yugo || (game.events && game.events["russian_revolution"] >= 4)) {
-					ru_exception_count++
-				} else {
-					has_ru = true
-				}
 			}
-			if (has_br && has_ru) return true
+			if (piece_counts_as_nation_for_rule(game, p, "ru")) {
+				ru_count++
+			}
+			if (has_br && ru_count > ru_limit) return true
 		}
-		// If more than 2 RU units are present after Revolution, they cannot all stack with BR (only 2 can)
-		if (has_br && ru_exception_count > 2) return true
 		return false
 	}
 
 	function can_move_stack_composition(game, pieces) {
-		if (has_br_ru_mix(game, pieces)) return false
-		let keys = ["Y", "H", "hq"]
-		for (let key of keys) {
-			let count = 0
-			for (let p of pieces) {
-				if (get_stack_special_key(p) === key) count++
-				if (count > 1) return false
-			}
-		}
-		return true
+		return get_stack_composition_reason(game, pieces) === null
 	}
 
 	function can_stack_end_in_space(game, target, pieces) {
@@ -902,25 +951,14 @@ module.exports = function (Engine) {
 		}
 
 		let existing = get_pieces_in_space(game, target).filter((p) => data.pieces[p].faction === faction)
-		
-		// Re-evaluate mix for the combined stack
-		if (has_br_ru_mix(game, [...pieces, ...existing])) return false
 
-		let keys = ["Y", "H", "hq"]
-		for (let key of keys) {
-			let moving_count = 0
-			let existing_count = 0
-			for (let p of pieces) if (get_stack_special_key(p) === key) moving_count++
-			for (let p of existing) if (get_stack_special_key(p) === key) existing_count++
-			if (moving_count > 1) return false
-			if (moving_count > 0 && existing_count > 0) return false
-		}
+		let total = [...pieces, ...existing]
+		if (total.some((p) => data.pieces[p].name === "GE GeoProtect") && total.length > 1) return false
+		if (get_stack_composition_reason(game, total)) return false
 
 		if (is_unlimited_stack_space(game, target)) return true
 
-		let count = 0
-		for (let p of existing) if (is_stack_counted_piece(p)) count++
-		for (let p of pieces) if (is_stack_counted_piece(p)) count++
+		let count = get_stack_count(total)
 		return count <= 3
 	}
 
@@ -933,13 +971,11 @@ module.exports = function (Engine) {
 			if (!is_space_in_tribal_range(p, s)) return "部落活动范围限制"
 		}
 
-		if (!can_move_stack_composition(game, friendly)) return "堆叠组成限制"
+		let composition_reason = get_stack_composition_reason(game, friendly)
+		if (composition_reason) return composition_reason
 
 		if (is_unlimited_stack_space(game, s) === false) {
-			let count = 0
-			for (let p of friendly) {
-				if (is_stack_counted_piece(p)) count++
-			}
+			let count = get_stack_count(friendly)
 			if (count > 3) return "堆叠超限"
 		}
 
@@ -967,25 +1003,14 @@ module.exports = function (Engine) {
 		}
 
 		let existing = get_pieces_in_space(game, target).filter((p) => data.pieces[p].faction === faction)
-		
-		// Re-evaluate mix for the combined stack
-		if (has_br_ru_mix(game, [...pieces, ...existing])) return "英俄混编"
 
-		let keys = ["Y", "H", "hq"]
-		for (let key of keys) {
-			let moving_count = 0
-			let existing_count = 0
-			for (let p of pieces) if (get_stack_special_key(p) === key) moving_count++
-			for (let p of existing) if (get_stack_special_key(p) === key) existing_count++
-			if (moving_count > 1) return "特殊单位重复"
-			if (moving_count > 0 && existing_count > 0) return "特殊单位冲突"
-		}
+		let total = [...pieces, ...existing]
+		let composition_reason = get_stack_composition_reason(game, total)
+		if (composition_reason) return composition_reason
 
 		if (is_unlimited_stack_space(game, target)) return null
 
-		let count = 0
-		for (let p of existing) if (is_stack_counted_piece(p)) count++
-		for (let p of pieces) if (is_stack_counted_piece(p)) count++
+		let count = get_stack_count(total)
 		if (count > 3) return "堆叠超限"
 		return null
 	}
@@ -1028,7 +1053,7 @@ module.exports = function (Engine) {
 			return "沙漠进入需要起始补给"
 
 		let s = game.move.current
-		let neighbors = get_connected_spaces(game, s, data.pieces[p].nation, data.pieces[p].faction, p)
+		let neighbors = get_piece_connected_spaces_for_rule(game, s, p)
 		if (!neighbors.includes(target)) return "非相邻连接"
 
 		// Rule 9.2.4: Crossing green connection (Trans-Regional Path)
@@ -1103,7 +1128,7 @@ module.exports = function (Engine) {
 			if (!is_in_supply(game, game.move.initial, data.pieces[p].faction, p)) return false
 		}
 		let s = game.move.current
-		let neighbors = get_connected_spaces(game, s, data.pieces[p].nation, data.pieces[p].faction, p)
+		let neighbors = get_piece_connected_spaces_for_rule(game, s, p)
 		if (!neighbors.includes(target)) return false
 
 		// Rule 9.2.4: Crossing green connection (Trans-Regional Path)
@@ -1171,7 +1196,6 @@ module.exports = function (Engine) {
 
 	function has_sr_path(game, p, from, to, faction, rail_only) {
 		if (from === to) return true
-		let nation = data.pieces[p].nation
 		let queue = [from]
 		let queue_head = 0
 		let visited = new Set([from])
@@ -1181,11 +1205,11 @@ module.exports = function (Engine) {
 			let neighbors
 			if (rail_only) {
 				let rail_neighbors = get_rail_connections(game, current, faction)
-				let nation_neighbors = get_connected_spaces(game, current, nation, faction, p)
+				let nation_neighbors = get_piece_connected_spaces_for_rule(game, current, p)
 				let nation_set = new Set(nation_neighbors)
 				neighbors = rail_neighbors.filter((n) => nation_set.has(n))
 			} else {
-				neighbors = get_connected_spaces(game, current, nation, faction, p)
+				neighbors = get_piece_connected_spaces_for_rule(game, current, p)
 			}
 
 			for (let next of neighbors) {
@@ -1205,7 +1229,18 @@ module.exports = function (Engine) {
 		if (a === b) return true
 		let be = ["br", "in", "anz"]
 		if (be.includes(a) && be.includes(b)) return true
-		return (a === "tu" || a === "tua") && (b === "tu" || b === "tua");
+		return (a === "tu" || a === "tua") && (b === "tu" || b === "tua")
+	}
+
+	function pieces_share_sr_nationality(game, a, b) {
+		let a_nations = get_piece_nations_for_rule(game, a, "sr")
+		let b_nations = get_piece_nations_for_rule(game, b, "sr")
+		for (let left of a_nations) {
+			for (let right of b_nations) {
+				if (is_same_sr_nationality(left, right)) return true
+			}
+		}
+		return false
 	}
 
 	function is_supply_status_in_supply(status) {
@@ -1221,13 +1256,12 @@ module.exports = function (Engine) {
 		source_cache = null,
 		status_cache = null
 	) {
-		let source_nation = data.pieces[p].nation
 		let target_faction = data.pieces[p].faction
 		for (let q of get_pieces_in_space(game, s)) {
 			let info = data.pieces[q]
 			if (!info) continue
 			if (info.faction !== target_faction) continue
-			if (!is_same_sr_nationality(source_nation, info.nation)) continue
+			if (!pieces_share_sr_nationality(game, p, q)) continue
 			let status = get_supply_status(
 				game,
 				s,
@@ -1538,7 +1572,9 @@ module.exports = function (Engine) {
 			return info.piece_class !== "LCU"
 		}
 		if (s <= 0 || !data.spaces[s]) return false
-		if (data.pieces[p].nation === "bu" && !can_trace_supply_to_sofia(game, p)) return false
+		let nations = get_piece_nations_for_rule(game, p)
+		if (nations.length === 0) return false
+		if (!nations.some((nation) => nation !== "bu" || can_trace_supply_to_sofia(game, p))) return false
 		if (is_reserve_space(s)) {
 			return info.piece_class !== "LCU"
 		}
@@ -2290,6 +2326,8 @@ module.exports = function (Engine) {
 		if (p !== -1) {
 			let name = data.pieces[p].name
 
+			if (name === "GE GeoProtect") return cache_result("FULL")
+
 			// Rule 16.1.5: HQs are never out of supply
 			if (is_hq(p)) return cache_result("FULL")
 
@@ -2502,35 +2540,21 @@ module.exports = function (Engine) {
 			if (s >= 0 && s < data.spaces.length) pieces_by_space[s].push(p)
 		}
 
-		// 1. General Stacking Limit (Rule 11.2.1: max 3 counted pieces)
+		// 1. General Stacking Limit (Rule 8.1.1: max 3 counted pieces)
 		for (let s = 1; s < data.spaces.length; s++) {
 			if (is_unlimited_stack_space(game, s)) continue
 			let pieces = pieces_by_space[s]
-			let count = 0
-			for (let p of pieces) {
-				if (is_stack_counted_piece(p)) count++
-			}
+			let count = get_stack_count(pieces)
 			if (count > 3) {
-				violations.push({ space: s, rule: "Stacking Limit Exceeded (max 3 pieces)" })
+				violations.push({ space: s, rule: "Rule 8.1.1: More than 3 counted combat units in space" })
 			}
 
-			// Rule 11.2.2: Max 1 HQ, 1 Tank, 1 Hero per stack
-			let hqs = 0,
-				tanks = 0,
-				heroes = 0
-			for (let p of pieces) {
-				let key = get_stack_special_key(p)
-				if (key === "hq") hqs++
-				if (key === "Y") tanks++
-				if (key === "H") heroes++
-			}
-			if (hqs > 1) violations.push({ space: s, rule: "Rule 11.2.2: Multiple HQs in space" })
-			if (tanks > 1) violations.push({ space: s, rule: "Rule 11.2.2: Multiple Tanks in space" })
-			if (heroes > 1) violations.push({ space: s, rule: "Rule 11.2.2: Multiple Heroes in space" })
+			let hqs = get_stack_hq_count(pieces)
+			if (hqs > 1) violations.push({ space: s, rule: "Rule 8.1.3: Multiple HQs in space" })
 
-			// Rule 11.2.3: No BR/RU mix
+			// Rule 8.2.2: No BR/RU mix
 			if (has_br_ru_mix(game, pieces)) {
-				violations.push({ space: s, rule: "Rule 11.2.3: British and Russian units cannot stack" })
+				violations.push({ space: s, rule: "Rule 8.2.2: British and Russian units cannot stack" })
 			}
 		}
 
@@ -2602,8 +2626,8 @@ module.exports = function (Engine) {
 					}
 					// Rule 197: Turkish/Bulgarian LCU cannot enter swamp
 					if (data.spaces[s].terrain === "swamp") {
-						let nation = data.pieces[p].nation
-						if (nation === "tu" || nation === "tua" || nation === "bu") {
+						let nations = get_piece_nations_for_rule(game, p)
+						if (nations.length > 0 && nations.every((nation) => nation === "tu" || nation === "tua" || nation === "bu")) {
 							violations.push({ space: s, rule: "Rule 197: Turkish/Bulgarian LCU cannot enter swamp" })
 						}
 					}
@@ -2653,15 +2677,46 @@ module.exports = function (Engine) {
 		return false
 	}
 
-	function get_activation_nationality_group(p) {
-		let nat = data.pieces[p].nation
-		// Rule 7.2.3: Irregular Units and Tribes do not count as a nationality for Activation.
-		if (is_tribe(p) || is_irregular(p)) return null
-		// Rule 7.2.3: British Empire units (including Arab Revolt/ANA) count as one nationality.
-		if (["br", "in", "anz", "ana", "ar", "pt", "can"].includes(nat)) return "br"
-		// Rule 7.2.3: Ottoman Empire units (including Senussi) count as one nationality.
-		if (nat === "tu" || nat === "tua") return "tu"
-		return nat
+	function get_activation_nationality_groups(game, p) {
+		if (!can_piece_be_activated(p)) return []
+		if (is_tribe(p) || is_irregular(p)) return []
+		return get_piece_nation_groups_for_rule(game, p, "activation")
+	}
+
+	function get_minimum_activation_group_count(game, pieces) {
+		let options = []
+		let group_ids = new Map()
+		for (let p of pieces) {
+			let groups = get_activation_nationality_groups(game, p)
+			if (groups.length === 0) continue
+			let ids = groups.map((group) => {
+				if (!group_ids.has(group)) group_ids.set(group, group_ids.size)
+				return group_ids.get(group)
+			})
+			options.push(ids)
+		}
+		if (options.length === 0) return 0
+		let states = new Set([0])
+		for (let ids of options) {
+			let next = new Set()
+			for (let mask of states) {
+				for (let id of ids) {
+					next.add(mask | (1 << id))
+				}
+			}
+			states = next
+		}
+		let best = Infinity
+		for (let mask of states) {
+			let count = 0
+			let value = mask
+			while (value) {
+				value &= value - 1
+				count++
+			}
+			if (count < best) best = count
+		}
+		return best === Infinity ? 0 : best
 	}
 
 	function compute_activation_mode_cost(
@@ -2708,44 +2763,36 @@ module.exports = function (Engine) {
 		// MO_BRITISH_NO_ATTACK logic
 		const MO_BRITISH_NO_ATTACK = "british_no_attack"
 		let ignore_br_for_attack = faction === AP && game.mo_ap === MO_BRITISH_NO_ATTACK
-		let move_active_count = 0
-		let attack_active_count = 0
+		let move_pieces = []
+		let attack_pieces = []
 		let move_has_hq = false
 		let attack_has_hq = false
-		let move_has_yildirim = false
-		let attack_has_yildirim = false
-		let move_groups = new Set()
-		let attack_groups = new Set()
 		let has_pi_nation = false
 
 		for (let p of pieces) {
 			if (data.pieces[p].faction !== faction) continue
-			let nation = data.pieces[p].nation
-			if (nation === "br" || nation === "in" || nation === "in-g") {
+			let nations = get_piece_nations_for_rule(game, p, "activation")
+			if (nations.some((nation) => nation === "br" || nation === "in" || nation === "in-g")) {
 				has_pi_nation = true
 			}
 
-			move_active_count += 1
-			let is_yildirim = data.pieces[p].symbol === "Y"
-			if (is_yildirim && !move_has_yildirim) {
-				move_has_yildirim = true
-			} else {
+			if (can_piece_be_activated(p)) {
+				move_pieces.push(p)
 				if (data.pieces[p].type === "hq") move_has_hq = true
-				let group = get_activation_nationality_group(p)
-				if (group) move_groups.add(group)	
 			}
 
-			if (!(ignore_br_for_attack && nation === "br")) {
-				attack_active_count += 1
-				if (is_yildirim && !attack_has_yildirim) {
-					attack_has_yildirim = true
-				} else {
+			if (!(ignore_br_for_attack && nations.some((nation) => nation === "br"))) {
+				if (can_piece_be_activated(p)) {
+					attack_pieces.push(p)
 					if (data.pieces[p].type === "hq") attack_has_hq = true
-					let group = get_activation_nationality_group(p)
-					if (group) attack_groups.add(group)
 				}
 			}
 		}
+
+		let move_active_count = get_stack_count(move_pieces)
+		let attack_active_count = get_stack_count(attack_pieces)
+		let move_group_count = get_minimum_activation_group_count(game, move_pieces)
+		let attack_group_count = get_minimum_activation_group_count(game, attack_pieces)
 
 		let has_pi_penalty =
 			faction === AP &&
@@ -2760,7 +2807,7 @@ module.exports = function (Engine) {
 				s,
 				move_active_count,
 				move_has_hq,
-				move_groups.size,
+				move_group_count,
 				has_pi_penalty,
 				special_hq_command
 			),
@@ -2769,7 +2816,7 @@ module.exports = function (Engine) {
 				s,
 				attack_active_count,
 				attack_has_hq,
-				attack_groups.size,
+				attack_group_count,
 				has_pi_penalty,
 				special_hq_command
 			)
@@ -2843,6 +2890,8 @@ module.exports = function (Engine) {
 		get_lcu_limit_for,
 		can_enter_region,
 		is_unlimited_stack_space,
+		get_stack_counted_pieces,
+		get_stack_count,
 		is_stack_counted_piece,
 		can_move_stack_composition,
 		can_stack_end_in_space,

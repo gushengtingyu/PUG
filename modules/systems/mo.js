@@ -2,7 +2,7 @@
 
 module.exports = function (Engine) {
 	const { data, game_utils } = Engine
-	const { is_regular, get_piece_nation, is_not_on_map } = game_utils
+	const { is_regular, get_piece_nation, is_not_on_map, piece_counts_as_nation_for_rule } = game_utils
 	const exports = {}
 
 	const { roll_die } = Engine.utils
@@ -70,7 +70,7 @@ module.exports = function (Engine) {
 			case MO_EGYPT:
 				return "埃及 (Egypt)"
 			case MO_BRITISH_NO_ATTACK:
-				return "英军禁止进攻 (British No Attack)"
+				return "英军进攻 (British No Attack)"
 			case MO_BRITISH_MESOPOTAMIA:
 				return "英军 (美索不达米亚)"
 			case MO_BRITISH_EGYPT:
@@ -173,13 +173,13 @@ module.exports = function (Engine) {
 		// Helper to check attacker nationality
 		const has_att_nation = (nation) => {
 			if (!Array.isArray(pieces)) return false
-			return pieces.some((p) => get_piece_nation(p) === nation)
+			return pieces.some((p) => piece_counts_as_nation_for_rule(game, p, nation, "mo"))
 		}
 
 		// Helper to check defender nationality
 		const has_def_nation = (nation) => {
 			if (!Array.isArray(defender_pieces)) return false
-			return defender_pieces.some((p) => get_piece_nation(p) === nation)
+			return defender_pieces.some((p) => piece_counts_as_nation_for_rule(game, p, nation, "mo"))
 		}
 
 		if (faction === AP) {
@@ -202,7 +202,7 @@ module.exports = function (Engine) {
 				if (!Array.isArray(pieces)) return false
 				return (
 					Engine.map.get_area(space) === "syria_palestine" &&
-					pieces.some((p) => get_piece_nation(p) === BRITAIN && can_trace_supply_by_land_to_egypt(game, p))
+					pieces.some((p) => piece_counts_as_nation_for_rule(game, p, BRITAIN, "mo") && can_trace_supply_by_land_to_egypt(game, p))
 				)
 			}
 
@@ -244,9 +244,9 @@ module.exports = function (Engine) {
 	 * @param {number[]} pieces - Array of piece IDs
 	 * @returns {boolean}
 	 */
-	function check_british_participation(pieces) {
+	function check_british_participation(game, pieces) {
 		if (!Array.isArray(pieces)) return false
-		return pieces.some((p) => get_piece_nation(p) === BRITAIN)
+		return pieces.some((p) => piece_counts_as_nation_for_rule(game, p, BRITAIN, "mo"))
 	}
 
 	/**
@@ -271,7 +271,7 @@ module.exports = function (Engine) {
 				return
 			}
 			if (game.mo_ap === MO_BRITISH_NO_ATTACK) {
-				if (check_british_participation(pieces)) {
+				if (check_british_participation(game, pieces)) {
 					if (!game.british_mandate_violated) {
 						game.british_mandate_violated = true
 						if (log) log("AP violated British No Attack Mandate! (VP Penalty pending)")

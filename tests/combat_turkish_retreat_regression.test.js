@@ -166,7 +166,7 @@ describe("土耳其撤退回归测试", () => {
 		expect(game.advance_pieces).toContain(apPiece)
 	})
 
-	test("状态机在残留脏数据下会自动跳过空土耳其撤退选择", () => {
+	test("状态机在残留脏数据下会显式给出完成动作，而不在 prompt 自动跳过空土耳其撤退", () => {
 		let game = rules.setup(20260403, "Historical", { seven_hand_size: false, no_supply_warnings: true })
 		let apPiece = findPieceId((p) => p.faction === AP && p.type !== "hq" && p.piece_class === "LCU")
 		let cpTuScu = findPieceId(
@@ -202,14 +202,14 @@ describe("土耳其撤退回归测试", () => {
 
 		let view = rules.view(game, "Central Powers")
 
-		expect(game.state).not.toBe("turkish_retreat")
-		expect(game.turkish_retreat_pending).toBeUndefined()
-		if (typeof view.prompt === "string") {
-			expect(view.prompt.includes("土耳其撤退")).toBe(false)
-		}
+		expect(game.state).toBe("turkish_retreat")
+		expect(game.turkish_retreat_pending).toBe(true)
+		expect(view.actions.done).toBeTruthy()
+		expect(typeof view.prompt).toBe("string")
+		expect(view.prompt.includes("土耳其撤退已完成")).toBe(true)
 	})
 
-	test("未标记待处理时会通过统一收尾进入正常战斗后续", () => {
+	test("未标记待处理时需要显式完成土耳其撤退收尾，再进入正常战斗后续", () => {
 		let { game, apPiece, cpTuScu, targetSpace } = createMinimalBattleGame()
 		game.active = CP
 		game.state = "turkish_retreat"
@@ -221,12 +221,89 @@ describe("土耳其撤退回归测试", () => {
 		game.turkish_retreat_optional = []
 		game.battle_result = createBattleResult(apPiece, cpTuScu, { no_advance: false })
 
-		rules.view(game, "Central Powers")
+		let cpView = rules.view(game, "Central Powers")
 
+		expect(game.state).toBe("turkish_retreat")
+		expect(game.active).toBe(CP)
+		expect(game.turkish_retreat_pending).toBeUndefined()
+		expect(cpView.active).toBe(CP)
+		expect(cpView.actions.done).toBeTruthy()
+		expect(typeof cpView.prompt).toBe("string")
+		expect(cpView.prompt.includes("土耳其撤退已完成")).toBe(true)
+
+		rules.action(game, "Central Powers", "done")
+
+		let apView = rules.view(game, "Allied Powers")
 		expect(game.state).toBe("advance")
 		expect(game.active).toBe(AP)
 		expect(game.attack).not.toBeNull()
-		expect(game.turkish_retreat_pending).toBeUndefined()
+		expect(apView.active).toBe(AP)
+		expect(typeof apView.prompt).toBe("string")
+		expect(apView.prompt.includes("推进至")).toBe(true)
+		expect(apView.actions.end_advance).toBeTruthy()
+		expect(apView.actions.piece || []).toContain(apPiece)
+	})
+
+	test("英俄突袭从 Fao 攻击 Basra 后推进阶段仍可点击本次进攻单位", () => {
+		let apPiece = findPieceId((p) => p.faction === AP && p.nation === "in" && p.type !== "hq" && p.mf > 0)
+		let cpTuScu = findPieceId(
+			(p) =>
+				p.faction === CP &&
+				(p.nation === "tu" || p.nation === "tua") &&
+				p.piece_class === "SCU" &&
+				p.type !== "hq"
+		)
+		let fao = data.spaces.findIndex((s) => s && s.name === "Fao")
+		let basra = data.spaces.findIndex((s) => s && s.name === "Basra")
+		expect(fao).toBeGreaterThan(0)
+		expect(basra).toBeGreaterThan(0)
+
+		let game = {
+			pieces: new Array(data.pieces.length).fill(ELIMINATED),
+			reduced: [],
+			retreated: [],
+			control: [],
+			events: { russo_british_assault: true },
+			turn: 1,
+			active: AP,
+			state: "advance",
+			hand_ap: [],
+			hand_cp: [],
+			discard_ap: [],
+			discard_cp: [],
+			removed_ap: [],
+			removed_cp: [],
+			cc_retained: { ap: [], cp: [] },
+			cc_retained_after_use: { ap: {}, cp: {} },
+			combat_cards: { attacker: [], defender: [] },
+			attack: {
+				space: basra,
+				pieces: [apPiece],
+				attacker: AP,
+				defender: CP,
+				from: [fao],
+				initial_defenders: [cpTuScu],
+				keep_context: true
+			},
+			advance_pieces: [apPiece],
+			advance_space: basra,
+			advance_count: 0,
+			advance_limit: 3,
+			battle_result: createBattleResult(apPiece, cpTuScu, {
+				no_advance: false,
+				turkish_retreat: true,
+				advance_with_reduced: true
+			})
+		}
+		game.pieces[apPiece] = fao
+		game.pieces[cpTuScu] = ELIMINATED
+
+		let apView = rules.view(game, "Allied Powers")
+
+		expect(game.state).toBe("advance")
+		expect(game.active).toBe(AP)
+		expect(apView.actions.end_advance).toBeTruthy()
+		expect(apView.actions.piece || []).toContain(apPiece)
 	})
 
 	test("战后CC窗口存在可选卡时不会被回退为attack状态", () => {
@@ -422,6 +499,147 @@ describe("土耳其撤退回归测试", () => {
 		expect(game.retreat_distance).toBe(1)
 	})
 
+	test("普通撤退空队列的视图不会在 prompt 中偷偷推进状态", () => {
+		let { game, cpTuScu } = createMinimalBattleGame()
+		game.active = CP
+		game.state = "retreat"
+		game.retreat_pieces = []
+		game.retreat_space = game.attack.space
+		game.retreat_from = game.attack.space
+		game.retreat_distance = 1
+		game.selected_piece = null
+		game.battle_result = createBattleResult(game.attack.pieces[0], cpTuScu, {
+			retreat_needed: true,
+			retreating_faction: CP,
+			retreating_units: []
+		})
+
+		let view = rules.view(game, "Central Powers")
+
+		expect(game.state).toBe("retreat")
+		expect(game.active).toBe(CP)
+		expect(view.actions.done).toBeTruthy()
+		expect(view.prompt).toContain("撤退已完成")
+	})
+
+	test("土耳其撤退空队列的视图不会在 prompt 中偷偷推进状态", () => {
+		let { game, apPiece, cpTuScu } = createMinimalBattleGame()
+		game.active = CP
+		game.state = "turkish_retreat"
+		game.turkish_retreat_pending = true
+		game.turkish_retreat_space = game.attack.space
+		game.turkish_retreat_mandatory = []
+		game.turkish_retreat_optional = []
+		game.selected_piece = null
+		game.pieces[cpTuScu] = ELIMINATED
+		game.battle_result = createBattleResult(apPiece, cpTuScu, {
+			turkish_retreat: true,
+			turkish_retreat_units: [],
+			turkish_retreat_optional_units: []
+		})
+
+		let view = rules.view(game, "Central Powers")
+
+		expect(game.state).toBe("turkish_retreat")
+		expect(game.active).toBe(CP)
+		expect(view.actions.done).toBeTruthy()
+		expect(view.prompt).toContain("土耳其撤退已完成")
+	})
+
+	test("继续推进无可选单位时视图保留 end_advance，不再在 prompt 中自动收尾", () => {
+		let { game, apPiece, targetSpace } = createMinimalBattleGame()
+		game.active = AP
+		game.state = "advance"
+		game.advance_space = targetSpace
+		game.advance_pieces = []
+		game.advance_follow_mode = true
+		game.advance_follow_pieces = [apPiece]
+		game.retreat_first_spaces = []
+		game.selected_piece = null
+
+		let view = rules.view(game, "Allied Powers")
+
+		expect(game.state).toBe("advance")
+		expect(game.active).toBe(AP)
+		expect(view.actions.end_advance).toBeTruthy()
+		expect(view.prompt).toContain("选择继续推进的单位")
+	})
+
+	test("普通撤退最后一步完成后会立即结算推进，不会出现双方互等", () => {
+		let apPiece = findPieceId((p) => p.faction === AP && p.nation === "ru" && p.type !== "hq" && p.mf > 0)
+		let cpPiece = findPieceId((p) => p.faction === CP && p.nation === "tu" && p.type !== "hq" && p.mf > 0)
+		let bayburt = data.spaces.findIndex((s) => s && s.name === "Bayburt")
+		let erzurum = data.spaces.findIndex((s) => s && s.name === "Erzurum")
+		expect(bayburt).toBeGreaterThan(0)
+		expect(erzurum).toBeGreaterThan(0)
+		let attackFrom = (data.spaces[bayburt].connections || []).find((s) => s !== erzurum)
+		expect(typeof attackFrom).toBe("number")
+
+		let game = {
+			pieces: new Array(data.pieces.length).fill(ELIMINATED),
+			reduced: [],
+			retreated: [],
+			control: [],
+			options: { no_supply_warnings: true },
+			events: { russo_british_assault: true },
+			turn: 1,
+			active: CP,
+			state: "retreat",
+			hand_ap: [],
+			hand_cp: [],
+			discard_ap: [],
+			discard_cp: [],
+			removed_ap: [],
+			removed_cp: [],
+			cc_retained: { ap: [], cp: [] },
+			cc_retained_after_use: { ap: {}, cp: {} },
+			combat_cards: { attacker: [], defender: [] },
+			attack: {
+				space: bayburt,
+				pieces: [apPiece],
+				attacker: AP,
+				defender: CP,
+				from: [attackFrom],
+				initial_defenders: [cpPiece],
+				keep_context: true
+			},
+			retreat_pieces: [cpPiece],
+			retreat_space: bayburt,
+			retreat_from: bayburt,
+			retreat_distance: 1,
+			battle_result: createBattleResult(apPiece, cpPiece, {
+				no_advance: false,
+				retreat_needed: true,
+				retreating_faction: CP,
+				retreating_units: [cpPiece],
+				turkish_retreat: false,
+				advance_with_reduced: true
+			})
+		}
+		game.pieces[apPiece] = attackFrom
+		game.pieces[cpPiece] = bayburt
+
+		rules.action(game, "Central Powers", "piece", cpPiece)
+		rules.action(game, "Central Powers", "space", erzurum)
+
+		let apView = rules.view(game, "Allied Powers")
+		let cpView = rules.view(game, "Central Powers")
+		let apActionNames = Object.keys(apView.actions || {}).filter((name) => {
+			if (name === "undo") return false
+			let value = apView.actions[name]
+			return Array.isArray(value) ? value.length > 0 : value === 1
+		})
+
+		expect(game.pieces[cpPiece]).toBe(erzurum)
+		expect(game.state).not.toBe("retreat")
+		expect(game.active).toBe(AP)
+		expect(apActionNames.length).toBeGreaterThan(0)
+		expect(typeof apView.prompt).toBe("string")
+		expect(apView.prompt.includes("等待")).toBe(false)
+		expect(typeof cpView.prompt).toBe("string")
+		expect(cpView.prompt.includes("等待 Allied Powers")).toBe(true)
+	})
+
 	test("土耳其撤退宣言后若战后重建TU/TU-A SCU，仍会进入土耳其撤退并可触发AP挺进", () => {
 		let { targetSpace, fromSpace } = findBattleSpacesWithRetreatPath()
 		let { game, apPiece, cpTuScu } = createMinimalBattleGame()
@@ -474,10 +692,80 @@ describe("土耳其撤退回归测试", () => {
 			rules.action(game, "Central Powers", "eliminate_retreating")
 			expect(game.pieces[cpTuScu]).not.toBe(targetSpace)
 		}
-		rules.view(game, "Central Powers")
 		expect(game.state).toBe("advance")
 		expect(game.active).toBe(AP)
 		expect(game.advance_space).toBe(targetSpace)
+	})
+
+	test("英俄突袭中土耳其撤退完成后不会出现双方互等", () => {
+		let apPiece = findPieceId((p) => p.faction === AP && p.nation === "in" && p.type !== "hq" && p.mf > 0)
+		let cpTuScu = findPieceId(
+			(p) =>
+				p.faction === CP &&
+				(p.nation === "tu" || p.nation === "tua") &&
+				p.piece_class === "SCU" &&
+				p.type !== "hq"
+		)
+		let fao = data.spaces.findIndex((s) => s && s.name === "Fao")
+		let basra = data.spaces.findIndex((s) => s && s.name === "Basra")
+		let qurna = data.spaces.findIndex((s) => s && s.name === "Qurna")
+		expect(fao).toBeGreaterThan(0)
+		expect(basra).toBeGreaterThan(0)
+		expect(qurna).toBeGreaterThan(0)
+
+		let game = {
+			pieces: new Array(data.pieces.length).fill(ELIMINATED),
+			reduced: [],
+			retreated: [],
+			control: [],
+			events: { russo_british_assault: true },
+			options: { no_supply_warnings: true },
+			turn: 1,
+			active: CP,
+			state: "turkish_retreat",
+			hand_ap: [],
+			hand_cp: [],
+			discard_ap: [],
+			discard_cp: [],
+			removed_ap: [],
+			removed_cp: [],
+			cc_retained: { ap: [], cp: [] },
+			cc_retained_after_use: { ap: {}, cp: {} },
+			combat_cards: { attacker: [], defender: [] },
+			attack: {
+				space: basra,
+				pieces: [apPiece],
+				attacker: AP,
+				defender: CP,
+				from: [fao],
+				initial_defenders: [cpTuScu],
+				keep_context: true
+			},
+			turkish_retreat_pending: true,
+			turkish_retreat_space: basra,
+			turkish_retreat_mandatory: [cpTuScu],
+			turkish_retreat_optional: [],
+			battle_result: createBattleResult(apPiece, cpTuScu, {
+				no_advance: false,
+				turkish_retreat: true,
+				advance_with_reduced: true
+			})
+		}
+		game.pieces[apPiece] = fao
+		game.pieces[cpTuScu] = basra
+
+		rules.action(game, "Central Powers", "piece", cpTuScu)
+		rules.action(game, "Central Powers", "space", qurna)
+
+		let apView = rules.view(game, "Allied Powers")
+		let cpView = rules.view(game, "Central Powers")
+
+		expect(game.state).toBe("advance")
+		expect(game.active).toBe(AP)
+		expect(apView.actions.end_advance).toBeTruthy()
+		expect(apView.actions.piece || []).toContain(apPiece)
+		expect(typeof cpView.prompt).toBe("string")
+		expect(cpView.prompt.includes("等待 Allied Powers")).toBe(true)
 	})
 
 	test("已宣告土耳其撤退时战后回到普通撤退也固定为 1 格", () => {
@@ -541,7 +829,7 @@ describe("土耳其撤退回归测试", () => {
 		)
 		expect(logs.some((line) => typeof line === "string" && line.includes("Attacker Card"))).toBe(false)
 		expect(logs.some((line) => typeof line === "string" && line.includes("Terrain Shift"))).toBe(false)
-		expect(logs.some((line) => line === "Turkish Retreat: Defender losses reduced by 1.")).toBe(true)
+		expect(logs.some((line) => line === "土耳其撤退：防守方损失-1")).toBe(true)
 	})
 
 	test("英俄突袭进入俄军攻击前会清理上一场突袭残留的战斗卡上下文", () => {
@@ -570,5 +858,46 @@ describe("土耳其撤退回归测试", () => {
 		expect(game.post_battle_cc_resume).toBeUndefined()
 		expect(game.attacked.includes(apPiece)).toBe(false)
 		expect(game.moved.includes(apPiece)).toBe(false)
+	})
+
+	test("攻击方使用 attacker_faction 兼容字段时会在战斗开始归一化，避免重入后阵营漂移", () => {
+		let { game } = createMinimalBattleGame()
+		game.active = CP
+		game.attack.attacker = undefined
+		game.attack.defender = undefined
+		game.attack.attacker_faction = AP
+
+		Engine.combat.start_attack_sequence(game)
+		expect(game.attack.attacker).toBe(AP)
+		expect(game.attack.defender).toBe(CP)
+	})
+
+	test("土耳其撤退收尾时即使attack.attacker缺失也会按进攻单位阵营进入AP挺进", () => {
+		let { game, apPiece, cpTuScu, targetSpace } = createMinimalBattleGame()
+		game.active = CP
+		game.attack.attacker = undefined
+		game.attack.defender = undefined
+		game.attack.pieces = [apPiece]
+		game.pieces[cpTuScu] = targetSpace
+		game.turkish_retreat_pending = true
+		game.turkish_retreat_space = targetSpace
+		game.turkish_retreat_mandatory = [cpTuScu]
+		game.turkish_retreat_optional = []
+		game.selected_piece = cpTuScu
+		game.battle_result = createBattleResult(apPiece, cpTuScu, {
+			no_advance: false
+		})
+
+		let retreat_to = (data.spaces[targetSpace].connections || [])[0]
+		expect(typeof retreat_to).toBe("number")
+		game.pieces[cpTuScu] = retreat_to
+		game.turkish_retreat_mandatory = []
+		game.selected_piece = null
+
+		Engine.combat.finish_turkish_retreat(game, () => {})
+		expect(game.state).toBe("advance")
+		expect(game.active).toBe(AP)
+		expect(game.attack.attacker).toBe(AP)
+		expect(game.attack.defender).toBe(CP)
 	})
 })

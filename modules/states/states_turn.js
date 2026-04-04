@@ -45,6 +45,7 @@ exports.register = function (states, Engine, context) {
 		discard_all_retained_cc,
 		deal_cards,
 		discard_card,
+		card_name,
 		MO_RUSSIA,
 		MO_AP_CHOICE_5,
 		MO_BRITISH_NO_ATTACK,
@@ -281,6 +282,12 @@ exports.register = function (states, Engine, context) {
 			game.state = "game_over"
 			game.result = outcome.result
 			game.victory = "Protocol Victory - " + outcome.victory
+			return true
+		}
+		if (Number.isFinite(game.cp_auto_victory_marker) && game.vp >= game.cp_auto_victory_marker) {
+			game.state = "game_over"
+			game.result = CP
+			game.victory = `CP Automatic Victory (Marker ${game.cp_auto_victory_marker})`
 			return true
 		}
 		if (game.vp >= 20) {
@@ -599,7 +606,7 @@ exports.register = function (states, Engine, context) {
 			if (idx >= 0) game.deck_cp.splice(idx, 1)
 			game.hand_cp.push(c)
 			game.cp_opening_mobilization_pick_done = true
-			log(`同盟国自选牌: ${data.cards[c].name}`)
+			log(`同盟国自选牌: ${card_name(c)}`)
 			game.active = AP
 			game.state = "acknowledge_mo_results"
 		}
@@ -628,6 +635,12 @@ exports.register = function (states, Engine, context) {
 			log("第一回合：跳过战争状态阶段")
 			next_phase("war_status_phase")
 			return
+		}
+
+		if (get_season(game) === "Winter" && game.events["british_war_weariness"]) {
+			if (Engine.events && typeof Engine.events.shift_cp_auto_victory_marker === "function") {
+				Engine.events.shift_cp_auto_victory_marker(game, -1, { log }, "英国厌战冬季结算")
+			}
 		}
 
 		if (check_victory_conditions()) return
@@ -938,7 +951,7 @@ exports.register = function (states, Engine, context) {
 			if (game.discarded_ccs.length > 0) {
 				log(`${faction_name(game.active)} 弃掉手牌:`)
 				for (let c of game.discarded_ccs) {
-					log(data.cards[c].name)
+					log(card_name(c))
 				}
 			}
 			deal_cards(game.active)

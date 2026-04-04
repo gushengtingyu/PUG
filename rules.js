@@ -66,6 +66,8 @@ const {
 	is_piece_reduced,
 	reduce_piece: utils_reduce_piece,
 	get_nation_group,
+	get_piece_nation_groups_for_rule,
+	piece_counts_as_nation_for_rule,
 	has_scu_in_reserve,
 	get_pieces_in_reserve,
 	get_pieces_in_eliminated,
@@ -129,6 +131,7 @@ const {
 	can_stack_move_to,
 	get_piece_move_block_reason,
 	get_move_end_space_block_reason,
+	get_stack_count,
 	is_stack_counted_piece,
 	get_stack_end_block_reason,
 	can_move_stack_composition,
@@ -648,131 +651,183 @@ exports.view = function (state, current) {
 	const rollback_total_events = rollback_entries.reduce((sum, r) => sum + (r.events ? r.events.length : 0), 0)
 	const max_rollback_turns = get_max_rollback_turns()
 	const max_rollback_action_rounds = get_max_rollback_action_rounds()
-
-	view = {
-		active: game.active,
-		log: game.log,
-		prompt: null,
-		actions: null,
-		turn: game.turn,
-		vp: game.vp,
-		blockade: !!(game.events && game.events["royal_navy_blockade"]),
-		ws_ap: game.war_status_ap,
-		ws_cp: game.war_status_cp,
-		combined_war: game.combined_war,
-		rp: {
-			br: game.rp_ap?.br || 0,
-			in: game.rp_ap?.in || 0,
-			ru: game.rp_ap?.ru || 0,
-			apa: game.rp_ap?.a || 0,
-			ge: game.rp_cp?.ge || 0,
-			tu: game.rp_cp?.tu || 0,
-			cpa: game.rp_cp?.a || 0
-		},
-		russian_vp: game.russian_vp,
-		jihad: game.jihad,
-		max_tu_rp: game.events && game.events["royal_navy_blockade"] ? game.tu_rp_limit : undefined,
-		ap_hand_count: game.hand_ap ? game.hand_ap.length : 0,
-		cp_hand_count: game.hand_cp ? game.hand_cp.length : 0,
-		ap_deck_size: game.deck_ap ? game.deck_ap.length : 0,
-		cp_deck_size: game.deck_cp ? game.deck_cp.length : 0,
-		entry_gr: game.entry_gr,
-		entry_bu: game.entry_bu,
-		entry_ro: game.entry_ro,
-		entry_sb: game.entry_sb,
-		hand: [],
-		ap: {
-			deck: game.deck_ap ? game.deck_ap.length : 0,
-			hand: game.hand_ap ? game.hand_ap.length : 0,
-			discard: game.discard_ap ? game.discard_ap.length : 0,
-			discard_list: game.discard_ap || [],
-			actions: game.ap_actions || []
-		},
-		cp: {
-			deck: game.deck_cp ? game.deck_cp.length : 0,
-			hand: game.hand_cp ? game.hand_cp.length : 0,
-			discard: game.discard_cp ? game.discard_cp.length : 0,
-			discard_list: game.discard_cp || [],
-			actions: game.cp_actions || []
-		},
-		pieces: game.pieces,
-		ui_tokens: game.ui_tokens,
-		control: game.control,
-		ru_control_markers: game.ru_control_markers || [],
-		reduced: game.reduced,
-		forts: game.forts,
-		beachheads: game.beachheads,
-		trenches: game.trenches,
-		trenches_2: game.trenches_2,
-		action_round: game.action_round,
-		mo_ap: game.mo_ap,
-		mo_cp: game.mo_cp,
-		mo_ap_modifier: game.mo_ap_modifier,
-		mo_ap_fulfilled: game.mo_ap_fulfilled,
-		mo_cp_fulfilled: game.mo_cp_fulfilled,
-		ru_revolution: game.ru_revolution,
-		lcu_limit_ap: get_lcu_limit_for(game, AP),
-		lcu_limit_cp: get_lcu_limit_for(game, CP),
-		activated: game.activated,
-		activation_cost: game.activation_cost,
-		move: game.move
-			? { pieces: game.move.pieces ? game.move.pieces.slice() : [] }
-			: game.sr_piece !== null && game.sr_piece !== undefined
-				? { pieces: [game.sr_piece] }
-				: null,
-		attack: game.attack,
-		attacked: game.attacked || [],
-		moved: game.moved || [],
-		undo: game.undo && game.undo.length > 0,
-		where: game.where,
-		violations: Engine.map.check_rule_violations(game),
-		supply_warnings: game.supply_warnings || [],
-		oos: game.oos || [],
-		oos_spaces: game.oos_spaces || [],
-		entrenching: game.entrenching || [],
-		last_card: game.last_card || 0,
-		combat_cards: game.combat_cards || null,
-		cc_retained: {
-			ap: get_cc_retained(AP).slice(),
-			cp: get_cc_retained(CP).slice()
-		},
-		removed_cards: {
-			ap: game.removed_ap || [],
-			cp: game.removed_cp || []
-		},
-		events: game.events || {},
-		rollback_meta: {
-			max_turns: max_rollback_turns,
-			max_action_rounds: max_rollback_action_rounds,
-			total_points: rollback_entries.length,
-			turn_points: rollback_entries.filter((r) => r.turn_start).length,
-			action_points: rollback_entries.filter((r) => !r.turn_start).length,
-			total_events: rollback_total_events,
-			state_compressed: false
-		},
-		rollback: rollback_entries.map((r) => {
-			let name = r.turn_start
-				? `回合 ${r.turn} 起始`
-				: `回合 ${r.turn} ${faction_name(r.active)} 第 ${r.action} 行动`
-			return {
-				name,
-				turn: r.turn,
-				active: r.active,
-				action: r.action,
-				turn_start: !!r.turn_start,
-				events: r.events || [],
-				event_count: r.events ? r.events.length : 0
-			}
-		})
+	const ui_tokens = { ...(game.ui_tokens || {}) }
+	if (game.events && game.events["royal_flying_corps_permanent"]) {
+		ui_tokens["AP Air Superiority"] = "MAPAirS.png"
+		delete ui_tokens["CP Air Superiority"]
+	} else if (game.events && game.events["fliegerabteilung"]) {
+		ui_tokens["CP Air Superiority"] = "MCPAirS.png"
+		delete ui_tokens["AP Air Superiority"]
+	} else {
+		delete ui_tokens["CP Air Superiority"]
+		delete ui_tokens["AP Air Superiority"]
 	}
-	res = Engine.create_result(game)
 
-	if (game.rollback_proposal) res.rollback_proposal({ index: game.rollback_proposal.index })
+	function create_view() {
+		return {
+			active: game.active,
+			log: game.log,
+			prompt: null,
+			actions: null,
+			turn: game.turn,
+			vp: game.vp,
+			cp_auto_victory_marker: game.cp_auto_victory_marker,
+			blockade: !!(game.events && game.events["royal_navy_blockade"]),
+			ws_ap: game.war_status_ap,
+			ws_cp: game.war_status_cp,
+			combined_war: game.combined_war,
+			rp: {
+				br: game.rp_ap?.br || 0,
+				in: game.rp_ap?.in || 0,
+				ru: game.rp_ap?.ru || 0,
+				apa: game.rp_ap?.a || 0,
+				ge: game.rp_cp?.ge || 0,
+				tu: game.rp_cp?.tu || 0,
+				cpa: game.rp_cp?.a || 0
+			},
+			russian_vp: game.russian_vp,
+			jihad: game.jihad,
+			max_tu_rp: game.events && game.events["royal_navy_blockade"] ? game.tu_rp_limit : undefined,
+			ap_hand_count: game.hand_ap ? game.hand_ap.length : 0,
+			cp_hand_count: game.hand_cp ? game.hand_cp.length : 0,
+			ap_deck_size: game.deck_ap ? game.deck_ap.length : 0,
+			cp_deck_size: game.deck_cp ? game.deck_cp.length : 0,
+			entry_gr: game.entry_gr,
+			entry_bu: game.entry_bu,
+			entry_ro: game.entry_ro,
+			entry_sb: game.entry_sb,
+			hand: [],
+			ap: {
+				deck: game.deck_ap ? game.deck_ap.length : 0,
+				hand: game.hand_ap ? game.hand_ap.length : 0,
+				discard: game.discard_ap ? game.discard_ap.length : 0,
+				discard_list: game.discard_ap || [],
+				actions: game.ap_actions || []
+			},
+			cp: {
+				deck: game.deck_cp ? game.deck_cp.length : 0,
+				hand: game.hand_cp ? game.hand_cp.length : 0,
+				discard: game.discard_cp ? game.discard_cp.length : 0,
+				discard_list: game.discard_cp || [],
+				actions: game.cp_actions || []
+			},
+			pieces: game.pieces,
+			ui_tokens: ui_tokens,
+			control: game.control,
+			ru_control_markers: game.ru_control_markers || [],
+			reduced: game.reduced,
+			forts: game.forts,
+			beachheads: game.beachheads,
+			trenches: game.trenches,
+			trenches_2: game.trenches_2,
+			action_round: game.action_round,
+			mo_ap: game.mo_ap,
+			mo_cp: game.mo_cp,
+			mo_ap_modifier: game.mo_ap_modifier,
+			mo_ap_fulfilled: game.mo_ap_fulfilled,
+			mo_cp_fulfilled: game.mo_cp_fulfilled,
+			ru_revolution: game.ru_revolution,
+			lcu_limit_ap: get_lcu_limit_for(game, AP),
+			lcu_limit_cp: get_lcu_limit_for(game, CP),
+			activated: game.activated,
+			activation_cost: game.activation_cost,
+			move: game.move
+				? { pieces: game.move.pieces ? game.move.pieces.slice() : [] }
+				: game.sr_piece !== null && game.sr_piece !== undefined
+					? { pieces: [game.sr_piece] }
+					: null,
+			attack: game.attack,
+			attacked: game.attacked || [],
+			moved: game.moved || [],
+			undo: game.undo && game.undo.length > 0,
+			where: game.where,
+			violations: Engine.map.check_rule_violations(game),
+			supply_warnings: game.supply_warnings || [],
+			oos: game.oos || [],
+			oos_spaces: game.oos_spaces || [],
+			entrenching: game.entrenching || [],
+			last_card: game.last_card || 0,
+			combat_cards: game.combat_cards || null,
+			cc_retained: {
+				ap: get_cc_retained(AP).slice(),
+				cp: get_cc_retained(CP).slice()
+			},
+			removed_cards: {
+				ap: game.removed_ap || [],
+				cp: game.removed_cp || []
+			},
+			events: game.events || {},
+			rollback_meta: {
+				max_turns: max_rollback_turns,
+				max_action_rounds: max_rollback_action_rounds,
+				total_points: rollback_entries.length,
+				turn_points: rollback_entries.filter((r) => r.turn_start).length,
+				action_points: rollback_entries.filter((r) => !r.turn_start).length,
+				total_events: rollback_total_events,
+				state_compressed: false
+			},
+			rollback: rollback_entries.map((r) => {
+				let name = r.turn_start
+					? `回合 ${r.turn} 起始`
+					: `回合 ${r.turn} ${faction_name(r.active)} 第 ${r.action} 行动`
+				return {
+					name,
+					turn: r.turn,
+					active: r.active,
+					action: r.action,
+					turn_start: !!r.turn_start,
+					events: r.events || [],
+					event_count: r.events ? r.events.length : 0
+				}
+			})
+		}
+	}
+	function create_result_for_current() {
+		let next = Engine.create_result(game)
+		if (game.rollback_proposal) next.rollback_proposal({ index: game.rollback_proposal.index })
+		if (current === AP_ROLE) {
+			next.hand(game.hand_ap)
+		} else if (current === CP_ROLE) {
+			next.hand(game.hand_cp)
+		}
+		return next
+	}
 
-	if (current === AP_ROLE) {
-		res.hand(game.hand_ap)
-	} else if (current === CP_ROLE) {
-		res.hand(game.hand_cp)
+	function prompt_current_view(next) {
+		if (!states[game.state]) {
+			next.prompt()
+			return
+		}
+
+		if (current === "Observer" || (game.active !== current && faction_name(game.active) !== current)) {
+			if (game.state === "review_supply_warnings") {
+				states[game.state].prompt(next)
+			} else {
+				let inactive = states[game.state].inactive
+				if (typeof inactive === "function") inactive()
+				else if (typeof inactive === "string") next.prompt(`等待 ${faction_name(game.active)}   ${inactive}`)
+				else next.prompt(`等待 ${faction_name(game.active)}行动`)
+			}
+		} else {
+			states[game.state].prompt(next)
+			if (!next.has_action("undo")) {
+				if (game.undo && game.undo.length > 0) next.action("undo")
+				else next.set_action("undo", 0)
+			}
+
+			if (
+				!game.options.no_supply_warnings &&
+				game.rollback_proposal === undefined &&
+				game.rollback &&
+				game.rollback.length > 0
+			) {
+				for (let i = 0; i < rollback_entries.length; i++) next.action("propose_rollback", i)
+			}
+
+			if (!game.options.no_supply_warnings && game.state !== "flag_supply_warnings") {
+				next.action("flag_supply_warnings")
+			}
+		}
 	}
 
 	activation_states.set_globals(game)
@@ -780,42 +835,17 @@ exports.view = function (state, current) {
 	turn_states.set_globals(game)
 	action_states.set_globals(game)
 
-	if (!states[game.state]) {
-		res.prompt()
-		res.apply(view)
-		return view
-	}
-
-	if (current === "Observer" || (game.active !== current && faction_name(game.active) !== current)) {
-		if (game.state === "review_supply_warnings") {
-			states[game.state].prompt(res)
-		} else {
-			let inactive = states[game.state].inactive
-			if (typeof inactive === "function") inactive()
-			else if (typeof inactive === "string") res.prompt(`等待 ${faction_name(game.active)}   ${inactive}`)
-			else res.prompt(`等待 ${faction_name(game.active)}行动`)
-		}
-	} else {
-		states[game.state].prompt(res)
-		if (!res.has_action("undo")) {
-			if (game.undo && game.undo.length > 0) res.action("undo")
-			else res.set_action("undo", 0)
-		}
-
-		if (
-			!game.options.no_supply_warnings &&
-			game.rollback_proposal === undefined &&
-			game.rollback &&
-			game.rollback.length > 0
-		) {
-			for (let i = 0; i < view.rollback.length; i++) res.action("propose_rollback", i)
-		}
-
-		if (!game.options.no_supply_warnings && game.state !== "flag_supply_warnings") {
-			res.action("flag_supply_warnings")
+	for (let i = 0; i < 5; i++) {
+		let state_before_prompt = game.state
+		let active_before_prompt = game.active
+		res = create_result_for_current()
+		prompt_current_view(res)
+		if (game.state === state_before_prompt && game.active === active_before_prompt) {
+			break
 		}
 	}
 
+	view = create_view()
 	res.apply(view)
 	return view
 }
@@ -947,7 +977,7 @@ states.acknowledge_mo_results = {
 		if (game.mo_cp === MO_ENVER) {
 			cp_mo = `${cp_mo} [攻势#1: ${mo_name(game.mo_cp_1)}, 攻势#2: ${mo_name(game.mo_cp_2)}]`
 		}
-		res.prompt(`强制进攻: AP=${ap_mo}, CP=${cp_mo}.`)
+		res.prompt(`强制进攻: AP=${ap_mo} , CP=${cp_mo}.`)
 		res.action("next")
 	},
 	next() {
@@ -962,10 +992,10 @@ states.acknowledge_mo_results = {
 function update_war_status(faction, amount) {
 	if (faction === AP) {
 		game.war_status_ap += amount
-		log(`AP War Status increases by ${amount} to ${game.war_status_ap}`)
+		log(`AP 战争状态增加 ${amount} 至 ${game.war_status_ap}`)
 	} else {
 		game.war_status_cp += amount
-		log(`CP War Status increases by ${amount} to ${game.war_status_cp}`)
+		log(`CP 战争状态增加 ${amount} 至 ${game.war_status_cp}`)
 	}
 	game.combined_war = Math.min(40, game.war_status_ap + game.war_status_cp)
 
@@ -1038,31 +1068,50 @@ function is_greece_space(space_id) {
 }
 
 function get_multinational_attack_group(p) {
-	let info = data.pieces[p]
-	if (!info) return null
-	// Yugo Division retains the POG-era cooperation exception with the British Empire group.
-	if (info.name && info.name.includes("RU/SB Yugo")) return "british_empire"
-	return get_nation_group(info.nation)
+	return get_piece_nation_groups_for_rule(game, p)
 }
 
 function is_invalid_multinational_attack(attackers) {
-	let all_groups = []
-	let groups_by_space = {}
+	let all_groups = new Set()
+	let pieces_by_space = {}
 	for (let p of attackers) {
 		if (p === undefined || p === null) continue
-		let group = get_multinational_attack_group(p)
+		let groups = get_multinational_attack_group(p)
 		let space = game.pieces[p]
-		if (!group || !(space > 0)) continue
-		set_add(all_groups, group)
-		if (!groups_by_space[space]) groups_by_space[space] = []
-		set_add(groups_by_space[space], group)
+		if (!groups || groups.length === 0 || !(space > 0)) continue
+		for (let group of groups) all_groups.add(group)
+		if (!pieces_by_space[space]) pieces_by_space[space] = []
+		pieces_by_space[space].push(p)
 	}
 
-	if (all_groups.length <= 1) return false
+	if (all_groups.size <= 1) return false
 
-	// POG-compatible rule: a multinational attack is only legal if one origin space contains every nation group involved.
-	for (let space in groups_by_space) {
-		if (groups_by_space[space].length >= all_groups.length) return false
+	for (let space in pieces_by_space) {
+		let cover_sets = new Set([0])
+		let group_ids = new Map()
+		for (let p of pieces_by_space[space]) {
+			let ids = get_multinational_attack_group(p).map((group) => {
+				if (!group_ids.has(group)) group_ids.set(group, group_ids.size)
+				return group_ids.get(group)
+			})
+			let next = new Set()
+			for (let mask of cover_sets) {
+				for (let id of ids) next.add(mask | (1 << id))
+			}
+			cover_sets = next
+		}
+		for (let mask of cover_sets) {
+			let valid = true
+			for (let p of attackers) {
+				if (game.pieces[p] === Number(space)) continue
+				let groups = get_multinational_attack_group(p)
+				if (!groups.some((group) => group_ids.has(group) && (mask & (1 << group_ids.get(group))) !== 0)) {
+					valid = false
+					break
+				}
+			}
+			if (valid) return false
+		}
 	}
 
 	return true
@@ -1093,7 +1142,13 @@ function has_ap_greek_port_only_attackers(pieces) {
 }
 
 function has_br_attacker(pieces) {
-	return pieces.some((p) => data.pieces[p] && data.pieces[p].nation === "br")
+	return pieces.some(
+		(p) =>
+			data.pieces[p] &&
+			(piece_counts_as_nation_for_rule(game, p, "br") ||
+				piece_counts_as_nation_for_rule(game, p, "in") ||
+				piece_counts_as_nation_for_rule(game, p, "anz"))
+	)
 }
 
 function is_attack_in_or_into_greece(pieces, target) {
@@ -1440,6 +1495,12 @@ function log_h3_faction(faction, msg) {
 		return
 	}
 	log_h3(msg)
+}
+function card_name(card) {
+	return Engine.card_name(card)
+}
+function card_names(cards) {
+	return Engine.card_names(cards)
 }
 function gen_action(action, argument) {
 	if (res) {
@@ -1842,7 +1903,7 @@ function start_ops_from_event(card_index) {
 		goto_end_operations()
 		return
 	}
-	log(`${info.name} grants Operations (${info.ops} OPS)`)
+	log(`${card_name(card_index)} 提供行动点（${info.ops} OPS）`)
 	game.ops = info.ops
 	game.card_ops = info.ops
 	game.activated = { move: [], attack: [] }
@@ -2094,6 +2155,7 @@ combat_funcs = combat_states.register(states, Engine, {
 	log_h3_faction,
 	push_undo,
 	active_faction,
+	get_attackable_spaces,
 	get_pieces_in_space,
 	space_name,
 	refresh_attack_eligibility,
@@ -2141,6 +2203,8 @@ combat_funcs = combat_states.register(states, Engine, {
 	is_advance_stop_terrain,
 	resolve_russian_winter_offensive_advance,
 	log_h1,
+	card_name,
+	card_names,
 	MO_NONE,
 	PHASE_SEQUENCE,
 	push_state,
@@ -2193,6 +2257,8 @@ turn_funcs = turn_states.register(states, Engine, {
 	deal_cards,
 	discard_card,
 	faction_name,
+	card_name,
+	card_names,
 	push_undo,
 	pop_undo,
 	AP,
@@ -2245,8 +2311,11 @@ action_funcs = action_states.register(states, Engine, {
 	goto_review_supply_warnings,
 	start_attrition_phase: () => turn_funcs.start_attrition_phase(),
 	get_pieces_in_space,
+	get_stack_count,
 	is_stack_counted_piece,
 	is_scu,
 	get_scu_reserve_box,
-	clear_event_ctx
+	clear_event_ctx,
+	card_name,
+	card_names
 })
