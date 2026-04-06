@@ -71,12 +71,6 @@ exports.register = function (states, Engine, context) {
 		remove_trench
 	} = context
 
-	function is_non_balkan_beachhead(space_id) {
-		let space = data.spaces[space_id]
-		if (!space) return false
-		return space.area !== "balkans"
-	}
-
 	function count_beachhead_captured_materiel_bonus() {
 		let initial_defenders = (game.attack && game.attack.initial_defenders) || []
 		let ap_lcu = 0
@@ -87,6 +81,25 @@ exports.register = function (states, Engine, context) {
 			else if (is_scu(p)) ap_scu += 1
 		}
 		return ap_lcu + Math.floor(ap_scu / 3)
+	}
+
+	function mark_reserves_to_front_damage(p) {
+		if (!game.attack) return
+		let nation = Engine.game_utils.get_piece_nation(p)
+		if (nation !== "tu" && nation !== "tua") return
+		if (!game.attack.reserves_to_front_damaged_pieces) game.attack.reserves_to_front_damaged_pieces = []
+		set_add(game.attack.reserves_to_front_damaged_pieces, p)
+	}
+
+	function can_select_all_attackers() {
+		if (game.eligible_attackers.length === 0) return false
+		let attacking_from_siege = game.eligible_attackers.some((p) => Engine.map.is_besieged(game, game.pieces[p]))
+		if (attacking_from_siege) return false
+		return get_attackable_spaces(game.eligible_attackers).length > 0
+	}
+
+	function reset_attack_focus() {
+		game.where = -1
 	}
 
 	states.attack = {
@@ -103,6 +116,9 @@ exports.register = function (states, Engine, context) {
 			if (!game.attack) {
 				game.attack = { pieces: [], space: -1 }
 			}
+			if (typeof game.where !== "number") {
+				game.where = -1
+			}
 
 			if (game.liberate_suez_op_required && !game.liberate_suez_egypt_battle_done) {
 				res.prompt("解放苏伊士：必须先在埃及地区完成至少一次战斗，然后才能结束进攻阶段。")
@@ -110,39 +126,42 @@ exports.register = function (states, Engine, context) {
 				res.prompt("请选择攻击单位和目标")
 			}
 			let selected_pieces = game.attack.pieces || []
-
-			// 始终高亮已选择的进攻方和目标地块（如有）
-			if (game.attack.space !== -1) {
-				res.where(game.attack.space)
-			}
 			if (selected_pieces.length > 0) {
+				let selected_spaces = [...new Set(selected_pieces.map((p) => game.pieces[p]).filter((s) => s > 0))]
+				if (game.attack.space !== -1) {
+					res.where(game.attack.space)
+				} else if (selected_spaces.length === 1) {
+					res.where(selected_spaces[0])
+				} else if (selected_spaces.length > 1) {
+					res.where(selected_spaces)
+				}
 				res.who(selected_pieces)
 			}
 
-			let selected_targets = selected_pieces.length > 0 ? get_attackable_spaces(selected_pieces) : null
-			let selected_target_set = selected_targets ? new Set(selected_targets) : null
+			if (selected_pieces.length === 0) {
+				for (let p of game.eligible_attackers) {
+					res.piece(p)
+				}
+				if (can_select_all_attackers()) {
+					res.action("select_all")
+				}
+			} else {
+				let selected_targets = get_attackable_spaces(selected_pieces)
 
-			// Eligible pieces to join the attack
-			for (let p of game.eligible_attackers) {
-				if (set_has(selected_pieces, p)) {
-					res.piece(p)
-					continue
+				for (let p of game.eligible_attackers) {
+					if (set_has(selected_pieces, p)) {
+						res.piece(p)
+						continue
+					}
+					if (get_attackable_spaces([...selected_pieces, p]).length > 0) {
+						res.piece(p)
+					}
 				}
-				if (selected_target_set === null) {
-					res.piece(p)
-					continue
-				}
-				let piece_targets = get_attackable_spaces([p])
-				if (selected_target_set !== null && piece_targets.some((t) => selected_target_set.has(t))) {
-					res.piece(p)
-				}
-			}
 
-			// If pieces selected, show potential target spaces
-			if (selected_targets && selected_targets.length > 0) {
 				for (let t of selected_targets) {
 					res.space(t)
 				}
+
 				res.action("cancel_selection")
 			}
 
@@ -157,23 +176,42 @@ exports.register = function (states, Engine, context) {
 			}
 			if (game.attack.pieces.length === 0) push_undo()
 			set_toggle(game.attack.pieces, p)
+			game.attack.space = -1
 		},
 		space(s) {
 			if (!game.attack) {
 				game.attack = { pieces: [], space: -1 }
 			}
-			// If pieces selected, check if s is a valid target
-			if (game.attack.pieces && game.attack.pieces.length > 0) {
-				let targets = get_attackable_spaces(game.attack.pieces)
-				if (targets.includes(s)) {
-					push_undo()
-					game.attack.space = s
-					game.state = "confirm_attack"
-					return
-				}
+
+			let selected_pieces = game.attack.pieces || []
+			if (selected_pieces.length === 0) {
+				return
 			}
 
-			return
+			let targets = get_attackable_spaces(selected_pieces)
+			if (!targets.includes(s)) {
+				return
+			}
+
+			push_undo()
+			game.attack.space = s
+			game.state = "confirm_attack"
+		},
+		select_all() {
+			refresh_attack_eligibility()
+			if (!can_select_all_attackers()) return
+			if (!game.attack) {
+				game.attack = { pieces: [], space: -1 }
+			}
+			if (!Array.isArray(game.attack.pieces)) {
+				game.attack.pieces = []
+			}
+			push_undo()
+			for (let p of game.eligible_attackers) {
+				set_add(game.attack.pieces, p)
+			}
+			reset_attack_focus()
+			game.attack.space = -1
 		},
 		cancel_selection() {
 			push_undo()
@@ -181,6 +219,7 @@ exports.register = function (states, Engine, context) {
 				game.attack.pieces = []
 				game.attack.space = -1
 			}
+			reset_attack_focus()
 		},
 		end_attack() {
 			refresh_attack_eligibility()
@@ -193,6 +232,7 @@ exports.register = function (states, Engine, context) {
 			if (game.attack) {
 				delete game.attack
 			}
+			reset_attack_focus()
 			refresh_attack_eligibility()
 			if (game.eligible_attackers.length > 0) {
 				game.state = "confirm_pass_attack"
@@ -511,7 +551,7 @@ exports.register = function (states, Engine, context) {
 				update_war_status(game.active, info.ws)
 			}
 			game.rp_cp.tu += 2
-			game.reserves_to_front_pieces = combat_cards.get_battle_piece_pool(game).filter((p) => ["tu", "tua"].includes(Engine.game_utils.get_piece_nation(p)))
+			game.reserves_to_front_pieces = combat_cards.get_reserves_to_front_piece_pool(game)
 			log("前线预备役：")
 			game.state = "event_reserves_to_front"
 			mark_effected(c)
@@ -873,7 +913,7 @@ exports.register = function (states, Engine, context) {
 		if (get_legal_attackable_spaces) {
 			return get_legal_attackable_spaces(pieces)
 		}
-		return combat.get_attackable_spaces(
+		return combat.get_legal_attackable_spaces(
 			game,
 			pieces,
 			active_faction(),
@@ -966,6 +1006,10 @@ exports.register = function (states, Engine, context) {
 		// Those sub-states will call goto_attack() or check_event_next_state() when they finish.
 		if (BATTLE_SUB_STATES.has(game.state)) {
 			return
+		}
+
+		if (game.attack?.attacker) {
+			game.active = game.attack.attacker
 		}
 
 		if (check_event_next_state()) {
@@ -1096,6 +1140,7 @@ exports.register = function (states, Engine, context) {
 			let lf = get_piece_lf(game, p)
 			reduce_piece(p)
 			game.attack.defender_losses_absorbed += lf
+			mark_reserves_to_front_damage(p)
 		},
 		done() {
 			// Back to attacker using absolute anchor
@@ -1184,6 +1229,7 @@ exports.register = function (states, Engine, context) {
 			let lf = get_piece_lf(game, p)
 			reduce_piece(p)
 			game.attack.attacker_losses_absorbed += lf
+			mark_reserves_to_front_damage(p)
 		},
 		done() {
 			if (game.attack.second_fire === "attacker") {
@@ -1232,6 +1278,11 @@ exports.register = function (states, Engine, context) {
 
 	function check_event_next_state() {
 		if (game.event_next_state) {
+			if (game.event_next_state === "event_russo_british_assault_ru_activation_setup") {
+				Engine.event_states.begin_russo_british_russian_activation(game)
+				delete game.event_next_state
+				return true
+			}
 			// Russo-British Assault (Card 1) is an AP event
 			if (game.event_next_state.startsWith("event_russo_british_assault")) {
 				game.active = AP
@@ -1886,7 +1937,7 @@ exports.register = function (states, Engine, context) {
 			)
 			if (!has_ap_units) {
 				if (game.beachheads) set_delete(game.beachheads, to_space)
-				if (is_non_balkan_beachhead(to_space)) {
+				if (Engine.map.is_non_balkan_beachhead(to_space)) {
 					update_jihad_level(game, 2)
 					let bonus = count_beachhead_captured_materiel_bonus()
 					if (bonus > 0) {
@@ -2070,7 +2121,7 @@ exports.register = function (states, Engine, context) {
 					game.selected_piece = null
 					return
 				}
-				this.end_advance()
+				return
 			} else if (limit_reached) {
 				let allowed = game.advance_pieces.filter((uid) => {
 					if (data.pieces[uid].type === "hq") return true
@@ -2092,7 +2143,7 @@ exports.register = function (states, Engine, context) {
 						game.selected_piece = null
 						return
 					}
-					this.end_advance()
+					return
 				}
 			}
 		},
@@ -2113,7 +2164,7 @@ exports.register = function (states, Engine, context) {
 			}
 			let selectable = (game.advance_follow_pieces || []).filter((uid) => get_follow_advance_spaces(uid).length > 0)
 			if (selectable.length === 0) {
-				this.end_advance()
+				game.selected_piece = null
 			}
 		},
 		end_advance() {

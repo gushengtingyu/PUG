@@ -61,6 +61,35 @@ exports.register = function (states, Engine, context) {
 		card_name
 	} = context
 
+	function begin_ops_action(card, ops) {
+		if (card === undefined || card === null) {
+			log(`自动行动 (${ops})`)
+			record_action(ACTION_ONE_OP, 0)
+			game.card = null
+		} else {
+			log(`${card_name(card)} -- 行动点 (${ops})`)
+			record_action(ACTION_OPS, card)
+			discard_card(card)
+		}
+		game.ops = ops
+		game.card_ops = ops
+		game.activated = { move: [], attack: [] }
+		game.activation_cost = {}
+		game.moved = []
+		game.attacked = []
+		game.retreated = []
+		game.balkan_attack_targets = { ap: -1, ap_mo: -1, cp: -1 }
+		game.state = "activate_spaces"
+	}
+
+	function log_card_action(card, mode, value) {
+		if (value !== undefined && value !== null) {
+			log(`${card_name(card)} -- ${mode} (${value})`)
+		} else {
+			log(`${card_name(card)} -- ${mode}`)
+		}
+	}
+
 	states.play_card = {
 		inactive: "play a card",
 		prompt(res) {
@@ -92,33 +121,11 @@ exports.register = function (states, Engine, context) {
 			game.card = c
 			game.last_card = c
 			let info = data.cards[c]
-			log(`${game.active} 打出 ${card_name(c)} 并使用 ${info.ops} 行动点`)
-			record_action(ACTION_OPS, c)
-			discard_card(c)
-			game.ops = info.ops
-			game.card_ops = info.ops
-			game.activated = { move: [], attack: [] }
-			game.activation_cost = {}
-			game.moved = []
-			game.attacked = []
-			game.retreated = []
-			game.balkan_attack_targets = { ap: -1, ap_mo: -1, cp: -1 }
-			game.state = "activate_spaces"
+			begin_ops_action(c, info.ops)
 		},
 		single_op() {
 			push_undo()
-			log(`${game.active} 使用1行动点`)
-			record_action(ACTION_ONE_OP, 0)
-			game.card = null
-			game.ops = 1
-			game.card_ops = 1
-			game.activated = { move: [], attack: [] }
-			game.activation_cost = {}
-			game.moved = []
-			game.attacked = []
-			game.retreated = []
-			game.balkan_attack_targets = { ap: -1, ap_mo: -1, cp: -1 }
-			game.state = "activate_spaces"
+			begin_ops_action(null, 1)
 		},
 		play_sr(c) {
 			if (!can_play_sr_card_this_round(active_faction())) {
@@ -130,7 +137,7 @@ exports.register = function (states, Engine, context) {
 			game.card = c
 			game.last_card = c
 			let info = data.cards[c]
-			log(`${game.active} 打出 ${card_name(c)} 用于SR (${info.sr})`)
+			log_card_action(c, "Strategic Redeployment", info.sr)
 			record_action(ACTION_SR, c)
 			discard_card(c)
 			game.sr = info.sr
@@ -146,7 +153,7 @@ exports.register = function (states, Engine, context) {
 			game.card = c
 			game.last_card = c
 			let info = data.cards[c]
-			log(`${game.active} 打出 ${card_name(c)} 用于补员`)
+			log_card_action(c, "Replacement Points")
 			record_action(ACTION_RPS, c)
 			discard_card(c)
 			add_rps(info)
@@ -161,7 +168,7 @@ exports.register = function (states, Engine, context) {
 			push_undo()
 			game.card = c
 			game.last_card = c
-			log(`${game.active} 打出事件：${card_name(c)}`)
+			log_card_action(c, "Event")
 			record_action(ACTION_EVENT, c)
 
 			if (info.remove) remove_card(c)
@@ -210,18 +217,7 @@ exports.register = function (states, Engine, context) {
 		play_ops(c) {
 			if (c === undefined) c = game.card
 			let info = data.cards[c]
-			log(`${game.active} 打出 ${card_name(c)} 并使用 (${info.ops} 行动点)`)
-			record_action(ACTION_OPS, c)
-			discard_card(c)
-			game.ops = info.ops
-			game.card_ops = info.ops
-			game.activated = { move: [], attack: [] }
-			game.activation_cost = {}
-			game.moved = []
-			game.attacked = []
-			game.retreated = []
-			game.balkan_attack_targets = { ap: -1, ap_mo: -1, cp: -1 }
-			game.state = "activate_spaces"
+			begin_ops_action(c, info.ops)
 		},
 		play_sr(c) {
 			if (c === undefined) c = game.card
@@ -230,7 +226,7 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 			let info = data.cards[c]
-			log(`${game.active} 打出 ${card_name(c)} 进行战略调整 (SR: ${info.sr})`)
+			log_card_action(c, "Strategic Redeployment", info.sr)
 			record_action(ACTION_SR, c)
 			discard_card(c)
 			game.sr = info.sr
@@ -243,7 +239,7 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 			let info = data.cards[c]
-			log(`${game.active} 打出 ${card_name(c)} 用于补员`)
+			log_card_action(c, "Replacement Points")
 			record_action(ACTION_RPS, c)
 			discard_card(c)
 			add_rps(info)
@@ -256,7 +252,7 @@ exports.register = function (states, Engine, context) {
 				log(`${card_name(c)} 不能作为事件打出`)
 				return
 			}
-			log(`${game.active} 打出事件：${card_name(c)}`)
+			log_card_action(c, "Event")
 			record_action(ACTION_EVENT, c)
 
 			if (info.remove) remove_card(c)

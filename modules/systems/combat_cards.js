@@ -162,14 +162,19 @@ module.exports = function (Engine) {
 		return pool
 	}
 
-	function has_damaged_or_eliminated_battle_piece(game, nations) {
-		return get_battle_piece_pool(game).some((p) => {
-			if (!nations.some((nation) => piece_counts_as_nation_for_rule(game, p, nation))) return false
-			let info = data.pieces[p]
-			let removed_by_reserves_exception =
-				is_removed(game, p) && info && (info.symbol === "dot" || info.symbol === "triangle")
-			return set_has(game.reduced, p) || is_eliminated(game, p) || removed_by_reserves_exception
-		})
+	function get_reserves_to_front_piece_pool(game) {
+		if (!has_attack(game)) return []
+		let tracked = game.attack?.reserves_to_front_damaged_pieces || []
+		let seen = new Set()
+		let pool = []
+		for (let p of tracked) {
+			if (seen.has(p)) continue
+			if (!["tu", "tua"].some((nation) => piece_counts_as_nation_for_rule(game, p, nation))) continue
+			if (get_reserves_to_front_piece_cost(game, p) <= 0) continue
+			seen.add(p)
+			pool.push(p)
+		}
+		return pool
 	}
 
 	function is_reserves_to_front_removed_exception(game, p) {
@@ -283,7 +288,7 @@ module.exports = function (Engine) {
 
 	function can_play_reserves_to_front(game) {
 		if (!can_play_in_window(game, "post_battle_cc_cp", CP)) return false
-		return has_damaged_or_eliminated_battle_piece(game, ["tu", "tua"])
+		return get_reserves_to_front_piece_pool(game).length > 0
 	}
 
 	function can_play_war_weary_balkans(game) {
@@ -470,6 +475,7 @@ module.exports = function (Engine) {
 
 	Object.assign(exports, {
 		get_battle_piece_pool,
+		get_reserves_to_front_piece_pool,
 		is_reserves_to_front_removed_exception,
 		get_reserves_to_front_piece_cost,
 		is_middle_east_area,

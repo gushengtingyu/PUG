@@ -901,13 +901,11 @@ module.exports = function (Engine) {
 				game.rp_ap.in += 1
 				game.rp_ap.a += 1
 				game.rp_ap.ru += 1
-
-				// Extra effect: move Kitch.token to UI coordinates
-				let p = find_piece(AP, "Kitch.token")
+				if (!game.ui_tokens) game.ui_tokens = {}
+				game.ui_tokens["BR RPs TO RU"] = "MKitch.png"
+				let p = find_piece(undefined, "Kitch.token")
 				if (p >= 0) {
-					game.pieces[p] = -2 // REMOVED
-					if (!game.ui_tokens) game.ui_tokens = {}
-					game.ui_tokens["BR RPs TO RU"] = "MKitch.png"
+					game.pieces[p] = REMOVED
 				}
 			}
 		},
@@ -989,7 +987,7 @@ module.exports = function (Engine) {
 				let units = ["ANZ Cavalry #2", "ANZ Imp Camel"]
 				event.reinf_to_place = units
 
-				game.events["xinai_railway"] = game.turn + 4
+				game.events["xinai"] = game.turn + 4
 				log(game, "西奈铁路将在第" + (game.turn + 4) + "回合完成")
 				event.reinf_logic = "is_br"
 				game.state = "event_place_reinforcements"
@@ -1008,7 +1006,7 @@ module.exports = function (Engine) {
 			name: "NO PRISONERS CC",
 			name_cn: "不留活口",
 			effect_cn:
-				"(在战斗的掷骰前打出)一次攻击堆叠包含协约国阿拉伯起义部队或者同盟国部落部队的战斗中，攻击方受到的伤害-1，防御方受到的伤害-1。当你使用完这张卡后，该卡交予同盟国方并保持正面朝上，使其可以选择在一次战斗中当作战斗牌使用。以此法使用完毕的这张卡丢入弃牌堆",
+				"(在战斗的掷骰前打出)一次攻击堆叠包含协约国阿拉伯起义部队或者同盟国部落部队的战斗中，攻击方受到的伤害+1，防御方受到的伤害-1。当你使用完这张卡后，该卡交予同盟国方并保持正面朝上，使其可以选择在一次战斗中当作战斗牌使用。以此法使用完毕的这张卡丢入弃牌堆",
 			handler: function (game, ctx) {
 				game.events["no_prisoners"] = game.turn
 			}
@@ -1283,9 +1281,14 @@ module.exports = function (Engine) {
 			effect_cn:
 				"增援:1个英国骑兵师。获得2点英国补员点数。在本场游戏剩余的时间内，可以在补员阶段将任何数量的英国补员点数转化为俄国补员点数。。在剩余的游戏时间内协约国MO掷骰+2drm。",
 			handler: function (game, ctx) {
-				game.mo_ap_modifier += 2
+				game.mo_ap_modifier += 1
 				reinforce(game, "BR Cavalry #2", AP)
+				game.rp_ap.br += 2
 				game.events["asquith_coalition"] = true
+
+				// Update UI token for RP conversion
+				if (!game.ui_tokens) game.ui_tokens = {}
+				game.ui_tokens["BR RPs TO RU"] = "MLG.png"
 			}
 		},
 		34: {
@@ -1624,7 +1627,7 @@ module.exports = function (Engine) {
 		55: {
 			name: "LLOYD GEORGE TAKES COMMAND",
 			name_cn: "劳合乔治接管指挥权",
-			effect_cn: "协约国补员点数掷骰+1drm。允许打出【德斯佩雷】。",
+			effect_cn: "(不能在1916年秋季回合前打出，除非联合战争状态不小于26)。增援:澳新沙漠军团 至预备军格。增援:1个英国步兵师，1个英国骑兵师。在剩余的游戏时间中，每回合获得额外1点英国补员点数，在剩余的游戏时间内协约国MO掷骰+2drm",
 			can_play: function (game) {
 				return true
 			},

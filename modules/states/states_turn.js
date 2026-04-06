@@ -470,9 +470,9 @@ exports.register = function (states, Engine, context) {
 		game.mo_cp_fulfilled = true
 
 		if (game.turn === 1) {
-			log("Turn 1 (Fall 1914): No MO Roll.")
-			log("MO AP: Russia")
-			log("MO CP: Russia")
+			log("第一回合：无MO掷骰")
+			log("AP：俄罗斯")
+			log("CP：俄罗斯")
 			game.mo_ap = MO_RUSSIA
 			game.mo_cp = MO_RUSSIA
 			game.mo_ap_fulfilled = false
@@ -728,6 +728,7 @@ exports.register = function (states, Engine, context) {
 
 	function enter_replacement_rp_phase() {
 		game.kitchener_conversion_used = false
+		game.br_to_ru_rp_used = false
 
 		if (game.events["central_asia_rebellion"]) game.rp_rebel.ca += 1
 		if (game.events["afghan_alliance"]) game.rp_rebel.af += 1
@@ -786,11 +787,36 @@ exports.register = function (states, Engine, context) {
 		return Object.values(rps).some((value) => value > 0)
 	}
 
+	function get_rebuild_spaces(p) {
+		let info = data.pieces[p]
+		let spaces = new Set()
+		if (!info) return spaces
+
+		if (is_eliminated(game, p)) {
+			for (let s of Engine.replacement.get_valid_rebuild_spaces(game, p, info.faction)) {
+				spaces.add(s)
+			}
+			if (Engine.replacement.can_rebuild_in_reserve_box(p)) {
+				spaces.add(get_reserve_box(info.faction))
+			}
+		} else {
+			let s = game.pieces[p]
+			if (s > 0 && s < data.spaces.length) {
+				spaces.add(s)
+			}
+		}
+		return spaces
+	}
+
 	function is_piece_replaceable_in_rp_phase(p, faction = game.active) {
 		if (!data.pieces[p] || data.pieces[p].faction !== faction) return false
 		let cost = Engine.replacement.get_replacement_cost(game, p)
 		if (cost <= 0) return false
-		if (!is_eliminated(game, p) && !set_has(game.reduced, p)) return false
+		if (is_eliminated(game, p)) {
+			if (get_rebuild_spaces(p).size === 0) return false
+		} else if (!set_has(game.reduced, p)) {
+			return false
+		}
 		return Engine.replacement.can_afford_replacement(game, p, cost)
 	}
 
@@ -920,16 +946,13 @@ exports.register = function (states, Engine, context) {
 		let card = data.cards[c]
 		if (!card) return false
 		if (card.cc) return true
-		if (game.war_commitment_cp === COMMITMENT_TOTAL && game.war_commitment_ap !== COMMITMENT_TOTAL) {
-			return card.event === "ROMANIA" || card.event === "ITALY_ENTRY"
-		}
 		return false
 	}
 
 	states.draw_cards_phase = {
 		prompt(res) {
 			let hand = game.active === AP ? game.hand_ap : game.hand_cp
-			res.prompt(`${faction_name(game.active)} 抽牌阶段: 弃掉允许在此阶段弃置的手牌。`)
+			res.prompt(`${faction_name(game.active)} 抽牌阶段: 弃置任意战斗牌。`)
 			for (let c of hand) {
 				if (can_discard_during_draw_phase(c)) {
 					res.action("card", c)
@@ -1015,19 +1038,6 @@ exports.register = function (states, Engine, context) {
 				finish_replacement_phase()
 			}
 		}
-	}
-
-	function get_rebuild_spaces(p) {
-		let info = data.pieces[p]
-		let spaces = new Set()
-		if (!info) return spaces
-		for (let s of Engine.replacement.get_valid_rebuild_spaces(game, p, info.faction)) {
-			spaces.add(s)
-		}
-		if (info.piece_class === "SCU" && info.type === "regular") {
-			spaces.add(get_reserve_box(info.faction))
-		}
-		return spaces
 	}
 
 	states.rp_rebuild_where = {

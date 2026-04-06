@@ -142,14 +142,14 @@ module.exports = function (Engine) {
 
 		helpers.log(`${country} 爆发圣战叛乱！`)
 		if (country === "Central Asia") {
-			helpers.update_jihad_level(game, 1)
+			helpers.update_jihad_level(game, 1, helpers.push_state, helpers.log)
 			game.jihad_revolt_central_asia = true
 			game.events["central_asia_rebellion"] = true
 			helpers.reinforce(game, "CAsia Uprising", CP, helpers.find_space("Central Asia"))
 			return true
 		}
 		if (country === "Afghanistan") {
-			helpers.update_jihad_level(game, 1)
+			helpers.update_jihad_level(game, 1, helpers.push_state, helpers.log)
 			game.jihad_revolt_afghanistan = true
 			game.events["afghan_alliance"] = true
 			let af_space = helpers.find_space("Afghanistan")
@@ -159,7 +159,7 @@ module.exports = function (Engine) {
 			return true
 		}
 		if (country === "Egypt") {
-			helpers.update_jihad_level(game, 2)
+			helpers.update_jihad_level(game, 2, helpers.push_state, helpers.log)
 			game.jihad_revolt_egypt = true
 			game.events["egyptian_rebellion"] = true
 			game.egyptian_rebellion_to_place = ["Egypt Rebel #1", "Egypt Rebel #2", "Egypt Rebel #3"]
@@ -168,7 +168,7 @@ module.exports = function (Engine) {
 			return true
 		}
 		if (country === "India") {
-			helpers.update_jihad_level(game, 2)
+			helpers.update_jihad_level(game, 2, helpers.push_state, helpers.log)
 			game.jihad_revolt_india = true
 			game.events["indian_rebellion"] = true
 			for (let p = 0; p < game.pieces.length; p++) {

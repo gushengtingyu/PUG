@@ -23774,7 +23774,7 @@ var data = {
 	{
 		"num": 14,
 		"faction": "ap",
-		"commitment": "limited",
+		"commitment": "mobilization",
 		"ops": 4,
 		"sr": 4,
 		"remove": true,
@@ -24040,7 +24040,7 @@ var data = {
 	{
 		"num": 34,
 		"faction": "ap",
-		"commitment": "total",
+		"commitment": "limited",
 		"ops": 5,
 		"sr": 5,
 		"remove": true,
@@ -24503,7 +24503,7 @@ var data = {
 	{
 		"num": 69,
 		"faction": "cp",
-		"commitment": "limited",
+		"commitment": "mobilization",
 		"ops": 4,
 		"sr": 4,
 		"remove": true,
@@ -24747,7 +24747,7 @@ var data = {
 	{
 		"num": 89,
 		"faction": "cp",
-		"commitment": "total",
+		"commitment": "limited",
 		"ops": 5,
 		"sr": 5,
 		"remove": true,

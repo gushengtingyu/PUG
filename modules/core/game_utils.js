@@ -497,6 +497,7 @@ module.exports = function (Engine) {
 	function add_rps(game, info, log) {
 		let rps = game.active === Engine.constants.AP ? game.rp_ap : game.rp_cp
 		if (info.rp_a) rps.a += info.rp_a
+		if (info.rp_ah) rps.a += info.rp_ah
 		let block_br_rp =
 			game.active === Engine.constants.AP && game.events && game.events["parliamentary_inquiry"] === game.turn
 		if (info.rp_br && !block_br_rp) rps.br += info.rp_br

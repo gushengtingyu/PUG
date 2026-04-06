@@ -7,7 +7,8 @@ function createDefaultOptions() {
 		scenario: "Historical",
 		maxSteps: 0,
 		maxStepsPerGame: 0,
-		games: 1,
+		maxDuration: 300,
+		games: 10,
 		echoEvery: 200,
 		stuckThreshold: 120,
 		quiet: false
@@ -24,7 +25,8 @@ function normalizeOptions(input = {}) {
 	options.maxStepsPerGame = Number.isFinite(Number(options.maxStepsPerGame))
 		? Math.max(0, Number(options.maxStepsPerGame))
 		: 0
-	options.games = Number.isFinite(Number(options.games)) ? Math.max(1, Number(options.games)) : 1
+	options.maxDuration = Number.isFinite(Number(options.maxDuration)) ? Math.max(0, Number(options.maxDuration)) : 0
+	options.games = Number.isFinite(Number(options.games)) ? Math.max(1, Number(options.games)) : 10
 	options.echoEvery = Number.isFinite(Number(options.echoEvery)) ? Math.max(1, Number(options.echoEvery)) : 200
 	options.stuckThreshold = Number.isFinite(Number(options.stuckThreshold))
 		? Math.max(10, Number(options.stuckThreshold))
@@ -49,6 +51,8 @@ function parseArgs(argv) {
 		if (k === "max-steps" && v !== undefined && !Number.isNaN(Number(v))) options.maxSteps = Number(v)
 		if (k === "max-steps-per-game" && v !== undefined && !Number.isNaN(Number(v)))
 			options.maxStepsPerGame = Number(v)
+		if (k === "duration" && v !== undefined && !Number.isNaN(Number(v)))
+			options.maxDuration = Number(v)
 		if (k === "echo-every" && v !== undefined && !Number.isNaN(Number(v))) options.echoEvery = Number(v)
 		if (k === "stuck-threshold" && v !== undefined && !Number.isNaN(Number(v)))
 			options.stuckThreshold = Number(v)
@@ -184,6 +188,20 @@ function printContext(prefix, payload) {
 	console.log(prefix, JSON.stringify(payload))
 }
 
+function readStableView(game, maxPasses = 6) {
+	let role = currentRole(game)
+	let view = null
+	for (let pass = 0; pass < maxPasses; pass++) {
+		role = currentRole(game)
+		view = rules.view(game, role)
+		validateViewInvariants(view, game, role)
+		if (currentRole(game) === role) {
+			return { role, view }
+		}
+	}
+	return { role: currentRole(game), view }
+}
+
 function buildResult(exitCode, reason, summary) {
 	return { exitCode, reason, summary }
 }
@@ -192,6 +210,7 @@ function run(inputOptions = {}) {
 	const options = normalizeOptions(inputOptions)
 	const rand = createRng(options.seed)
 	const report = options.quiet ? () => {} : printContext
+	const startTime = Date.now()
 	let seedCursor = options.seed >>> 0
 	let gameIndex = 1
 	let totalSteps = 0
@@ -209,6 +228,7 @@ function run(inputOptions = {}) {
 	let noActionEvents = []
 
 	function summary(extra = {}) {
+		const elapsed = (Date.now() - startTime) / 1000
 		return {
 			seed: seedCursor,
 			startSeed: options.seed >>> 0,
@@ -224,6 +244,8 @@ function run(inputOptions = {}) {
 			seedsVisited,
 			completionReasons,
 			noActionEvents,
+			elapsed: elapsed.toFixed(2) + "s",
+			avgSpeed: (totalSteps / elapsed).toFixed(2) + " steps/s",
 			...extra
 		}
 	}
@@ -232,15 +254,20 @@ function run(inputOptions = {}) {
 		completedGames += 1
 		completionReasons.push(reason)
 		maxGameSteps = Math.max(maxGameSteps, gameSteps)
+		const elapsed = (Date.now() - startTime) / 1000
 		report("[fuzz] next_game", {
 			reason,
 			totalSteps,
 			completedGames,
 			seed: seedCursor,
-			gameSteps
+			gameSteps,
+			elapsed: elapsed.toFixed(2) + "s"
 		})
 		if (completedGames >= options.games) {
 			return buildResult(0, "games_completed", summary())
+		}
+		if (options.maxDuration > 0 && elapsed >= options.maxDuration) {
+			return buildResult(0, "max_duration", summary())
 		}
 		seedCursor = (seedCursor + options.seedStep) >>> 0
 		seedsVisited.push(seedCursor)
@@ -261,13 +288,22 @@ function run(inputOptions = {}) {
 		games: options.games,
 		maxSteps: options.maxSteps,
 		maxStepsPerGame: options.maxStepsPerGame,
+		maxDuration: options.maxDuration,
 		stuckThreshold: options.stuckThreshold
 	})
 
 	while (true) {
+		const elapsed = (Date.now() - startTime) / 1000
 		if (options.maxSteps > 0 && totalSteps >= options.maxSteps) {
 			maxGameSteps = Math.max(maxGameSteps, gameSteps)
 			let result = buildResult(0, "max_steps", summary())
+			report("[fuzz] done", result.summary)
+			return result
+		}
+
+		if (options.maxDuration > 0 && elapsed >= options.maxDuration) {
+			maxGameSteps = Math.max(maxGameSteps, gameSteps)
+			let result = buildResult(0, "max_duration", summary())
 			report("[fuzz] done", result.summary)
 			return result
 		}
@@ -280,11 +316,10 @@ function run(inputOptions = {}) {
 			return result
 		}
 
-		let role = currentRole(game)
+		let role
 		let view
 		try {
-			view = rules.view(game, role)
-			validateViewInvariants(view, game, role)
+			;({ role, view } = readStableView(game))
 		} catch (error) {
 			let result = buildResult(1, "crash_view", summary({
 				state: game.state,
@@ -401,6 +436,7 @@ function run(inputOptions = {}) {
 		}
 
 		if (totalSteps % options.echoEvery === 0) {
+			const elapsed = (Date.now() - startTime) / 1000
 			report("[fuzz] progress", {
 				totalSteps,
 				gameIndex,
@@ -409,7 +445,9 @@ function run(inputOptions = {}) {
 				gameSteps,
 				state: game.state,
 				active: game.active,
-				statesSeen: statesSeen.size
+				statesSeen: statesSeen.size,
+				elapsed: elapsed.toFixed(2) + "s",
+				speed: (totalSteps / elapsed).toFixed(2) + " steps/s"
 			})
 		}
 	}

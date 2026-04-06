@@ -24,9 +24,11 @@ module.exports = function (Engine) {
 		is_galicia,
 		is_central_asia,
 		is_india,
+		is_baluchistan,
 		is_egypt,
 		is_sudan_and_darfur,
 		is_afghanistan,
+		is_persia,
 		is_aegean_east_med_port,
 		get_area,
 		is_hejaz,
@@ -47,6 +49,39 @@ module.exports = function (Engine) {
 		is_tribe
 	} = Engine.game_utils
 
+	function is_spers_rifles_unit(info) {
+		return !!(info && info.name && info.name.includes("SPers Rifles"))
+	}
+
+	function is_br_indian_garrison_unit(info) {
+		return !!(info && info.name && info.name.includes("IN Garrison"))
+	}
+
+	function is_br_persian_cordon_unit(info) {
+		return !!(info && info.name && info.name.includes("Persian Cordon"))
+	}
+
+	function is_dunsterforce_unit(info) {
+		return !!(info && info.name === "BR Dunsterforce")
+	}
+
+	function can_rebuild_regular_unit_in_space(game, s, faction) {
+		if (is_besieged(game, s)) return false
+		for (let p of get_pieces_in_space(game, s)) {
+			if (get_piece_effective_faction(game, p) === other_faction(faction)) return false
+		}
+		return true
+	}
+
+	function can_rebuild_in_reserve_box(p) {
+		let info = data.pieces[p]
+		if (!info || info.piece_class !== "SCU" || info.type !== "regular") return false
+		if (is_spers_rifles_unit(info)) return false
+		if (is_br_indian_garrison_unit(info)) return false
+		if (is_br_persian_cordon_unit(info)) return false
+		return true
+	}
+
 	function get_replacement_cost(game, p) {
 		let info = data.pieces[p]
 		if (!info) return 0
@@ -59,6 +94,8 @@ module.exports = function (Engine) {
 		if (info.type === "hq") return 0
 
 		let eliminated = is_eliminated(game, p)
+
+		if (eliminated && is_spers_rifles_unit(info)) return 0
 
 		// Triangle units: only so long as they remain on the map
 		if (info.symbol === "triangle" && eliminated) return 0
@@ -388,12 +425,19 @@ module.exports = function (Engine) {
 		return true
 	}
 
+	function can_convert_br_to_ru(game, cost, rps) {
+		if (game.events && game.events["russian_revolution"] >= 1) return false
+		if (rps.br < cost) return false
+		if (game.events && game.events["asquith_coalition"]) return true
+		if (game.events && game.events["kitchener"] && !game.br_to_ru_rp_used) return true
+		return false
+	}
+
 	function can_afford_ap_replacement_as_nation(game, p, nation, cost, rps) {
 		if (nation === "br" && rps.br >= cost) return true
 		if (nation === "ru") {
 			if (rps.ru >= cost) return true
-			if (game.events && game.events["kitchener"] && !game.br_to_ru_rp_used && rps.br >= cost) return true
-			if (game.events && game.events["asquith_lloyd_george_coalition"] && rps.br >= cost) return true
+			if (can_convert_br_to_ru(game, cost, rps)) return true
 		}
 		if (nation === "in" && rps.in >= cost) return true
 		if (["anz", "ar", "gr"].includes(nation)) return rps.br >= cost || rps.a >= cost
@@ -429,13 +473,13 @@ module.exports = function (Engine) {
 				rps.ru -= cost
 				return true
 			}
-			if (game.events && game.events["kitchener"] && !game.br_to_ru_rp_used && rps.br >= cost) {
+			if (game.events && game.events["asquith_coalition"] && can_convert_br_to_ru(game, cost, rps)) {
 				rps.br -= cost
-				game.br_to_ru_rp_used = true
 				return true
 			}
-			if (game.events && game.events["asquith_lloyd_george_coalition"] && rps.br >= cost) {
+			if (game.events && game.events["kitchener"] && can_convert_br_to_ru(game, cost, rps)) {
 				rps.br -= cost
+				game.br_to_ru_rp_used = true
 				return true
 			}
 		}
@@ -616,6 +660,14 @@ module.exports = function (Engine) {
 					if (rebel_type === "in" && area === "india") can_rebuild = true
 					if (rebel_type === "ca" && area === "central_asia") can_rebuild = true
 				}
+			} else if (is_br_indian_garrison_unit(info)) {
+				if (is_india(s) && can_rebuild_regular_unit_in_space(game, s, faction)) can_rebuild = true
+			} else if (is_br_persian_cordon_unit(info)) {
+				if (
+					(is_persia(s) || is_india(s) || is_baluchistan(s) || name === "Baluchistan") &&
+					can_rebuild_regular_unit_in_space(game, s, faction)
+				)
+					can_rebuild = true
 			} else if (nation === "tu" || nation === "tua") {
 				// Rule 22.2.2: TU/TUA units follow Ottoman reinforcement rules (7.7.2)
 				if (is_controlled_by(game, s, CP) && !is_besieged(game, s)) {
@@ -776,6 +828,16 @@ module.exports = function (Engine) {
 					can_rebuild = true
 			}
 
+			if (
+				!can_rebuild &&
+				is_dunsterforce_unit(info) &&
+				name === "Baghdad" &&
+				is_controlled_by(game, s, AP) &&
+				can_rebuild_regular_unit_in_space(game, s, faction)
+			) {
+				can_rebuild = true
+			}
+
 			if (can_rebuild && can_stack_end_in_space(game, s, [p])) {
 				valid.push(s)
 			}
@@ -808,12 +870,14 @@ module.exports = function (Engine) {
 		can_afford_replacement,
 		spend_replacement_points,
 		get_valid_rebuild_spaces,
+		can_rebuild_in_reserve_box,
 		get_tribe_key_space,
 	})
 
 	exports.get_replacement_cost = get_replacement_cost
 	exports.can_afford_replacement = can_afford_replacement
 	exports.spend_replacement_points = spend_replacement_points
+	exports.can_rebuild_in_reserve_box = can_rebuild_in_reserve_box
 	exports.can_trace_supply_to_galicia = can_trace_supply_to_galicia
 	exports.can_trace_supply_to_turkey = can_trace_supply_to_turkey
 	exports.can_trace_supply_to_sofia = can_trace_supply_to_sofia

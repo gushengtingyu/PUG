@@ -22,11 +22,7 @@ const {
 	is_besieged,
 	check_supply,
 	is_in_supply,
-	is_rail_connected_to_supply,
-	can_trace_supply_to_source,
-	get_gr_supply_sources,
-	get_supply_sources_from_data,
-	get_beachhead_spaces
+	is_rail_connected_to_supply
 } = Engine.map
 const {
 	set_add,
@@ -66,8 +62,6 @@ const {
 	is_piece_reduced,
 	reduce_piece: utils_reduce_piece,
 	get_nation_group,
-	get_piece_nation_groups_for_rule,
-	piece_counts_as_nation_for_rule,
 	has_scu_in_reserve,
 	get_pieces_in_reserve,
 	get_pieces_in_eliminated,
@@ -151,8 +145,8 @@ const {
 	get_valid_advance_spaces,
 	resolve_russian_winter_offensive_advance,
 	any_capital_occupied_or_besieged,
-	get_attackable_spaces: combat_get_attackable_spaces,
-	can_activate_piece_in_space_to_attack: combat_can_activate_piece_in_space_to_attack
+	get_legal_attackable_spaces: combat_get_legal_attackable_spaces,
+	can_choose_attack_with_piece: combat_can_choose_attack_with_piece
 } = combat
 
 const { setup_historical_scenario } = Engine.setup
@@ -652,6 +646,7 @@ exports.view = function (state, current) {
 	const max_rollback_turns = get_max_rollback_turns()
 	const max_rollback_action_rounds = get_max_rollback_action_rounds()
 	const ui_tokens = { ...(game.ui_tokens || {}) }
+	const hidden_reinforcement_markers = []
 	if (game.events && game.events["royal_flying_corps_permanent"]) {
 		ui_tokens["AP Air Superiority"] = "MAPAirS.png"
 		delete ui_tokens["CP Air Superiority"]
@@ -661,6 +656,12 @@ exports.view = function (state, current) {
 	} else {
 		delete ui_tokens["CP Air Superiority"]
 		delete ui_tokens["AP Air Superiority"]
+	}
+	if (game.events && game.events["kitchener"]) {
+		hidden_reinforcement_markers.push("Kitch.token")
+	}
+	if (game.events && game.events["xinai"] !== undefined) {
+		hidden_reinforcement_markers.push("SINAI RAILROAD")
 	}
 
 	function create_view() {
@@ -713,6 +714,7 @@ exports.view = function (state, current) {
 			},
 			pieces: game.pieces,
 			ui_tokens: ui_tokens,
+			hidden_reinforcement_markers: hidden_reinforcement_markers,
 			control: game.control,
 			ru_control_markers: game.ru_control_markers || [],
 			reduced: game.reduced,
@@ -1017,210 +1019,25 @@ function update_war_status(faction, amount) {
 // Card action states moved to states_action.js
 
 function get_attackable_spaces(pieces) {
-	let targets = combat_get_attackable_spaces(
+	return combat_get_legal_attackable_spaces(game, pieces, active_faction(), () => get_season(game), is_rail_connected_to_supply)
+}
+
+function can_activate_piece_in_space_to_attack(p, s) {
+	return combat_can_choose_attack_with_piece(
 		game,
-		pieces,
+		p,
+		s,
 		active_faction(),
 		() => get_season(game),
 		is_rail_connected_to_supply
 	)
-	if (targets.length === 0) return targets
-	if (is_invalid_multinational_attack(pieces)) return []
-	return apply_balkan_attack_target_restrictions(pieces, targets)
-}
-
-function can_activate_piece_in_space_to_attack(p, s) {
-	if (
-		!combat_can_activate_piece_in_space_to_attack(
-			game,
-			p,
-			s,
-			active_faction(),
-			() => get_season(game),
-			is_rail_connected_to_supply
-		)
-	) {
-		return false
-	}
-
-	let targets = combat_get_attackable_spaces(game, [p], active_faction(), () => get_season(game), is_rail_connected_to_supply)
-	if (targets.length === 0) return false
-	return apply_balkan_attack_target_restrictions([p], targets).length > 0
-}
-
-function ensure_balkan_attack_targets() {
-	if (!game.balkan_attack_targets) {
-		game.balkan_attack_targets = { ap: -1, ap_mo: -1, cp: -1 }
-		return
-	}
-	if (game.balkan_attack_targets.ap === undefined) game.balkan_attack_targets.ap = -1
-	if (game.balkan_attack_targets.ap_mo === undefined) game.balkan_attack_targets.ap_mo = -1
-	if (game.balkan_attack_targets.cp === undefined) game.balkan_attack_targets.cp = -1
 }
 
 function reset_balkan_attack_targets() {
-	game.balkan_attack_targets = { ap: -1, ap_mo: -1, cp: -1 }
-}
-
-function is_greece_space(space_id) {
-	let info = data.spaces[space_id]
-	return !!info && info.nation === "gr"
-}
-
-function get_multinational_attack_group(p) {
-	return get_piece_nation_groups_for_rule(game, p)
-}
-
-function is_invalid_multinational_attack(attackers) {
-	let all_groups = new Set()
-	let pieces_by_space = {}
-	for (let p of attackers) {
-		if (p === undefined || p === null) continue
-		let groups = get_multinational_attack_group(p)
-		let space = game.pieces[p]
-		if (!groups || groups.length === 0 || !(space > 0)) continue
-		for (let group of groups) all_groups.add(group)
-		if (!pieces_by_space[space]) pieces_by_space[space] = []
-		pieces_by_space[space].push(p)
-	}
-
-	if (all_groups.size <= 1) return false
-
-	for (let space in pieces_by_space) {
-		let cover_sets = new Set([0])
-		let group_ids = new Map()
-		for (let p of pieces_by_space[space]) {
-			let ids = get_multinational_attack_group(p).map((group) => {
-				if (!group_ids.has(group)) group_ids.set(group, group_ids.size)
-				return group_ids.get(group)
-			})
-			let next = new Set()
-			for (let mask of cover_sets) {
-				for (let id of ids) next.add(mask | (1 << id))
-			}
-			cover_sets = next
-		}
-		for (let mask of cover_sets) {
-			let valid = true
-			for (let p of attackers) {
-				if (game.pieces[p] === Number(space)) continue
-				let groups = get_multinational_attack_group(p)
-				if (!groups.some((group) => group_ids.has(group) && (mask & (1 << group_ids.get(group))) !== 0)) {
-					valid = false
-					break
-				}
-			}
-			if (valid) return false
-		}
-	}
-
-	return true
-}
-
-function draws_supply_solely_through_greek_port(p) {
-	let info = data.pieces[p]
-	if (!info || info.faction !== AP) return false
-	let space = game.pieces[p]
-	if (!(space > 0 && data.spaces[space])) return false
-
-	let greek_sources = get_gr_supply_sources(game, false)
-	if (greek_sources.length === 0) return false
-	if (!can_trace_supply_to_source(game, space, AP, greek_sources)) return false
-
-	// 20.1.1 keys off AP units that can reach supply only through Greek ports, so any other AP source removes the restriction.
-	let greek_source_set = new Set(greek_sources)
-	let alternate_sources = get_supply_sources_from_data(game, AP, false)
-		.concat(get_beachhead_spaces(game, AP))
-		.filter((source) => !greek_source_set.has(source))
-
-	if (alternate_sources.length === 0) return true
-	return !can_trace_supply_to_source(game, space, AP, alternate_sources)
-}
-
-function has_ap_greek_port_only_attackers(pieces) {
-	return pieces.some((p) => draws_supply_solely_through_greek_port(p))
-}
-
-function has_br_attacker(pieces) {
-	return pieces.some(
-		(p) =>
-			data.pieces[p] &&
-			(piece_counts_as_nation_for_rule(game, p, "br") ||
-				piece_counts_as_nation_for_rule(game, p, "in") ||
-				piece_counts_as_nation_for_rule(game, p, "anz"))
-	)
-}
-
-function is_attack_in_or_into_greece(pieces, target) {
-	if (is_greece_space(target)) return true
-	return pieces.some((p) => is_greece_space(game.pieces[p]))
-}
-
-function apply_balkan_attack_target_restrictions(pieces, targets) {
-	ensure_balkan_attack_targets()
-
-	// Once 20.1.1/20.1.2 has locked a Balkan/Greece attack target this round, later target selection must stay on that space.
-	if (active_faction() === AP && !game.events["desperey"] && game.balkan_attack_targets.ap > 0) {
-		if (has_ap_greek_port_only_attackers(pieces)) {
-			if (game.mo_ap === MO_BALKANS && has_br_attacker(pieces) && game.balkan_attack_targets.ap_mo <= 0) {
-				return targets
-			}
-			let allowed_targets = [game.balkan_attack_targets.ap]
-			if (
-				game.mo_ap === MO_BALKANS &&
-				has_br_attacker(pieces) &&
-				game.balkan_attack_targets.ap_mo > 0 &&
-				game.balkan_attack_targets.ap_mo !== game.balkan_attack_targets.ap
-			) {
-				allowed_targets.push(game.balkan_attack_targets.ap_mo)
-			}
-			targets = targets.filter((target) => !is_balkans(target) || allowed_targets.includes(target))
-		}
-	}
-
-	if (active_faction() === CP && !game.events["robertson"] && game.balkan_attack_targets.cp > 0) {
-		let locked_target = game.balkan_attack_targets.cp
-		targets = targets.filter((target) => !is_attack_in_or_into_greece(pieces, target) || target === locked_target)
-	}
-
-	return targets
-}
-
-function register_balkan_attack_target() {
-	if (!game.attack || !Array.isArray(game.attack.pieces) || game.attack.space <= 0) return
-
-	ensure_balkan_attack_targets()
-
-	if (
-		game.active === AP &&
-		!game.events["desperey"] &&
-		is_balkans(game.attack.space) &&
-		has_ap_greek_port_only_attackers(game.attack.pieces)
-	) {
-		if (game.balkan_attack_targets.ap <= 0) {
-			game.balkan_attack_targets.ap = game.attack.space
-		} else if (
-			game.attack.space !== game.balkan_attack_targets.ap &&
-			game.mo_ap === MO_BALKANS &&
-			has_br_attacker(game.attack.pieces) &&
-			game.balkan_attack_targets.ap_mo <= 0
-		) {
-			game.balkan_attack_targets.ap_mo = game.attack.space
-		}
-	}
-
-	if (
-		game.active === CP &&
-		!game.events["robertson"] &&
-		game.balkan_attack_targets.cp <= 0 &&
-		is_attack_in_or_into_greece(game.attack.pieces, game.attack.space)
-	) {
-		game.balkan_attack_targets.cp = game.attack.space
-	}
+	combat.reset_balkan_attack_targets(game)
 }
 
 function start_attack_sequence() {
-	register_balkan_attack_target()
 	return combat_funcs.start_attack_sequence()
 }
 
@@ -1902,8 +1719,8 @@ function start_ops_from_event(card_index) {
 	if (!info || !info.ops) {
 		goto_end_operations()
 		return
-	}
-	log(`${card_name(card_index)} 提供行动点（${info.ops} OPS）`)
+}
+	log(`${card_name(card_index)} -- 行动点 (${info.ops})`)
 	game.ops = info.ops
 	game.card_ops = info.ops
 	game.activated = { move: [], attack: [] }
@@ -1986,7 +1803,8 @@ function set_up_standard_decks(full) {
 		if (game.deck_ap.length > 0) game.hand_ap.push(game.deck_ap.pop())
 		else break
 	}
-	while (game.hand_cp.length < game.options.hand_size) {
+	// CP draws one less because they will pick one mobilization 4-ops card later
+	while (game.hand_cp.length < game.options.hand_size - 1) {
 		if (game.deck_cp.length > 0) game.hand_cp.push(game.deck_cp.pop())
 		else break
 	}

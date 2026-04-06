@@ -69,10 +69,12 @@ module.exports = function (Engine) {
 		is_in_reserve,
 		is_lcu,
 		is_scu,
-		get_piece_nation
+		get_piece_nation,
+		get_capacity,
+		piece_counts_as_nation_for_rule
 	} = Engine.game_utils
 
-	const { is_controlled_by, get_pieces_in_space } = Engine.map
+	const { is_controlled_by, get_pieces_in_space, is_balkans } = Engine.map
 
 	const exports = {}
 
@@ -118,6 +120,34 @@ module.exports = function (Engine) {
 		return !!(game.events["romania"] && !game.events[ROMANIA_COLLAPSE_EVENT_KEY])
 	}
 
+	function ensure_collapse_status(game) {
+		if (!game.collapse_status || game.collapse_status.turn !== game.turn) {
+			game.collapse_status = {
+				turn: game.turn,
+				serbia_considered: false,
+				romania_considered: false
+			}
+		}
+		return game.collapse_status
+	}
+
+	function mark_collapse_considered(game, nation) {
+		let status = ensure_collapse_status(game)
+		status[`${nation}_considered`] = true
+	}
+
+	function has_sb_lcu_in_serbia(game) {
+		for (let s = 1; s < data.spaces.length; s++) {
+			if (data.spaces[s] && data.spaces[s].nation === "sb") {
+				let pieces = get_pieces_in_space(game, s)
+				for (let p of pieces) {
+					if (get_piece_nation(p) === "sb" && is_lcu(p)) return true
+				}
+			}
+		}
+		return false
+	}
+
 	function are_all_ro_lcus_eliminated(game) {
 		for (let p = 0; p < data.pieces.length; p++) {
 			if (get_piece_nation(p) === "ro" && is_lcu(p)) {
@@ -139,9 +169,92 @@ module.exports = function (Engine) {
 		return false
 	}
 
-	function apply_bulgarian_collapse(game, log) {
-		if (game.events && game.events["bulgarian_collapse"]) return false
+	function can_offer_serbian_collapse(game) {
+		if (game.events && game.events["serbian_collapse"]) return false
 		if (!game.events["bulgaria"]) return false
+		let belgrade = find_space("BELGRADE")
+		return belgrade >= 0 && is_controlled_by(game, belgrade, CP)
+	}
+
+	function should_auto_serbian_collapse(game) {
+		if (game.events && game.events["serbian_collapse"]) return false
+		if (!game.events["bulgaria"]) return false
+
+		let belgrade = find_space("BELGRADE")
+		let skopje = find_space("Skopje")
+		if (
+			belgrade < 0 ||
+			skopje < 0 ||
+			!is_controlled_by(game, belgrade, CP) ||
+			!is_controlled_by(game, skopje, CP)
+		) {
+			return false
+		}
+
+		return !has_sb_lcu_in_serbia(game)
+	}
+
+	function can_offer_romanian_collapse(game) {
+		if (game.events && game.events[ROMANIA_COLLAPSE_EVENT_KEY]) return false
+		return !!game.events["romania"]
+	}
+
+	function should_auto_romanian_collapse(game) {
+		if (game.events && game.events[ROMANIA_COLLAPSE_EVENT_KEY]) return false
+		if (!game.events["romania"]) return false
+
+		let bucharest = find_space("Bucharest")
+		let ploesti = find_space("Ploesti")
+		let constanta = find_space("Constanta")
+		if (
+			bucharest >= 0 &&
+			is_controlled_by(game, bucharest, CP) &&
+			ploesti >= 0 &&
+			is_controlled_by(game, ploesti, CP) &&
+			constanta >= 0 &&
+			is_controlled_by(game, constanta, CP)
+		) {
+			return true
+		}
+
+		return are_all_ro_lcus_eliminated(game) && !has_ru_lcu_in_romania(game)
+	}
+
+	function can_piece_attack_after_serbian_collapse(game, p, target) {
+		if (!piece_counts_as_nation_for_rule(game, p, "sb")) return true
+		if (!game.events || !game.events["serbian_collapse"]) return true
+
+		let info = data.spaces[target]
+		if (!info) return false
+
+		let belgrade = find_space("BELGRADE")
+		if (belgrade >= 0 && is_controlled_by(game, belgrade, AP)) {
+			return is_balkans(target)
+		}
+
+		return info.nation === "sb" || info.nation === "gr"
+	}
+
+	function can_collapse_sr_piece(game, p) {
+		if (!data.pieces[p] || data.pieces[p].faction !== CP) return false
+		let s = game.pieces[p]
+		return s > 0 && is_balkans(s)
+	}
+
+	function get_collapse_sr_destination_spaces(game) {
+		let list = []
+		for (let s = 1; s < data.spaces.length; s++) {
+			if (!data.spaces[s] || !is_balkans(s)) continue
+			if (!is_controlled_by(game, s, CP)) continue
+			if (get_capacity(game, s) <= 0) continue
+			list.push(s)
+		}
+		return list
+	}
+
+	function apply_bulgarian_collapse(game, log) {
+		if (game.events && game.events["bulgarian_collapse"]) return "none"
+		if (!game.events["bulgaria"]) return "none"
 
 		let sofia = find_space("SOFIA")
 		if (sofia >= 0 && is_controlled_by(game, sofia, AP)) {
@@ -169,44 +282,17 @@ module.exports = function (Engine) {
 				}
 			}
 
-			game.active = CP
-			game.state = "event_bulgarian_collapse_sr"
-			return true
+			return "resolved"
 		}
-		return false
+		return "none"
 	}
 
-	function apply_serbian_collapse(game, log) {
-		if (game.events && game.events["serbian_collapse"]) return false
-		if (!game.events["bulgaria"]) return false
+	function apply_serbian_collapse(game, log, options = {}) {
+		if (game.events && game.events["serbian_collapse"]) return "none"
+		if (!game.events["bulgaria"]) return "none"
+		if (!options.force && !should_auto_serbian_collapse(game)) return "none"
 
-		let belgrade = find_space("BELGRADE")
-		let skopje = find_space("Skopje")
-		let auto_collapse = false
-
-		if (
-			belgrade >= 0 &&
-			skopje >= 0 &&
-			is_controlled_by(game, belgrade, CP) &&
-			is_controlled_by(game, skopje, CP)
-		) {
-			let has_sb_lcu_in_serbia = false
-			for (let s = 1; s < data.spaces.length; s++) {
-				if (data.spaces[s] && data.spaces[s].nation === "sb") {
-					let pieces = get_pieces_in_space(game, s)
-					for (let p of pieces) {
-						if (get_piece_nation(p) === "sb" && is_lcu(p)) {
-							has_sb_lcu_in_serbia = true
-							break
-						}
-					}
-				}
-				if (has_sb_lcu_in_serbia) break
-			}
-			auto_collapse = !has_sb_lcu_in_serbia
-		}
-
-		if (!auto_collapse) return false
+		mark_collapse_considered(game, "serbia")
 
 		game.events["serbian_collapse"] = game.turn
 		log("塞尔维亚崩溃。")
@@ -274,36 +360,18 @@ module.exports = function (Engine) {
 			game.event_ctx = { count: 2 }
 		} else {
 			game.state = "event_serbian_collapse_sr"
+			game.event_ctx = { data: { moved: [] }, count: 2 }
 		}
 
-		return true
+		return "interactive"
 	}
 
-	function apply_romanian_collapse(game, log) {
-		if (game.events && game.events[ROMANIA_COLLAPSE_EVENT_KEY]) return false
-		if (!game.events["romania"]) return false
+	function apply_romanian_collapse(game, log, options = {}) {
+		if (game.events && game.events[ROMANIA_COLLAPSE_EVENT_KEY]) return "none"
+		if (!game.events["romania"]) return "none"
+		if (!options.force && !should_auto_romanian_collapse(game)) return "none"
 
-		let bucharest = find_space("Bucharest")
-		let ploesti = find_space("Ploesti")
-		let constanta = find_space("Constanta")
-		let auto_collapse = false
-
-		if (
-			bucharest >= 0 &&
-			is_controlled_by(game, bucharest, CP) &&
-			ploesti >= 0 &&
-			is_controlled_by(game, ploesti, CP) &&
-			constanta >= 0 &&
-			is_controlled_by(game, constanta, CP)
-		) {
-			auto_collapse = true
-		}
-
-		if (!auto_collapse && are_all_ro_lcus_eliminated(game) && !has_ru_lcu_in_romania(game)) {
-			auto_collapse = true
-		}
-
-		if (!auto_collapse) return false
+		mark_collapse_considered(game, "romania")
 
 		game.events[ROMANIA_COLLAPSE_EVENT_KEY] = game.turn
 		log("罗马尼亚崩溃。")
@@ -331,15 +399,62 @@ module.exports = function (Engine) {
 			game.event_ctx = { count: 3 }
 		} else {
 			game.state = "event_romanian_collapse_sr"
+			game.event_ctx = { data: { moved: [] }, count: 2 }
 		}
 
-		return true
+		return "interactive"
+	}
+
+	function maybe_offer_serbian_collapse(game) {
+		let status = ensure_collapse_status(game)
+		if (status.serbia_considered || !can_offer_serbian_collapse(game)) return "none"
+		game.active = AP
+		game.state = "war_status_serbian_collapse_offer"
+		return "interactive"
+	}
+
+	function maybe_offer_romanian_collapse(game) {
+		let status = ensure_collapse_status(game)
+		if (status.romania_considered || !can_offer_romanian_collapse(game)) return "none"
+		game.active = AP
+		game.state = "war_status_romanian_collapse_offer"
+		return "interactive"
+	}
+
+	function accept_voluntary_collapse(game, nation, log) {
+		if (nation === "serbia") return apply_serbian_collapse(game, log, { force: true })
+		if (nation === "romania") return apply_romanian_collapse(game, log, { force: true })
+		return "none"
+	}
+
+	function decline_voluntary_collapse(game, nation) {
+		mark_collapse_considered(game, nation)
 	}
 
 	function handle_national_collapse(game, log) {
-		if (apply_bulgarian_collapse(game, log)) return true
-		if (apply_serbian_collapse(game, log)) return true
-		return apply_romanian_collapse(game, log);
+		ensure_collapse_status(game)
+
+		while (true) {
+			let result = apply_bulgarian_collapse(game, log)
+			if (result === "interactive") return true
+			if (result === "resolved") continue
+
+			result = apply_serbian_collapse(game, log)
+			if (result === "interactive") return true
+			if (result === "resolved") continue
+
+			result = maybe_offer_serbian_collapse(game)
+			if (result === "interactive") return true
+
+			result = apply_romanian_collapse(game, log)
+			if (result === "interactive") return true
+			if (result === "resolved") continue
+
+			result = maybe_offer_romanian_collapse(game)
+			if (result === "interactive") return true
+
+			return false
+		}
 	}
 
 	validate_entry_rules()
@@ -350,6 +465,12 @@ module.exports = function (Engine) {
 	exports.is_bulgarian_entry_piece = is_bulgarian_entry_piece
 	exports.is_romanian_entry_piece = is_romanian_entry_piece
 	exports.is_romania_uncollapsed = is_romania_uncollapsed
+	exports.ensure_collapse_status = ensure_collapse_status
+	exports.accept_voluntary_collapse = accept_voluntary_collapse
+	exports.decline_voluntary_collapse = decline_voluntary_collapse
+	exports.can_piece_attack_after_serbian_collapse = can_piece_attack_after_serbian_collapse
+	exports.can_collapse_sr_piece = can_collapse_sr_piece
+	exports.get_collapse_sr_destination_spaces = get_collapse_sr_destination_spaces
 
 	return exports
 }

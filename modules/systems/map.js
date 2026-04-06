@@ -80,6 +80,12 @@ module.exports = function (Engine) {
 		return [...connected]
 	}
 
+	function is_non_balkan_beachhead(space_id) {
+		let space = data.spaces[space_id]
+		if (!space) return false
+		return space.area !== "balkans"
+	}
+
 	// --- Naval Access Logic ---
 	function get_movement_cost(game, p, to) {
 		let from = game.pieces[p]
@@ -523,20 +529,37 @@ module.exports = function (Engine) {
 
 		conns = conns.filter((next) => connection_allowed(game, s, next, mode, faction))
 
-		if (p !== undefined && is_lcu(p) && mode === "move") {
-			// Rule 180: Desert LCU entry restriction
-			let is_s_desert = data.spaces[s].terrain === "desert"
-			let rail_conns = null
-			conns = conns.filter((next) => {
-				let is_next_desert = data.spaces[next].terrain === "desert"
-				if (is_s_desert || is_next_desert) {
-					if (!rail_conns) rail_conns = get_rail_connections(game, s, faction)
-					if (!rail_conns.includes(next)) return false
-					// Check if the connection itself is supplied via rail to a supply source
-					if (!is_rail_connected_to_supply(game, next, faction)) return false
-				}
-				return true
-			})
+		if (p !== undefined && is_lcu(p)) {
+			const is_anzac_desert_corps = data.pieces[p].name === "ANZ Desert Corps"
+
+			if (mode === "move" || mode === "sr") {
+				let is_s_desert = data.spaces[s].terrain === "desert"
+				let rail_conns = null
+				let is_s_rail_connected = null
+				conns = conns.filter((next) => {
+					let is_next_desert = data.spaces[next].terrain === "desert"
+
+					// Rule 13.3.3: Desert LCU restriction (Move/Attack)
+					// Rule 11.1.7: SR LCU restriction (must be rail connected to supply)
+					if ((is_s_desert || is_next_desert) && !is_anzac_desert_corps) {
+						if (!rail_conns) rail_conns = get_rail_connections(game, s, faction)
+						if (!rail_conns.includes(next)) return false
+						if (is_s_desert) {
+							if (is_s_rail_connected === null) is_s_rail_connected = is_rail_connected_to_supply(game, s, faction)
+							if (!is_s_rail_connected) return false
+						}
+						if (!is_rail_connected_to_supply(game, next, faction)) return false
+					} else if (mode === "sr") {
+						// Rule 11.1.7: All LCU SR must be rail-connected to supply
+						if (!rail_conns) rail_conns = get_rail_connections(game, s, faction)
+						if (!rail_conns.includes(next)) return false
+						if (is_s_rail_connected === null) is_s_rail_connected = is_rail_connected_to_supply(game, s, faction)
+						if (!is_s_rail_connected) return false
+						if (!is_rail_connected_to_supply(game, next, faction)) return false
+					}
+					return true
+				})
+			}
 		}
 
 		if (faction) {
@@ -685,6 +708,36 @@ module.exports = function (Engine) {
 			list.push(next)
 		}
 		return list
+	}
+
+	function can_scu_sr_continue_from_desert(game, s, from, faction) {
+		if (!is_rail_connected_to_supply(game, s, faction)) return false
+		for (let next of get_rail_connections(game, s, faction)) {
+			if (next === from) continue
+			if (is_rail_connected_to_supply(game, next, faction)) return true
+		}
+		return false
+	}
+
+	function get_scu_sr_desert_step(game, current, next, faction) {
+		let is_current_desert = data.spaces[current].terrain === DESERT
+		let is_next_desert = data.spaces[next].terrain === DESERT
+		if (!is_current_desert && !is_next_desert) {
+			return { allowed: true, can_continue: true }
+		}
+
+		if (is_current_desert) {
+			let rail_conns = get_rail_connections(game, current, faction)
+			if (!rail_conns.includes(next)) return { allowed: false, can_continue: false }
+			if (!is_rail_connected_to_supply(game, current, faction)) return { allowed: false, can_continue: false }
+			if (!is_rail_connected_to_supply(game, next, faction)) return { allowed: false, can_continue: false }
+			return { allowed: true, can_continue: true }
+		}
+
+		return {
+			allowed: true,
+			can_continue: can_scu_sr_continue_from_desert(game, next, current, faction)
+		}
 	}
 
 	// --- MOVEMENT ---
@@ -1205,20 +1258,28 @@ module.exports = function (Engine) {
 			let neighbors
 			if (rail_only) {
 				let rail_neighbors = get_rail_connections(game, current, faction)
-				let nation_neighbors = get_piece_connected_spaces_for_rule(game, current, p)
+				let nation_neighbors = get_piece_connected_spaces_for_rule(game, current, p, "sr")
 				let nation_set = new Set(nation_neighbors)
 				neighbors = rail_neighbors.filter((n) => nation_set.has(n))
 			} else {
-				neighbors = get_piece_connected_spaces_for_rule(game, current, p)
+				neighbors = get_piece_connected_spaces_for_rule(game, current, p, "sr")
 			}
 
 			for (let next of neighbors) {
-				if (visited.has(next)) continue
+				let can_continue = true
+				if (!rail_only) {
+					let desert_step = get_scu_sr_desert_step(game, current, next, faction)
+					if (!desert_step.allowed) continue
+					can_continue = desert_step.can_continue
+				}
+				if (visited.has(next) && can_continue) continue
 				let passable = is_controlled_by(game, next, faction) || is_besieged(game, next)
 				if (!passable) continue
 				if (next === to) return true
-				visited.add(next)
-				queue.push(next)
+				if (can_continue) {
+					visited.add(next)
+					queue.push(next)
+				}
 			}
 		}
 
@@ -1279,6 +1340,59 @@ module.exports = function (Engine) {
 		return false
 	}
 
+	function can_trace_reserve_sr_desert_supply(
+		game,
+		p,
+		start,
+		supply_context = null,
+		source_cache = null
+	) {
+		if (!data.spaces[start] || data.spaces[start].terrain !== DESERT) return true
+		let faction = data.pieces[p].faction
+		let context = supply_context || create_supply_context(game)
+		let sources = get_full_supply_sources_for_unit(game, p, true, source_cache)
+		let source_flag = build_space_flag_from_sources(sources)
+		let visited = new Set([start])
+		let queue = [start]
+		let queue_head = 0
+
+		while (queue_head < queue.length) {
+			let current = queue[queue_head++]
+			if (source_flag[current] === 1 && is_controlled_by(game, current, faction)) return true
+
+			let neighbors = get_connected_spaces(game, current, undefined, faction, undefined, "supply")
+			for (let next of neighbors) {
+				if (visited.has(next)) continue
+
+				if (context.enemy_regular[faction][next] === 1 && !is_besieged_with_context(game, next, context)) continue
+				if (data.spaces[next].faction === "neutral" && !is_neutral_greece_supply_passable(game, next, faction))
+					continue
+
+				let is_friendly = is_controlled_by(game, next, faction)
+				let is_besieged_enemy = is_besieged_with_context(game, next, context)
+				let has_friendly_pieces = context.friendly[faction][next] === 1
+				let is_disrupted_by_enemy = context.disrupted[faction][next] === 1
+
+				if (is_friendly && is_besieged_enemy) continue
+				if (!is_friendly && !is_besieged_enemy && !has_friendly_pieces && !is_disrupted_by_enemy) continue
+
+				let current_is_desert = data.spaces[current].terrain === DESERT
+				let next_is_desert = data.spaces[next].terrain === DESERT
+				if (current_is_desert && next_is_desert) {
+					let rail_conns = get_rail_connections(game, current, faction)
+					if (!rail_conns.includes(next)) continue
+					if (!is_rail_connected_to_supply(game, current, faction)) continue
+					if (!is_rail_connected_to_supply(game, next, faction)) continue
+				}
+
+				visited.add(next)
+				queue.push(next)
+			}
+		}
+
+		return false
+	}
+
 	function can_sr_from_reserve_to_space(game, p, s, faction) {
 		let info = data.pieces[p]
 		if (info.piece_class === "LCU") return false
@@ -1289,6 +1403,9 @@ module.exports = function (Engine) {
 		if (!can_stack_end_in_space(game, s, [p])) return false
 		let full_sources = get_full_supply_sources_for_unit(game, p, true)
 		if (full_sources.includes(s)) return true
+		if (data.spaces[s].terrain === DESERT) {
+			if (!can_trace_reserve_sr_desert_supply(game, p, s)) return false
+		}
 		return has_same_nationality_supplied_unit_in_space(game, p, s)
 	}
 
@@ -1349,6 +1466,7 @@ module.exports = function (Engine) {
 		let nation = info.nation
 		let rail_only = info.piece_class === "LCU"
 		let visited = new Set([source])
+		let reachable = new Set()
 		let queue = [source]
 		let queue_head = 0
 		while (queue_head < queue.length) {
@@ -1356,22 +1474,30 @@ module.exports = function (Engine) {
 			let neighbors
 			if (rail_only) {
 				let rail_neighbors = get_rail_connections(game, current, faction)
-				let nation_neighbors = get_connected_spaces(game, current, nation, faction, p)
+				let nation_neighbors = get_connected_spaces(game, current, nation, faction, p, "sr")
 				let nation_set = new Set(nation_neighbors)
 				neighbors = rail_neighbors.filter((n) => nation_set.has(n))
 			} else {
-				neighbors = get_connected_spaces(game, current, nation, faction, p)
+				neighbors = get_connected_spaces(game, current, nation, faction, p, "sr")
 			}
 			for (let next of neighbors) {
-				if (visited.has(next)) continue
+				let can_continue = true
+				if (!rail_only) {
+					let desert_step = get_scu_sr_desert_step(game, current, next, faction)
+					if (!desert_step.allowed) continue
+					can_continue = desert_step.can_continue
+				}
+				if (visited.has(next) && can_continue) continue
 				let passable = is_controlled_by(game, next, faction) || is_besieged(game, next)
 				if (!passable) continue
-				visited.add(next)
-				queue.push(next)
+				reachable.add(next)
+				if (can_continue) {
+					visited.add(next)
+					queue.push(next)
+				}
 			}
 		}
-		visited.delete(source)
-		return visited
+		return reachable
 	}
 
 	function can_sr_to_non_reserve_space_with_context(
@@ -1572,6 +1698,10 @@ module.exports = function (Engine) {
 			return info.piece_class !== "LCU"
 		}
 		if (s <= 0 || !data.spaces[s]) return false
+
+		// Rule 11.1.6: Turkish units cannot SR out of Egypt.
+		if ((info.nation === "tu" || info.nation === "tua") && is_egypt(s)) return false
+
 		let nations = get_piece_nations_for_rule(game, p)
 		if (nations.length === 0) return false
 		if (!nations.some((nation) => nation !== "bu" || can_trace_supply_to_sofia(game, p))) return false
@@ -1591,6 +1721,12 @@ module.exports = function (Engine) {
 		let info = data.pieces[p]
 		let source_reserve = is_reserve_space(source)
 		let dest_reserve = is_reserve_space(s)
+
+		// Rule 11.1.6: Turkish units cannot SR into, out of, or within Egypt.
+		if (info.nation === "tu" || info.nation === "tua") {
+			if (!source_reserve && is_egypt(source)) return false
+			if (!dest_reserve && is_egypt(s)) return false
+		}
 
 		if (source_reserve && dest_reserve) return false
 		if (source_reserve) return can_sr_from_reserve_to_space(game, p, s, faction)
@@ -2837,6 +2973,8 @@ module.exports = function (Engine) {
 		get_pieces_in_space,
 		for_each_piece_in_space,
 		contains_enemy_pieces,
+		get_piece_connected_spaces_for_rule,
+		is_non_balkan_beachhead,
 		get_piece_effective_faction,
 		is_anatolia,
 		is_caucasus,

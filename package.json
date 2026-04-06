@@ -6,7 +6,7 @@
 	"scripts": {
 		"test": "vitest",
 		"test:ui": "vitest --ui",
-		"test:fuzz": "node tools/runtime_fuzz_loop.js",
+		"test:fuzz": "node tests/runtime_fuzz_loop.js",
 		"start:map-editor": "node tools/server_map_editor.js",
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",

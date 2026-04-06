@@ -3,6 +3,7 @@
 module.exports = function (Engine) {
 	const { data } = Engine
 	const { AP, CP, RESERVE } = Engine.constants
+	const { set_delete } = Engine.utils
 	const BULGARIAN_ENTRY_AH_DIVISIONS = Engine.collapse.get_bulgarian_entry_ah_divisions()
 	const { find_space, get_capacity, get_piece_badge } = Engine.game_utils
 
@@ -98,6 +99,10 @@ module.exports = function (Engine) {
 	 * 获取激活阶段的事件提示
 	 */
 	function get_activation_prompt(game) {
+		if (game.russo_british_russian_activation) {
+			let selected = Array.isArray(game.activated?.attack) ? game.activated.attack.length : 0
+			return `英俄突袭：选择最多 2 个含俄军的合法进攻地块（已选: ${selected}/2）`
+		}
 		if (game.liberate_suez_op_required) {
 			let need_ops = game.liberate_suez_min_egypt_attack_ops || 2
 			let used_ops = get_liberate_suez_egypt_activated_attack_ops(game)
@@ -251,32 +256,17 @@ module.exports = function (Engine) {
 				rules.push_undo()
 				game.attack.attacker_faction = AP
 				game.attack.keep_context = true // 保持上下文，以便在俄国突袭前手动清理状态
-				game.event_next_state = "event_russo_british_assault_ru_assault_start"
+				game.event_next_state = "event_russo_british_assault_ru_activation_setup"
 				rules.start_attack_sequence(game, rules.log, () => rules.get_season(game))
 			}
 		}
 	}
 
-	states.event_russo_british_assault_ru_assault_start = {
-		prompt(ctx) {
-			let { res } = ctx
-			res.prompt("英俄突袭：准备结算俄国部队攻击。")
-			res.action("next")
-		},
-		next(ctx) {
-			let { game, rules } = ctx
-			// 手动清理英国突袭的单位状态，因为使用了 keep_context
-			cleanup_russo_british_attack_state(game, rules)
-			game.russo_british_selected_spaces = []
-			game.state = "event_russo_british_assault_ru_assault_select_regions"
-		}
-	}
-
-	function cleanup_russo_british_attack_state(game, rules) {
+	function cleanup_russo_british_attack_state(game) {
 		if (game.attack && game.attack.pieces) {
 			for (let p of game.attack.pieces) {
-				rules.set_delete(game.attacked, p)
-				rules.set_delete(game.moved, p)
+				set_delete(game.attacked, p)
+				set_delete(game.moved, p)
 			}
 		}
 		delete game.combat_cards
@@ -288,201 +278,22 @@ module.exports = function (Engine) {
 		game.where = -1
 	}
 
-	function consume_russo_british_attack_origins(game, rules) {
-		if (!Array.isArray(game.russo_british_attack_origins) || !Array.isArray(game.russo_british_selected_spaces)) {
-			return
-		}
-		for (let s of game.russo_british_attack_origins) {
-			rules.set_delete(game.russo_british_selected_spaces, s)
-		}
+	function begin_russo_british_russian_activation(game) {
+		cleanup_russo_british_attack_state(game)
+		if (!game.activated) game.activated = { move: [], attack: [] }
+		if (!Array.isArray(game.activated.move)) game.activated.move = []
+		game.activated.move = []
+		if (!Array.isArray(game.activated.attack)) game.activated.attack = []
+		game.activated.attack = []
+		delete game.activated.combine
+		if (!game.activation_cost) game.activation_cost = {}
+		game.activation_cost = {}
+		game.russo_british_russian_activation = true
+		game.active = AP
+		game.where = -1
+		delete game.russo_british_selected_spaces
 		delete game.russo_british_attack_origins
-	}
-
-	states.event_russo_british_assault_ru_assault_select_regions = {
-		prompt(ctx) {
-			let { game, res, rules } = ctx
-			let selected = game.russo_british_selected_spaces || []
-			res.prompt(`英俄突袭：选择包含俄国部队的地块进行战斗（已选地块: ${selected.length}/2）`)
-
-			for (let s = 1; s < data.spaces.length; s++) {
-				let pieces = rules.get_pieces_in_space(game, s)
-				let has_ru_can_attack = pieces.some((p) => data.pieces[p].nation === "ru" && rules.can_activate_piece_in_space_to_attack(p, s))
-
-				if (has_ru_can_attack) {
-					if (rules.set_has(selected, s)) {
-						res.space(s)
-						res.action("deactivate", s)
-					} else if (selected.length < 2) {
-						res.space(s) // 可选地块显示黄色高亮
-						res.action("activate_attack", s)
-					}
-				}
-			}
-
-			if (selected.length > 0) {
-				res.where(selected) // 使用 res.where 高亮所有已选中的地块
-				res.action("done")
-			}
-		},
-		space(ctx) {
-			let { game, rules, arg: s } = ctx
-			let selected = game.russo_british_selected_spaces || []
-			if (rules.set_has(selected, s)) {
-				this.deactivate(ctx)
-			} else if (selected.length < 2) {
-				this.activate_attack(ctx)
-			}
-		},
-		activate_attack(ctx) {
-			let { game, rules, arg: s } = ctx
-			rules.push_undo()
-			if (!game.russo_british_selected_spaces) game.russo_british_selected_spaces = []
-			rules.set_add(game.russo_british_selected_spaces, s)
-		},
-		deactivate(ctx) {
-			let { game, rules, arg: s } = ctx
-			rules.push_undo()
-			rules.set_delete(game.russo_british_selected_spaces, s)
-		},
-		done(ctx) {
-			let { game } = ctx
-			game.state = "event_russo_british_assault_ru_assault_process_selection"
-		}
-	}
-
-	states.event_russo_british_assault_ru_assault_process_selection = {
-		prompt(ctx) {
-			let { game, res, rules } = ctx
-			consume_russo_british_attack_origins(game, rules)
-			if (!game.russo_british_selected_spaces || game.russo_british_selected_spaces.length === 0) {
-				res.prompt("英俄突袭：俄军攻击结算完毕。")
-				res.action("done")
-			} else {
-				let s = game.russo_british_selected_spaces[0]
-				res.prompt(`英俄突袭：准备结算 ${Engine.game_utils.space_name(s)} 地块的攻击。`)
-				res.action("next")
-			}
-		},
-		done(ctx) {
-			let { game, rules } = ctx
-			// 清除最后一次攻击的状态
-			cleanup_russo_british_attack_state(game, rules)
-			delete game.russo_british_selected_spaces
-			delete game.russo_british_attack_origins
-			rules.goto_activation_done()
-		},
-		next(ctx) {
-			let { game, rules } = ctx
-			// 清除上一次攻击的状态，让算子不再倾斜
-			cleanup_russo_british_attack_state(game, rules)
-			game.state = "event_russo_british_assault_ru_assault_select_attacker"
-		}
-	}
-
-	states.event_russo_british_assault_ru_assault_select_attacker = {
-		prompt(ctx) {
-			let { game, res, rules } = ctx
-			let selected_spaces = game.russo_british_selected_spaces || []
-			if (selected_spaces.length === 0) {
-				game.state = "event_russo_british_assault_ru_assault_process_selection"
-				states[game.state].prompt(ctx)
-				return
-			}
-			let s = selected_spaces[0]
-			res.prompt(`英俄突袭：为 ${Engine.game_utils.space_name(s)} 地块的俄国部队选择攻击目标`)
-
-			if (!game.attack) {
-				game.attack = { pieces: [], space: -1 }
-			}
-
-			if (game.attack && game.attack.space !== -1) {
-				res.prompt(`英俄突袭：确认向 ${Engine.game_utils.space_name(game.attack.space)} 进攻`)
-				res.where(game.attack.space)
-				res.who(game.attack.pieces)
-				res.action("confirm")
-			} else {
-				res.prompt("英俄突袭：选择参与进攻的俄国部队和目标地块")
-				// Highlight potential sources if no target selected
-				let sources = new Set()
-				for (let p of game.attack.pieces) sources.add(game.pieces[p])
-				if (sources.size === 1) res.where(Array.from(sources)[0])
-				res.who(game.attack.pieces)
-			}
-
-			let pieces = rules.get_pieces_in_space(game, s)
-			let can_attack = false
-			for (let p of pieces) {
-				if (data.pieces[p].nation === "ru" && rules.can_activate_piece_in_space_to_attack(p, s)) {
-					can_attack = true
-					// 如果尚未选择目标地块，则高亮所有可选单位以供选择
-					if (game.attack.space === -1) {
-						res.piece(p)
-					}
-				}
-			}
-
-			if (game.attack.pieces && game.attack.pieces.length > 0) {
-				let targets = rules.get_attackable_spaces(game.attack.pieces)
-				for (let t of targets) {
-					if (t !== game.attack.space) {
-						res.space(t)
-					}
-				}
-			}
-
-			if (!can_attack && (!game.attack.pieces || game.attack.pieces.length === 0)) {
-				res.prompt(`英俄突袭：${Engine.game_utils.space_name(s)} 地块没有合法的攻击目标。`)
-				res.action("skip")
-			} else {
-				res.action("cancel")
-			}
-		},
-		piece(ctx) {
-			let { game, rules, arg: p } = ctx
-			if (!game.attack) {
-				game.attack = { pieces: [], space: -1 }
-			}
-			rules.push_undo()
-			rules.set_toggle(game.attack.pieces, p)
-			// Reset target when piece list changes
-			game.attack.space = -1
-		},
-		space(ctx) {
-			let { game, rules, arg: s } = ctx
-			if (game.attack && game.attack.pieces && game.attack.pieces.length > 0) {
-				rules.push_undo()
-				if (game.attack.space === s) {
-					game.attack.space = -1
-				} else {
-					game.attack.space = s
-				}
-			}
-		},
-		confirm(ctx) {
-			let { game, rules } = ctx
-			if (game.attack && game.attack.space !== -1 && game.attack.pieces.length > 0) {
-				rules.push_undo()
-				let used_origins = [...new Set(game.attack.pieces.map((p) => game.pieces[p]))]
-				for (let source of used_origins) {
-					rules.set_delete(game.russo_british_selected_spaces, source)
-				}
-				game.attack.attacker_faction = AP
-				game.attack.keep_context = true // 保持上下文，以便后续手动清理
-				game.event_next_state = "event_russo_british_assault_ru_assault_process_selection"
-				rules.start_attack_sequence(game, rules.log, () => rules.get_season(game))
-			}
-		},
-		cancel(ctx) {
-			let { game } = ctx
-			if (game.attack) {
-				game.attack.pieces = []
-				game.attack.space = -1
-			}
-			game.state = "event_russo_british_assault_ru_assault_process_selection"
-		},
-		skip(ctx) {
-			this.cancel(ctx)
-		}
+		game.state = "activate_spaces"
 	}
 
 	// === EVENT: ENVER GOES EAST (ID 7) ===
@@ -1408,11 +1219,24 @@ module.exports = function (Engine) {
 			}
 			let unit = units[0]
 			res.prompt(`海上入侵：将 ${unit} 放置在任何滩头。`)
+			let has_space = false
 			for (let s of game.beachheads || []) {
 				if (get_capacity(game, s) > 0) {
 					res.space(s)
+					has_space = true
 				}
 			}
+			if (!has_space) {
+				res.action("done", "无法放置（跳过）")
+			}
+		},
+		done(ctx) {
+			let { game, rules } = ctx
+			let invasion = get_active_event_data(game)
+			let { units, source } = get_reinforcement_units(game)
+			if (source) delete source.reinf_to_place
+			if (invasion) delete invasion.direct_to_beachhead
+			rules.goto_end_event()
 		},
 		space(ctx) {
 			let { game, rules, arg: s } = ctx
@@ -1442,10 +1266,15 @@ module.exports = function (Engine) {
 			}
 			let unit = units[0]
 			res.prompt(`海上入侵：将 ${unit} 放置在任何协约国控制的岛屿基地。`)
+			let has_space = false
 			for (let s = 1; s < data.spaces.length; s++) {
 				if (data.spaces[s].island_base && rules.is_controlled_by(game, s, AP) && get_capacity(game, s) > 0) {
 					res.space(s)
+					has_space = true
 				}
+			}
+			if (!has_space) {
+				res.action("done", "无法放置（跳过）")
 			}
 		},
 		done(ctx) {
@@ -1467,7 +1296,7 @@ module.exports = function (Engine) {
 			if (!units || units.length === 0) return
 			let unit = units.shift()
 
-			if (unit === "BR 8th Corps" || unit === "BR ANZAC Corps" || unit === "BR 12th Corps") {
+			if (unit === "BR VIII Corps" || unit === "ANZ ANZAC" || unit === "BR XII Corps") {
 				rules.reinforce(game, unit, AP, s)
 				let p = rules.find_piece(AP, unit)
 				if (p >= 0 && !rules.set_has(game.reduced, p)) {
@@ -2338,29 +2167,6 @@ module.exports = function (Engine) {
 
 	// === NATIONAL COLLAPSE (Rules 19.3.6, 19.4.6, 19.5.6) ===
 
-	function is_cp_home_area(game, s) {
-		let nation = Engine.game_utils.get_space_nation(s)
-		if (nation === "ge" || nation === "ah" || nation === "tu") return true
-		return !!(nation === "bu" && game.events["bulgaria"])
-	}
-
-	function get_collapse_sr_destination_spaces(ctx, p) {
-		let { game, rules } = ctx
-		let list = []
-		let nation = p !== undefined && p !== null ? Engine.game_utils.get_piece_nation(p) : null
-		let is_balkan_only = nation === "sb" || nation === "bu"
-
-		for (let s = 1; s < data.spaces.length; s++) {
-			if (is_cp_home_area(game, s) && Engine.map.is_controlled_by(game, s, CP)) {
-				if (is_balkan_only && !Engine.map.is_balkans(s)) continue
-				if (get_capacity(game, s) > 0) {
-					list.push(s)
-				}
-			}
-		}
-		return list
-	}
-
 	function handle_collapse_choice_prompt(ctx, nation_name) {
 		let { game, res, rules } = ctx
 		if (!game.event_ctx) game.event_ctx = { data: { removed: [] }, count: 2 }
@@ -2434,7 +2240,7 @@ module.exports = function (Engine) {
 		}
 	}
 
-	function handle_collapse_sr_prompt(ctx, nation_name, is_valid_source) {
+	function handle_collapse_sr_prompt(ctx, nation_name) {
 		let { game, res, rules } = ctx
 		if (!game.event_ctx) game.event_ctx = { data: { moved: [] } }
 		if (!game.event_ctx.data) game.event_ctx.data = { moved: [] }
@@ -2445,15 +2251,13 @@ module.exports = function (Engine) {
 
 		// Find units that can be SR'd
 		for (let p = 0; p < data.pieces.length; p++) {
-			if (!data.pieces[p] || data.pieces[p].faction !== CP) continue
-			let s = game.pieces[p]
-			if (s >= 1 && is_valid_source(s) && !rules.set_has(moved, p)) {
+			if (Engine.collapse.can_collapse_sr_piece(game, p) && !rules.set_has(moved, p)) {
 				res.piece(p)
 			}
 		}
 
 		if (game.sr_piece !== undefined && game.sr_piece !== null) {
-			let destinations = get_collapse_sr_destination_spaces(ctx, game.sr_piece)
+			let destinations = Engine.collapse.get_collapse_sr_destination_spaces(game)
 			for (let s of destinations) {
 				res.space(s)
 			}
@@ -2470,37 +2274,54 @@ module.exports = function (Engine) {
 		}
 	}
 
-	states.event_bulgarian_collapse_sr = {
+	function prompt_voluntary_collapse_offer(ctx, nation_key, nation_name) {
+		let { res } = ctx
+		res.prompt(`${nation_name}符合自愿崩溃条件：AP 玩家可选择令其崩溃`)
+		res.action("accept", `执行${nation_name}崩溃`)
+		res.action("decline", "暂不崩溃")
+	}
+
+	function resolve_voluntary_collapse_decline(ctx, nation_key, nation_name) {
+		let { game, rules } = ctx
+		rules.push_undo()
+		Engine.collapse.decline_voluntary_collapse(game, nation_key)
+		rules.log(`${nation_name}暂不崩溃。`)
+		if (!Engine.collapse.handle_national_collapse(game, rules.log)) {
+			rules.next_phase("war_status_phase")
+		}
+	}
+
+	states.war_status_serbian_collapse_offer = {
 		prompt(ctx) {
-			handle_collapse_sr_prompt(ctx, "保加利亚", (s) => Engine.game_utils.get_space_nation(s) === "bu")
+			prompt_voluntary_collapse_offer(ctx, "serbia", "塞尔维亚")
 		},
-		piece(ctx) {
-			let { game, rules, arg: p } = ctx
+		accept(ctx) {
+			let { game, rules } = ctx
 			rules.push_undo()
-			game.sr_piece = p
+			Engine.collapse.accept_voluntary_collapse(game, "serbia", rules.log)
 		},
-		space(ctx) {
-			let { game, rules, arg: s, log } = ctx
+		decline(ctx) {
+			resolve_voluntary_collapse_decline(ctx, "serbia", "塞尔维亚")
+		}
+	}
+
+	states.war_status_romanian_collapse_offer = {
+		prompt(ctx) {
+			prompt_voluntary_collapse_offer(ctx, "romania", "罗马尼亚")
+		},
+		accept(ctx) {
+			let { game, rules } = ctx
 			rules.push_undo()
-			let p = game.sr_piece
-			let from = game.pieces[p]
-			rules.move_piece(game, p, s)
-			log(`保加利亚崩溃：${data.pieces[p].name} 从 ${data.spaces[from].name} SR 到 ${data.spaces[s].name}`)
-			if (!game.event_ctx.data) game.event_ctx.data = { moved: [] }
-			rules.set_add(game.event_ctx.data.moved, p)
-			game.sr_piece = null
+			Engine.collapse.accept_voluntary_collapse(game, "romania", rules.log)
 		},
-		done(ctx) {
-			handle_collapse_sr_done(ctx)
+		decline(ctx) {
+			resolve_voluntary_collapse_decline(ctx, "romania", "罗马尼亚")
 		}
 	}
 
 	states.event_serbian_collapse_sr = {
 		prompt(ctx) {
-			handle_collapse_sr_prompt(ctx, "塞尔维亚", (s) => {
-				let n = Engine.game_utils.get_space_nation(s)
-				return n === "gr" || n === "sb" || n === "mn"
-			})
+			handle_collapse_sr_prompt(ctx, "塞尔维亚")
 		},
 		piece(ctx) {
 			let { game, rules, arg: p } = ctx
@@ -2525,7 +2346,7 @@ module.exports = function (Engine) {
 
 	states.event_romanian_collapse_sr = {
 		prompt(ctx) {
-			handle_collapse_sr_prompt(ctx, "罗马尼亚", (s) => Engine.game_utils.get_space_nation(s) === "ro")
+			handle_collapse_sr_prompt(ctx, "罗马尼亚")
 		},
 		piece(ctx) {
 			let { game, rules, arg: p } = ctx
@@ -2955,6 +2776,10 @@ module.exports = function (Engine) {
 		states,
 		get_activation_prompt,
 		on_activation_done,
-		check_liberate_suez_ops
+		check_liberate_suez_ops,
+		begin_russo_british_russian_activation,
+		is_russo_british_russian_activation(game) {
+			return !!game.russo_british_russian_activation
+		}
 	}
 }

@@ -220,11 +220,20 @@ module.exports = function (Engine) {
 		return Engine.constants.REINFORCEMENTS
 	}
 
+	function normalize_faction_token(value) {
+		if (typeof value !== "string") return value
+		let token = value.trim().toLowerCase()
+		if (token === "ap" || token === "allied powers") return Engine.constants.AP
+		if (token === "cp" || token === "central powers") return Engine.constants.CP
+		return value
+	}
+
 	function normalize_game(state) {
 		const { COMMITMENT_MOBILIZATION } = Engine.constants
 		const { MO_NONE } = Engine.mo
 		if (!state) state = {}
 		if (!state.options) state.options = {}
+		state.active = normalize_faction_token(state.active)
 		if (!Array.isArray(state.log)) state.log = []
 		if (!Array.isArray(state.undo)) state.undo = []
 		if (!Array.isArray(state.pieces)) state.pieces = Array(data.pieces.length).fill(0)
@@ -304,6 +313,7 @@ module.exports = function (Engine) {
 		if (state.balkan_attack_targets.cp === undefined) state.balkan_attack_targets.cp = -1
 		if (!Array.isArray(state.eligible_attackers)) state.eligible_attackers = []
 		if (!Array.isArray(state.player_order)) state.player_order = [Engine.constants.AP, Engine.constants.CP]
+		else state.player_order = state.player_order.map(normalize_faction_token)
 		if (!Array.isArray(state.jihad_cities_flipped)) state.jihad_cities_flipped = []
 		if (state.tribes_to_place === undefined) state.tribes_to_place = 0
 		if (state.cp_opening_mobilization_pick_done === undefined) state.cp_opening_mobilization_pick_done = state.turn > 1

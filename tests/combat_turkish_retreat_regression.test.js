@@ -10,6 +10,18 @@ function findPieceId(predicate) {
 	return id
 }
 
+function findPieceIds(predicate, count) {
+	let ids = []
+	for (let i = 0; i < data.pieces.length; i++) {
+		if (data.pieces[i] && predicate(data.pieces[i])) {
+			ids.push(i)
+			if (ids.length === count) break
+		}
+	}
+	if (ids.length < count) throw new Error("未找到足够数量的棋子")
+	return ids
+}
+
 function findBattleSpaces() {
 	let target = data.spaces.findIndex(
 		(s, idx) =>
@@ -306,6 +318,81 @@ describe("土耳其撤退回归测试", () => {
 		expect(apView.actions.piece || []).toContain(apPiece)
 	})
 
+	test("英俄突袭巴士拉推进达到三单位上限后仍等待玩家手动结束挺进", () => {
+		let apPieces = findPieceIds(
+			(p) => p.faction === AP && p.nation === "in" && p.piece_class === "SCU" && p.type !== "hq",
+			3
+		)
+		let cpTuScu = findPieceId(
+			(p) =>
+				p.faction === CP &&
+				(p.nation === "tu" || p.nation === "tua") &&
+				p.piece_class === "SCU" &&
+				p.type !== "hq"
+		)
+		let fao = data.spaces.findIndex((s) => s && s.name === "Fao")
+		let basra = data.spaces.findIndex((s) => s && s.name === "Basra")
+		expect(apPieces.length).toBe(3)
+		expect(fao).toBeGreaterThan(0)
+		expect(basra).toBeGreaterThan(0)
+
+		let game = {
+			pieces: new Array(data.pieces.length).fill(ELIMINATED),
+			reduced: [],
+			retreated: [],
+			control: [],
+			events: { russo_british_assault: true },
+			turn: 1,
+			active: AP,
+			state: "advance",
+			hand_ap: [],
+			hand_cp: [],
+			discard_ap: [],
+			discard_cp: [],
+			removed_ap: [],
+			removed_cp: [],
+			cc_retained: { ap: [], cp: [] },
+			cc_retained_after_use: { ap: {}, cp: {} },
+			combat_cards: { attacker: [], defender: [] },
+			attack: {
+				space: basra,
+				pieces: apPieces.slice(),
+				attacker: AP,
+				defender: CP,
+				from: [fao],
+				initial_defenders: [cpTuScu],
+				keep_context: true
+			},
+			advance_pieces: apPieces.slice(),
+			advance_space: basra,
+			advance_count: 0,
+			advance_limit: 3,
+			battle_result: createBattleResult(apPieces[0], cpTuScu, {
+				no_advance: false,
+				turkish_retreat: true,
+				advance_with_reduced: true,
+				attackers: apPieces.slice(),
+				defenders: [cpTuScu]
+			})
+		}
+		for (let p of apPieces) game.pieces[p] = fao
+		game.pieces[cpTuScu] = ELIMINATED
+
+		for (let p of apPieces) {
+			game = rules.action(game, "Allied Powers", "piece", p)
+		}
+
+		let apView = rules.view(game, "Allied Powers")
+		expect(game.state).toBe("advance")
+		expect(game.advance_count).toBe(3)
+		expect(game.advance_pieces).toEqual([])
+		expect(apView.actions.end_advance).toBeTruthy()
+		expect(apView.actions.piece || []).toEqual([])
+
+		game = rules.action(game, "Allied Powers", "end_advance")
+		expect(game.state).not.toBe("advance")
+	})
+
 	test("战后CC窗口存在可选卡时不会被回退为attack状态", () => {
 		let game = rules.setup(20260403, "Historical", { seven_hand_size: false, no_supply_warnings: true })
 		let apPiece = findPieceId((p) => p.faction === AP && p.type !== "hq" && p.piece_class === "LCU")
@@ -366,6 +453,7 @@ describe("土耳其撤退回归测试", () => {
 		game.rp_ap = { br: 0, ru: 0, in: 0, a: 0 }
 		game.pieces[cpTuScu] = targetSpace
 		game.reduced = [cpTuScu]
+		game.attack.reserves_to_front_damaged_pieces = [cpTuScu]
 		game.post_battle_cc_resume = { kind: "advance", advance_space: targetSpace, save_tiflis_failed: false }
 		game.battle_result = createBattleResult(apPiece, cpTuScu, {
 			no_advance: false,
@@ -400,6 +488,7 @@ describe("土耳其撤退回归测试", () => {
 		game.pieces[cpTuScu] = ELIMINATED
 		game.reduced = []
 		game.attack.eliminated_defenders = [cpTuScu]
+		game.attack.reserves_to_front_damaged_pieces = [cpTuScu]
 		game.battle_result = createBattleResult(apPiece, cpTuScu, {
 			no_advance: true,
 			turkish_retreat: false,
@@ -433,6 +522,7 @@ describe("土耳其撤退回归测试", () => {
 		game.reduced = []
 		game.attack.initial_defenders = [cpTuLcu]
 		game.attack.eliminated_defenders = [cpTuLcu]
+		game.attack.reserves_to_front_damaged_pieces = [cpTuLcu]
 		game.battle_result = createBattleResult(apPiece, cpTuLcu, {
 			no_advance: true,
 			turkish_retreat: false,
@@ -457,6 +547,21 @@ describe("土耳其撤退回归测试", () => {
 		expect(view.actions.play_cc || []).not.toContain(59)
 	})
 
+	test("Reserves to the Front 不能补员本次战斗未受伤的TU/TU-A部队", () => {
+		let { game, cpTuScu } = createMinimalBattleGame()
+		game.state = "post_battle_cc_cp"
+		game.active = CP
+		game.hand_cp = [59]
+		game.rp_cp = { ge: 0, tu: 0, a: 0 }
+		game.rp_ap = { br: 0, ru: 0, in: 0, a: 0 }
+		game.reduced = [cpTuScu]
+		game.post_battle_cc_resume = { kind: "finish_attack" }
+
+		let view = rules.view(game, "Central Powers")
+
+		expect(view.actions.play_cc || []).not.toContain(59)
+	})
+
 	test("战后CC前移后，前线预备役结算完成会继续进入正常撤退流程", () => {
 		let { game, cpTuScu } = createMinimalBattleGame()
 		game.state = "battle"
@@ -465,6 +570,7 @@ describe("土耳其撤退回归测试", () => {
 		game.rp_cp = { ge: 0, tu: 0, a: 0 }
 		game.rp_ap = { br: 0, ru: 0, in: 0, a: 0 }
 		game.reduced = [cpTuScu]
+		game.attack.reserves_to_front_damaged_pieces = [cpTuScu]
 		game.post_roll_cc_done = true
 		game.turkish_retreat = true
 		game.battle_result = createBattleResult(game.attack.pieces[0], cpTuScu, {
@@ -656,6 +762,7 @@ describe("土耳其撤退回归测试", () => {
 		game.pieces[cpTuScu] = ELIMINATED
 		game.attack.initial_defenders = [cpTuScu]
 		game.attack.eliminated_defenders = [cpTuScu]
+		game.attack.reserves_to_front_damaged_pieces = [cpTuScu]
 		game.battle_result = createBattleResult(apPiece, cpTuScu, {
 			retreat_needed: false,
 			retreating_faction: CP,
@@ -800,6 +907,8 @@ describe("土耳其撤退回归测试", () => {
 		game.hand_cp = [59]
 		game.rp_cp = { ge: 0, tu: 0, a: 0 }
 		game.rp_ap = { br: 0, ru: 0, in: 0, a: 0 }
+		game.reduced = [cpTuScu]
+		game.attack.reserves_to_front_damaged_pieces = [cpTuScu]
 		game.battle_result = createBattleResult(apPiece, cpTuScu, {
 			retreat_needed: false,
 			no_advance: true,
@@ -832,12 +941,11 @@ describe("土耳其撤退回归测试", () => {
 		expect(logs.some((line) => line === "土耳其撤退：防守方损失-1")).toBe(true)
 	})
 
-	test("英俄突袭进入俄军攻击前会清理上一场突袭残留的战斗卡上下文", () => {
+	test("英俄突袭进入俄军激活前会清理上一场突袭残留的战斗卡上下文", () => {
 		let game = rules.setup(20260403, "Historical", { seven_hand_size: false, no_supply_warnings: true })
 		let apPiece = findPieceId((p) => p.faction === AP && p.type !== "hq" && p.piece_class === "LCU")
 
 		game.active = AP
-		game.state = "event_russo_british_assault_ru_assault_start"
 		game.attack = { pieces: [apPiece], space: 1, keep_context: true }
 		game.attacked = [apPiece]
 		game.moved = [apPiece]
@@ -847,9 +955,10 @@ describe("土耳其撤退回归测试", () => {
 		game.post_roll_cc_done = true
 		game.post_battle_cc_resume = { kind: "finish_attack" }
 
-		rules.action(game, "Allied Powers", "next")
+		Engine.event_states.begin_russo_british_russian_activation(game)
 
-		expect(game.state).toBe("event_russo_british_assault_ru_assault_select_regions")
+		expect(game.state).toBe("activate_spaces")
+		expect(game.russo_british_russian_activation).toBe(true)
 		expect(game.attack).toBeNull()
 		expect(game.combat_cards).toBeUndefined()
 		expect(game.combat_cards_effected).toBeUndefined()

@@ -74,12 +74,6 @@ exports.register = function (states, Engine, context) {
 		remove_trench
 	} = context
 
-	function is_non_balkan_beachhead(space_id) {
-		let space = data.spaces[space_id]
-		if (!space) return false
-		return space.area !== "balkans"
-	}
-
 	function resolve_cp_enter_empty_beachhead_by_movement(from_space, target, pieces_moving) {
 		if (active_faction() !== CP) return false
 		if (!Engine.map.is_beachhead_space(game, target)) return false
@@ -89,7 +83,7 @@ exports.register = function (states, Engine, context) {
 		if (has_ap_units) return false
 
 		if (game.beachheads) set_delete(game.beachheads, target)
-		if (is_non_balkan_beachhead(target)) {
+		if (Engine.map.is_non_balkan_beachhead(target)) {
 			update_jihad_level(game, 1)
 			log(`空滩头被同盟国占领并摧毁：${space_name(target)}，圣战等级 +1。`)
 		} else {
@@ -134,6 +128,27 @@ exports.register = function (states, Engine, context) {
 		return count
 	}
 
+	function log_activation_group(title, spaces) {
+		if (!Array.isArray(spaces) || spaces.length === 0) return
+		log(title)
+		for (let s of spaces) {
+			let cost = map_get(game.activation_cost, s, 1)
+			log(">" + space_name(s) + (cost > 1 ? ` (${cost} OPS)` : ""))
+		}
+	}
+
+	function log_activation_summary() {
+		let combine_spaces = Array.isArray(game.activated.combine) ? game.activated.combine : []
+		let move_spaces = Array.isArray(game.activated.move)
+			? game.activated.move.filter((s) => !set_has(combine_spaces, s))
+			: []
+		let attack_spaces = Array.isArray(game.activated.attack) ? game.activated.attack : []
+
+		log_activation_group("MOVE", move_spaces)
+		log_activation_group("ATTACK", attack_spaces)
+		log_activation_group("COMBINE", combine_spaces)
+	}
+
 	// === ACTIVATION HELPER ===
 	function is_space_activated_for_combine(s) {
 		return !!(game.activated && game.activated.combine && set_has(game.activated.combine, s))
@@ -164,6 +179,30 @@ exports.register = function (states, Engine, context) {
 		return can_activate_piece_in_space_to_attack(p, s)
 	}
 
+	function can_space_entrench_in_activation(s) {
+		if (!Engine.game_utils.can_entrench_in_space(game, s, active_faction())) return false
+		if (game.entrench_attempts && set_has(game.entrench_attempts, s)) return false
+		return Engine.game_utils.get_entrenching_units_in_space(game, s, active_faction()).length > 0
+	}
+
+	function is_russo_british_russian_activation() {
+		return Engine.event_states.is_russo_british_russian_activation(game)
+	}
+
+	function get_russo_british_legal_attack_spaces() {
+		let legal = []
+		for (let s = 1; s < data.spaces.length; s++) {
+			let pieces = get_pieces_in_space(game, s)
+			let has_ru_can_attack = pieces.some(
+				(p) => data.pieces[p].nation === "ru" && can_piece_attack_in_activation(p, s, AP)
+			)
+			if (has_ru_can_attack) {
+				legal.push(s)
+			}
+		}
+		return legal
+	}
+
 	states.activate_spaces = {
 		prompt(res) {
 			let perf_start = DEBUG_ACTIVATION_TRACE ? activation_now() : 0
@@ -179,6 +218,11 @@ exports.register = function (states, Engine, context) {
 			}
 
 			let faction = active_faction()
+			let russo_british_mode = is_russo_british_russian_activation()
+			let russo_british_selected = Array.isArray(game.activated?.attack) ? game.activated.attack.length : 0
+			let russo_british_legal_spaces = russo_british_mode ? get_russo_british_legal_attack_spaces() : []
+			let russo_british_required_count = russo_british_mode ? Math.min(2, russo_british_legal_spaces.length) : 0
+			let russo_british_legal_set = russo_british_mode ? new Set(russo_british_legal_spaces) : null
 			let pieces_by_space = new Map()
 			let activated_move_set = new Set(game.activated.move || [])
 			let activated_attack_set = new Set(game.activated.attack || [])
@@ -222,6 +266,14 @@ exports.register = function (states, Engine, context) {
 					}
 				}
 
+				if (russo_british_mode) {
+					if (!russo_british_legal_set.has(s)) continue
+					if (activated_attack_set.has(s) || russo_british_selected < russo_british_required_count) {
+						res.action("activate_attack", s)
+					}
+					continue
+				}
+
 				if (can_move) res.action("activate_move", s)
 				if (can_attack) res.action("activate_attack", s)
 				if (can_combine) res.action("activate_combine", s)
@@ -229,7 +281,7 @@ exports.register = function (states, Engine, context) {
 
 			let deactivated_spaces = new Set()
 			for (let s of game.activated.move) {
-				if (!deactivated_spaces.has(s)) {
+				if (!russo_british_mode && !deactivated_spaces.has(s)) {
 					res.action("deactivate", s)
 					deactivated_spaces.add(s)
 				}
@@ -237,6 +289,7 @@ exports.register = function (states, Engine, context) {
 			for (let s of game.activated.attack) {
 				if (!deactivated_spaces.has(s)) {
 					if (game.liberate_suez_op_required && Engine.map.is_egypt(s)) continue
+					if (russo_british_mode && !russo_british_legal_set.has(s)) continue
 					res.action("deactivate", s)
 					deactivated_spaces.add(s)
 				}
@@ -247,6 +300,10 @@ exports.register = function (states, Engine, context) {
 				if (!Engine.event_states.check_liberate_suez_ops(game)) {
 					can_done = false
 				}
+			}
+
+			if (russo_british_mode) {
+				can_done = russo_british_required_count === 0 || russo_british_selected >= russo_british_required_count
 			}
 
 			if (can_done) {
@@ -272,7 +329,6 @@ exports.register = function (states, Engine, context) {
 			if (game.activated.combine) set_delete(game.activated.combine, s)
 			if (!game.activation_cost) game.activation_cost = {}
 			map_set(game.activation_cost, s, cost)
-			log(`${space_name(s)} activated for movement.`)
 			if (game.ops === 0) states.activate_spaces.done()
 		},
 		activate_combine(s) {
@@ -284,19 +340,18 @@ exports.register = function (states, Engine, context) {
 			set_add(game.activated.combine, s)
 			if (!game.activation_cost) game.activation_cost = {}
 			map_set(game.activation_cost, s, cost)
-			log(`${space_name(s)} activated for combination.`)
 			if (game.ops === 0) states.activate_spaces.done()
 		},
 		activate_attack(s) {
 			push_undo()
-			let cost = get_activation_cost(game, s, "attack")
+			let russo_british_mode = is_russo_british_russian_activation()
+			let cost = russo_british_mode ? 0 : get_activation_cost(game, s, "attack")
 			game.ops -= cost
 			set_add(game.activated.attack, s)
 			if (game.activated.combine) set_delete(game.activated.combine, s)
 			if (!game.activation_cost) game.activation_cost = {}
 			map_set(game.activation_cost, s, cost)
-			log(`${space_name(s)} activated for attack.`)
-			if (game.ops === 0) states.activate_spaces.done()
+			if (!russo_british_mode && game.ops === 0) states.activate_spaces.done()
 		},
 		deactivate(s) {
 			if (game.liberate_suez_op_required && set_has(game.activated.attack, s) && Engine.map.is_egypt(s)) {
@@ -312,10 +367,17 @@ exports.register = function (states, Engine, context) {
 				set_delete(game.activated.attack, s)
 				if (game.activated.combine) set_delete(game.activated.combine, s)
 				map_delete(game.activation_cost, s)
-				log(`${space_name(s)} deactivated.`)
 			}
 		},
 		done() {
+			if (is_russo_british_russian_activation()) {
+				let required_count = Math.min(2, get_russo_british_legal_attack_spaces().length)
+				if (required_count > 0 && game.activated.attack.length < required_count) {
+					return
+				}
+				delete game.russo_british_russian_activation
+			}
+			log_activation_summary()
 			if (Engine.event_states.on_activation_done(game)) {
 				return
 			}
@@ -337,6 +399,7 @@ exports.register = function (states, Engine, context) {
 
 	states.choose_move_space = {
 		prompt(res) {
+			let can_entrench = false
 			res.prompt("移动已激活的单位.")
 
 			let can_move = false
@@ -352,7 +415,8 @@ exports.register = function (states, Engine, context) {
 					}
 				}
 				let can_combine_here = Engine.game_utils.can_combine_in_space(game, s, active_faction())
-				if (has_movable || can_combine_here) {
+				let can_entrench_here = can_space_entrench_in_activation(s)
+				if (has_movable || can_combine_here || can_entrench_here) {
 					res.space(s)
 				}
 
@@ -360,11 +424,18 @@ exports.register = function (states, Engine, context) {
 					res.action("combine", s)
 					can_combine = true
 				}
+				if (can_entrench_here) {
+					can_entrench = true
+				}
+			}
+
+			if (can_entrench) {
+				res.prompt("移动或掘壕已激活的单位.")
 			}
 
 			res.action("done")
 
-			if (!can_move && !can_combine) {
+			if (!can_move && !can_combine && !can_entrench) {
 				this.done()
 			}
 		},
@@ -372,11 +443,13 @@ exports.register = function (states, Engine, context) {
 			if (game.activated.move.includes(s)) {
 				if (is_space_activated_for_combine(s)) {
 					push_undo()
-					game.where = s
-					game.state = "combine_lcu"
+					enter_combine_lcu_state(s)
 					return
 				}
-				if (Engine.game_utils.can_combine_in_space(game, s, active_faction())) {
+				if (
+					Engine.game_utils.can_combine_in_space(game, s, active_faction()) ||
+					can_space_entrench_in_activation(s)
+				) {
 					game.where = s
 					game.state = "choose_move_action"
 					return
@@ -395,17 +468,13 @@ exports.register = function (states, Engine, context) {
 		},
 		combine(s) {
 			push_undo()
-			clear_combine_ctx()
-			game.where = s
-			game.state = "combine_lcu"
+			enter_combine_lcu_state(s)
 		},
 		piece(p) {
 			let s = game.pieces[p]
 			if (is_space_activated_for_combine(s)) {
 				push_undo()
-				clear_combine_ctx()
-				game.where = s
-				game.state = "combine_lcu"
+				enter_combine_lcu_state(s)
 				return
 			}
 			push_undo()
@@ -457,6 +526,9 @@ exports.register = function (states, Engine, context) {
 			if (Engine.game_utils.can_combine_in_space(game, s, active_faction())) {
 				res.action("combine")
 			}
+			if (can_space_entrench_in_activation(s)) {
+				res.action("entrench")
+			}
 			res.action("cancel")
 		},
 		move() {
@@ -498,8 +570,7 @@ exports.register = function (states, Engine, context) {
 			game.where = -1
 			game.state = "choose_move_space"
 			push_undo()
-			game.where = s
-			game.state = "combine_lcu"
+			enter_combine_lcu_state(s)
 		},
 		entrench() {
 			let s = game.where
@@ -628,24 +699,19 @@ exports.register = function (states, Engine, context) {
 		},
 		piece(p) {
 			if (!set_has(get_available_combine_scus(), p)) {
-				log(`Piece ${p} is not in available SCUs`)
 				return
 			}
 			let selected = get_selected_combine_scus()
 			if (set_has(selected, p)) {
-				log(`Deselecting piece ${p}`)
 				set_delete(selected, p)
 				return
 			}
 			if (selected.length >= 3) {
-				log(`Already selected 3 pieces, cannot add ${p}`)
 				return
 			}
-			log(`Selecting piece ${p}`)
 			set_add(selected, p)
 			if (selected.length >= 2) {
 				let valid_lcus = get_valid_lcus_for_selected_scus(selected)
-				log(`Checking valid LCUs for selected [${selected}]: found ${valid_lcus.length}`)
 				if (valid_lcus.length === 0) {
 					// Check if it could be part of a 3-piece combo
 					let available = get_available_combine_scus()
@@ -663,10 +729,7 @@ exports.register = function (states, Engine, context) {
 					}
 
 					if (!could_be_3) {
-						log(`No valid LCU can be formed with [${selected}], and no 3rd piece can complete it. Rejecting ${p}`)
 						set_delete(selected, p)
-					} else {
-						log(`Current selection [${selected}] doesn't form an LCU yet, but could be part of a 3-piece combo. Keeping ${p}`)
 					}
 				}
 			}
@@ -905,6 +968,13 @@ exports.register = function (states, Engine, context) {
 
 	function clear_combine_ctx() {
 		delete game.combine_ctx
+	}
+
+	function enter_combine_lcu_state(space) {
+		clear_combine_ctx()
+		game.where = space
+		game.state = "combine_lcu"
+		log(`开始组合(${space_name(space)})`)
 	}
 
 	function return_to_combine_entry() {

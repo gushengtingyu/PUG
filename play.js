@@ -16,6 +16,8 @@ const AP_CORPS_ASSETS_BOX = spaces.findIndex((s) => s.name === "AP Corps Assets"
 const CP_CORPS_ASSETS_BOX = spaces.findIndex((s) => s.name === "CP Corps Assets")
 const AP_ELIMINATED_BOX = spaces.findIndex((s) => s.name === "AP Eliminated")
 const CP_ELIMINATED_BOX = spaces.findIndex((s) => s.name === "CP Eliminated")
+const AP_PERMANENTLY_ELIMINATED_BOX = spaces.findIndex((s) => s.name === "AP Permanently Eliminated Box")
+const CP_PERMANENTLY_ELIMINATED_BOX = spaces.findIndex((s) => s.name === "CP Permanently Eliminated Box")
 
 const BELGRADE = 17
 const SOFIA = 36
@@ -29,6 +31,7 @@ const SUPPLY_OVERLAY_SPACE_IDS = []
 const UPDATE_SPACE_IDS = []
 const UPDATE_SPACE_ID_FLAGS = new Uint8Array(map_space_count)
 const RESERVE_BOX_SPACE_IDS = []
+const RESERVE_BOX_SPACE_ID_FLAGS = new Uint8Array(map_space_count)
 const ELIMINATED_BOX_SPACE_IDS = []
 const EMPTY_PIECE_IDS = []
 
@@ -37,7 +40,11 @@ for (let s = 1; s < map_space_count; ++s) {
 	if (!space) {
 		continue
 	}
-	const is_eliminated = s === AP_ELIMINATED_BOX || s === CP_ELIMINATED_BOX
+	const is_eliminated =
+		s === AP_ELIMINATED_BOX ||
+		s === CP_ELIMINATED_BOX ||
+		s === AP_PERMANENTLY_ELIMINATED_BOX ||
+		s === CP_PERMANENTLY_ELIMINATED_BOX
 	if (is_eliminated) {
 		ELIMINATED_BOX_SPACE_IDS.push(s)
 		continue
@@ -51,6 +58,7 @@ for (let s = 1; s < map_space_count; ++s) {
 		space.map === "Reserve Box"
 	if (is_reserve) {
 		RESERVE_BOX_SPACE_IDS.push(s)
+		RESERVE_BOX_SPACE_ID_FLAGS[s] = 1
 		continue
 	}
 	if (space.name === "Unknown") {
@@ -320,6 +328,24 @@ function get_ui_piece_location(piece, raw_loc) {
 		log_tribe_reserve("no reserve mapping", piece.name, "raw:", raw_loc)
 	}
 	return raw_loc
+}
+
+function is_reserve_box_space_id(s) {
+	return s > 0 && s < map_space_count && RESERVE_BOX_SPACE_ID_FLAGS[s] === 1
+}
+
+function is_permanently_eliminated_box_space_id(s) {
+	return s === AP_PERMANENTLY_ELIMINATED_BOX || s === CP_PERMANENTLY_ELIMINATED_BOX
+}
+
+function get_eliminated_box_order(space_id) {
+	return space_id === AP_ELIMINATED_BOX || space_id === AP_PERMANENTLY_ELIMINATED_BOX
+		? ap_eliminated_box_order
+		: cp_eliminated_box_order
+}
+
+function get_eliminated_box_side(space_id) {
+	return space_id === AP_ELIMINATED_BOX || space_id === AP_PERMANENTLY_ELIMINATED_BOX ? "ap" : "cp"
 }
 
 /**
@@ -1080,8 +1106,8 @@ function show_track_dialog() {
 
 				// 高亮逻辑
 				const is_active_faction =
-					(view.active === "Allied Powers" && faction === "ap") ||
-					(view.active === "Central Powers" && faction === "cp")
+					((view.active === "Allied Powers" || view.active === "ap") && faction === "ap") ||
+					((view.active === "Central Powers" || view.active === "cp") && faction === "cp")
 
 				const roundNum = parseInt(r, 10)
 				const is_active =
@@ -2022,6 +2048,8 @@ function build_ui_frame_state() {
 		action_advance_pieces: to_loose_id_set(view?.actions?.advance_pieces),
 		action_retreat_pieces: to_loose_id_set(view?.actions?.retreat_pieces),
 		violations_spaces: null,
+		where_single: Array.isArray(view?.where) ? null : view?.where,
+		where_set: Array.isArray(view?.where) ? new Set(view.where) : null,
 		who_single: view?.who,
 		who_set: Array.isArray(view?.who) ? new Set(view.who) : null
 	}
@@ -2217,6 +2245,11 @@ function update_map() {
 			prev_map_piece_locations,
 			piece_locations
 		)
+		add_dirty_space_set_diff(dirty, prev_map_snapshot.where_set, ui_frame_state.where_set)
+		if (prev_map_snapshot.where_single !== ui_frame_state.where_single) {
+			add_dirty_update_space(dirty, prev_map_snapshot.where_single)
+			add_dirty_update_space(dirty, ui_frame_state.where_single)
+		}
 		add_dirty_piece_set_diff(dirty, prev_map_snapshot.who_set, ui_frame_state.who_set, prev_map_piece_locations, piece_locations)
 		if (prev_map_snapshot.who_single !== ui_frame_state.who_single) {
 			const prev_who = normalize_numeric_id(prev_map_snapshot.who_single)
@@ -2229,10 +2262,6 @@ function update_map() {
 				add_dirty_update_space(dirty, prev_map_piece_locations[curr_who])
 				add_dirty_update_space(dirty, piece_locations[curr_who])
 			}
-		}
-		if (prev_map_snapshot.where !== view.where) {
-			add_dirty_update_space(dirty, prev_map_snapshot.where)
-			add_dirty_update_space(dirty, view.where)
 		}
 		const prev_control = prev_map_snapshot.control
 		const next_control = view.control
@@ -2266,7 +2295,8 @@ function update_map() {
 	prev_map_piece_locations = piece_locations
 	prev_map_snapshot = {
 		control: Array.isArray(view.control) ? view.control.slice() : null,
-		where: view.where,
+		where_single: ui_frame_state.where_single,
+		where_set: clone_id_set(ui_frame_state.where_set),
 		reduced: clone_id_set(ui_frame_state.reduced),
 		oos: clone_id_set(ui_frame_state.oos),
 		beachheads: clone_id_set(ui_frame_state.beachheads),
@@ -2600,6 +2630,7 @@ function render_reinforcement_operator_markers(ap_board, cp_board, slot_stacks =
  * @param {Map} stack_by_coord - 按坐标存储的堆栈映射。
  */
 function render_reinforcement_token_markers(ap_board, cp_board, slot_stacks = [], stack_by_coord) {
+	const hidden_markers = new Set(view?.hidden_reinforcement_markers || [])
 	for (let i = 0; i < spaces.length; ++i) {
 		const slot = spaces[i]
 		if (!slot || slot.type !== "reinforcement" || !slot.name) {
@@ -2608,6 +2639,9 @@ function render_reinforcement_token_markers(ap_board, cp_board, slot_stacks = []
 		const names = expand_reinforcement_names(slot.name)
 		for (const expanded of names) {
 			const base = normalize_reinforcement_name(expanded)
+			if (hidden_markers.has(base)) {
+				continue
+			}
 			const key = REINFORCEMENT_MARKER_BY_NAME[base]
 			if (!key) {
 				continue
@@ -3981,6 +4015,7 @@ function update_system_markers() {
 
 	// 回合轨道
 	update_turn_record("game_turn", view.turn)
+	update_turn_record("sinai_railroad", view.events.xinai, view.events.xinai === undefined)
 	update_turn_record("parvus_to_berlin", view.parvus_to_berlin, view.parvus_to_berlin === undefined)
 	update_turn_record(
 		"long_live_czar",
@@ -4176,8 +4211,10 @@ const UI_ACTIONS = [
 	["reroll", "重掷"],
 	["destroy_fort", "摧毁要塞"],
 	["proceed_retreat", "继续撤退"],
-	["eliminate_retreating", "消除撤退部队"],
+	["eliminate_retreating", "消灭撤退部队"],
 	["end_advance", "结束挺近"],
+	["flank", "尝试侧翼进攻"],
+	["no_flank", "不尝试侧翼进攻"],
 	["yes", "是"],
 	["no", "否"],
 	["bombard", "炮击"],
@@ -4196,6 +4233,7 @@ const UI_ACTIONS = [
 	["choose_russia", "选择俄国"],
 	["entrench", "掘壕"],
 	["select_lcu", "选择 LCU"],
+	["select_all", "全选"],
 	["clear", "清除"],
 	["back", "返回"],
 	["cancel_selection", "取消选择"],
@@ -4222,6 +4260,12 @@ function should_highlight_space(s, state = null) {
 	if (!view.actions && !state) {
 		return false
 	}
+	if (is_permanently_eliminated_box_space_id(s)) {
+		return false
+	}
+	if (is_reserve_box_space_id(s) && has_clickable_piece_intent_in_space(s, state)) {
+		return false
+	}
 	if (state) {
 		return (
 			has_loose_id(state.action_space, s) ||
@@ -4240,6 +4284,35 @@ function should_highlight_space(s, state = null) {
 	)
 }
 
+function has_clickable_piece_intent_in_space(space_id, state = null) {
+	const source = state || ui_frame_state || build_ui_frame_state()
+	const action_sets = [
+		source?.action_piece,
+		source?.action_move_piece,
+		source?.action_attack_piece,
+		source?.action_advance_pieces,
+		source?.action_retreat_pieces
+	]
+	for (const ids of action_sets) {
+		if (!ids) {
+			continue
+		}
+		for (const id of ids) {
+			const p = Number(id)
+			const piece = pieces[p]
+			if (!piece) {
+				continue
+			}
+			const raw_loc = get_piece_location(p)
+			const ui_loc = get_ui_piece_location(piece, raw_loc)
+			if (ui_loc === space_id) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 /**
  * 更新指定空间的高亮、选中和警告状态。
  * @param {number} s - 空间 ID。
@@ -4249,7 +4322,7 @@ function update_space_highlight(s) {
 	const state = ui_frame_state || build_ui_frame_state()
 	if (space && space.element) {
 		space.element.classList.toggle("highlight", should_highlight_space(s, state))
-		space.element.classList.toggle("selected", view.where === s)
+		space.element.classList.toggle("selected", state.where_single === s || has_id(state.where_set, s))
 		space.element.classList.toggle(
 			"warning",
 			has_id(state.violations_spaces, s) || has_id(state.supply_warnings, s)
@@ -4430,10 +4503,14 @@ function update_space(s, pieces_in_this_space) {
 	}
 
 	if (view.activated) {
+		const get_activation_marker_count = () => {
+			if (!view.activation_cost) return 1
+			return Math.max(1, map_get(view.activation_cost, s, 1))
+		}
 		if (has_id(state.activated_move_spaces, s)) {
 			const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
 			destroy_marker(list, (m) => m.type === "attack")
-			const markers = view.activation_cost ? map_get(view.activation_cost, s, 1) : 1
+			const markers = get_activation_marker_count()
 			for (let i = 0; i < markers; i++) {
 				const m = build_activation_marker(s, "move", i)
 				space_markers_top.push(m)
@@ -4441,7 +4518,7 @@ function update_space(s, pieces_in_this_space) {
 		} else if (has_id(state.activated_attack_spaces, s)) {
 			const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
 			destroy_marker(list, (m) => m.type === "move")
-			const markers = view.activation_cost ? map_get(view.activation_cost, s, 1) : 1
+			const markers = get_activation_marker_count()
 			for (let i = 0; i < markers; i++) {
 				const m = build_activation_marker(s, "attack", i)
 				space_markers_top.push(m)
@@ -4681,7 +4758,8 @@ function update_eliminated_box(space_id, piece_ids) {
 	}
 	const state = ui_frame_state || build_ui_frame_state()
 	const space = spaces[space_id]
-	const order = space_id === AP_ELIMINATED_BOX ? ap_eliminated_box_order : cp_eliminated_box_order
+	const order = get_eliminated_box_order(space_id)
+	const is_removed_box = is_permanently_eliminated_box_space_id(space_id)
 
 	if (!space.stacks) {
 		space.stacks = {}
@@ -4700,8 +4778,10 @@ function update_eliminated_box(space_id, piece_ids) {
 			continue
 		}
 		const el = piece.element
+		el.my_stack = null
 		el.classList.remove("offmap")
 		el.classList.remove("reduced")
+		el.style.pointerEvents = is_removed_box ? "none" : ""
 		const image = piece.image_full
 		if (image && el.current_image !== image) {
 			el.style.backgroundImage = `url("pieces/${image}")`
@@ -4709,12 +4789,13 @@ function update_eliminated_box(space_id, piece_ids) {
 		}
 
 		const is_highlight =
-			has_loose_id(state.action_piece, p) ||
-			has_loose_id(state.action_advance_pieces, p) ||
-			has_loose_id(state.action_retreat_pieces, p)
+			!is_removed_box &&
+			(has_loose_id(state.action_piece, p) ||
+				has_loose_id(state.action_advance_pieces, p) ||
+				has_loose_id(state.action_retreat_pieces, p))
 		el.classList.toggle("highlight", is_highlight)
 
-		const is_selected = state.who_single === p || has_id(state.who_set, p)
+		const is_selected = !is_removed_box && (state.who_single === p || has_id(state.who_set, p))
 		el.classList.toggle("selected", is_selected)
 
 		el.classList.remove("activated")
@@ -4737,7 +4818,7 @@ function update_eliminated_box(space_id, piece_ids) {
 		margin_y: 20
 	})
 	const class_row_offset = 22
-	const side = space_id === AP_ELIMINATED_BOX ? "ap" : "cp"
+	const side = get_eliminated_box_side(space_id)
 	for (let i = 0; i < order.length; ++i) {
 		const group = order[i]
 		const lcu_stack = space.stacks[group].lcus
@@ -4751,7 +4832,9 @@ function update_eliminated_box(space_id, piece_ids) {
 			lcu_stack.side = side
 			lcu_stack.is_reinforcement = true
 			lcu_stack.name = `eliminated:${space.name}:${group}:lcu`
-			bind_stack_interaction(lcu_stack)
+			if (!is_removed_box) {
+				bind_stack_interaction(lcu_stack)
+			}
 			layout_stack(lcu_stack, x, y)
 		}
 		if (scu_stack.length > 0) {
@@ -4762,7 +4845,9 @@ function update_eliminated_box(space_id, piece_ids) {
 			scu_stack.side = side
 			scu_stack.is_reinforcement = true
 			scu_stack.name = `eliminated:${space.name}:${group}:scu`
-			bind_stack_interaction(scu_stack)
+			if (!is_removed_box) {
+				bind_stack_interaction(scu_stack)
+			}
 			layout_stack(scu_stack, x, y)
 		}
 	}
@@ -4985,9 +5070,21 @@ function on_click_piece(e, p) {
 		e.stopPropagation()
 		const raw_loc = get_piece_location(p)
 		const ui_loc = get_ui_piece_location(piece, raw_loc)
+		if (is_permanently_eliminated_box_space_id(ui_loc)) {
+			end_interaction_perf(perf_id, "click_piece.removed_box")
+			return
+		}
+		const is_reserve_box_loc = is_reserve_box_space_id(ui_loc)
 		const has_space_intent = has_direct_space_intent(ui_loc)
+		const piece_click = get_piece_click_dispatch(p)
 
 		if (stack && !is_focused && !is_small_stack(stack)) {
+			if (is_reserve_box_loc) {
+				log_stack_debug("click_piece.focus_reserve_stack", e, stack, { piece: p, raw_loc, ui_loc })
+				focus_stack(stack)
+				end_interaction_perf(perf_id, "click_piece.focus_only")
+				return
+			}
 			if (has_space_intent) {
 				const handled = apply_space_click_intent(e, ui_loc, perf_id, "click_piece.space")
 				if (handled) {
@@ -5001,35 +5098,19 @@ function on_click_piece(e, p) {
 			return
 		}
 
-		if (view.actions) {
-			const piece_noun = get_action_noun("piece", p)
-			if (piece_noun !== undefined) {
-				log_stack_debug("click_piece.send_action", e, stack, { piece: p, action: "piece" })
-				end_interaction_perf(perf_id, "click_piece.sent_action", { action: "piece" })
-				return send_action("piece", piece_noun)
-			}
-			const advance_piece_noun = get_action_noun("advance_pieces", p)
-			if (advance_piece_noun !== undefined) {
-				log_stack_debug("click_piece.send_action", e, stack, { piece: p, action: "piece" })
-				end_interaction_perf(perf_id, "click_piece.sent_action", { action: "piece" })
-				return send_action("piece", advance_piece_noun)
-			}
-			const retreat_piece_noun = get_action_noun("retreat_pieces", p)
-			if (retreat_piece_noun !== undefined) {
-				log_stack_debug("click_piece.send_action", e, stack, { piece: p, action: "piece" })
-				end_interaction_perf(perf_id, "click_piece.sent_action", { action: "piece" })
-				return send_action("piece", retreat_piece_noun)
-			}
-			for (let action in view.actions) {
-				const action_noun = get_action_noun(action, p)
-				if (action_noun !== undefined) {
-					log_stack_debug("click_piece.send_action", e, stack, { piece: p, action })
-					end_interaction_perf(perf_id, "click_piece.sent_action", { action })
-					return send_action(action, action_noun)
-				}
-			}
+		if (piece_click) {
+			log_stack_debug("click_piece.send_action", e, stack, {
+				piece: p,
+				action: piece_click.action,
+				source: piece_click.source
+			})
+			end_interaction_perf(perf_id, "click_piece.sent_action", {
+				action: piece_click.action,
+				source: piece_click.source
+			})
+			return send_action(piece_click.action, piece_click.noun)
 		}
-		if (has_space_intent) {
+		if (has_space_intent && !is_reserve_box_loc) {
 			const handled = apply_space_click_intent(e, ui_loc, perf_id, "click_piece.space")
 			if (handled) {
 				end_interaction_perf(perf_id, "click_piece.done")
@@ -5113,6 +5194,9 @@ const activation_action_menu = Array.from(
  */
 function get_space_click_intent(s) {
 	if (!view.actions) {
+		return { type: "none" }
+	}
+	if (is_reserve_box_space_id(s) && has_clickable_piece_intent_in_space(s)) {
 		return { type: "none" }
 	}
 	if (Array.isArray(view.actions.space) && view.actions.space.includes(s)) {
@@ -5300,6 +5384,31 @@ function get_action_noun(action, noun) {
 		}
 	}
 	return undefined
+}
+
+function get_piece_click_dispatch(p) {
+	const direct_piece_noun = get_action_noun("piece", p)
+	if (direct_piece_noun !== undefined) {
+		return { action: "piece", noun: direct_piece_noun, source: "piece" }
+	}
+	const advance_piece_noun = get_action_noun("advance_pieces", p)
+	if (advance_piece_noun !== undefined) {
+		return { action: "piece", noun: advance_piece_noun, source: "advance_pieces" }
+	}
+	const retreat_piece_noun = get_action_noun("retreat_pieces", p)
+	if (retreat_piece_noun !== undefined) {
+		return { action: "piece", noun: retreat_piece_noun, source: "retreat_pieces" }
+	}
+	if (!view.actions) {
+		return null
+	}
+	for (let action in view.actions) {
+		const action_noun = get_action_noun(action, p)
+		if (action_noun !== undefined) {
+			return { action, noun: action_noun, source: action }
+		}
+	}
+	return null
 }
 
 /**
@@ -5975,7 +6084,7 @@ function build_eliminated_box(id) {
 	space.stack = []
 	space.stack.name = spaces[id].name
 	space.stacks = {}
-	const order = id === AP_ELIMINATED_BOX ? ap_eliminated_box_order : cp_eliminated_box_order
+	const order = get_eliminated_box_order(id)
 	for (const group of order) {
 		space.stacks[group] = { lcus: [], scus: [] }
 	}
@@ -6021,7 +6130,12 @@ for (let s = 1; s < spaces.length; ++s) {
 			spaces[s].map === "Reserve Box"
 		) {
 			build_reserve_box(s)
-		} else if (spaces[s].name === "AP Eliminated" || spaces[s].name === "CP Eliminated") {
+		} else if (
+			spaces[s].name === "AP Eliminated" ||
+			spaces[s].name === "CP Eliminated" ||
+			spaces[s].name === "AP Permanently Eliminated Box" ||
+			spaces[s].name === "CP Permanently Eliminated Box"
+		) {
 			build_eliminated_box(s)
 		} else {
 			build_space(s)
