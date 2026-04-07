@@ -176,7 +176,7 @@ function shuffle(array, game) {
  * @returns {number} - Result of the die roll [1, sides]
  */
 function roll_die(sides = 6, game) {
-	const n = parseInt(sides)
+	const n = Number(sides)
 	if (isNaN(n) || n <= 0) return 1
 	return random(n, game) + 1
 }

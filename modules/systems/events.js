@@ -489,10 +489,7 @@ module.exports = function (Engine) {
 	}
 
 	function is_persia_open(game) {
-		return !!(
-			game.events &&
-			(game.events.secret_treaty || game.events.persian_push || game.events.persian_uprising)
-		)
+		return !!(game.events && (game.events.secret_treaty || game.events.persian_push))
 	}
 
 	/**
@@ -575,6 +572,22 @@ module.exports = function (Engine) {
 			game.pieces[p] = space
 			let sn = space === RESERVE ? "Reserve" : space_name(space)
 			log(game, `增援：${name} 放置到 ${sn}`)
+			if (space !== null && space !== RESERVE) {
+				let can_capture_persia_vp =
+					is_persia_open(game) &&
+					Engine.map.is_persia(space) &&
+					Engine.is_neutral_vp_space(space) &&
+					!Engine.map.is_controlled_by(game, space, faction) &&
+					Engine.game_utils.is_regular(p) &&
+					data.pieces[p].type !== "hq"
+				if (can_capture_persia_vp) {
+					Engine.set_control(game, space, faction)
+				}
+				if (Engine.check_persia_entry_vp_penalty) {
+					Engine.check_persia_entry_vp_penalty(game, space, [p])
+				}
+				Engine.sync_neutral_vp_state(game, space)
+			}
 
 			// Rule 19.2.1: Entering neutral Athens triggers Greek entry
 			if (
@@ -1213,19 +1226,11 @@ module.exports = function (Engine) {
 					}
 				}
 
-				// Place RO units
-				let ro_units = [
-					"RO 1 Army", "RO 2 Army", "RO 3 Army", "RO Cavalry",
-					"RO DIV #1", "RO DIV #2", "RO DIV #3", "RO DIV #4", "RO DIV #5", "RO DIV #6"
-				]
+				let romania_entry_plan = Engine.collapse.get_romanian_entry_plan()
+				let ro_units = romania_entry_plan.ap.ro_units
 				for (let unit of ro_units) reinforce(game, unit, AP, "Bucharest")
 
-				// Place CP units
-				let cp_units = [
-					"GE 9 Army", "GE Falkenhayn HQ", "GE Hvy Arty",
-					"Combined BU/AH Div", "AH 1 Army", "AH 7 Army",
-					"AH DIV #1", "AH DIV #2", "AH DIV #3"
-				]
+				let cp_units = [...romania_entry_plan.cp.ge_units, ...romania_entry_plan.cp.ah_units]
 				for (let unit of cp_units) reinforce(game, unit, CP, RESERVE)
 
 				game.active = AP

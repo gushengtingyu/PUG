@@ -250,15 +250,16 @@ module.exports = function (Engine) {
 	}
 
 	function is_baluchistan(s) {
-		return get_region(s) === "Baluchistan"
+		return String(get_region(s) || "").toLowerCase() === "baluchistan"
 	}
 
 	function is_afghanistan(s) {
-		return get_region(s) === "Afghanistan"
+		return String(get_region(s) || "").toLowerCase() === "afghanistan"
 	}
 
 	function is_central_asia(s) {
-		return get_region(s) === "Central Asia"
+		let region = String(get_region(s) || "").toLowerCase()
+		return region === "central asia" || region === "central_asia"
 	}
 
 	function is_sudan_and_darfur(s) {
@@ -269,7 +270,7 @@ module.exports = function (Engine) {
 		let region = get_region(s)
 		if (region && region.includes("Persia")) return true
 		let area = get_area(s)
-		return area === "persia"
+		return area === "persia" && !is_afghanistan(s) && !is_baluchistan(s)
 	}
 
 	function is_azerbaijan(s) {
@@ -277,6 +278,13 @@ module.exports = function (Engine) {
 	}
 	function is_arabistan(s) {
 		return get_area(s) === "arabistan"
+	}
+
+	function is_barred_from_persian_russian_sphere_before_revolution(game, p, s) {
+		if (game.events && game.events["russian_revolution"] >= 1) return false
+		if (!is_persia(s) && !is_azerbaijan(s)) return false
+		let nations = get_piece_nations_for_rule(game, p)
+		return nations.some((nation) => ["br", "fr", "in", "it", "anz"].includes(nation))
 	}
 
 	function is_sinai(s) {
@@ -300,12 +308,15 @@ module.exports = function (Engine) {
 		return get_area(s) === "syria_palestine"
 	}
 
-	const RESTRICTED_AREAS = new Set(["mesopotamia", "persia", "syria_palestine", "azerbaijan", "arabistan"])
+	const RESTRICTED_AREAS = new Set(["mesopotamia", "persia", "syria_palestine", "azerbaijan", "arabistan", "afghanistan", "central_asia"])
 
 	function get_restricted_area(s) {
 		if (!data.spaces[s]) return null
 		const area = get_area(s)
+		const region = String(get_region(s) || "").toLowerCase()
 		if (area === "sinai") return "syria_palestine"
+		if (region === "afghanistan") return "afghanistan"
+		if (region === "central asia" || region === "central_asia") return "central_asia"
 		if (RESTRICTED_AREAS.has(area)) return area
 		if (is_persia(s)) return "persia"
 		return null
@@ -374,13 +385,14 @@ module.exports = function (Engine) {
 		return get_connection_type(a, b) === "strait"
 	}
 
-	let strait_edges = null
-	let strait_numbers = null
+	let strait_edges = []
+	let strait_numbers = []
+	let strait_edges_initialized = false
 	let bosphorus_forts_space = null
 
 	function init_strait_edges() {
-		if (strait_edges) return
-		strait_edges = {}
+		if (strait_edges_initialized) return
+		strait_edges = []
 		strait_numbers = []
 		for (let i = 1; i < data.spaces.length; i++) {
 			let map = data.spaces[i].connection_straits
@@ -392,11 +404,14 @@ module.exports = function (Engine) {
 				let b = Number(k)
 				if (Number.isNaN(b) || a > b) continue // Store only once
 				if (!strait_edges[n]) strait_edges[n] = []
-				strait_edges[n].push([a, b])
+				let edge_list = strait_edges[n]
+				if (!edge_list) continue
+				edge_list.push([a, b])
 				if (!strait_numbers.includes(n)) strait_numbers.push(n)
 			}
 		}
 		strait_numbers.sort((a, b) => a - b)
+		strait_edges_initialized = true
 	}
 
 	function faction_controls_strait(game, num, faction) {
@@ -694,7 +709,7 @@ module.exports = function (Engine) {
 
 	function get_rail_connections(game, s, faction) {
 		let list = []
-		let all_connections = data.spaces[s].connections || []
+		let all_connections = Object.keys(data.spaces[s].connection_types || {}).map(Number)
 		let railSet = new Set(data.spaces[s].rail_connections || [])
 		for (let next of all_connections) {
 			let type = get_connection_type(s, next) || ""
@@ -702,7 +717,7 @@ module.exports = function (Engine) {
 			let hasRailFlag = flags.some(
 				(flag) => flag.startsWith("rail_when_event:") || flag === "rail_only" || flag === "virtual"
 			)
-			let isCandidate = railSet.has(next) || type === "conditional_rail" || hasRailFlag
+			let isCandidate = railSet.has(next) || type === "rail" || type === "conditional_rail" || hasRailFlag
 			if (!isCandidate) continue
 			if (!connection_allowed(game, s, next, "rail", faction)) continue
 			list.push(next)
@@ -819,44 +834,58 @@ module.exports = function (Engine) {
 			if (data.spaces[s].area !== "balkans") return false
 		}
 
+		// Rule 20.2.3: India Garrison Force restriction.
+		if (data.pieces[p].region_limit === "I") {
+			if (!is_india(s)) return false
+		}
+
+		// Rule 19.6.3: BR Persian Cordon Force restriction.
+		if (data.pieces[p].region_limit === "P") {
+			if (!is_persia(s) && !is_india(s) && !is_baluchistan(s)) return false
+		}
+
 		let region = get_region(s)
 		let area = get_area(s)
 		let restricted_area = get_restricted_area(s)
 		let space_info = data.spaces[s]
 
+		if (is_barred_from_persian_russian_sphere_before_revolution(game, p, s)) return false
+
 		if (space_info && space_info.faction === "neutral") {
-			let nation = space_info.nation
-			if (nation === "gr") {
-				// Rule 19.2.3: Both players may enter Greece... so long as they do not enter Athens.
-				if (is_athens_space(s) && Engine.greece.is_greece_neutral(game)) return false
-				// Rule 19.2.3: CP units do not have the privilege to move through spaces containing GR units.
-				if (
-					data.pieces[p].faction === CP &&
-					Engine.greece.is_greece_neutral(game) &&
-					Engine.greece.has_greek_units_in_space(game, s)
-				)
-					return false
+			if (is_afghanistan(s)) {
+				// Rule 19.7.1: Neutral Afghanistan.
+				// AP units may never enter; only CP SCUs may enter before Afghan Alliance.
+				if (game.events && game.events["afghan_alliance"]) return true
+				let piece = data.pieces[p]
+				if (!piece || piece.faction !== CP || piece.piece_class !== "SCU") return false
 			} else {
-				if (nation === "ro") {
-					// Rule 19.5.1: Romanian Entry.
-					if (!game.events || !game.events["romania"]) return false
-				} else if (nation === "bu") {
-					// Rule 19.3.1: Bulgarian Entry.
-					if (!game.events || !game.events["bulgaria"]) return false
-				} else if (nation === "sb") {
-					// Rule 19.4.1: Serbian Entry via Bulgaria event.
-					if (!game.events || !game.events["bulgaria"]) return false
-				} else if (nation === "pe") {
-					// Rule 19.6.1: Persian Neutrality.
-					if (!events.is_persia_open(game)) return false
-				} else if (nation === "af") {
-					// Rule 19.7.1: Afghanistan Entry (CP SCUs only).
-					// Rule 18.2.5: Both players’ units may now enter Afghanistan if Afghan Alliance is active.
-					if (game.events && game.events["afghan_alliance"]) return true
-					let piece = data.pieces[p]
-					if (!piece || piece.faction !== CP || piece.piece_class !== "SCU") return false
+				let nation = space_info.nation
+				if (nation === "gr") {
+					// Rule 19.2.3: Both players may enter Greece... so long as they do not enter Athens.
+					if (is_athens_space(s) && Engine.greece.is_greece_neutral(game)) return false
+					// Rule 19.2.3: CP units do not have the privilege to move through spaces containing GR units.
+					if (
+						data.pieces[p].faction === CP &&
+						Engine.greece.is_greece_neutral(game) &&
+						Engine.greece.has_greek_units_in_space(game, s)
+					)
+						return false
 				} else {
-					return false
+					if (nation === "ro") {
+						// Rule 19.5.1: Romanian Entry.
+						if (!game.events || !game.events["romania"]) return false
+					} else if (nation === "bu") {
+						// Rule 19.3.1: Bulgarian Entry.
+						if (!game.events || !game.events["bulgaria"]) return false
+					} else if (nation === "sb") {
+						// Rule 19.4.1: Serbian Entry via Bulgaria event.
+						if (!game.events || !game.events["bulgaria"]) return false
+					} else if (nation === "pe") {
+						// Rule 19.6.1: Persian Neutrality.
+						if (!events.is_persia_open(game)) return false
+					} else {
+						return false
+					}
 				}
 			}
 		}
@@ -868,7 +897,7 @@ module.exports = function (Engine) {
 		}
 
 		// Rule 19.6.1: Persian Neutrality / Secret Treaty.
-		if (area === "persia") {
+		if (area === "persia" && !is_afghanistan(s)) {
 			if (!events.is_persia_open(game)) return false
 		}
 
@@ -1365,8 +1394,7 @@ module.exports = function (Engine) {
 				if (visited.has(next)) continue
 
 				if (context.enemy_regular[faction][next] === 1 && !is_besieged_with_context(game, next, context)) continue
-				if (data.spaces[next].faction === "neutral" && !is_neutral_greece_supply_passable(game, next, faction))
-					continue
+				if (is_neutral_supply_blocked(game, next, faction)) continue
 
 				let is_friendly = is_controlled_by(game, next, faction)
 				let is_besieged_enemy = is_besieged_with_context(game, next, context)
@@ -1906,6 +1934,19 @@ module.exports = function (Engine) {
 		return false
 	}
 
+	function is_neutral_supply_blocked(game, s, faction) {
+		if (data.spaces[s].faction !== "neutral") return false
+		if (game.control && game.control[s]) return false
+		if (
+			faction === CP &&
+			data.spaces[s].name === "Afghanistan" &&
+			!(game.events && game.events["afghan_alliance"])
+		) {
+			return false
+		}
+		return !is_neutral_greece_supply_passable(game, s, faction)
+	}
+
 	function contains_enemy_regular_pieces_for_faction(game, s, faction) {
 		let enemy = faction === AP ? CP : AP
 		for (let p = 0; p < game.pieces.length; p++) {
@@ -1987,7 +2028,16 @@ module.exports = function (Engine) {
 
 		// Add all sources
 		for (let s of sources) {
-			if (is_controlled_by(game, s, faction)) {
+			let is_friendly = is_controlled_by(game, s, faction)
+			// Rule 19.2.6: Salonika is an AP source even when neutral
+			if (faction === AP && data.spaces[s].name === "Salonika" && Engine.greece.is_greece_neutral(game)) {
+				is_friendly = true
+			}
+			// Rule 14.2.4: SB units are in supply anywhere in Serbia prior to collapse
+			if (faction === AP && nation === "sb" && data.spaces[s].nation === "sb" && !Engine.collapse.has_serbia_collapsed(game)) {
+				is_friendly = true
+			}
+			if (is_friendly) {
 				full_supplied.add(s)
 				queue.push({ s, disrupted: false })
 			}
@@ -2002,8 +2052,7 @@ module.exports = function (Engine) {
 				if (context.enemy_regular[faction][next] === 1 && !is_besieged_with_context(game, next, context)) continue
 
 				// Neutral spaces block supply unless they are Greece for AP
-				if (data.spaces[next].faction === "neutral" && !is_neutral_greece_supply_passable(game, next, faction))
-					continue
+				if (is_neutral_supply_blocked(game, next, faction)) continue
 
 				// Rule 14.1.3: Enemy Full Control blocks supply.
 				// Partial Control (irregular units/tribes) does not.
@@ -2057,11 +2106,11 @@ module.exports = function (Engine) {
 
 	let supply_space_ids_cache = null
 	// 仅允许“真实地图空间”进入补给计算/显示：
-	// 排除 Reserve/Eliminated Box、reinforcement 槽位、UI 坐标点、Unknown 占位点。
+	// 排除 Reserve/Eliminated Box、reinforcement 槽位、UI 坐标点、生成的占位槽位。
 	function is_supply_eligible_space(s) {
 		let info = data.spaces[s]
 		if (!info || s <= 0) return false
-		if (info.name === "Unknown") return false
+		if (info.type === "generated_gap") return false
 		if (info.type === "reinforcement" || info.type === "ui") return false
 		if (info.map === "Reserve Box") return false
 		return true
@@ -2398,7 +2447,7 @@ module.exports = function (Engine) {
 				continue
 			}
 
-			let faction = game.control[s]
+			let faction = game.control[s] || info.faction
 			if (faction === AP || faction === CP) {
 				let supply_info = faction === AP ? ap_supply : cp_supply
 				let status = "OOS"
@@ -2541,6 +2590,20 @@ module.exports = function (Engine) {
 		// 4. Limited Supply Check (Rule 14.2.8 / 14.2.2 / 14.2.3)
 		// If not in Full Supply, check if it can trace supply to ANY base source of the faction
 		if (p !== -1) {
+			if (
+				faction === CP &&
+				!(game.events && game.events["afghan_alliance"]) &&
+				can_trace_supply_to_source(
+					game,
+					space,
+					faction,
+					Engine.game_utils.find_space("Afghanistan"),
+					supply_context
+				)
+			) {
+				return cache_result("LIMITED")
+			}
+
 			let all_faction_sources = get_supply_sources_from_data_cached(game, faction, for_placement_or_sr, source_cache)
 			if (faction === AP) all_faction_sources = all_faction_sources.concat(get_beachhead_spaces(game, faction))
 
@@ -2588,7 +2651,7 @@ module.exports = function (Engine) {
 				if (faction === CP) {
 					if (["Medina", "Mecca", "Maan", "Central Asia", "Afghanistan"].includes(name)) {
 						if (name === "Afghanistan") {
-							if (!(game.events && game.events["afghanistan_allied"] && is_controlled_by(game, s, CP))) {
+							if (!(game.events && game.events["afghan_alliance"] && is_controlled_by(game, s, CP))) {
 								continue
 							}
 						} else {
@@ -2627,7 +2690,17 @@ module.exports = function (Engine) {
 		let context = supply_context || create_supply_context(game)
 		let sources = Array.isArray(source) ? source : [source]
 		let source_flag = build_space_flag_from_sources(sources)
-		if (source_flag[start] === 1) return is_controlled_by(game, start, faction)
+		if (source_flag[start] === 1) {
+			if (
+				faction === CP &&
+				data.spaces[start] &&
+				data.spaces[start].name === "Afghanistan" &&
+				!(game.events && game.events["afghan_alliance"])
+			) {
+				return true
+			}
+			return is_controlled_by(game, start, faction)
+		}
 		let visited = new Set([start])
 		let queue = [start]
 		let queue_head = 0
@@ -2641,8 +2714,7 @@ module.exports = function (Engine) {
 				if (context.enemy_regular[faction][next] === 1 && !is_besieged_with_context(game, next, context)) continue
 
 				// Neutral spaces block supply unless they are Greece for AP
-				if (data.spaces[next].faction === "neutral" && !is_neutral_greece_supply_passable(game, next, faction))
-					continue
+				if (is_neutral_supply_blocked(game, next, faction)) continue
 
 				let is_friendly = is_controlled_by(game, next, faction)
 				let is_besieged_enemy = is_besieged_with_context(game, next, context)

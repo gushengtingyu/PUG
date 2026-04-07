@@ -21,6 +21,13 @@ module.exports = function (Engine) {
 		return is_tribe(p) && (is_in_reserve(game, p) || is_reinforcement(game, p))
 	}
 
+	function can_place_tribe_in_jihad_space(game, p, s) {
+		let tribe_type = get_tribe_type(p)
+		if (!tribe_type) return false
+		if (data.spaces[s].tribal_activity_grid !== tribe_type) return false
+		return map.can_stack_end_in_space(game, s, [p])
+	}
+
 	/**
 	 * Pursuit of Glory - Jihad Module
 	 * Handles Jihad level changes, tribal unit placement/removal, and rebellions.
@@ -287,17 +294,11 @@ module.exports = function (Engine) {
 
 			let can_place_any = false
 			for (let p of tribes_in_reserve) {
-				let tribe_type = get_tribe_type(p)
 				for (let s = 1; s < data.spaces.length; s++) {
-					if (data.spaces[s].tribal_activity_grid === tribe_type) {
-						if (
-							!map.contains_enemy_pieces(res.game, s, CP) &&
-							map.can_stack_end_in_space(res.game, s, [p])
-						) {
-							res.piece(p)
-							can_place_any = true
-							break
-						}
+					if (can_place_tribe_in_jihad_space(res.game, p, s)) {
+						res.piece(p)
+						can_place_any = true
+						break
 					}
 				}
 			}
@@ -310,17 +311,9 @@ module.exports = function (Engine) {
 			if (res.game.selected_piece !== null && res.game.selected_piece !== undefined) {
 				res.who(res.game.selected_piece)
 				let p = res.game.selected_piece
-				let tribe_type = get_tribe_type(p)
-				if (tribe_type) {
-					for (let s = 1; s < data.spaces.length; s++) {
-						if (data.spaces[s].tribal_activity_grid === tribe_type) {
-							if (
-								!map.contains_enemy_pieces(res.game, s, CP) &&
-								map.can_stack_end_in_space(res.game, s, [p])
-							) {
-								res.space(s)
-							}
-						}
+				for (let s = 1; s < data.spaces.length; s++) {
+					if (can_place_tribe_in_jihad_space(res.game, p, s)) {
+						res.space(s)
 					}
 				}
 			}
@@ -330,12 +323,9 @@ module.exports = function (Engine) {
 			game.selected_piece = p
 		},
 		space(game, log, s) {
-			const { CP } = Engine.constants
 			let p = game.selected_piece
 			if (p === null || p === undefined) return
-			let tribe_type = get_tribe_type(p)
-			if (data.spaces[s].tribal_activity_grid !== tribe_type) return
-			if (map.contains_enemy_pieces(game, s, CP) || !map.can_stack_end_in_space(game, s, [p])) return
+			if (!can_place_tribe_in_jihad_space(game, p, s)) return
 			game.pieces[p] = s
 			game.selected_piece = null
 			game.tribes_to_place--

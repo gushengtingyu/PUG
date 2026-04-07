@@ -54,9 +54,7 @@ const PIECE_HEADERS = [
 	"badge",
 	"piece_class",
 	"image_full",
-	"image_reduced",
-	"romanian_entry",
-	"bulgarian_entry"
+	"image_reduced"
 ]
 const CARD_HEADERS = [
 	"num",

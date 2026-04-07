@@ -206,7 +206,29 @@ function with_optional_game_arg(arg1, arg2, fn) {
 
 function move_piece(target_game, p, s) {
 	if (target_game.pieces[p] !== s) {
+		let from = target_game.pieces[p]
 		target_game.pieces[p] = s
+
+		if (target_game === game) {
+			let faction = data.pieces[p].faction
+			let can_capture_persia_vp =
+				Engine.events.is_persia_open(game) &&
+				Engine.map.is_persia(s) &&
+				Engine.is_neutral_vp_space(s) &&
+				!is_controlled_by(game, s, faction) &&
+				data.pieces[p].type === "regular" &&
+				data.pieces[p].type !== "hq"
+			if (can_capture_persia_vp) {
+				set_control(game, s, faction)
+			}
+			if (Engine.check_persia_entry_vp_penalty) {
+				Engine.check_persia_entry_vp_penalty(game, s, [p])
+			}
+			if (from > 0) {
+				Engine.sync_neutral_vp_state(game, from)
+			}
+			Engine.sync_neutral_vp_state(game, s)
+		}
 
 		// Rule 19.2.1: Entering neutral Athens triggers Greek entry
 		if (target_game === game && Engine.greece.is_greece_neutral(game) && Engine.greece.is_athens_space(s)) {
@@ -567,6 +589,7 @@ exports.action = function (state, current, action, arg) {
 	combat_states.set_globals(game)
 	turn_states.set_globals(game)
 	action_states.set_globals(game)
+	normalize_transient_state()
 	const state_handlers = states[game.state]
 	if (state_handlers && action in state_handlers) {
 		state_handlers[action](arg, current)
@@ -577,6 +600,7 @@ exports.action = function (state, current, action, arg) {
 		else if (is_player_role(current)) return game
 		else throw new Error("Invalid action: " + action)
 	}
+	normalize_transient_state()
 	// 任意 action 都可能改变控制权、单位位置或围攻状态，标记补给缓存失效。
 	game.supply_dirty = true
 	return game
@@ -771,12 +795,13 @@ exports.view = function (state, current) {
 			rollback: rollback_entries.map((r) => {
 				let name = r.turn_start
 					? `回合 ${r.turn} 起始`
-					: `回合 ${r.turn} ${faction_name(r.active)} 第 ${r.action} 行动`
+					: `回合 ${r.turn} ${faction_name(r.active)} 第 ${r.action} 行动轮`
 				return {
 					name,
 					turn: r.turn,
 					active: r.active,
 					action: r.action,
+					log_index: Number.isInteger(r.log_index) ? r.log_index : undefined,
 					turn_start: !!r.turn_start,
 					events: r.events || [],
 					event_count: r.events ? r.events.length : 0
@@ -836,6 +861,7 @@ exports.view = function (state, current) {
 	combat_states.set_globals(game)
 	turn_states.set_globals(game)
 	action_states.set_globals(game)
+	normalize_transient_state()
 
 	for (let i = 0; i < 5; i++) {
 		let state_before_prompt = game.state
@@ -1049,7 +1075,9 @@ function save_rollback_point() {
 	let rollback_state = game.rollback_state || []
 	if (!game.rollback) game.rollback = []
 
-	const is_turn_start = game.ap_actions.length === 0 && game.cp_actions.length === 0
+	const ap_action_count = Array.isArray(game.ap_actions) ? game.ap_actions.filter(Boolean).length : 0
+	const cp_action_count = Array.isArray(game.cp_actions) ? game.cp_actions.filter(Boolean).length : 0
+	const is_turn_start = ap_action_count === 0 && cp_action_count === 0
 
 	let copy = object_copy(game)
 	delete copy.undo
@@ -1057,11 +1085,12 @@ function save_rollback_point() {
 	delete copy.rollback_state
 	if (Array.isArray(copy.log)) copy.log = copy.log.length
 
-	let action_index = (copy.active === AP ? copy.ap_actions.length : copy.cp_actions.length) + 1
+	let action_index = copy.action_round || 1
 	game.rollback.push({
 		turn: copy.turn,
 		active: copy.active,
 		action: action_index,
+		log_index: Array.isArray(game.log) ? game.log.length : 0,
 		events: [],
 		turn_start: is_turn_start
 	})
@@ -1140,7 +1169,7 @@ states.review_rollback_proposal = {
 		const rollback = game.rollback[game.rollback_proposal.index]
 		const label = rollback.turn_start
 			? `回合 ${rollback.turn} 起始`
-			: `回合 ${rollback.turn} ${faction_name(rollback.active)} 第 ${rollback.action} 行动`
+			: `回合 ${rollback.turn} ${faction_name(rollback.active)} 第 ${rollback.action} 行动轮`
 		res.prompt(`${game.rollback_proposal.faction} 提议回滚到：${label}`)
 		res.action("accept")
 		res.action("reject")
@@ -1149,7 +1178,7 @@ states.review_rollback_proposal = {
 		const rollback = game.rollback[game.rollback_proposal.index]
 		const label = rollback.turn_start
 			? `回合 ${rollback.turn} 起始`
-			: `回合 ${rollback.turn} ${faction_name(rollback.active)} 第 ${rollback.action} 行动`
+			: `回合 ${rollback.turn} ${faction_name(rollback.active)} 第 ${rollback.action} 行动轮`
 		restore_rollback(game.rollback_proposal.index)
 		game.rollback_confirmation = { msg: `已回滚到：${label}`, state: game.state }
 		game.state = "confirm_rollback"
@@ -1622,6 +1651,77 @@ function refresh_attack_eligibility() {
 	}
 }
 
+function create_noop_result() {
+	return {
+		game,
+		prompt() {
+			return this
+		},
+		action() {
+			return this
+		},
+		set_action() {
+			return this
+		},
+		has_action() {
+			return false
+		},
+		get_action() {
+			return undefined
+		},
+		hand() {
+			return this
+		},
+		piece() {
+			return this
+		},
+		space() {
+			return this
+		},
+		where() {
+			return this
+		},
+		who() {
+			return this
+		},
+		log() {
+			return this
+		},
+		apply() {
+			return this
+		},
+		rollback_proposal() {
+			return this
+		},
+		entrenching() {
+			return this
+		}
+	}
+}
+
+function normalize_transient_state() {
+	for (let i = 0; i < 5; i++) {
+		let state_before_normalize = game.state
+		let active_before_normalize = game.active
+
+		if (game.state === "attack") {
+			refresh_attack_eligibility()
+			if (game.eligible_attackers.length === 0) {
+				game.state = "end_operations"
+			}
+		}
+
+		let state_handlers = states[game.state]
+		if (state_handlers && typeof state_handlers.prompt === "function") {
+			state_handlers.prompt(create_noop_result())
+		}
+
+		if (game.state === state_before_normalize && game.active === active_before_normalize) {
+			break
+		}
+	}
+}
+
 function start_event(key, data) {
 	if (game.event_ctx && game.event_ctx.key === key) {
 		if (data) {
@@ -1829,6 +1929,7 @@ exports.set_game = function (g) {
 exports.roles = [AP_ROLE, CP_ROLE]
 
 // Helper functions for event states
+exports.save_rollback_point = save_rollback_point
 exports.push_undo = push_undo
 exports.pop_undo = pop_undo
 exports.gen_action = gen_action

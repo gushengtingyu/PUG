@@ -61,7 +61,7 @@ for (let s = 1; s < map_space_count; ++s) {
 		RESERVE_BOX_SPACE_ID_FLAGS[s] = 1
 		continue
 	}
-	if (space.name === "Unknown") {
+	if (space.type === "generated_gap") {
 		continue
 	}
 	if (space.type === "reinforcement" || space.type === "ui") {
@@ -1078,7 +1078,7 @@ function show_track_dialog() {
 		rounds.className = "track_rounds"
 
 		/**
-		 * 为特定派系创建行动轮行。
+		 * 创建行动轮行。
 		 * @param {string} faction - 派系标识符 ('ap' 或 'cp')。
 		 * @param {string} label - 显示标签。
 		 * @returns {HTMLElement} 行元素。
@@ -1143,9 +1143,9 @@ function show_track_dialog() {
 			return row
 		}
 
-		// CP (同盟国) 在上, AP (协约国) 在下
-		rounds.appendChild(createRow("cp", "同盟国"))
+		//  在上, CP (同盟国) 在下
 		rounds.appendChild(createRow("ap", "协约国"))
+		rounds.appendChild(createRow("cp", "同盟国"))
 		container.appendChild(rounds)
 
 		// Stats
@@ -1208,17 +1208,7 @@ function show_track_dialog() {
 			return fStats
 		}
 
-		// 左: CP, 右: AP
-		stats.appendChild(
-			createFactionStats(
-				"cp",
-				{
-					discard: view.cp?.discard ?? 0,
-					removed: view.removed_cards?.cp?.length ?? 0
-				},
-				"CP"
-			)
-		)
+		// 左: AP, 右: CP
 		stats.appendChild(
 			createFactionStats(
 				"ap",
@@ -1227,6 +1217,16 @@ function show_track_dialog() {
 					removed: view.removed_cards?.ap?.length ?? 0
 				},
 				"AP"
+			)
+		)
+		stats.appendChild(
+			createFactionStats(
+				"cp",
+				{
+					discard: view.cp?.discard ?? 0,
+					removed: view.removed_cards?.cp?.length ?? 0
+				},
+				"CP"
 			)
 		)
 		container.appendChild(stats)
@@ -2040,7 +2040,7 @@ function build_ui_frame_state() {
 		action_space: to_loose_id_set(view?.actions?.space),
 		action_activate_move: to_loose_id_set(view?.actions?.activate_move),
 		action_activate_attack: to_loose_id_set(view?.actions?.activate_attack),
-		action_activate_attack_mutiny: to_loose_id_set(view?.actions?.activate_attack_mutiny),
+		action_activate_combine: to_loose_id_set(view?.actions?.activate_combine),
 		action_deactivate: to_loose_id_set(view?.actions?.deactivate),
 		action_piece: to_loose_id_set(view?.actions?.piece),
 		action_attack_piece: to_loose_id_set(view?.actions?.attack),
@@ -2178,11 +2178,7 @@ function update_map() {
 		add_dirty_space_set_diff(dirty, prev_map_snapshot.action_space, ui_frame_state.action_space)
 		add_dirty_space_set_diff(dirty, prev_map_snapshot.action_activate_move, ui_frame_state.action_activate_move)
 		add_dirty_space_set_diff(dirty, prev_map_snapshot.action_activate_attack, ui_frame_state.action_activate_attack)
-		add_dirty_space_set_diff(
-			dirty,
-			prev_map_snapshot.action_activate_attack_mutiny,
-			ui_frame_state.action_activate_attack_mutiny
-		)
+		add_dirty_space_set_diff(dirty, prev_map_snapshot.action_activate_combine, ui_frame_state.action_activate_combine)
 		add_dirty_space_set_diff(dirty, prev_map_snapshot.action_deactivate, ui_frame_state.action_deactivate)
 
 		add_dirty_piece_set_diff(dirty, prev_map_snapshot.reduced, ui_frame_state.reduced, prev_map_piece_locations, piece_locations)
@@ -2316,7 +2312,7 @@ function update_map() {
 		action_space: clone_id_set(ui_frame_state.action_space),
 		action_activate_move: clone_id_set(ui_frame_state.action_activate_move),
 		action_activate_attack: clone_id_set(ui_frame_state.action_activate_attack),
-		action_activate_attack_mutiny: clone_id_set(ui_frame_state.action_activate_attack_mutiny),
+		action_activate_combine: clone_id_set(ui_frame_state.action_activate_combine),
 		action_deactivate: clone_id_set(ui_frame_state.action_deactivate),
 		action_piece: clone_id_set(ui_frame_state.action_piece),
 		action_attack_piece: clone_id_set(ui_frame_state.action_attack_piece),
@@ -3198,51 +3194,89 @@ function propose_rollback() {
 		return
 	}
 	const form = document.getElementById("propose_rollback_form")
+	if (!Array.isArray(view?.rollback) || view.rollback.length === 0) {
+		return
+	}
 	form.checkpoint.innerHTML = ""
 	view.rollback.forEach((rollback, i) => {
 		const option = document.createElement("option")
 		option.value = i
-		option.textContent = `${rollback.name}（${rollback.event_count || 0} 条）`
+		option.textContent = format_rollback_option_label(rollback, i === view.rollback.length - 1)
 		form.checkpoint.add(option, 0)
-		form.checkpoint.value = i
 	})
+	form.checkpoint.value = String(get_default_rollback_index())
 	update_rollback_dialog()
 	document.getElementById("propose_rollback_dialog").showModal()
 }
 
-/**
- * 收集指定索引之后的回滚事件。
- * @param {number} from_index - 起始索引。
- * @returns {Array} 事件数组。
- */
+function get_rollback_point(index) {
+	if (!Array.isArray(view?.rollback) || index < 0 || index >= view.rollback.length) {
+		return null
+	}
+	return view.rollback[index]
+}
+
+function format_rollback_option_label(rollback, is_latest = false) {
+	let text = rollback.name
+	if (is_latest) {
+		text += " · 当前"
+	}
+	return text
+}
+
+function is_rollback_dice_record(text) {
+	return /[\u2680-\u2685]|\b[WB][1-6]\b|掷骰/.test(String(text || ""))
+}
+
 function collect_rollback_events(from_index) {
+	const rollback = get_rollback_point(from_index)
+	if (!rollback) {
+		return []
+	}
+	if (Number.isInteger(rollback.log_index) && Array.isArray(view?.log)) {
+		return view.log
+			.slice(rollback.log_index)
+			.map((text, offset) => ({
+				type: "log",
+				text: String(text ?? ""),
+				index: rollback.log_index + offset
+			}))
+			.filter((entry) => is_rollback_dice_record(entry.text))
+	}
 	const events = []
 	for (let i = from_index; i < view.rollback.length; i++) {
 		const item_events = view.rollback[i].events || []
 		for (const event of item_events) {
-			events.push(event)
+			events.push({ type: "text", text: event })
 		}
 	}
 	return events
 }
 
-/**
- * 追加回滚元信息到详情容器。
- * @param {HTMLElement} details - 详情容器元素。
- */
-function append_rollback_meta(details) {
-	const meta = view.rollback_meta
-	if (!meta) {
-		return
+function count_rollback_events(from_index) {
+	return collect_rollback_events(from_index).length
+}
+
+function get_default_rollback_index() {
+	if (!Array.isArray(view?.rollback) || view.rollback.length === 0) {
+		return -1
 	}
+	for (let i = view.rollback.length - 1; i >= 0; i--) {
+		if (count_rollback_events(i) > 0) {
+			return i
+		}
+	}
+	return view.rollback.length - 1
+}
+
+function append_rollback_summary(details, rollback, from_index, event_count) {
 	const summary = document.createElement("div")
 	summary.className = "rollback_summary"
-	summary.textContent = `当前回滚点：${meta.total_points}（起始 ${meta.turn_points} / 行动 ${meta.action_points}）  上限：起始 ${meta.max_turns} / 行动 ${meta.max_action_rounds}`
+	summary.textContent =
+		event_count > 0
+			? `回滚到 ${rollback.name} 将撤销 ${view.rollback.length - from_index} 个检查点中的 ${event_count} 条掷骰记录。`
+			: `回滚到 ${rollback.name} 不会撤销任何掷骰记录。`
 	details.appendChild(summary)
-	const storage = document.createElement("div")
-	storage.className = "rollback_summary"
-	storage.textContent = `状态存储：${meta.state_compressed ? "压缩" : "未压缩"}  已记录事件：${meta.total_events}`
-	details.appendChild(storage)
 }
 
 /**
@@ -3253,29 +3287,38 @@ function append_rollback_meta(details) {
  */
 function render_rollback_details(details, from_index, header_text) {
 	details.innerHTML = ""
+	const rollback = get_rollback_point(from_index)
+	if (!rollback) {
+		return
+	}
 	const rollback_header = document.createElement("div")
 	rollback_header.className = "rollback_header"
 	rollback_header.textContent = header_text
 	details.appendChild(rollback_header)
-	append_rollback_meta(details)
+	const event_count = count_rollback_events(from_index)
 	const events = collect_rollback_events(from_index)
-	const count = document.createElement("div")
-	count.className = "rollback_summary"
-	count.textContent = `本次将撤销事件：${events.length} 条`
-	details.appendChild(count)
+	append_rollback_summary(details, rollback, from_index, event_count)
 	if (events.length === 0) {
 		const detail = document.createElement("div")
-		detail.className = "rollback_event"
+		detail.className = "rollback_empty"
 		detail.textContent = "不会撤销任何掷骰"
 		details.appendChild(detail)
 		return
 	}
+	const event_list = document.createElement("div")
+	event_list.className = "rollback_event_list"
+	log_box_ap = 0
+	log_box_cp = 0
 	for (const event of events) {
-		const detail = document.createElement("div")
-		detail.className = "rollback_event"
-		detail.innerHTML = on_prompt(event)
-		details.appendChild(detail)
+		const detail =
+			event.type === "log" ? on_log(event.text, event.index) : document.createElement("div")
+		detail.classList.add("rollback_event")
+		if (event.type !== "log") {
+			detail.innerHTML = on_prompt(event.text)
+		}
+		event_list.appendChild(detail)
 	}
+	details.appendChild(event_list)
 }
 
 /**
@@ -3284,7 +3327,7 @@ function render_rollback_details(details, from_index, header_text) {
 function update_rollback_dialog() {
 	const form = document.getElementById("propose_rollback_form")
 	const details = document.getElementById("propose_rollback_details")
-	render_rollback_details(details, Number(form.checkpoint.value), "本次回滚将撤销：")
+	render_rollback_details(details, Number(form.checkpoint.value), "将撤销以下记录：")
 }
 
 /**
@@ -3316,7 +3359,11 @@ function review_rollback() {
 	}
 	const details = document.getElementById("review_rollback_details")
 	const index = view.rollback_proposal.index
-	render_rollback_details(details, index, `回滚到 ${view.rollback[index].name} 将撤销：`)
+	const rollback = get_rollback_point(index)
+	if (!rollback) {
+		return
+	}
+	render_rollback_details(details, index, `回滚到 ${rollback.name} 将撤销：`)
 	document.getElementById("review_rollback_dialog").showModal()
 }
 
@@ -3586,6 +3633,7 @@ function get_bug_report_map_status() {
 		activated_move_space_count: set_count(state.activated_move_spaces),
 		activated_attack_space_count: set_count(state.activated_attack_spaces),
 		action_space_count: set_count(state.action_space),
+		action_activate_combine_count: set_count(state.action_activate_combine),
 		action_piece_count: set_count(state.action_piece),
 		action_move_piece_count: set_count(state.action_move_piece),
 		action_attack_piece_count: set_count(state.action_attack_piece),
@@ -4271,7 +4319,7 @@ function should_highlight_space(s, state = null) {
 			has_loose_id(state.action_space, s) ||
 			has_loose_id(state.action_activate_move, s) ||
 			has_loose_id(state.action_activate_attack, s) ||
-			has_loose_id(state.action_activate_attack_mutiny, s) ||
+			has_loose_id(state.action_activate_combine, s) ||
 			has_loose_id(state.action_deactivate, s)
 		)
 	}
@@ -4279,7 +4327,7 @@ function should_highlight_space(s, state = null) {
 		is_action("space", s) ||
 		is_action("activate_move", s) ||
 		is_action("activate_attack", s) ||
-		is_action("activate_attack_mutiny", s) ||
+		is_action("activate_combine", s) ||
 		is_action("deactivate", s)
 	)
 }
@@ -4352,6 +4400,7 @@ function update_space(s, pieces_in_this_space) {
 	}
 
 	const stack = space.stack
+	stack.space_id = s
 	const has_pieces = !!(pieces_in_this_space && pieces_in_this_space.length > 0)
 	const has_special_marker =
 		!!(view.control && view.control[s] && view.control[s] !== space.faction) ||
@@ -4554,6 +4603,9 @@ function update_space(s, pieces_in_this_space) {
 	}
 	for (const el of space_markers_bottom) {
 		push_stack(stack, el)
+	}
+	for (const el of stack) {
+		el.dataset.space = String(s)
 	}
 
 	const rect = layout[space.name]
@@ -5213,11 +5265,7 @@ function get_space_click_intent(s) {
 	}
 	const has_activation_options = activation_action_menu.some((action) => is_action(action, s))
 	if (has_activation_options) {
-		const hide =
-			Array.isArray(view.actions.activate_attack_mutiny) && view.actions.activate_attack_mutiny.includes(s)
-				? "activate_attack"
-				: "activate_attack_mutiny"
-		return { type: "show_activation_popup", hide }
+		return { type: "show_activation_popup" }
 	}
 	return { type: "none" }
 }
@@ -5856,6 +5904,9 @@ Object.assign(window, {
 	submit_bug_report,
 	set_stack_debug,
 	set_perf_debug,
+	get_bug_report_map_status,
+	get_bug_report_action_summary,
+	build_bug_report_message,
 	propose_rollback,
 	propose_rollback_cancel,
 	propose_rollback_submit,
@@ -5869,7 +5920,18 @@ Object.assign(window, {
 	map_get,
 	destroy_marker,
 	unshift_stack,
-	blur_stack
+	blur_stack,
+	pugDebug: {
+		setStackDebug: set_stack_debug,
+		setPerfDebug: set_perf_debug,
+		getMapStatus: get_bug_report_map_status,
+		getActionSummary: get_bug_report_action_summary,
+		buildBugReport: build_bug_report_message,
+		getSpaceIntent: get_space_click_intent,
+		getPieceDispatch: get_piece_click_dispatch,
+		getStackKey: get_stack_key,
+		isStackFocused: is_stack_focused
+	}
 })
 
 // Initialization
@@ -5970,6 +6032,7 @@ function build_space(id) {
 
 	space.stack = []
 	space.stack.name = spaces[id].name
+	space.stack.space_id = id
 
 	const elt = (space.element = document.createElement("div"))
 	elt.space = id
@@ -6046,6 +6109,7 @@ function build_reserve_box(id) {
 
 	space.stack = []
 	space.stack.name = spaces[id].name
+	space.stack.space_id = id
 	space.stacks = {}
 	const is_ap_box = id === AP_RESERVE_BOX || id === AP_CORPS_ASSETS_BOX
 	const order = is_ap_box ? ap_reserve_box_order : cp_reserve_box_order
@@ -6083,6 +6147,7 @@ function build_eliminated_box(id) {
 
 	space.stack = []
 	space.stack.name = spaces[id].name
+	space.stack.space_id = id
 	space.stacks = {}
 	const order = get_eliminated_box_order(id)
 	for (const group of order) {
@@ -6114,7 +6179,7 @@ for (let c = 1; c < cards.length; ++c) {
 
 for (let s = 1; s < spaces.length; ++s) {
 	if (spaces[s]) {
-		if (spaces[s].name === "Unknown") {
+		if (spaces[s].type === "generated_gap") {
 			continue
 		}
 		if (spaces[s].type === "reinforcement") {

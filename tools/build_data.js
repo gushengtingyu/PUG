@@ -28,6 +28,15 @@ function parseCSV(filePath) {
 	return data
 }
 
+function createGeneratedGapSpace(id) {
+	return {
+		id,
+		name: "Generated Gap",
+		type: "generated_gap",
+		generated: true
+	}
+}
+
 const piecesRaw = parseCSV(path.join(CSV_DIR, "pieces.csv"))
 const apNations = new Set()
 const cpNations = new Set()
@@ -86,11 +95,6 @@ reinforcementsRaw.forEach((s) => {
 	})
 
 	const originalName = s.name || ""
-	const tokenNames = originalName.includes("#")
-		? originalName
-				.split("#")
-				.map((n, i) => (i === 0 ? n.trim() : originalName.split("#")[0].trim() + " #" + n.trim()))
-		: [originalName]
 
 	// Note: We create individual slots for each token if name has #,
 	// so that pieces can map to their specific slot if needed.
@@ -120,7 +124,7 @@ console.log(`Loaded ${spaces.length} spaces.`)
 
 // Fill gaps if any (though usually IDs are contiguous)
 for (let i = 0; i < spaces.length; i++) {
-	if (!spaces[i]) spaces[i] = { id: i, name: "Unknown" }
+	if (!spaces[i]) spaces[i] = createGeneratedGapSpace(i)
 }
 
 // 1a. Load UI (inserted early for setup)
@@ -354,9 +358,6 @@ pieces.forEach((p) => {
 		if (p[k] !== undefined) p[k] = Number(p[k])
 	})
 	if (p.notreplaceable === "TRUE" || p.notreplaceable === true) p.notreplaceable = true
-	if (p.romanian_entry === "TRUE" || p.romanian_entry === true || p.romanian_entry === 1) p.romanian_entry = true
-	if (p.bulgarian_entry === "TRUE" || p.bulgarian_entry === true || p.bulgarian_entry === 1)
-		p.bulgarian_entry = true
 })
 
 // Write Output

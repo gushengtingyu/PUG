@@ -306,18 +306,62 @@ header.Central_Powers {
 /* DIALOGS */
 
 .modal-dialog {
-	max-width: 450px;
-	background-color: floralwhite;
+	width: min(560px, calc(100vw - 32px));
+	max-width: 560px;
+	padding: 12px 14px 10px;
+	border: 1px solid #9a845e;
+	border-radius: 8px;
+	background: floralwhite;
+	box-shadow: 0 8px 24px rgba(40, 30, 12, 0.2);
+	color: #2f2414;
 }
 
 .modal-dialog h3 {
 	font-weight: bold;
 	margin: 0;
+	color: #4a3112;
+}
+
+.rollback_intro {
+	margin-top: 8px;
+	color: #5a452b;
+	font-size: 12px;
+	line-height: 1.35;
+}
+
+.rollback_intro p {
+	margin: 0;
+}
+
+.rollback_intro p + p {
+	margin-top: 6px;
 }
 
 #propose_rollback_details,
 #review_rollback_details {
-	margin: 1em 0;
+	margin: 10px 0 8px;
+	max-height: 220px;
+	overflow-y: auto;
+}
+
+.rollback_label {
+	display: block;
+	margin-top: 10px;
+	font-weight: bold;
+	font-size: 17px;
+	color: #4a3112;
+}
+
+#rollback_checkpoint {
+	width: 100%;
+	margin-top: 4px;
+	padding: 8px 10px;
+	border: 1px solid #b79a6f;
+	border-radius: 4px;
+	background: #fffdf7;
+	color: #362712;
+	font-size: 14px;
+	box-sizing: border-box;
 }
 
 .dialog {
@@ -447,22 +491,152 @@ header.Central_Powers {
 }
 
 .rollback_event {
-	margin-left: 20px;
+	padding: 6px 0 6px 12px;
+	border-left: 2px solid rgba(122, 90, 43, 0.35);
+	background: transparent;
 }
 
 .rollback_summary {
-	margin: 4px 0;
-	color: #333;
+	margin: 0 0 10px;
+	color: #4c371a;
 	font-size: 13px;
+	line-height: 1.4;
+}
+
+.rollback_header,
+.rollback_event_title,
+.rollback_panel_title {
+	font-weight: bold;
+	color: #5b3913;
+}
+
+.rollback_header {
+	margin-bottom: 8px;
+	font-size: 14px;
+}
+
+.rollback_event_title {
+	margin: 14px 0 8px;
+	font-size: 14px;
+}
+
+.rollback_panel {
+	margin-top: 10px;
+	padding: 12px;
+	border: 1px solid rgba(122, 90, 43, 0.18);
+	border-radius: 12px;
+	background: rgba(255, 250, 240, 0.86);
+}
+
+.rollback_selected_name {
+	margin-top: 6px;
+	font-size: 16px;
+	font-weight: bold;
+	color: #2f2414;
+}
+
+.rollback_stats {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+	gap: 8px;
+	margin-top: 10px;
+}
+
+.rollback_stat {
+	padding: 10px;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.72);
+	border: 1px solid rgba(122, 90, 43, 0.14);
+}
+
+.rollback_stat_accent {
+	background: linear-gradient(180deg, #f8ead1 0%, #f2ddba 100%);
+	border-color: rgba(122, 90, 43, 0.24);
+}
+
+.rollback_stat_label {
+	font-size: 12px;
+	color: #6c5637;
+}
+
+.rollback_stat_value {
+	margin-top: 4px;
+	font-size: 15px;
+	font-weight: bold;
+	color: #2f2414;
+}
+
+.rollback_event_list {
+	display: grid;
+	gap: 8px;
+}
+
+.rollback_timeline {
+	display: grid;
+	gap: 8px;
+	margin-top: 10px;
+}
+
+.rollback_timeline_item {
+	padding: 10px 12px;
+	border-radius: 10px;
+	border: 1px solid rgba(122, 90, 43, 0.14);
+	background: rgba(255, 255, 255, 0.78);
+}
+
+.rollback_timeline_item.selected {
+	border-color: rgba(122, 90, 43, 0.3);
+	background: linear-gradient(180deg, rgba(248, 234, 209, 0.92) 0%, rgba(244, 224, 189, 0.92) 100%);
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+.rollback_timeline_name {
+	font-weight: bold;
+	color: #3d2a12;
+}
+
+.rollback_timeline_meta {
+	margin-top: 4px;
+	font-size: 12px;
+	color: #6f5737;
+}
+
+.rollback_empty {
+	padding: 8px 10px;
+	border: 1px dashed rgba(122, 90, 43, 0.28);
+	color: #5d4a31;
 }
 
 .rollback_buttons {
-	text-align: right;
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
 	margin-top: 10px;
 }
 
 .rollback_buttons button {
-	margin: 0 4px;
+	min-width: 84px;
+	padding: 6px 12px;
+	border: 1px solid #8f7349;
+	border-radius: 4px;
+	background: #f8ecd3;
+	color: #3f2e16;
+	font-weight: bold;
+	cursor: pointer;
+}
+
+.rollback_buttons button:hover {
+	background: #f1e1bc;
+}
+
+.rollback_buttons .primary {
+	background: #7d5a2c;
+	border-color: #5c3915;
+	color: #fff7ea;
+}
+
+.rollback_buttons .primary:hover {
+	background: #8d6733;
 }
 
 @media (max-width: 800px) {
@@ -493,7 +667,7 @@ header.Central_Powers {
 
 /* Dices */
 
-#log .die {
+.die {
 	display: inline-block;
 	vertical-align: -2px;
 	width: 11px;
@@ -501,15 +675,39 @@ header.Central_Powers {
 	border-radius: 0px;
 	background-size: 600% 100%;
 	background-repeat: no-repeat;
+	overflow: hidden;
+	color: transparent;
+	font-size: 0;
+	line-height: 0;
 }
 
-#log .die.ap {
+.die.ap {
 	background-image: url(/images/die_black_pips.svg);
 	background-color: pink;
 	border: 1px solid #444;
 }
 
-#log .die.cp {
+.die.cp {
+	background-image: url(/images/die_black_pips.svg);
+	background-color: lightblue;
+	border: 1px solid #444;
+}
+
+.die:not(.ap):not(.cp) {
+	background-image: url(/images/die_black_pips.svg);
+	background-color: #f4ead5;
+	border: 1px solid #444;
+}
+
+#log .ap .die:not(.ap):not(.cp),
+.rollback_event .ap .die:not(.ap):not(.cp) {
+	background-image: url(/images/die_black_pips.svg);
+	background-color: pink;
+	border: 1px solid #444;
+}
+
+#log .cp .die:not(.ap):not(.cp),
+.rollback_event .cp .die:not(.ap):not(.cp) {
 	background-image: url(/images/die_black_pips.svg);
 	background-color: lightblue;
 	border: 1px solid #444;

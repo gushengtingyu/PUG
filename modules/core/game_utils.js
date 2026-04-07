@@ -243,6 +243,8 @@ module.exports = function (Engine) {
 		if (info.nation === "gr" && Engine.greece) {
 			let greece_faction = Engine.greece.get_greece_faction(game)
 			if (greece_faction) return greece_faction
+			if (Engine.greece.is_greek_cnd && Engine.greece.is_greek_cnd(p)) return AP
+			return "neutral"
 		}
 		return info.faction
 	}
@@ -490,6 +492,7 @@ module.exports = function (Engine) {
 		if (game.move && Array.isArray(game.move.pieces)) set_delete(game.move.pieces, p)
 
 		set_delete(game.reduced, p)
+		if (space > 0 && Engine.sync_neutral_vp_state) Engine.sync_neutral_vp_state(game, space)
 
 		return replacement_scu
 	}
@@ -531,12 +534,12 @@ module.exports = function (Engine) {
 	function can_entrench_in_space(game, s, faction) {
 		const { map } = Engine
 		// Rule 15.4.1 & 15.4.3
-		if (!map.is_controlled_by(game, s, faction)) return false
+		if (!map.is_controlled_by(game, s, faction) && !map.is_besieged(game, s)) return false
 		if (map.is_island_base(game, s)) return false
 		if (map.is_beachhead_space(game, s)) return false
 		if (map.is_region(game, s)) return false
 
-		let terrain = data.spaces[s].terrain
+		let terrain = data.spaces[s].terrain || "clear"
 		if (terrain === "desert") return false
 
 		// Rule 15.4.3: Mountains or Swamps only with advanced nations
@@ -701,6 +704,17 @@ module.exports = function (Engine) {
 		return ["br", "anz", "in", "in-g", "ar", "pe"].includes(nation)
 	}
 
+	function is_turkish_combination_nation(nation) {
+		return nation === "tu" || nation === "tua"
+	}
+
+	function is_same_combination_nationality(lcu_nation, scu_nation) {
+		if (lcu_nation === scu_nation) return true
+		if (is_turkish_combination_nation(lcu_nation) && is_turkish_combination_nation(scu_nation)) return true
+		if (is_british_empire(lcu_nation) && is_british_empire(scu_nation)) return true
+		return false
+	}
+
 	function get_available_lcus_in_reserve(game, faction) {
 		let lcus = []
 		for (let i = 1; i < data.pieces.length; i++) {
@@ -783,46 +797,14 @@ module.exports = function (Engine) {
 			}
 			if (!type_match) return false
 
-			// Rule 9.7.5 / 9.7.7: First two must match nationality
-			if (l.nation === s.nation) return true
-			if ((l.nation === "tu" || l.nation === "tua") && (s.nation === "tu" || s.nation === "tua")) return true
-			if (is_british_empire(l.nation) && is_british_empire(s.nation)) return true
-			return false
+			return is_same_combination_nationality(l.nation, s.nation)
 		}
 
 		function is_matching_third(lcu_id, scu_id) {
 			let l = data.pieces[lcu_id]
 			let s = data.pieces[scu_id]
-			let l_badge = l.badge ? l.badge.toLowerCase() : ""
-			let s_badge = s.badge ? s.badge.toLowerCase() : ""
 
-			// Rule 9.7.6 Ottoman Special LCU
-			if (l.nation === "tu" && l_badge === "yellow") {
-				return (s.nation === "tu" || s.nation === "tua") && (s_badge === "infantry" || s_badge === "blue")
-			}
-
-			// Rule 25.2.5 Substitution (Infantry > Cavalry)
-			let type_match
-			if (l_badge === "blue") {
-				type_match = s_badge === "blue"
-			} else if (l_badge === "infantry") {
-				type_match = s_badge === "infantry" || s_badge === "blue"
-			} else if (l_badge === "cavalry") {
-				type_match = s_badge === "cavalry" || s_badge === "infantry" || s_badge === "blue"
-			} else {
-				type_match = s_badge === l_badge
-			}
-			if (!type_match) return false
-
-			// Rule 9.7.7 Commonwealth
-			if (is_british_empire(l.nation)) {
-				// Rule 9.7.7: Third piece can be any of BR, IN, ANZ
-				return ["br", "in", "anz"].includes(s.nation)
-			}
-
-			// General Rule 9.7.5: same nationality as LCU
-			if (l.nation === s.nation) return true
-			return (l.nation === "tu" || l.nation === "tua") && (s.nation === "tu" || s.nation === "tua")
+			return is_same_combination_nationality(l.nation, s.nation)
 		}
 
 		// Find candidates for first two

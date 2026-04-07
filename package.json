@@ -8,6 +8,7 @@
 		"test:ui": "vitest --ui",
 		"test:fuzz": "node tests/runtime_fuzz_loop.js",
 		"start:map-editor": "node tools/server_map_editor.js",
+		"typecheck": "tsc -p tsconfig.json",
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",
 		"format": "prettier --write \"**/*.{js,css,html,json}\"",
@@ -24,14 +25,16 @@
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.19.0",
+		"@types/node": "^25.5.2",
+		"@vitest/ui": "^3.0.0",
 		"autoprefixer": "^10.4.27",
 		"eslint": "^9.19.0",
 		"eslint-config-prettier": "^9.1.0",
 		"postcss": "^8.5.8",
 		"prettier": "^3.4.2",
 		"tailwindcss": "^4.2.2",
+		"typescript": "^6.0.2",
 		"vite": "^8.0.2",
-		"vitest": "^3.0.0",
-		"@vitest/ui": "^3.0.0"
+		"vitest": "^3.0.0"
 	}
 }

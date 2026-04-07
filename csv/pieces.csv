@@ -1,308 +1,308 @@
-id,faction,nation,name,cf,lf,mf,rcf,rlf,rmf,rptype,symbol,region_limit,type,badge,piece_class,image_full,image_reduced,romanian_entry,bulgarian_entry
-1,ap,anz,ANZ ANZAC,4,3,4,3,3,4,,,,regular,blue,LCU,ANZAC.png,ANZACR.png,0,0
-2,ap,anz,ANZ Cavalry #1,2,2,6,1,2,6,,,,regular,cavalry,SCU,ANZCDiv.png,ANZCDivR.png,0,0
-3,ap,anz,ANZ Cavalry #2,2,2,6,1,2,6,,,,regular,cavalry,SCU,ANZCDiv.png,ANZCDivR.png,0,0
-4,ap,anz,ANZ Cavalry #3,2,2,6,1,2,6,,,,regular,cavalry,SCU,ANZCDiv.png,ANZCDivR.png,0,0
-5,ap,anz,ANZ Desert Corps,3,3,5,2,3,5,,,,regular,cavalry,LCU,ANZDC.PNG,ANZDCR.PNG,0,0
-6,ap,anz,ANZ Elite DIV,3,2,4,2,2,4,,,,regular,blue,SCU,ANZDiv.png,ANZDivR.png,0,0
-7,ap,anz,ANZ Imp Camel,1,1,6,0,1,6,,,,regular,camel,SCU,ANZICDiv.png,ANZICDivR.png,0,0
-8,ap,ar,Arab faisal Revolt,1,?,2,1,1,2,,,,irregular,,SCU,ARFAISAL.png,ARFAISALR.PNG,0,0
-9,ap,ar,Arab Revolt #1,1,1,1,1,1,1,,,,irregular,,SCU,ARRVT.png,ARRVTR.png,0,0
-10,ap,ar,Arab Revolt #2,1,1,1,1,1,1,,,,irregular,,SCU,ARRVT.png,ARRVTR.png,0,0
-11,ap,arm,Armenian Uprising,2,2,4,1,2,4,,dot,,irregular,,SCU,ARMUp.png,ARMUpR.png,0,0
-12,ap,br,BR Allenby HQ,0,2,4,0,1,4,,,,hq,,SCU,BRALNYHQ.png,BRALNYHQR.png,0,0
-13,ap,br,BR ANA Arab,2,2,2,1,2,2,,,,regular,yellow,SCU,BRANA.png,BRANAR.png,0,0
-14,ap,br,BR Cavalry #1,2,1,6,1,1,6,,,,regular,cavalry,SCU,BRCDiv.png,BRCDivR.png,0,0
-15,ap,br,BR Cavalry #2,2,1,6,1,1,6,,,,regular,cavalry,SCU,BRCDiv.png,BRCDivR.png,0,0
-16,ap,br,BR Cavalry #3,2,1,6,1,1,6,,,,regular,cavalry,SCU,BRCDiv.png,BRCDivR.png,0,0
-17,ap,br,BR Cavalry #4,2,1,6,1,1,6,,,,regular,cavalry,SCU,BRCDiv.png,BRCDivR.png,0,0
-18,ap,br,BR DIV #1,2,2,4,1,2,4,,,,regular,infantry,SCU,BRDiv.png,BRDivR.png,0,0
-19,ap,br,BR DIV #2,2,2,4,1,2,4,,,,regular,infantry,SCU,BRDiv.png,BRDivR.png,0,0
-20,ap,br,BR DIV #3,2,2,4,1,2,4,,,,regular,infantry,SCU,BRDiv.png,BRDivR.png,0,0
-21,ap,br,BR DIV #4,2,2,4,1,2,4,,,,regular,infantry,SCU,BRDiv.png,BRDivR.png,0,0
-22,ap,br,BR DIV #5,2,2,4,1,2,4,,,,regular,infantry,SCU,BRDiv.png,BRDivR.png,0,0
-23,ap,br,BR DIV #6,2,2,4,1,2,4,,,,regular,infantry,SCU,BRDiv.png,BRDivR.png,0,0
-24,ap,br,BR DIV #7,2,2,4,1,2,4,,,,regular,infantry,SCU,BRDiv.png,BRDivR.png,0,0
-25,ap,br,BR Dunsterforce,1,?,8,0,1,8,,,,regular,armored,SCU,BRDUNF.png,BRDUNFR.png,0,0
-26,ap,br,BR Elite DIV #1,3,2,4,2,2,4,,,,irregular,blue,SCU,BREDiv.png,BREDivR.png,0,0
-27,ap,br,BR Elite DIV #2,3,2,4,2,2,4,,,,irregular,blue,SCU,BREDiv.png,BREDivR.png,0,0
-28,ap,br,BR Elite DIV #3,3,2,4,2,2,4,,,,irregular,blue,SCU,BREDiv.png,BREDivR.png,0,0
-29,ap,br,BR Elite DIV #4,3,2,4,2,2,4,,,,irregular,blue,SCU,BREDiv.png,BREDivR.png,0,0
-30,ap,br,BR Elite DIV #5,3,2,4,2,2,4,,,,irregular,blue,SCU,BREDiv.png,BREDivR.png,0,0
-31,ap,br,BR Elite DIV #6,3,2,4,2,2,4,,,,irregular,blue,SCU,BREDiv.png,BREDivR.png,0,0
-32,ap,br,BR IN Garrison #1,2,2,0,0,2,0,,,I,regular,yellow,SCU,BRINGarr.png,BRINGarrR.png,0,0
-33,ap,br,BR IN Garrison #2,2,2,0,0,2,0,,,I,regular,yellow,SCU,BRINGarr.png,BRINGarrR.png,0,0
-34,ap,br,BR IN Garrison #3,2,2,0,0,2,0,,,I,regular,yellow,SCU,BRINGarr.png,BRINGarrR.png,0,0
-35,ap,br,BR IX Corps,4,3,4,3,3,4,,,,regular,yellow,LCU,BRIXC.png,BRIXCR.png,0,0
-36,ap,br,BR Maude HQ,0,1,4,0,0,4,,,,hq,,SCU,BRMAUDEHQ.png,BRMAUDEHQR.png,0,0
-37,ap,br,BR Persian Cordon #1,1,1,1,0,1,1,,,P,regular,yellow,SCU,BRPERC.png,BRPERCR.png,0,0
-38,ap,br,BR Persian Cordon #2,1,1,1,0,1,1,,,P,regular,yellow,SCU,BRPERC.png,BRPERCR.png,0,0
-39,ap,br,BR Persian Cordon #3,1,1,1,0,1,1,,,P,regular,yellow,SCU,BRPERC.png,BRPERCR.png,0,0
-40,ap,br,BR Persian Cordon #4,1,1,1,0,1,1,,,P,regular,yellow,SCU,BRPERC.png,BRPERCR.png,0,0
-41,ap,br,BR Royal Navy,1,1,8,0,1,8,,,,regular,armored,SCU,BRRNR.png,BRRNRR.png,0,0
-42,ap,br,BR VIII Corps,4,3,4,3,3,4,,,,regular,yellow,LCU,BRVIIIC.png,BRVIIICR.png,0,0
-43,ap,br,BR XII Corps,3,3,4,2,3,4,,,,regular,infantry,LCU,BRXIIC.png,BRXIICR.png,0,0
-44,ap,br,BR XVI Corps,3,3,4,2,3,4,,,,regular,infantry,LCU,BRXVIC.png,BRXVICR.png,0,0
-45,ap,br,BR XX Corps,4,3,4,3,3,4,,,,regular,yellow,LCU,BRXXC.png,BRXXCR.png,0,0
-46,ap,br,BR XXI Corps,4,3,4,3,3,4,,,,regular,yellow,LCU,BRXXIC.png,BRXXICR.png,0,0
-47,ap,br,BR/GR Corps Ntl Def,1,1,3,0,1,3,,,,regular,yellow,SCU,BRGRCND.png,BRGRCNDR.png,0,0
-48,ap,br,BR/PE SPers Rifles,1,1,3,0,1,3,,,,regular,yellow,SCU,SPERSR.png,SPERSRR.png,0,0
-49,ap,fr,FR Army Orient 1,3,3,3,2,3,3,,,,regular,infantry,LCU,FRAO1.png,FRAO1R.png,0,0
-50,ap,fr,FR Army Orient 2,3,3,3,2,3,3,,,,regular,infantry,LCU,FRAO2.png,FRAO2R.png,0,0
-51,ap,fr,FR D'Esperey HQ,0,1,4,0,0,4,,,,hq,,SCU,FRDESHQ.png,FRDESHQR.png,0,0
-52,ap,fr,FR DIV #1,2,2,4,1,2,4,,,,regular,infantry,SCU,FRDiv.png,FRDivR.png,0,0
-53,ap,fr,FR DIV #2,2,2,4,1,2,4,,,,regular,infantry,SCU,FRDiv.png,FRDivR.png,0,0
-54,ap,fr,FR DIV #3,2,2,4,1,2,4,,,,regular,infantry,SCU,FRDiv.png,FRDivR.png,0,0
-55,ap,fr,FR DIV #4,2,2,4,1,2,4,,,,regular,infantry,SCU,FRDiv.png,FRDivR.png,0,0
-56,ap,fr,FR DIV #5,2,2,4,1,2,4,,,,regular,infantry,SCU,FRDiv.png,FRDivR.png,0,0
-57,ap,fr,FR DIV #6,2,2,4,1,2,4,,,,regular,infantry,SCU,FRDiv.png,FRDivR.png,0,0
-58,ap,fr,FR DIV #7,2,2,4,1,2,4,,,,regular,infantry,SCU,FRDiv.png,FRDivR.png,0,0
-59,ap,fr,FR DIV #8,2,2,4,1,2,4,,,,regular,infantry,SCU,FRDiv.png,FRDivR.png,0,0
-60,ap,gr,GR DIV #1,1,1,3,0,1,3,,,B,regular,infantry,SCU,GRDiv.png,GRDivR.png,0,0
-61,ap,gr,GR DIV #2,1,1,3,0,1,3,,,B,regular,infantry,SCU,GRDiv.png,GRDivR.png,0,0
-62,ap,gr,GR DIV #3,1,1,3,0,1,3,,,B,regular,infantry,SCU,GRDiv.png,GRDivR.png,0,0
-63,ap,gr,GR National Defense,1,1,3,0,1,3,,,B,regular,yellow,SCU,BRGRCND.png,BRGRCNDR.png,0,0
-64,ap,in,IN 15th DIV,2,2,3,1,2,3,,,,regular,yellow,SCU,IN15Div.png,IN15DivR.png,0,0
-65,ap,in,IN 17th DIV,2,2,3,1,2,3,,,,regular,yellow,SCU,IN17Div.png,IN17DivR.png,0,0
-66,ap,in,IN 18th DIV,2,2,3,1,2,3,,,,regular,yellow,SCU,IN18Div.png,IN18DivR.png,0,0
-67,ap,in,IN 2nd Corps,2,2,3,1,2,3,,,,regular,infantry,LCU,IN2C.png,IN2CR.png,0,0
-68,ap,in,IN 3rd Corps,3,3,3,2,3,3,,,,regular,blue,LCU,IN3C.png,IN3CR.png,0,0
-69,ap,in,IN Bikanir Camel,1,1,8,0,1,8,,,,regular,camel,SCU,INBIKANIR.png,INBIKANIRR.png,0,0
-70,ap,in,IN Cavalry #1,1,1,5,0,1,5,,,,regular,cavalry,SCU,INCDiv.png,INCDivR.png,0,0
-71,ap,in,IN Cavalry #2,1,1,5,0,1,5,,,,regular,cavalry,SCU,INCDiv.png,INCDivR.png,0,0
-72,ap,in,IN Cavalry #3,1,1,5,0,1,5,,,,regular,cavalry,SCU,INCDiv.png,INCDivR.png,0,0
-73,ap,in,IN Cavalry #4,1,1,5,0,1,5,,,,regular,cavalry,SCU,INCDiv.png,INCDivR.png,0,0
-74,ap,in,IN Cavalry #5,1,1,5,0,1,5,,,,regular,cavalry,SCU,INCDiv.png,INCDivR.png,0,0
-75,ap,in,IN Cavalry #6,1,1,5,0,1,5,,,,regular,cavalry,SCU,INCDiv.png,INCDivR.png,0,0
-76,ap,in,IN DIV #1,1,1,3,0,1,3,,,,regular,infantry,SCU,INDiv.png,INDivR.png,0,0
-77,ap,in,IN DIV #2,1,1,3,0,1,3,,,,regular,infantry,SCU,INDiv.png,INDivR.png,0,0
-78,ap,in,IN DIV #3,1,1,3,0,1,3,,,,regular,infantry,SCU,INDiv.png,INDivR.png,0,0
-79,ap,in,IN DIV #4,1,1,3,0,1,3,,,,regular,infantry,SCU,INDiv.png,INDivR.png,0,0
-80,ap,in,IN DIV #5,1,1,3,0,1,3,,,,regular,infantry,SCU,INDiv.png,INDivR.png,0,0
-81,ap,in,IN DIV #6,1,1,3,0,1,3,,,,regular,infantry,SCU,INDiv.png,INDivR.png,0,0
-82,ap,in,IN DIV #7,1,1,3,0,1,3,,,,regular,infantry,SCU,INDiv.png,INDivR.png,0,0
-83,ap,in,IN Elite DIV #1,2,1,3,1,1,3,,,,regular,blue,SCU,INEDiv.png,INEDivR.png,0,0
-84,ap,in,IN Elite DIV #2,2,1,3,1,1,3,,,,regular,blue,SCU,INEDiv.png,INEDivR.png,0,0
-85,ap,in,IN Elite DIV #3,2,1,3,1,1,3,,,,regular,blue,SCU,INEDiv.png,INEDivR.png,0,0
-86,ap,in,IN Tigris Corps,2,2,3,1,2,3,,,,regular,infantry,LCU,INTigrisC.png,INTigrisCR.png,0,0
-87,ap,it,IT DIV,1,1,3,0,1,3,,,,regular,infantry,SCU,ITDiv.png,ITDivR.png,0,0
-88,ap,ro,RO 1 Army,2,2,3,1,2,3,,,B,regular,infantry,LCU,RO1A.png,RO1AR.png,TRUE,0
-89,ap,ro,RO 2 Army,2,2,3,1,2,3,,,B,regular,infantry,LCU,RO2A.png,RO2AR.png,TRUE,0
-90,ap,ro,RO 3 Army,2,2,3,1,2,3,,,B,regular,infantry,SCU,RO3A.png,RO3AR.png,TRUE,0
-91,ap,ro,RO Cavalry,1,1,5,0,1,5,,,B,regular,cavalry,SCU,ROCDiv.png,ROCDivR.png,TRUE,0
-92,ap,ro,RO DIV #1,1,1,3,0,1,3,,,B,regular,infantry,SCU,RODiv.png,RODivR.png,TRUE,0
-93,ap,ro,RO DIV #2,1,1,3,0,1,3,,,B,regular,infantry,SCU,RODiv.png,RODivR.png,TRUE,0
-94,ap,ro,RO DIV #3,1,1,3,0,1,3,,,B,regular,infantry,SCU,RODiv.png,RODivR.png,TRUE,0
-95,ap,ro,RO DIV #4,1,1,3,0,1,3,,,B,regular,infantry,SCU,RODiv.png,RODivR.png,TRUE,0
-96,ap,ro,RO DIV #5,1,1,3,0,1,3,,,B,regular,infantry,SCU,RODiv.png,RODivR.png,TRUE,0
-97,ap,ro,RO DIV #6,1,1,3,0,1,3,,,B,regular,infantry,SCU,RODiv.png,RODivR.png,TRUE,0
-98,ap,ru,RU 2/4 Special,2,2,4,1,2,4,,,B,regular,yellow,SCU,RU24SpDiv.png,RU24SpDivR.png,0,0
-99,ap,ru,RU 6 Army,4,2,4,3,2,4,,,B,regular,yellow,LCU,RU6A.png,RU6AR.png,0,0
-100,ap,ru,RU Baratov HQ,0,1,6,0,0,6,,,,hq,,SCU,RUBarHQ.png,RUBarHQR.png,0,0
-101,ap,ru,RU Black Sea,2,2,4,1,2,4,,triangle,,regular,yellow,SCU,RUBLSeaDiv.png,RUBLSeaDivR.png,0,0
-102,ap,ru,RU Caucasian Cav,2,2,5,1,2,5,,,,regular,cavalry,LCU,RUCaucCC.png,RUCaucCCR.png,0,0
-103,ap,ru,RU Cavalry #1,2,2,6,1,1,6,,,,regular,cavalry,SCU,RUCDiv.png,RUCDivR.png,0,0
-104,ap,ru,RU Cavalry #2,2,2,6,1,1,6,,,,regular,cavalry,SCU,RUCDiv.png,RUCDivR.png,0,0
-105,ap,ru,RU Cavalry #3,2,2,6,1,1,6,,,,regular,cavalry,SCU,RUCDiv.png,RUCDivR.png,0,0
-106,ap,ru,RU Cavalry #4,2,2,6,1,1,6,,,,regular,cavalry,SCU,RUCDiv.png,RUCDivR.png,0,0
-107,ap,ru,RU Cavalry #5,2,2,6,1,1,6,,,,regular,cavalry,SCU,RUCDiv.png,RUCDivR.png,0,0
-108,ap,ru,RU Cavalry #6,2,2,6,1,1,6,,,,regular,cavalry,SCU,RUCDiv.png,RUCDivR.png,0,0
-108,ap,ru,RU Cavalry #7,2,2,6,1,1,6,,,,regular,cavalry,SCU,RUCDiv.png,RUCDivR.png,0,0
-108,ap,ru,RU Cavalry #8,2,2,6,1,1,6,,,,regular,cavalry,SCU,RUCDiv.png,RUCDivR.png,0,0
-109,ap,ru,RU Danube Army,3,2,4,2,2,4,,,B,regular,yellow,LCU,RUDanubeA.png,RUDanubeAR.png,TRUE,0
-110,ap,ru,RU DIV #1,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png,0,0
-111,ap,ru,RU DIV #10,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png,0,0
-112,ap,ru,RU DIV #11,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png,0,0
-113,ap,ru,RU DIV #12,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png,0,0
-114,ap,ru,RU DIV #13,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png,0,0
-115,ap,ru,RU DIV #14,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png,0,0
-116,ap,ru,RU DIV #15,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png,0,0
-117,ap,ru,RU DIV #16,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png,0,0
-118,ap,ru,RU DIV #17,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png,0,0
-119,ap,ru,RU DIV #18,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png,0,0
-120,ap,ru,RU DIV #19,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png,0,0
-121,ap,ru,RU DIV #2,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png,0,0
-122,ap,ru,RU DIV #20,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png,0,0
-123,ap,ru,RU DIV #3,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png,0,0
-124,ap,ru,RU DIV #4,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png,0,0
-125,ap,ru,RU DIV #5,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png,0,0
-126,ap,ru,RU DIV #6,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png,0,0
-127,ap,ru,RU DIV #7,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png,0,0
-128,ap,ru,RU DIV #8,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png,0,0
-129,ap,ru,RU DIV #9,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png,0,0
-130,ap,ru,RU Dobruja,2,2,4,1,2,4,,,B,regular,yellow,LCU,RUDobr.png,RUDobrR.png,TRUE,0
-131,ap,ru,RU Elite DIV #1,2,2,4,1,2,4,,,,regular,blue,SCU,RUEDiv.png,RUEDivR.png,0,0
-132,ap,ru,RU Elite DIV #2,2,2,4,1,2,4,,,,regular,blue,SCU,RUEDiv.png,RUEDivR.png,0,0
-133,ap,ru,RU Elite DIV #3,2,2,4,1,2,4,,,,regular,blue,SCU,RUEDiv.png,RUEDivR.png,0,0
-134,ap,ru,RU Elite DIV #4,2,2,4,1,2,4,,,,regular,blue,SCU,RUEDiv.png,RUEDivR.png,0,0
-135,ap,ru,RU Elite DIV #5,2,2,4,1,2,4,,,,regular,blue,SCU,RUEDiv.png,RUEDivR.png,0,0
-136,ap,ru,RU Elite DIV #6,2,2,4,1,2,4,,,,regular,blue,SCU,RUEDiv.png,RUEDivR.png,0,0
-137,ap,ru,RU I Caucasian,3,3,4,2,3,4,,,,regular,infantry,LCU,RUICaucC.png,RUICaucCR.png,0,0
-138,ap,ru,RU II Turkistani,3,3,4,2,3,4,,,,regular,infantry,LCU,RUIITurkC.png,RUIITurkCR.png,0,0
-139,ap,ru,RU IV Caucasian,3,3,4,2,3,4,,,,regular,infantry,LCU,RUIVCaucC.png,RUIVCaucCR.png,0,0
-140,ap,ru,RU Persian coss,2,2,6,1,1,6,,triangle,,regular,cavalry,SCU,RUPECos.png,RUPECosR.png,0,0
-141,ap,ru,RU V Caucasian,3,3,4,2,3,4,,,,regular,infantry,LCU,RUVCaucC.png,RUVCaucCR.png,0,0
-142,ap,ru,RU VII Caucasian,2,2,4,1,2,4,,,,regular,yellow,LCU,RUVIICaucC.png,RUVIICaucCR.png,0,0
-143,ap,ru,RU Yudenitch HQ,0,1,4,0,0,4,,,,hq,,SCU,RUYudHQ.png,RUYudHQR.png,0,0
-144,ap,ru,RU/PE Police North,1,1,3,0,1,3,,triangle,,regular,cavalry,SCU,RUPEPN.png,RUPEPNR.png,0,0
-145,ap,ru,RU/SB Yugo Infantry,2,2,4,1,2,4,,,,regular,yellow,SCU,RUSBDiv.png,RUSBDivR.png,0,0
-146,ap,sb,SB 1 Army,2,2,3,1,2,3,,,B,regular,,LCU,SB1A.png,SB1AR.png,0,0
-147,ap,sb,SB 2 Army,2,2,3,1,2,3,,,B,regular,,LCU,SB2A.png,SB2AR.png,0,0
-148,ap,sb,SB 3 Army,2,2,3,1,2,3,,,B,regular,,LCU,SB3A.png,SB3AR.png,0,0
-149,ap,sb,SB Cavalry,1,1,6,0,1,6,,,B,regular,cavalry,SCU,SBCDiv.png,SBCDivR.png,0,0
-150,ap,sb,SB DIV #1,1,1,4,0,1,4,,,B,regular,infantry,SCU,SBDiv.png,SBDivR.png,0,0
-151,ap,sb,SB DIV #2,1,1,4,0,1,4,,,B,regular,infantry,SCU,SBDiv.png,SBDivR.png,0,0
-152,ap,sb,SB DIV #3,1,1,4,0,1,4,,,B,regular,infantry,SCU,SBDiv.png,SBDivR.png,0,0
-153,ap,sb,SB DIV #4,1,1,4,0,1,4,,,B,regular,infantry,SCU,SBDiv.png,SBDivR.png,0,0
-154,ap,sb,SB DIV #5,1,1,4,0,1,4,,,B,regular,infantry,SCU,SBDiv.png,SBDivR.png,0,0
-155,ap,sb,SB DIV #6,1,1,4,0,1,4,,,B,regular,infantry,SCU,SBDiv.png,SBDivR.png,0,0
-156,ap,sb,SB DIV #7,1,1,4,0,1,4,,,B,regular,infantry,SCU,SBDiv.png,SBDivR.png,0,0
-157,ap,sb,SB Garrison,1,1,4,0,1,4,,,B,regular,infantry,SCU,SBDiv.png,SBDivR.png,0,0
-158,cp,ah,AH DIV #1,1,1,3,0,1,3,,,B,regular,infantry,SCU,AHDiv.png,AHDivR.png,1,1
-159,cp,ah,AH DIV #2,1,1,3,0,1,3,,,B,regular,infantry,SCU,AHDiv.png,AHDivR.png,1,1
-160,cp,ah,AH DIV #3,1,1,3,0,1,3,,,B,regular,infantry,SCU,AHDiv.png,AHDivR.png,1,1
-161,cp,ah,AH DIV #4,1,1,3,0,1,3,,,B,regular,infantry,SCU,AHDiv.png,AHDivR.png,1,1
-162,cp,ah,AH DIV #5,1,1,3,0,1,3,,,B,regular,infantry,SCU,AHDiv.png,AHDivR.png,1,1
-163,cp,ah,AH DIV #6,1,1,3,0,1,3,,,B,regular,infantry,SCU,AHDiv.png,AHDivR.png,1,1
-164,cp,ah,AH VI R Corps,3,2,3,2,2,3,,,B,regular,infantry,LCU,AHVIRC.png,AHVIRCR.png,0,0
-165,cp,ah,AH VIII Corps,3,2,3,2,2,3,,,B,regular,infantry,LCU,AHVIIIC.png,AHVIIICR.png,0,0
-166,cp,ah,AH XXII R Corps,3,2,3,2,2,3,,,B,regular,infantry,LCU,AHXXIIRC.png,AHXXIIRCR.png,0,0
-167,cp,arm,Arm Transcas #1,2,1,4,1,1,4,,,,regular,infantry,SCU,ARMTRANSC.png,ARMTRANSCR.png,0,0
-168,cp,arm,Arm Transcas #2,2,1,4,1,1,4,,,,regular,infantry,SCU,ARMTRANSC.png,ARMTRANSCR.png,0,0
-169,cp,arm,Arm Transcas #3,2,1,4,1,1,4,,,,regular,infantry,SCU,ARMTRANSC.png,ARMTRANSCR.png,0,0
-170,cp,bu,BU 1 Army,3,2,3,2,2,3,,,B,regular,infantry,LCU,BU1A.png,BU1AR.png,1,1
-171,cp,bu,BU 2 Army,3,2,3,2,2,3,,,B,regular,infantry,LCU,BU2A.png,BU2AR.png,1,1
-172,cp,bu,BU 3 Army,3,2,3,2,2,3,,,B,regular,infantry,LCU,BU3A.png,BU3AR.png,1,1
-173,cp,bu,BU 4 Army,3,2,3,2,2,3,,,B,regular,infantry,LCU,BU4A.png,BU4AR.png,1,1
-174,cp,bu,BU DIV #1,2,1,3,1,1,3,,,B,regular,infantry,SCU,BUDiv.png,BUDivR.png,1,1
-175,cp,bu,BU DIV #2,2,1,3,1,1,3,,,B,regular,infantry,SCU,BUDiv.png,BUDivR.png,1,1
-176,cp,bu,BU DIV #3,2,1,3,1,1,3,,,B,regular,infantry,SCU,BUDiv.png,BUDivR.png,1,1
-177,cp,bu,BU DIV #4,2,1,3,1,1,3,,,B,regular,infantry,SCU,BUDiv.png,BUDivR.png,1,1
-178,cp,bu,BU DIV #5,2,1,3,1,1,3,,,B,regular,infantry,SCU,BUDiv.png,BUDivR.png,1,1
-179,cp,bu,BU DIV #6,2,1,3,1,1,3,,,B,regular,infantry,SCU,BUDiv.png,BUDivR.png,1,1
-180,cp,bu,BU DIV #7,2,1,3,1,1,3,,,B,regular,infantry,SCU,BUDiv.png,BUDivR.png,1,1
-181,cp,bu,Combined BU/AH Div,2,1,3,1,1,3,,,B,regular,yellow,SCU,CBUAHDiv.png,CBUAHDivR.png,1,1
-182,cp,ge,GE Alpenkorps,3,2,4,2,2,4,,,B,regular,yellow,SCU,GEAlpKdiv.png,GEAlpKdivR.png,1,1
-183,cp,ge,GE DIV #1,3,2,4,2,2,4,,,B,regular,blue,SCU,GEDiv.png,GEDivR.png,1,1
-184,cp,ge,GE DIV #2,3,2,4,2,2,4,,,B,regular,blue,SCU,GEDiv.png,GEDivR.png,1,1
-185,cp,ge,GE DIV #3,3,2,4,2,2,4,,,B,regular,blue,SCU,GEDiv.png,GEDivR.png,1,1
-186,cp,ge,GE DIV #4,3,2,4,2,2,4,,,B,regular,yellow,SCU,GEDiv.png,GEDivR.png,1,1
-187,cp,ge,GE Falkenhayn HQ,0,1,4,0,0,4,,,,hq,,SCU,GEFalkHQ.png,GEFalkHQR.png,0,0
-188,cp,ge,GE GeoProtect,1,1,0,0,1,0,,dot,,regular,yellow,SCU,GEGEOP.png,GEGEOPR.png,0,0
-189,cp,ge,GE Hvy Arty,0,2,3,0,2,3,,H,,,,SCU,GEHvArty.png,GEHvArtyR.png,1,1
-190,cp,ge,GE IV R Corps,3,3,4,2,3,4,,,B,regular,infantry,LCU,GEIVRC.png,GEIVRCR.png,1,1
-191,cp,ge,GE IX Army,5,3,4,4,3,4,,,B,regular,blue,LCU,GEIXA.png,GEIXAR.png,0,0
-192,cp,ge,GE Mackenson HQ,0,1,4,0,0,4,,,,hq,,SCU,GEMackHQ.png,GEMackHQR.png,1,1
-193,cp,ge,GE Schmettow,3,3,6,2,3,6,,,B,regular,cavalry,LCU,GESchmet.png,GESchmetR.png,1,1
-194,cp,ge,GE Yildrim #1,1,1,4,0,1,4,,Y,,regular,yellow,SCU,GEYildDiv.png,GEYildDivR.png,0,0
-195,cp,ge,GE Yildrim #2,1,1,4,0,1,4,,Y,,regular,yellow,SCU,GEYildDiv.png,GEYildDivR.png,0,0
-196,cp,ge,GE Yildrim #3,1,1,4,0,1,4,,Y,,regular,yellow,SCU,GEYildDiv.png,GEYildDivR.png,0,0
-197,cp,ge,German 11th Army,4,3,4,3,3,4,,,B,regular,yellow,LCU,GEBUXIA.png,GEBUXIAR.png,1,1
-198,cp,geo,Geo Transcaucasian #1,1,1,4,0,1,4,,,,regular,infantry,SCU,GEOTRANC.png,GEOTRANCR.png,0,0
-199,cp,geo,Geo Transcaucasian #2,1,1,4,0,1,4,,,,regular,infantry,SCU,GEOTRANC.png,GEOTRANCR.png,0,0
-200,cp,pe,PE Uprising,1,1,6,1,1,6,,dot,,irregular,,SCU,PERUp.png,PERUPR116R.png,0,0
-201,cp,Re,Afghan Uprising #1,3,2,0,2,1,0,,,,irregular,,SCU,AfghanUP.png,AfghanUPR.png,0,0
-202,cp,Re,Afghan Uprising #2,3,2,0,2,1,0,,,,irregular,,SCU,AfghanUP.png,AfghanUPR.png,0,0
-203,cp,Re,Afghan Uprising #3,3,2,0,2,1,0,,,,irregular,,SCU,AfghanUP.png,AfghanUPR.png,0,0
-204,cp,Re,CAsia Uprising,2,2,0,1,2,0,,,,irregular,,SCU,CAsiaUP.png,CAsiaUPR.png,0,0
-205,cp,Re,Egypt Rebel #1,1,1,3,0,1,3,,,,irregular,,SCU,EgyptReb.png,EgyptRebR.png,0,0
-206,cp,Re,Egypt Rebel #2,1,1,3,0,1,3,,,,irregular,,SCU,EgyptReb.png,EgyptRebR.png,0,0
-207,cp,Re,Egypt Rebel #3,1,1,3,0,1,3,,,,irregular,,SCU,EgyptReb.png,EgyptRebR.png,0,0
-208,cp,Re,Indian Mutiny #1,3,2,0,2,1,0,,,,irregular,,SCU,INMutiny.png,INMutinyR.png,0,0
-209,cp,Re,Indian Mutiny #2,3,2,0,2,1,0,,,,irregular,,SCU,INMutiny.png,INMutinyR.png,0,0
-210,cp,Re,Indian Mutiny #3,3,2,0,2,1,0,,,,irregular,,SCU,INMutiny.png,INMutinyR.png,0,0
-211,cp,tr,Bakhtiari,1,1,0,0,1,0,,,,tribe,,SCU,TBakh.png,TBakhR.png,0,0
-212,cp,tr,Bawi,1,1,0,0,1,0,,,,tribe,,SCU,TBawi.png,TBawiR.png,0,0
-213,cp,tr,Jangali,2,2,1,1,2,1,,,,tribe,,SCU,TJang.png,TJangR.png,0,0
-214,cp,tr,Kurds #1,1,1,4,0,1,4,,,,tribe,,SCU,TKurds.png,TKurdsR.png,0,0
-215,cp,tr,Kurds #2,1,1,4,0,1,4,,,,tribe,,SCU,TKurds.png,TKurdsR.png,0,0
-216,cp,tr,Laz,2,2,1,1,2,1,,,,tribe,,SCU,TLaz.png,TLazR.png,0,0
-217,cp,tr,Marsh #1,1,1,1,0,1,1,,,,tribe,,SCU,TMarsh.png,TMarshR.png,0,0
-218,cp,tr,Marsh #2,1,1,1,0,1,1,,,,tribe,,SCU,TMarsh.png,TMarshR.png,0,0
-219,cp,tr,NW Frontier,3,2,0,2,2,0,,,,tribe,,SCU,TNWFront.png,TNWFrontR.png,0,0
-220,cp,tr,Qashqai,1,1,0,0,1,0,,,,tribe,,SCU,TQashq.png,TQashqR.png,0,0
-221,cp,tr,Senussi #1,2,1,3,1,1,3,,,,tribe,,SCU,TSenu213.png,TSenu213R.png,0,0
-222,cp,tr,Senussi #2,1,1,3,0,1,3,,,,tribe,,SCU,TSenu113.png,TSenu113R.png,0,0
-223,cp,tr,Sinjabi,1,2,0,0,2,0,,,,tribe,,SCU,TSinj.png,TSinjR.png,0,0
-224,cp,tr,Tangistani,1,1,0,0,1,0,,,,tribe,,SCU,TTang.png,TTangR.png,0,0
-225,cp,tu,TU 1 Caucasian,3,3,3,2,3,3,,,,regular,yellow,LCU,TU1CaucC.png,TU1CaucCR.png,0,0
-226,cp,tu,TU 2 Caucasian,3,3,3,2,3,3,,,,regular,yellow,LCU,TU2CaucC.png,TU2CaucCR.png,0,0
-227,cp,tu,TU Army Islam HQ,0,1,4,0,0,4,,,,hq,,SCU,TUAoI.png,TUAoIR.png,0,0
-228,cp,tu,TU Cavalry #1,1,1,5,0,1,5,,triangle,,regular,cavalry,SCU,TUCDiv.png,TUCDivR.png,0,0
-229,cp,tu,TU Cavalry #2,1,1,5,0,1,5,,triangle,,regular,cavalry,SCU,TUCDiv.png,TUCDivR.png,0,0
-230,cp,tu,TU Cavalry #3,1,1,5,0,1,5,,triangle,,regular,cavalry,SCU,TUCDiv.png,TUCDivR.png,0,0
-231,cp,tu,TU Cavalry #4,1,1,5,0,1,5,,triangle,,regular,cavalry,SCU,TUCDiv.png,TUCDivR.png,0,0
-232,cp,tu,TU Cavalry #5,1,1,5,0,1,5,,triangle,,regular,cavalry,SCU,TUCDiv.png,TUCDivR.png,0,0
-233,cp,tu,TU Cavalry #6,1,1,5,0,1,5,,triangle,,regular,cavalry,SCU,TUCDiv.png,TUCDivR.png,0,0
-234,cp,tu,TU DIV #1,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png,0,0
-235,cp,tu,TU DIV #10,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png,0,0
-236,cp,tu,TU DIV #11,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png,0,0
-237,cp,tu,TU DIV #12,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png,0,0
-238,cp,tu,TU DIV #13,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png,0,0
-239,cp,tu,TU DIV #14,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png,0,0
-240,cp,tu,TU DIV #15,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png,0,0
-241,cp,tu,TU DIV #16,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png,0,0
-242,cp,tu,TU DIV #17,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png,0,0
-243,cp,tu,TU DIV #18,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png,0,0
-244,cp,tu,TU DIV #2,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png,0,0
-245,cp,tu,TU DIV #3,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png,0,0
-246,cp,tu,TU DIV #4,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png,0,0
-247,cp,tu,TU DIV #5,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png,0,0
-248,cp,tu,TU DIV #6,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png,0,0
-249,cp,tu,TU DIV #7,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png,0,0
-250,cp,tu,TU DIV #8,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png,0,0
-251,cp,tu,TU DIV #9,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png,0,0
-252,cp,tu,TU Elite DIV #1,2,2,4,1,2,4,,triangle,,regular,BLUE,SCU,TUEDiv.png,TUEDivR.png,0,0
-253,cp,tu,TU Elite DIV #10,2,2,4,1,2,4,,triangle,,regular,BLUE,SCU,TUEDiv.png,TUEDivR.png,0,0
-254,cp,tu,TU Elite DIV #2,2,2,4,1,2,4,,triangle,,regular,BLUE,SCU,TUEDiv.png,TUEDivR.png,0,0
-255,cp,tu,TU Elite DIV #3,2,2,4,1,2,4,,triangle,,regular,BLUE,SCU,TUEDiv.png,TUEDivR.png,0,0
-256,cp,tu,TU Elite DIV #4,2,2,4,1,2,4,,triangle,,regular,BLUE,SCU,TUEDiv.png,TUEDivR.png,0,0
-257,cp,tu,TU Elite DIV #5,2,2,4,1,2,4,,triangle,,regular,BLUE,SCU,TUEDiv.png,TUEDivR.png,0,0
-258,cp,tu,TU Elite DIV #6,2,2,4,1,2,4,,triangle,,regular,BLUE,SCU,TUEDiv.png,TUEDivR.png,0,0
-259,cp,tu,TU Elite DIV #7,2,2,4,1,2,4,,triangle,,regular,BLUE,SCU,TUEDiv.png,TUEDivR.png,0,0
-260,cp,tu,TU Elite DIV #8,2,2,4,1,2,4,,triangle,,regular,BLUE,SCU,TUEDiv.png,TUEDivR.png,0,0
-261,cp,tu,TU Elite DIV #9,2,2,4,1,2,4,,triangle,,regular,BLUE,SCU,TUEDiv.png,TUEDivR.png,0,0
-262,cp,tu,TU Enver HQ,0,1,4,0,0,4,,,,hq,,SCU,TUAoI.png,TUAoIR.png,0,0
-263,cp,tu,TU I Corps,3,2,3,2,2,3,,,,regular,infantry,LCU,TUIC.png,TUICR.png,0,0
-264,cp,tu,TU II Corps,3,2,3,2,2,3,,,,regular,infantry,LCU,TUIIC.png,TUIICR.png,0,0
-265,cp,tu,TU III Corps,4,3,4,3,3,4,,triangle,,regular,blue,LCU,TUIIIC.png,TUIIICR.png,0,0
-266,cp,tu,TU IV Corps,3,2,3,2,2,3,,,,regular,infantry,LCU,TUIVC.png,TUIVCR.png,0,0
-267,cp,tu,TU IX Corps,3,2,3,2,2,3,,,,regular,infantry,LCU,TUIXC.png,TUIXCR.png,0,0
-268,cp,tu,TU Stanke Bey,2,?,4,1,1,4,,,,regular,yellow,SCU,TUStBey.png,TUStBeyR.png,0,0
-269,cp,tu,TU V Corps,3,2,3,2,2,3,,,,regular,infantry,LCU,TUVC.png,TUVCR.png,0,0
-270,cp,tu,TU X Corps,3,2,3,2,2,3,,,,regular,infantry,LCU,TUXC.png,TUXCR.png,0,0
-271,cp,tu,TU XI Corps,3,2,3,2,2,3,,,,regular,infantry,LCU,TUXIC.png,TUXICR.png,0,0
-272,cp,tu,TU XIII Corps,4,3,4,3,3,4,,triangle,,regular,blue,LCU,TUIIIC.png,TUIIICR.png,0,0
-273,cp,tu,TU XIV Corps,3,3,3,2,3,3,,,,regular,yellow,LCU,TUXIVC.png,TUXIVCR.png,0,0
-274,cp,tu,TU XV Corps,3,3,3,2,3,3,,,,regular,yellow,LCU,TUXVC.png,TUXVCR.png,0,0
-275,cp,tu,TU XVI Corps,3,3,3,2,3,3,,,,regular,,LCU,TUXVIC.png,TUXVICR.png,0,0
-276,cp,tu,TU XVII Corps,3,2,3,2,2,3,,,,regular,infantry,LCU,TUXVIIC.png,TUXVIICR.png,0,0
-277,cp,tu,TU XX Corps,3,2,3,2,2,3,,,,regular,infantry,LCU,TUXXC.png,TUXXCR.png,0,0
-278,cp,tu,TU XXII Corps,3,3,3,2,3,3,,,,regular,yellow,LCU,TUXXIIC.png,TUXXIICR.png,0,0
-279,cp,tua,TU-A Camel Corps,1,1,5,0,1,5,,triangle,,regular,cavalry,SCU,TUACCDiv.png,TUACCDivR.png,0,0
-280,cp,tua,TU-A Cavalry,1,1,5,0,1,5,,triangle,,regular,cavalry,SCU,TUACDiv.png,TUACDivR.png,0,0
-281,cp,tua,TU-A DIV #1,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png,0,0
-282,cp,tua,TU-A DIV #10,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png,0,0
-283,cp,tua,TU-A DIV #11,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png,0,0
-284,cp,tua,TU-A DIV #12,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png,0,0
-285,cp,tua,TU-A DIV #13,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png,0,0
-286,cp,tua,TU-A DIV #14,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png,0,0
-287,cp,tua,TU-A DIV #15,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png,0,0
-288,cp,tua,TU-A DIV #16,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png,0,0
-289,cp,tua,TU-A DIV #17,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png,0,0
-290,cp,tua,TU-A DIV #2,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png,0,0
-291,cp,tua,TU-A DIV #3,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png,0,0
-292,cp,tua,TU-A DIV #4,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png,0,0
-293,cp,tua,TU-A DIV #5,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png,0,0
-294,cp,tua,TU-A DIV #6,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png,0,0
-295,cp,tua,TU-A DIV #7,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png,0,0
-296,cp,tua,TU-A DIV #8,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png,0,0
-297,cp,tua,TU-A DIV #9,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png,0,0
-298,cp,tua,TU-A Elite DIV #1,2,1,4,1,1,4,,triangle,,regular,blue,SCU,TUAEDiv.png,TUAEDivR.png,0,0
-299,cp,tua,TU-A Elite DIV #2,2,1,4,1,1,4,,triangle,,regular,blue,SCU,TUAEDiv.png,TUAEDivR.png,0,0
-300,cp,tua,TU-A Left Wing Gp,2,2,3,1,2,3,,,,regular,infantry,LCU,TUALWG.png,TUALWGR.png,0,0
-301,cp,tua,TU-A VI Corps,2,2,3,1,2,3,,,,regular,infantry,LCU,TUAVIC.png,TUAVICR.png,0,0
-302,cp,tua,TU-A VIII Corps,2,2,3,1,2,3,,,,regular,infantry,LCU,TUAVIIIC.png,TUAVIIICR.png,0,0
-303,cp,tua,TU-A XII Corps,2,2,3,1,2,3,,,,regular,infantry,LCU,TUAXIIC.png,TUAXIICR.png,0,0
-304,cp,tua,TU-A XIII Corps,2,2,3,1,2,3,,,,regular,infantry,LCU,TUAXIIIC.png,TUAXIIICR.png,0,0
-305,cp,tua,TU-A XVIII Corps,2,2,3,1,2,3,,,,regular,infantry,LCU,TUAXVIIIC.png,TUAXVIIICR.png,0,0
+id,faction,nation,name,cf,lf,mf,rcf,rlf,rmf,rptype,symbol,region_limit,type,badge,piece_class,image_full,image_reduced
+1,ap,anz,ANZ ANZAC,4,3,4,3,3,4,,,,regular,blue,LCU,ANZAC.png,ANZACR.png
+2,ap,anz,ANZ Cavalry #1,2,2,6,1,2,6,,,,regular,cavalry,SCU,ANZCDiv.png,ANZCDivR.png
+3,ap,anz,ANZ Cavalry #2,2,2,6,1,2,6,,,,regular,cavalry,SCU,ANZCDiv.png,ANZCDivR.png
+4,ap,anz,ANZ Cavalry #3,2,2,6,1,2,6,,,,regular,cavalry,SCU,ANZCDiv.png,ANZCDivR.png
+5,ap,anz,ANZ Desert Corps,3,3,5,2,3,5,,,,regular,cavalry,LCU,ANZDC.PNG,ANZDCR.PNG
+6,ap,anz,ANZ Elite DIV,3,2,4,2,2,4,,,,regular,blue,SCU,ANZDiv.png,ANZDivR.png
+7,ap,anz,ANZ Imp Camel,1,1,6,0,1,6,,,,regular,camel,SCU,ANZICDiv.png,ANZICDivR.png
+8,ap,ar,Arab faisal Revolt,1,?,2,1,1,2,,,,irregular,,SCU,ARFAISAL.png,ARFAISALR.PNG
+9,ap,ar,Arab Revolt #1,1,1,1,1,1,1,,,,irregular,,SCU,ARRVT.png,ARRVTR.png
+10,ap,ar,Arab Revolt #2,1,1,1,1,1,1,,,,irregular,,SCU,ARRVT.png,ARRVTR.png
+11,ap,arm,Armenian Uprising,2,2,4,1,2,4,,dot,,irregular,,SCU,ARMUp.png,ARMUpR.png
+12,ap,br,BR Allenby HQ,0,2,4,0,1,4,,,,hq,,SCU,BRALNYHQ.png,BRALNYHQR.png
+13,ap,br,BR ANA Arab,2,2,2,1,2,2,,,,regular,yellow,SCU,BRANA.png,BRANAR.png
+14,ap,br,BR Cavalry #1,2,1,6,1,1,6,,,,regular,cavalry,SCU,BRCDiv.png,BRCDivR.png
+15,ap,br,BR Cavalry #2,2,1,6,1,1,6,,,,regular,cavalry,SCU,BRCDiv.png,BRCDivR.png
+16,ap,br,BR Cavalry #3,2,1,6,1,1,6,,,,regular,cavalry,SCU,BRCDiv.png,BRCDivR.png
+17,ap,br,BR Cavalry #4,2,1,6,1,1,6,,,,regular,cavalry,SCU,BRCDiv.png,BRCDivR.png
+18,ap,br,BR DIV #1,2,2,4,1,2,4,,,,regular,infantry,SCU,BRDiv.png,BRDivR.png
+19,ap,br,BR DIV #2,2,2,4,1,2,4,,,,regular,infantry,SCU,BRDiv.png,BRDivR.png
+20,ap,br,BR DIV #3,2,2,4,1,2,4,,,,regular,infantry,SCU,BRDiv.png,BRDivR.png
+21,ap,br,BR DIV #4,2,2,4,1,2,4,,,,regular,infantry,SCU,BRDiv.png,BRDivR.png
+22,ap,br,BR DIV #5,2,2,4,1,2,4,,,,regular,infantry,SCU,BRDiv.png,BRDivR.png
+23,ap,br,BR DIV #6,2,2,4,1,2,4,,,,regular,infantry,SCU,BRDiv.png,BRDivR.png
+24,ap,br,BR DIV #7,2,2,4,1,2,4,,,,regular,infantry,SCU,BRDiv.png,BRDivR.png
+25,ap,br,BR Dunsterforce,1,?,8,0,1,8,,,,regular,armored,SCU,BRDUNF.png,BRDUNFR.png
+26,ap,br,BR Elite DIV #1,3,2,4,2,2,4,,,,irregular,blue,SCU,BREDiv.png,BREDivR.png
+27,ap,br,BR Elite DIV #2,3,2,4,2,2,4,,,,irregular,blue,SCU,BREDiv.png,BREDivR.png
+28,ap,br,BR Elite DIV #3,3,2,4,2,2,4,,,,irregular,blue,SCU,BREDiv.png,BREDivR.png
+29,ap,br,BR Elite DIV #4,3,2,4,2,2,4,,,,irregular,blue,SCU,BREDiv.png,BREDivR.png
+30,ap,br,BR Elite DIV #5,3,2,4,2,2,4,,,,irregular,blue,SCU,BREDiv.png,BREDivR.png
+31,ap,br,BR Elite DIV #6,3,2,4,2,2,4,,,,irregular,blue,SCU,BREDiv.png,BREDivR.png
+32,ap,br,BR IN Garrison #1,2,2,0,0,2,0,,,I,regular,yellow,SCU,BRINGarr.png,BRINGarrR.png
+33,ap,br,BR IN Garrison #2,2,2,0,0,2,0,,,I,regular,yellow,SCU,BRINGarr.png,BRINGarrR.png
+34,ap,br,BR IN Garrison #3,2,2,0,0,2,0,,,I,regular,yellow,SCU,BRINGarr.png,BRINGarrR.png
+35,ap,br,BR IX Corps,4,3,4,3,3,4,,,,regular,yellow,LCU,BRIXC.png,BRIXCR.png
+36,ap,br,BR Maude HQ,0,1,4,0,0,4,,,,hq,,SCU,BRMAUDEHQ.png,BRMAUDEHQR.png
+37,ap,br,BR Persian Cordon #1,1,1,1,0,1,1,,,P,regular,yellow,SCU,BRPERC.png,BRPERCR.png
+38,ap,br,BR Persian Cordon #2,1,1,1,0,1,1,,,P,regular,yellow,SCU,BRPERC.png,BRPERCR.png
+39,ap,br,BR Persian Cordon #3,1,1,1,0,1,1,,,P,regular,yellow,SCU,BRPERC.png,BRPERCR.png
+40,ap,br,BR Persian Cordon #4,1,1,1,0,1,1,,,P,regular,yellow,SCU,BRPERC.png,BRPERCR.png
+41,ap,br,BR Royal Navy,1,1,8,0,1,8,,,,regular,armored,SCU,BRRNR.png,BRRNRR.png
+42,ap,br,BR VIII Corps,4,3,4,3,3,4,,,,regular,yellow,LCU,BRVIIIC.png,BRVIIICR.png
+43,ap,br,BR XII Corps,3,3,4,2,3,4,,,,regular,infantry,LCU,BRXIIC.png,BRXIICR.png
+44,ap,br,BR XVI Corps,3,3,4,2,3,4,,,,regular,infantry,LCU,BRXVIC.png,BRXVICR.png
+45,ap,br,BR XX Corps,4,3,4,3,3,4,,,,regular,yellow,LCU,BRXXC.png,BRXXCR.png
+46,ap,br,BR XXI Corps,4,3,4,3,3,4,,,,regular,yellow,LCU,BRXXIC.png,BRXXICR.png
+47,ap,br,BR/GR Corps Ntl Def,1,1,3,0,1,3,,,,regular,yellow,SCU,BRGRCND.png,BRGRCNDR.png
+48,ap,br,BR/PE SPers Rifles,1,1,3,0,1,3,,,,regular,yellow,SCU,SPERSR.png,SPERSRR.png
+49,ap,fr,FR Army Orient 1,3,3,3,2,3,3,,,,regular,infantry,LCU,FRAO1.png,FRAO1R.png
+50,ap,fr,FR Army Orient 2,3,3,3,2,3,3,,,,regular,infantry,LCU,FRAO2.png,FRAO2R.png
+51,ap,fr,FR D'Esperey HQ,0,1,4,0,0,4,,,,hq,,SCU,FRDESHQ.png,FRDESHQR.png
+52,ap,fr,FR DIV #1,2,2,4,1,2,4,,,,regular,infantry,SCU,FRDiv.png,FRDivR.png
+53,ap,fr,FR DIV #2,2,2,4,1,2,4,,,,regular,infantry,SCU,FRDiv.png,FRDivR.png
+54,ap,fr,FR DIV #3,2,2,4,1,2,4,,,,regular,infantry,SCU,FRDiv.png,FRDivR.png
+55,ap,fr,FR DIV #4,2,2,4,1,2,4,,,,regular,infantry,SCU,FRDiv.png,FRDivR.png
+56,ap,fr,FR DIV #5,2,2,4,1,2,4,,,,regular,infantry,SCU,FRDiv.png,FRDivR.png
+57,ap,fr,FR DIV #6,2,2,4,1,2,4,,,,regular,infantry,SCU,FRDiv.png,FRDivR.png
+58,ap,fr,FR DIV #7,2,2,4,1,2,4,,,,regular,infantry,SCU,FRDiv.png,FRDivR.png
+59,ap,fr,FR DIV #8,2,2,4,1,2,4,,,,regular,infantry,SCU,FRDiv.png,FRDivR.png
+60,ap,gr,GR DIV #1,1,1,3,0,1,3,,,B,regular,infantry,SCU,GRDiv.png,GRDivR.png
+61,ap,gr,GR DIV #2,1,1,3,0,1,3,,,B,regular,infantry,SCU,GRDiv.png,GRDivR.png
+62,ap,gr,GR DIV #3,1,1,3,0,1,3,,,B,regular,infantry,SCU,GRDiv.png,GRDivR.png
+63,ap,gr,GR National Defense,1,1,3,0,1,3,,,B,regular,yellow,SCU,BRGRCND.png,BRGRCNDR.png
+64,ap,in,IN 15th DIV,2,2,3,1,2,3,,,,regular,yellow,SCU,IN15Div.png,IN15DivR.png
+65,ap,in,IN 17th DIV,2,2,3,1,2,3,,,,regular,yellow,SCU,IN17Div.png,IN17DivR.png
+66,ap,in,IN 18th DIV,2,2,3,1,2,3,,,,regular,yellow,SCU,IN18Div.png,IN18DivR.png
+67,ap,in,IN 2nd Corps,2,2,3,1,2,3,,,,regular,infantry,LCU,IN2C.png,IN2CR.png
+68,ap,in,IN 3rd Corps,3,3,3,2,3,3,,,,regular,blue,LCU,IN3C.png,IN3CR.png
+69,ap,in,IN Bikanir Camel,1,1,8,0,1,8,,,,regular,camel,SCU,INBIKANIR.png,INBIKANIRR.png
+70,ap,in,IN Cavalry #1,1,1,5,0,1,5,,,,regular,cavalry,SCU,INCDiv.png,INCDivR.png
+71,ap,in,IN Cavalry #2,1,1,5,0,1,5,,,,regular,cavalry,SCU,INCDiv.png,INCDivR.png
+72,ap,in,IN Cavalry #3,1,1,5,0,1,5,,,,regular,cavalry,SCU,INCDiv.png,INCDivR.png
+73,ap,in,IN Cavalry #4,1,1,5,0,1,5,,,,regular,cavalry,SCU,INCDiv.png,INCDivR.png
+74,ap,in,IN Cavalry #5,1,1,5,0,1,5,,,,regular,cavalry,SCU,INCDiv.png,INCDivR.png
+75,ap,in,IN Cavalry #6,1,1,5,0,1,5,,,,regular,cavalry,SCU,INCDiv.png,INCDivR.png
+76,ap,in,IN DIV #1,1,1,3,0,1,3,,,,regular,infantry,SCU,INDiv.png,INDivR.png
+77,ap,in,IN DIV #2,1,1,3,0,1,3,,,,regular,infantry,SCU,INDiv.png,INDivR.png
+78,ap,in,IN DIV #3,1,1,3,0,1,3,,,,regular,infantry,SCU,INDiv.png,INDivR.png
+79,ap,in,IN DIV #4,1,1,3,0,1,3,,,,regular,infantry,SCU,INDiv.png,INDivR.png
+80,ap,in,IN DIV #5,1,1,3,0,1,3,,,,regular,infantry,SCU,INDiv.png,INDivR.png
+81,ap,in,IN DIV #6,1,1,3,0,1,3,,,,regular,infantry,SCU,INDiv.png,INDivR.png
+82,ap,in,IN DIV #7,1,1,3,0,1,3,,,,regular,infantry,SCU,INDiv.png,INDivR.png
+83,ap,in,IN Elite DIV #1,2,1,3,1,1,3,,,,regular,blue,SCU,INEDiv.png,INEDivR.png
+84,ap,in,IN Elite DIV #2,2,1,3,1,1,3,,,,regular,blue,SCU,INEDiv.png,INEDivR.png
+85,ap,in,IN Elite DIV #3,2,1,3,1,1,3,,,,regular,blue,SCU,INEDiv.png,INEDivR.png
+86,ap,in,IN Tigris Corps,2,2,3,1,2,3,,,,regular,infantry,LCU,INTigrisC.png,INTigrisCR.png
+87,ap,it,IT DIV,1,1,3,0,1,3,,,,regular,infantry,SCU,ITDiv.png,ITDivR.png
+88,ap,ro,RO 1 Army,2,2,3,1,2,3,,,B,regular,infantry,LCU,RO1A.png,RO1AR.png
+89,ap,ro,RO 2 Army,2,2,3,1,2,3,,,B,regular,infantry,LCU,RO2A.png,RO2AR.png
+90,ap,ro,RO 3 Army,2,2,3,1,2,3,,,B,regular,infantry,SCU,RO3A.png,RO3AR.png
+91,ap,ro,RO Cavalry,1,1,5,0,1,5,,,B,regular,cavalry,SCU,ROCDiv.png,ROCDivR.png
+92,ap,ro,RO DIV #1,1,1,3,0,1,3,,,B,regular,infantry,SCU,RODiv.png,RODivR.png
+93,ap,ro,RO DIV #2,1,1,3,0,1,3,,,B,regular,infantry,SCU,RODiv.png,RODivR.png
+94,ap,ro,RO DIV #3,1,1,3,0,1,3,,,B,regular,infantry,SCU,RODiv.png,RODivR.png
+95,ap,ro,RO DIV #4,1,1,3,0,1,3,,,B,regular,infantry,SCU,RODiv.png,RODivR.png
+96,ap,ro,RO DIV #5,1,1,3,0,1,3,,,B,regular,infantry,SCU,RODiv.png,RODivR.png
+97,ap,ro,RO DIV #6,1,1,3,0,1,3,,,B,regular,infantry,SCU,RODiv.png,RODivR.png
+98,ap,ru,RU 2/4 Special,2,2,4,1,2,4,,,B,regular,yellow,SCU,RU24SpDiv.png,RU24SpDivR.png
+99,ap,ru,RU 6 Army,4,2,4,3,2,4,,,B,regular,yellow,LCU,RU6A.png,RU6AR.png
+100,ap,ru,RU Baratov HQ,0,1,6,0,0,6,,,,hq,,SCU,RUBarHQ.png,RUBarHQR.png
+101,ap,ru,RU Black Sea,2,2,4,1,2,4,,triangle,,regular,yellow,SCU,RUBLSeaDiv.png,RUBLSeaDivR.png
+102,ap,ru,RU Caucasian Cav,2,2,5,1,2,5,,,,regular,cavalry,LCU,RUCaucCC.png,RUCaucCCR.png
+103,ap,ru,RU Cavalry #1,2,2,6,1,1,6,,,,regular,cavalry,SCU,RUCDiv.png,RUCDivR.png
+104,ap,ru,RU Cavalry #2,2,2,6,1,1,6,,,,regular,cavalry,SCU,RUCDiv.png,RUCDivR.png
+105,ap,ru,RU Cavalry #3,2,2,6,1,1,6,,,,regular,cavalry,SCU,RUCDiv.png,RUCDivR.png
+106,ap,ru,RU Cavalry #4,2,2,6,1,1,6,,,,regular,cavalry,SCU,RUCDiv.png,RUCDivR.png
+107,ap,ru,RU Cavalry #5,2,2,6,1,1,6,,,,regular,cavalry,SCU,RUCDiv.png,RUCDivR.png
+108,ap,ru,RU Cavalry #6,2,2,6,1,1,6,,,,regular,cavalry,SCU,RUCDiv.png,RUCDivR.png
+108,ap,ru,RU Cavalry #7,2,2,6,1,1,6,,,,regular,cavalry,SCU,RUCDiv.png,RUCDivR.png
+108,ap,ru,RU Cavalry #8,2,2,6,1,1,6,,,,regular,cavalry,SCU,RUCDiv.png,RUCDivR.png
+109,ap,ru,RU Danube Army,3,2,4,2,2,4,,,B,regular,yellow,LCU,RUDanubeA.png,RUDanubeAR.png
+110,ap,ru,RU DIV #1,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
+111,ap,ru,RU DIV #10,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
+112,ap,ru,RU DIV #11,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
+113,ap,ru,RU DIV #12,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
+114,ap,ru,RU DIV #13,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
+115,ap,ru,RU DIV #14,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
+116,ap,ru,RU DIV #15,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
+117,ap,ru,RU DIV #16,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
+118,ap,ru,RU DIV #17,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
+119,ap,ru,RU DIV #18,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
+120,ap,ru,RU DIV #19,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
+121,ap,ru,RU DIV #2,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
+122,ap,ru,RU DIV #20,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
+123,ap,ru,RU DIV #3,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
+124,ap,ru,RU DIV #4,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
+125,ap,ru,RU DIV #5,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
+126,ap,ru,RU DIV #6,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
+127,ap,ru,RU DIV #7,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
+128,ap,ru,RU DIV #8,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
+129,ap,ru,RU DIV #9,2,1,4,1,1,4,,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
+130,ap,ru,RU Dobruja,2,2,4,1,2,4,,,B,regular,yellow,LCU,RUDobr.png,RUDobrR.png
+131,ap,ru,RU Elite DIV #1,2,2,4,1,2,4,,,,regular,blue,SCU,RUEDiv.png,RUEDivR.png
+132,ap,ru,RU Elite DIV #2,2,2,4,1,2,4,,,,regular,blue,SCU,RUEDiv.png,RUEDivR.png
+133,ap,ru,RU Elite DIV #3,2,2,4,1,2,4,,,,regular,blue,SCU,RUEDiv.png,RUEDivR.png
+134,ap,ru,RU Elite DIV #4,2,2,4,1,2,4,,,,regular,blue,SCU,RUEDiv.png,RUEDivR.png
+135,ap,ru,RU Elite DIV #5,2,2,4,1,2,4,,,,regular,blue,SCU,RUEDiv.png,RUEDivR.png
+136,ap,ru,RU Elite DIV #6,2,2,4,1,2,4,,,,regular,blue,SCU,RUEDiv.png,RUEDivR.png
+137,ap,ru,RU I Caucasian,3,3,4,2,3,4,,,,regular,infantry,LCU,RUICaucC.png,RUICaucCR.png
+138,ap,ru,RU II Turkistani,3,3,4,2,3,4,,,,regular,infantry,LCU,RUIITurkC.png,RUIITurkCR.png
+139,ap,ru,RU IV Caucasian,3,3,4,2,3,4,,,,regular,infantry,LCU,RUIVCaucC.png,RUIVCaucCR.png
+140,ap,ru,RU Persian coss,2,2,6,1,1,6,,triangle,,regular,cavalry,SCU,RUPECos.png,RUPECosR.png
+141,ap,ru,RU V Caucasian,3,3,4,2,3,4,,,,regular,infantry,LCU,RUVCaucC.png,RUVCaucCR.png
+142,ap,ru,RU VII Caucasian,2,2,4,1,2,4,,,,regular,yellow,LCU,RUVIICaucC.png,RUVIICaucCR.png
+143,ap,ru,RU Yudenitch HQ,0,1,4,0,0,4,,,,hq,,SCU,RUYudHQ.png,RUYudHQR.png
+144,ap,ru,RU/PE Police North,1,1,3,0,1,3,,triangle,,regular,cavalry,SCU,RUPEPN.png,RUPEPNR.png
+145,ap,ru,RU/SB Yugo Infantry,2,2,4,1,2,4,,,,regular,yellow,SCU,RUSBDiv.png,RUSBDivR.png
+146,ap,sb,SB 1 Army,2,2,3,1,2,3,,,B,regular,,LCU,SB1A.png,SB1AR.png
+147,ap,sb,SB 2 Army,2,2,3,1,2,3,,,B,regular,,LCU,SB2A.png,SB2AR.png
+148,ap,sb,SB 3 Army,2,2,3,1,2,3,,,B,regular,,LCU,SB3A.png,SB3AR.png
+149,ap,sb,SB Cavalry,1,1,6,0,1,6,,,B,regular,cavalry,SCU,SBCDiv.png,SBCDivR.png
+150,ap,sb,SB DIV #1,1,1,4,0,1,4,,,B,regular,infantry,SCU,SBDiv.png,SBDivR.png
+151,ap,sb,SB DIV #2,1,1,4,0,1,4,,,B,regular,infantry,SCU,SBDiv.png,SBDivR.png
+152,ap,sb,SB DIV #3,1,1,4,0,1,4,,,B,regular,infantry,SCU,SBDiv.png,SBDivR.png
+153,ap,sb,SB DIV #4,1,1,4,0,1,4,,,B,regular,infantry,SCU,SBDiv.png,SBDivR.png
+154,ap,sb,SB DIV #5,1,1,4,0,1,4,,,B,regular,infantry,SCU,SBDiv.png,SBDivR.png
+155,ap,sb,SB DIV #6,1,1,4,0,1,4,,,B,regular,infantry,SCU,SBDiv.png,SBDivR.png
+156,ap,sb,SB DIV #7,1,1,4,0,1,4,,,B,regular,infantry,SCU,SBDiv.png,SBDivR.png
+157,ap,sb,SB Garrison,1,1,4,0,1,4,,,B,regular,infantry,SCU,SBDiv.png,SBDivR.png
+158,cp,ah,AH DIV #1,1,1,3,0,1,3,,,B,regular,infantry,SCU,AHDiv.png,AHDivR.png
+159,cp,ah,AH DIV #2,1,1,3,0,1,3,,,B,regular,infantry,SCU,AHDiv.png,AHDivR.png
+160,cp,ah,AH DIV #3,1,1,3,0,1,3,,,B,regular,infantry,SCU,AHDiv.png,AHDivR.png
+161,cp,ah,AH DIV #4,1,1,3,0,1,3,,,B,regular,infantry,SCU,AHDiv.png,AHDivR.png
+162,cp,ah,AH DIV #5,1,1,3,0,1,3,,,B,regular,infantry,SCU,AHDiv.png,AHDivR.png
+163,cp,ah,AH DIV #6,1,1,3,0,1,3,,,B,regular,infantry,SCU,AHDiv.png,AHDivR.png
+164,cp,ah,AH VI R Corps,3,2,3,2,2,3,,,B,regular,infantry,LCU,AHVIRC.png,AHVIRCR.png
+165,cp,ah,AH VIII Corps,3,2,3,2,2,3,,,B,regular,infantry,LCU,AHVIIIC.png,AHVIIICR.png
+166,cp,ah,AH XXII R Corps,3,2,3,2,2,3,,,B,regular,infantry,LCU,AHXXIIRC.png,AHXXIIRCR.png
+167,cp,arm,Arm Transcas #1,2,1,4,1,1,4,,,,regular,infantry,SCU,ARMTRANSC.png,ARMTRANSCR.png
+168,cp,arm,Arm Transcas #2,2,1,4,1,1,4,,,,regular,infantry,SCU,ARMTRANSC.png,ARMTRANSCR.png
+169,cp,arm,Arm Transcas #3,2,1,4,1,1,4,,,,regular,infantry,SCU,ARMTRANSC.png,ARMTRANSCR.png
+170,cp,bu,BU 1 Army,3,2,3,2,2,3,,,B,regular,infantry,LCU,BU1A.png,BU1AR.png
+171,cp,bu,BU 2 Army,3,2,3,2,2,3,,,B,regular,infantry,LCU,BU2A.png,BU2AR.png
+172,cp,bu,BU 3 Army,3,2,3,2,2,3,,,B,regular,infantry,LCU,BU3A.png,BU3AR.png
+173,cp,bu,BU 4 Army,3,2,3,2,2,3,,,B,regular,infantry,LCU,BU4A.png,BU4AR.png
+174,cp,bu,BU DIV #1,2,1,3,1,1,3,,,B,regular,infantry,SCU,BUDiv.png,BUDivR.png
+175,cp,bu,BU DIV #2,2,1,3,1,1,3,,,B,regular,infantry,SCU,BUDiv.png,BUDivR.png
+176,cp,bu,BU DIV #3,2,1,3,1,1,3,,,B,regular,infantry,SCU,BUDiv.png,BUDivR.png
+177,cp,bu,BU DIV #4,2,1,3,1,1,3,,,B,regular,infantry,SCU,BUDiv.png,BUDivR.png
+178,cp,bu,BU DIV #5,2,1,3,1,1,3,,,B,regular,infantry,SCU,BUDiv.png,BUDivR.png
+179,cp,bu,BU DIV #6,2,1,3,1,1,3,,,B,regular,infantry,SCU,BUDiv.png,BUDivR.png
+180,cp,bu,BU DIV #7,2,1,3,1,1,3,,,B,regular,infantry,SCU,BUDiv.png,BUDivR.png
+181,cp,bu,Combined BU/AH Div,2,1,3,1,1,3,,,B,regular,yellow,SCU,CBUAHDiv.png,CBUAHDivR.png
+182,cp,ge,GE Alpenkorps,3,2,4,2,2,4,,,B,regular,yellow,SCU,GEAlpKdiv.png,GEAlpKdivR.png
+183,cp,ge,GE DIV #1,3,2,4,2,2,4,,,B,regular,blue,SCU,GEDiv.png,GEDivR.png
+184,cp,ge,GE DIV #2,3,2,4,2,2,4,,,B,regular,blue,SCU,GEDiv.png,GEDivR.png
+185,cp,ge,GE DIV #3,3,2,4,2,2,4,,,B,regular,blue,SCU,GEDiv.png,GEDivR.png
+186,cp,ge,GE DIV #4,3,2,4,2,2,4,,,B,regular,yellow,SCU,GEDiv.png,GEDivR.png
+187,cp,ge,GE Falkenhayn HQ,0,1,4,0,0,4,,,,hq,,SCU,GEFalkHQ.png,GEFalkHQR.png
+188,cp,ge,GE GeoProtect,1,1,0,0,1,0,,dot,,regular,yellow,SCU,GEGEOP.png,GEGEOPR.png
+189,cp,ge,GE Hvy Arty,0,2,3,0,2,3,,H,,,,SCU,GEHvArty.png,GEHvArtyR.png
+190,cp,ge,GE IV R Corps,3,3,4,2,3,4,,,B,regular,infantry,LCU,GEIVRC.png,GEIVRCR.png
+191,cp,ge,GE IX Army,5,3,4,4,3,4,,,B,regular,blue,LCU,GEIXA.png,GEIXAR.png
+192,cp,ge,GE Mackenson HQ,0,1,4,0,0,4,,,,hq,,SCU,GEMackHQ.png,GEMackHQR.png
+193,cp,ge,GE Schmettow,3,3,6,2,3,6,,,B,regular,cavalry,LCU,GESchmet.png,GESchmetR.png
+194,cp,ge,GE Yildrim #1,1,1,4,0,1,4,,Y,,regular,yellow,SCU,GEYildDiv.png,GEYildDivR.png
+195,cp,ge,GE Yildrim #2,1,1,4,0,1,4,,Y,,regular,yellow,SCU,GEYildDiv.png,GEYildDivR.png
+196,cp,ge,GE Yildrim #3,1,1,4,0,1,4,,Y,,regular,yellow,SCU,GEYildDiv.png,GEYildDivR.png
+197,cp,ge,German 11th Army,4,3,4,3,3,4,,,B,regular,yellow,LCU,GEBUXIA.png,GEBUXIAR.png
+198,cp,geo,Geo Transcaucasian #1,1,1,4,0,1,4,,,,regular,infantry,SCU,GEOTRANC.png,GEOTRANCR.png
+199,cp,geo,Geo Transcaucasian #2,1,1,4,0,1,4,,,,regular,infantry,SCU,GEOTRANC.png,GEOTRANCR.png
+200,cp,pe,PE Uprising,1,1,6,1,1,6,,dot,,irregular,,SCU,PERUp.png,PERUPR116R.png
+201,cp,Re,Afghan Uprising #1,3,2,0,2,1,0,,,,irregular,,SCU,AfghanUP.png,AfghanUPR.png
+202,cp,Re,Afghan Uprising #2,3,2,0,2,1,0,,,,irregular,,SCU,AfghanUP.png,AfghanUPR.png
+203,cp,Re,Afghan Uprising #3,3,2,0,2,1,0,,,,irregular,,SCU,AfghanUP.png,AfghanUPR.png
+204,cp,Re,CAsia Uprising,2,2,0,1,2,0,,,,irregular,,SCU,CAsiaUP.png,CAsiaUPR.png
+205,cp,Re,Egypt Rebel #1,1,1,3,0,1,3,,,,irregular,,SCU,EgyptReb.png,EgyptRebR.png
+206,cp,Re,Egypt Rebel #2,1,1,3,0,1,3,,,,irregular,,SCU,EgyptReb.png,EgyptRebR.png
+207,cp,Re,Egypt Rebel #3,1,1,3,0,1,3,,,,irregular,,SCU,EgyptReb.png,EgyptRebR.png
+208,cp,Re,Indian Mutiny #1,3,2,0,2,1,0,,,,irregular,,SCU,INMutiny.png,INMutinyR.png
+209,cp,Re,Indian Mutiny #2,3,2,0,2,1,0,,,,irregular,,SCU,INMutiny.png,INMutinyR.png
+210,cp,Re,Indian Mutiny #3,3,2,0,2,1,0,,,,irregular,,SCU,INMutiny.png,INMutinyR.png
+211,cp,tr,Bakhtiari,1,1,0,0,1,0,,,,tribe,,SCU,TBakh.png,TBakhR.png
+212,cp,tr,Bawi,1,1,0,0,1,0,,,,tribe,,SCU,TBawi.png,TBawiR.png
+213,cp,tr,Jangali,2,2,1,1,2,1,,,,tribe,,SCU,TJang.png,TJangR.png
+214,cp,tr,Kurds #1,1,1,4,0,1,4,,,,tribe,,SCU,TKurds.png,TKurdsR.png
+215,cp,tr,Kurds #2,1,1,4,0,1,4,,,,tribe,,SCU,TKurds.png,TKurdsR.png
+216,cp,tr,Laz,2,2,1,1,2,1,,,,tribe,,SCU,TLaz.png,TLazR.png
+217,cp,tr,Marsh #1,1,1,1,0,1,1,,,,tribe,,SCU,TMarsh.png,TMarshR.png
+218,cp,tr,Marsh #2,1,1,1,0,1,1,,,,tribe,,SCU,TMarsh.png,TMarshR.png
+219,cp,tr,NW Frontier,3,2,0,2,2,0,,,,tribe,,SCU,TNWFront.png,TNWFrontR.png
+220,cp,tr,Qashqai,1,1,0,0,1,0,,,,tribe,,SCU,TQashq.png,TQashqR.png
+221,cp,tr,Senussi #1,2,1,3,1,1,3,,,,tribe,,SCU,TSenu213.png,TSenu213R.png
+222,cp,tr,Senussi #2,1,1,3,0,1,3,,,,tribe,,SCU,TSenu113.png,TSenu113R.png
+223,cp,tr,Sinjabi,1,2,0,0,2,0,,,,tribe,,SCU,TSinj.png,TSinjR.png
+224,cp,tr,Tangistani,1,1,0,0,1,0,,,,tribe,,SCU,TTang.png,TTangR.png
+225,cp,tu,TU 1 Caucasian,3,3,3,2,3,3,,,,regular,yellow,LCU,TU1CaucC.png,TU1CaucCR.png
+226,cp,tu,TU 2 Caucasian,3,3,3,2,3,3,,,,regular,yellow,LCU,TU2CaucC.png,TU2CaucCR.png
+227,cp,tu,TU Army Islam HQ,0,1,4,0,0,4,,,,hq,,SCU,TUAoI.png,TUAoIR.png
+228,cp,tu,TU Cavalry #1,1,1,5,0,1,5,,triangle,,regular,cavalry,SCU,TUCDiv.png,TUCDivR.png
+229,cp,tu,TU Cavalry #2,1,1,5,0,1,5,,triangle,,regular,cavalry,SCU,TUCDiv.png,TUCDivR.png
+230,cp,tu,TU Cavalry #3,1,1,5,0,1,5,,triangle,,regular,cavalry,SCU,TUCDiv.png,TUCDivR.png
+231,cp,tu,TU Cavalry #4,1,1,5,0,1,5,,triangle,,regular,cavalry,SCU,TUCDiv.png,TUCDivR.png
+232,cp,tu,TU Cavalry #5,1,1,5,0,1,5,,triangle,,regular,cavalry,SCU,TUCDiv.png,TUCDivR.png
+233,cp,tu,TU Cavalry #6,1,1,5,0,1,5,,triangle,,regular,cavalry,SCU,TUCDiv.png,TUCDivR.png
+234,cp,tu,TU DIV #1,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png
+235,cp,tu,TU DIV #10,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png
+236,cp,tu,TU DIV #11,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png
+237,cp,tu,TU DIV #12,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png
+238,cp,tu,TU DIV #13,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png
+239,cp,tu,TU DIV #14,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png
+240,cp,tu,TU DIV #15,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png
+241,cp,tu,TU DIV #16,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png
+242,cp,tu,TU DIV #17,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png
+243,cp,tu,TU DIV #18,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png
+244,cp,tu,TU DIV #2,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png
+245,cp,tu,TU DIV #3,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png
+246,cp,tu,TU DIV #4,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png
+247,cp,tu,TU DIV #5,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png
+248,cp,tu,TU DIV #6,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png
+249,cp,tu,TU DIV #7,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png
+250,cp,tu,TU DIV #8,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png
+251,cp,tu,TU DIV #9,2,1,4,1,1,4,,,,regular,infantry,SCU,TUDiv.png,TUDivR.png
+252,cp,tu,TU Elite DIV #1,2,2,4,1,2,4,,triangle,,regular,blue,SCU,TUEDiv.png,TUEDivR.png
+253,cp,tu,TU Elite DIV #10,2,2,4,1,2,4,,triangle,,regular,blue,SCU,TUEDiv.png,TUEDivR.png
+254,cp,tu,TU Elite DIV #2,2,2,4,1,2,4,,triangle,,regular,blue,SCU,TUEDiv.png,TUEDivR.png
+255,cp,tu,TU Elite DIV #3,2,2,4,1,2,4,,triangle,,regular,blue,SCU,TUEDiv.png,TUEDivR.png
+256,cp,tu,TU Elite DIV #4,2,2,4,1,2,4,,triangle,,regular,blue,SCU,TUEDiv.png,TUEDivR.png
+257,cp,tu,TU Elite DIV #5,2,2,4,1,2,4,,triangle,,regular,blue,SCU,TUEDiv.png,TUEDivR.png
+258,cp,tu,TU Elite DIV #6,2,2,4,1,2,4,,triangle,,regular,blue,SCU,TUEDiv.png,TUEDivR.png
+259,cp,tu,TU Elite DIV #7,2,2,4,1,2,4,,triangle,,regular,blue,SCU,TUEDiv.png,TUEDivR.png
+260,cp,tu,TU Elite DIV #8,2,2,4,1,2,4,,triangle,,regular,blue,SCU,TUEDiv.png,TUEDivR.png
+261,cp,tu,TU Elite DIV #9,2,2,4,1,2,4,,triangle,,regular,blue,SCU,TUEDiv.png,TUEDivR.png
+262,cp,tu,TU Enver HQ,0,1,4,0,0,4,,,,hq,,SCU,TUAoI.png,TUAoIR.png
+263,cp,tu,TU I Corps,3,2,3,2,2,3,,,,regular,infantry,LCU,TUIC.png,TUICR.png
+264,cp,tu,TU II Corps,3,2,3,2,2,3,,,,regular,infantry,LCU,TUIIC.png,TUIICR.png
+265,cp,tu,TU III Corps,4,3,4,3,3,4,,triangle,,regular,blue,LCU,TUIIIC.png,TUIIICR.png
+266,cp,tu,TU IV Corps,3,2,3,2,2,3,,,,regular,infantry,LCU,TUIVC.png,TUIVCR.png
+267,cp,tu,TU IX Corps,3,2,3,2,2,3,,,,regular,infantry,LCU,TUIXC.png,TUIXCR.png
+268,cp,tu,TU Stanke Bey,2,?,4,1,1,4,,,,regular,yellow,SCU,TUStBey.png,TUStBeyR.png
+269,cp,tu,TU V Corps,3,2,3,2,2,3,,,,regular,infantry,LCU,TUVC.png,TUVCR.png
+270,cp,tu,TU X Corps,3,2,3,2,2,3,,,,regular,infantry,LCU,TUXC.png,TUXCR.png
+271,cp,tu,TU XI Corps,3,2,3,2,2,3,,,,regular,infantry,LCU,TUXIC.png,TUXICR.png
+272,cp,tu,TU XIII Corps,4,3,4,3,3,4,,triangle,,regular,blue,LCU,TUIIIC.png,TUIIICR.png
+273,cp,tu,TU XIV Corps,3,3,3,2,3,3,,,,regular,yellow,LCU,TUXIVC.png,TUXIVCR.png
+274,cp,tu,TU XV Corps,3,3,3,2,3,3,,,,regular,yellow,LCU,TUXVC.png,TUXVCR.png
+275,cp,tu,TU XVI Corps,3,3,3,2,3,3,,,,regular,,LCU,TUXVIC.png,TUXVICR.png
+276,cp,tu,TU XVII Corps,3,2,3,2,2,3,,,,regular,infantry,LCU,TUXVIIC.png,TUXVIICR.png
+277,cp,tu,TU XX Corps,3,2,3,2,2,3,,,,regular,infantry,LCU,TUXXC.png,TUXXCR.png
+278,cp,tu,TU XXII Corps,3,3,3,2,3,3,,,,regular,yellow,LCU,TUXXIIC.png,TUXXIICR.png
+279,cp,tua,TU-A Camel Corps,1,1,5,0,1,5,,triangle,,regular,cavalry,SCU,TUACCDiv.png,TUACCDivR.png
+280,cp,tua,TU-A Cavalry,1,1,5,0,1,5,,triangle,,regular,cavalry,SCU,TUACDiv.png,TUACDivR.png
+281,cp,tua,TU-A DIV #1,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png
+282,cp,tua,TU-A DIV #10,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png
+283,cp,tua,TU-A DIV #11,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png
+284,cp,tua,TU-A DIV #12,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png
+285,cp,tua,TU-A DIV #13,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png
+286,cp,tua,TU-A DIV #14,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png
+287,cp,tua,TU-A DIV #15,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png
+288,cp,tua,TU-A DIV #16,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png
+289,cp,tua,TU-A DIV #17,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png
+290,cp,tua,TU-A DIV #2,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png
+291,cp,tua,TU-A DIV #3,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png
+292,cp,tua,TU-A DIV #4,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png
+293,cp,tua,TU-A DIV #5,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png
+294,cp,tua,TU-A DIV #6,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png
+295,cp,tua,TU-A DIV #7,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png
+296,cp,tua,TU-A DIV #8,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png
+297,cp,tua,TU-A DIV #9,1,1,4,0,1,4,,,,regular,infantry,SCU,TUADiv.png,TUADivR.png
+298,cp,tua,TU-A Elite DIV #1,2,1,4,1,1,4,,triangle,,regular,blue,SCU,TUAEDiv.png,TUAEDivR.png
+299,cp,tua,TU-A Elite DIV #2,2,1,4,1,1,4,,triangle,,regular,blue,SCU,TUAEDiv.png,TUAEDivR.png
+300,cp,tua,TU-A Left Wing Gp,2,2,3,1,2,3,,,,regular,infantry,LCU,TUALWG.png,TUALWGR.png
+301,cp,tua,TU-A VI Corps,2,2,3,1,2,3,,,,regular,infantry,LCU,TUAVIC.png,TUAVICR.png
+302,cp,tua,TU-A VIII Corps,2,2,3,1,2,3,,,,regular,infantry,LCU,TUAVIIIC.png,TUAVIIICR.png
+303,cp,tua,TU-A XII Corps,2,2,3,1,2,3,,,,regular,infantry,LCU,TUAXIIC.png,TUAXIICR.png
+304,cp,tua,TU-A XIII Corps,2,2,3,1,2,3,,,,regular,infantry,LCU,TUAXIIIC.png,TUAXIIICR.png
+305,cp,tua,TU-A XVIII Corps,2,2,3,1,2,3,,,,regular,infantry,LCU,TUAXVIIIC.png,TUAXVIIICR.png

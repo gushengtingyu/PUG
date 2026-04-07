@@ -101,7 +101,7 @@ module.exports = function (Engine) {
 	function get_activation_prompt(game) {
 		if (game.russo_british_russian_activation) {
 			let selected = Array.isArray(game.activated?.attack) ? game.activated.attack.length : 0
-			return `英俄突袭：选择最多 2 个含俄军的合法进攻地块（已选: ${selected}/2）`
+			return `英俄突袭：启动两个包含包含俄国部队的地区进行战斗（已选: ${selected}/2）`
 		}
 		if (game.liberate_suez_op_required) {
 			let need_ops = game.liberate_suez_min_egypt_attack_ops || 2

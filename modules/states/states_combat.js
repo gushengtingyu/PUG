@@ -106,10 +106,8 @@ exports.register = function (states, Engine, context) {
 		prompt(res) {
 			refresh_attack_eligibility()
 			if (game.eligible_attackers.length === 0) {
-				if (game.liberate_suez_op_required && !game.liberate_suez_egypt_battle_done) {
-					log("解放苏伊士：由于没有可用进攻单位，无法完成埃及地区的战斗要求。")
-				}
-				game.state = "end_operations"
+				res.prompt("操作完成.")
+				res.action("end_action")
 				return
 			}
 
@@ -899,6 +897,7 @@ exports.register = function (states, Engine, context) {
 		delete game.retreat_choice_cc_done
 		delete game.retreat_choice_resume_state
 		delete game.retreat_choice_prev_active
+		delete game.battle_resolution_applied
 		combat.start_attack_sequence(game)
 		
 		// Rule 12.2 sequence: Flank Attack Announcement (Step 2) before CC (Step 5)
@@ -931,7 +930,8 @@ exports.register = function (states, Engine, context) {
 			reduce_piece
 		}
 		if (combat.is_battle_cancelled_by_cc(game)) {
-			if (combat.resolve_battle_sequence(game, ctx) === "end") {
+			let res = combat.resolve_battle_sequence(game, ctx)
+			if (res === "end" || res === "cancelled") {
 				end_battle_sequence()
 			}
 			return
@@ -1255,7 +1255,7 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 			let lcu = game.attack.replacement.unit
-			res.prompt(`LCU ${data.pieces[lcu].name} 被击溃：请从储备箱选择一个 SCU 进行替换`)
+			res.prompt(`LCU ${data.pieces[lcu].name} 被击溃：请从预备军格选择一个 SCU 进行替换`)
 			for (let p of game.attack.replacement.options) res.piece(p)
 		},
 		piece(p) {
@@ -1472,6 +1472,7 @@ exports.register = function (states, Engine, context) {
 		delete game.post_battle_cc_resume
 		delete game.selected_piece
 		delete game.battle_result
+		delete game.battle_resolution_applied
 	}
 
 	function enter_advance_state(resume) {
@@ -1626,7 +1627,7 @@ exports.register = function (states, Engine, context) {
 
 	states.retreat_cancel = {
 		prompt(res) {
-			res.prompt("防守方可以承受 1 点损失以取消撤退")
+			res.prompt("防守方可以额外承受 1 级损失以取消撤退")
 			let steps = count_steps(game, game.retreat_pieces)
 			if (steps > 1) {
 				for (let p of game.retreat_pieces) {
@@ -1750,6 +1751,7 @@ exports.register = function (states, Engine, context) {
 		space(s) {
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
+				let from = game.pieces[p]
 				log(data.pieces[p].name + " retreats to " + data.spaces[s].name)
 				game.pieces[p] = s
 				game.retreat_from = s
@@ -1763,10 +1765,17 @@ exports.register = function (states, Engine, context) {
 				let ends_retreat_here = remaining <= 0 || Engine.map.is_region(game, s)
 				if (ends_retreat_here) {
 					if (!Engine.map.is_controlled_by(game, s, game.active)) {
-						if (!is_tribe(p) && data.pieces[p].type !== "hq") {
+						if (data.pieces[p].type === "regular") {
 							set_control(game, s, game.active)
 						}
 					}
+					if (Engine.check_persia_entry_vp_penalty) {
+						Engine.check_persia_entry_vp_penalty(game, s, [p])
+					}
+					if (from > 0) {
+						Engine.sync_neutral_vp_state(game, from)
+					}
+					Engine.sync_neutral_vp_state(game, s)
 					set_delete(game.retreat_pieces, p)
 					delete game.retreat_steps_left[p]
 					set_add(game.retreated, p)
@@ -1872,15 +1881,23 @@ exports.register = function (states, Engine, context) {
 			sync_turkish_retreat_state()
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
+				let from = game.pieces[p]
 				log(data.pieces[p].name + " retreats to " + data.spaces[s].name)
 				game.pieces[p] = s
 
 				// Retreat control check: capture neutral spaces
 				if (!Engine.map.is_controlled_by(game, s, game.active)) {
-					if (!is_tribe(p) && data.pieces[p].type !== "hq") {
+					if (data.pieces[p].type === "regular") {
 						set_control(game, s, game.active)
 					}
 				}
+				if (Engine.check_persia_entry_vp_penalty) {
+					Engine.check_persia_entry_vp_penalty(game, s, [p])
+				}
+				if (from > 0) {
+					Engine.sync_neutral_vp_state(game, from)
+				}
+				Engine.sync_neutral_vp_state(game, s)
 
 				if (game.turkish_retreat_chosen_space === undefined) {
 					game.turkish_retreat_chosen_space = s
@@ -1968,11 +1985,18 @@ exports.register = function (states, Engine, context) {
 				if (active_faction() === CP && Engine.map.is_russian_vp_space(game, to_space)) {
 					game.captured_russian_vp_in_advance = true
 				}
-				if (!is_tribe(p) && data.pieces[p].type !== "hq") {
+				if (data.pieces[p].type === "regular") {
 					set_control(game, to_space, active_faction())
 				}
 			}
 		}
+		if (Engine.check_persia_entry_vp_penalty) {
+			Engine.check_persia_entry_vp_penalty(game, to_space, [p])
+		}
+		if (from_space > 0) {
+			Engine.sync_neutral_vp_state(game, from_space)
+		}
+		Engine.sync_neutral_vp_state(game, to_space)
 		if (Engine.greece.is_greece_neutral(game) && Engine.greece.is_athens_space(to_space)) {
 			Engine.greece.trigger_greece_entry(game, to_space, active_faction(), "战斗推进进入雅典", (msg) => log(msg))
 		}

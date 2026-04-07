@@ -264,7 +264,7 @@ module.exports = function (Engine) {
 
 		if (attacker === AP) {
 			if (
-				game.events["russo_british_assault"] &&
+				game.event_ctx && game.event_ctx.key === "russo_british_assault" &&
 				(game.mo_ap === MO_RUSSIA || game.mo_ap === MO_RUSSIA_CAUCASUS)
 			) {
 				if (log) log("英俄突袭：不能完成俄国MO")

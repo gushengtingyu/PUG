@@ -441,15 +441,13 @@ exports.register = function (states, Engine, context) {
 		},
 		space(s) {
 			if (game.activated.move.includes(s)) {
+				let can_entrench_here = can_space_entrench_in_activation(s)
 				if (is_space_activated_for_combine(s)) {
 					push_undo()
 					enter_combine_lcu_state(s)
 					return
 				}
-				if (
-					Engine.game_utils.can_combine_in_space(game, s, active_faction()) ||
-					can_space_entrench_in_activation(s)
-				) {
+				if (Engine.game_utils.can_combine_in_space(game, s, active_faction()) || can_entrench_here) {
 					game.where = s
 					game.state = "choose_move_action"
 					return
@@ -670,11 +668,6 @@ exports.register = function (states, Engine, context) {
 			delete game.entrench_pieces
 			game.where = -1
 			game.state = "choose_move_space"
-			// POG logic: if no units left to move, end activation
-			if (get_pieces_in_space(game, s).every((p) => set_has(game.moved, p))) {
-				game.activated.move = []
-				game.state = "activate_spaces"
-			}
 		}
 	}
 
@@ -856,7 +849,7 @@ exports.register = function (states, Engine, context) {
 				return_to_combine_entry()
 				return
 			}
-			res.prompt("最后选择送去REMOVE的SCU")
+			res.prompt("选择移入REMOVE的SCU")
 			res.where(game.where)
 			res.space(get_removed_box(active_faction()))
 			res.who(ctx.pending_scus)
@@ -1005,7 +998,6 @@ exports.register = function (states, Engine, context) {
 			log(`${active_faction()} combines 3 SCUs into a Full LCU ${lcu_info.name} in ${space_name(space)}.`)
 		}
 		set_add(game.moved, ctx.lcu_id)
-		set_delete(game.activated.move, space)
 		if (game.activated.combine) set_delete(game.activated.combine, space)
 		clear_combine_ctx()
 		return_to_combine_entry()
@@ -1205,6 +1197,9 @@ exports.register = function (states, Engine, context) {
 				if (reason) log(`移动阻断：${piece_name(p)} -> ${space_name(target)}，原因=${reason}`)
 			}
 		}
+		if (from_space > 0) {
+			Engine.sync_neutral_vp_state(game, from_space)
+		}
 
 		game.move.spaces_moved += step_cost
 		game.move.pieces = pieces_moving
@@ -1247,11 +1242,15 @@ exports.register = function (states, Engine, context) {
 
 			if (!has_undestroyed_fort(game, target, other_faction(active_faction())) && !is_gallipoli(target)) {
 				if (!is_controlled_by(game, target, active_faction())) {
-					if (pieces_moving.some((p) => !is_tribe(p))) {
+					if (pieces_moving.some((p) => data.pieces[p].type === "regular")) {
 						set_control(game, target, active_faction())
 					}
 				}
 			}
+			if (Engine.check_persia_entry_vp_penalty) {
+				Engine.check_persia_entry_vp_penalty(game, target, pieces_moving)
+			}
+			Engine.sync_neutral_vp_state(game, target)
 
 			if (is_siege_entry) {
 				end_move_stack()

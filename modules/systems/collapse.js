@@ -27,6 +27,26 @@ module.exports = function (Engine) {
 			divisions: Object.freeze(["SB DIV #1", "SB DIV #2", "SB DIV #3", "SB DIV #4", "SB DIV #5", "SB DIV #6"])
 		})
 	})
+	const ROMANIA_ENTRY_PLAN = Object.freeze({
+		ap: Object.freeze({
+			ro_units: Object.freeze([
+				"RO 1 Army",
+				"RO 2 Army",
+				"RO 3 Army",
+				"RO Cavalry",
+				"RO DIV #1",
+				"RO DIV #2",
+				"RO DIV #3",
+				"RO DIV #4",
+				"RO DIV #5",
+				"RO DIV #6"
+			])
+		}),
+		cp: Object.freeze({
+			ge_units: Object.freeze(["GE IX Army", "GE Falkenhayn HQ", "GE Hvy Arty"]),
+			ah_units: Object.freeze(["Combined BU/AH Div", "AH DIV #1", "AH DIV #2", "AH DIV #3"])
+		})
+	})
 
 	const BULGARIAN_ENTRY_UNIT_NAMES = new Set([
 		...BULGARIA_ENTRY_PLAN.cp.ah_division_pool,
@@ -41,26 +61,11 @@ module.exports = function (Engine) {
 		"GE Schmettow"
 	])
 	const ROMANIAN_ENTRY_UNIT_NAMES = new Set([
-		"RO 1 Army",
-		"RO 2 Army",
-		"RO 3 Army",
-		"RO Cavalry",
-		"RO DIV #1",
-		"RO DIV #2",
-		"RO DIV #3",
-		"RO DIV #4",
-		"RO DIV #5",
-		"RO DIV #6",
-		"GE 9 Army",
-		"GE Falkenhayn HQ",
-		"GE Hvy Arty",
-		"Combined BU/AH Div",
-		"AH 1 Army",
-		"AH 7 Army",
-		"AH DIV #1",
-		"AH DIV #2",
-		"AH DIV #3"
+		...ROMANIA_ENTRY_PLAN.ap.ro_units,
+		...ROMANIA_ENTRY_PLAN.cp.ge_units,
+		...ROMANIA_ENTRY_PLAN.cp.ah_units
 	])
+	const ROMANIAN_COLLAPSE_AH_UNIT_NAMES = new Set([...ROMANIA_ENTRY_PLAN.cp.ah_units])
 	const {
 		find_space,
 		eliminate_piece,
@@ -94,18 +99,39 @@ module.exports = function (Engine) {
 				}
 			}
 		}
+
+		if (!ROMANIAN_ENTRY_UNIT_NAMES.has("GE IX Army")) {
+			throw new Error("Invalid Romanian entry rules: missing unit GE IX Army")
+		}
+		if (ROMANIAN_ENTRY_UNIT_NAMES.has("GE 9 Army")) {
+			throw new Error("Invalid Romanian entry rules: deprecated unit GE 9 Army")
+		}
+
+		const pieceNames = new Set()
+		for (let info of data.pieces) {
+			if (info && info.name) pieceNames.add(info.name)
+		}
+
+		const hardcodedUnitNames = new Set([
+			...BULGARIAN_ENTRY_UNIT_NAMES,
+			...ROMANIAN_ENTRY_UNIT_NAMES,
+			...ROMANIAN_COLLAPSE_AH_UNIT_NAMES
+		])
+		for (let name of hardcodedUnitNames) {
+			if (!pieceNames.has(name)) {
+				throw new Error(`Invalid collapse rules: unknown hardcoded unit ${name}`)
+			}
+		}
 	}
 
 	function is_bulgarian_entry_piece(info) {
 		if (!info) return false
-		if (BULGARIAN_ENTRY_UNIT_NAMES.has(info.name)) return true
-		return !!info.bulgarian_entry
+		return BULGARIAN_ENTRY_UNIT_NAMES.has(info.name)
 	}
 
 	function is_romanian_entry_piece(info) {
 		if (!info) return false
-		if (ROMANIAN_ENTRY_UNIT_NAMES.has(info.name)) return true
-		return !!info.romanian_entry
+		return ROMANIAN_ENTRY_UNIT_NAMES.has(info.name)
 	}
 
 	function get_bulgaria_entry_plan() {
@@ -114,6 +140,10 @@ module.exports = function (Engine) {
 
 	function get_bulgarian_entry_ah_divisions() {
 		return BULGARIA_ENTRY_PLAN.cp.ah_division_pool
+	}
+
+	function get_romanian_entry_plan() {
+		return ROMANIA_ENTRY_PLAN
 	}
 
 	function is_romania_uncollapsed(game) {
@@ -388,7 +418,7 @@ module.exports = function (Engine) {
 		let choice_available = !!game.events["bulgaria"] && !game.events["serbian_collapse"]
 		for (let p = 0; p < data.pieces.length; p++) {
 			let info = data.pieces[p]
-			if (!is_romanian_entry_piece(info)) continue
+			if (!info || !ROMANIAN_COLLAPSE_AH_UNIT_NAMES.has(info.name)) continue
 			if (info.nation === "ah" && choice_available) continue
 			eliminate_piece(game, p, log, true)
 		}
@@ -462,6 +492,7 @@ module.exports = function (Engine) {
 	exports.handle_national_collapse = handle_national_collapse
 	exports.get_bulgaria_entry_plan = get_bulgaria_entry_plan
 	exports.get_bulgarian_entry_ah_divisions = get_bulgarian_entry_ah_divisions
+	exports.get_romanian_entry_plan = get_romanian_entry_plan
 	exports.is_bulgarian_entry_piece = is_bulgarian_entry_piece
 	exports.is_romanian_entry_piece = is_romanian_entry_piece
 	exports.is_romania_uncollapsed = is_romania_uncollapsed

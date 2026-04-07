@@ -29,6 +29,7 @@ function findBattleSpaces() {
 			s &&
 			Array.isArray(s.connections) &&
 			s.connections.length > 0 &&
+			s.type !== "generated_gap" &&
 			s.type !== "Reserve Box" &&
 			s.map !== "Reserve Box" &&
 			s.type !== "Eliminated"
@@ -47,6 +48,7 @@ function findBattleSpacesWithRetreatPath() {
 			s &&
 			Array.isArray(s.connections) &&
 			s.connections.length >= 2 &&
+			s.type !== "generated_gap" &&
 			s.type !== "Reserve Box" &&
 			s.map !== "Reserve Box" &&
 			s.type !== "Eliminated"
@@ -444,7 +446,7 @@ describe("土耳其撤退回归测试", () => {
 		}
 	})
 
-	test("Reserves to the Front 生效后即使防守方重建留在战场仍进入挺进", () => {
+	test("Reserves to the Front 生效后即使防守方重建留在战场，战后CC窗口也只需一次确认即可进入挺进", () => {
 		let { game, apPiece, cpTuScu, targetSpace } = createMinimalBattleGame()
 		game.state = "post_battle_cc_cp"
 		game.active = CP
@@ -473,6 +475,7 @@ describe("土耳其撤退回归测试", () => {
 		expect(game.state).toBe("post_battle_cc_cp")
 
 		rules.action(game, "Central Powers", "done")
+		expect(game.state).not.toBe("post_battle_cc_cp")
 		expect(game.state).toBe("advance")
 		expect(game.active).toBe(AP)
 		expect(game.advance_pieces).toContain(apPiece)
@@ -562,7 +565,7 @@ describe("土耳其撤退回归测试", () => {
 		expect(view.actions.play_cc || []).not.toContain(59)
 	})
 
-	test("战后CC前移后，前线预备役结算完成会继续进入正常撤退流程", () => {
+	test("战后CC前移后，前线预备役结算完成后一次确认会继续进入正常撤退流程", () => {
 		let { game, cpTuScu } = createMinimalBattleGame()
 		game.state = "battle"
 		game.active = AP
@@ -599,6 +602,7 @@ describe("土耳其撤退回归测试", () => {
 		expect(game.state).toBe("post_battle_cc_cp")
 
 		rules.action(game, "Central Powers", "done")
+		expect(game.state).not.toBe("post_battle_cc_cp")
 		expect(game.state).toBe("retreat")
 		expect(game.active).toBe(CP)
 		expect(game.retreat_pieces).toEqual([cpTuScu])
@@ -781,8 +785,8 @@ describe("土耳其撤退回归测试", () => {
 		rules.action(game, "Central Powers", "piece", cpTuScu)
 		rules.action(game, "Central Powers", "done")
 		expect(game.state).toBe("post_battle_cc_cp")
-
 		rules.action(game, "Central Powers", "done")
+		expect(game.state).not.toBe("post_battle_cc_cp")
 		expect(game.state).toBe("turkish_retreat")
 		expect(game.active).toBe(CP)
 
@@ -899,6 +903,38 @@ describe("土耳其撤退回归测试", () => {
 		expect(game.retreat_distance).toBe(1)
 	})
 
+	test("战斗后CC窗口确认一次即可继续流程，且 Retained CC 日志不重复", () => {
+		let { game, apPiece, cpTuScu } = createMinimalBattleGame()
+		game.state = "battle"
+		game.active = AP
+		game.log = []
+		game.hand_cp = [59]
+		game.rp_cp = { ge: 0, tu: 0, a: 0 }
+		game.rp_ap = { br: 0, ru: 0, in: 0, a: 0 }
+		game.reduced = [cpTuScu]
+		game.post_roll_cc_done = true
+		game.combat_cards = { attacker: [5], defender: [] }
+		game.battle_result = createBattleResult(apPiece, cpTuScu, {
+			defender_losses: 1,
+			retreat_needed: false,
+			no_advance: true,
+			turkish_retreat: false,
+			turkish_retreat_units: [],
+			turkish_retreat_optional_units: []
+		})
+
+		Engine.combat.end_battle_sequence(game, (msg) => game.log.push(msg))
+
+		expect(game.state).toBe("post_battle_cc_cp")
+		expect(game.cc_retained.ap).toContain(5)
+		expect(game.log.filter((line) => typeof line === "string" && line.includes("Retained CC:")).length).toBe(1)
+
+		rules.action(game, "Central Powers", "done")
+
+		expect(game.state).not.toBe("post_battle_cc_cp")
+		expect(game.log.filter((line) => typeof line === "string" && line.includes("Retained CC:")).length).toBe(1)
+	})
+
 	test("战斗卡窗口不再输出 plays CC 与 done with CC 日志", () => {
 		let { game, apPiece, cpTuScu } = createMinimalBattleGame()
 		game.state = "post_battle_cc_cp"
@@ -919,7 +955,6 @@ describe("土耳其撤退回归测试", () => {
 		game.post_battle_cc_resume = { kind: "finish_attack" }
 
 		rules.action(game, "Central Powers", "play_cc", 59)
-		rules.action(game, "Central Powers", "done")
 		rules.action(game, "Central Powers", "done")
 
 		expect(game.log.some((line) => typeof line === "string" && line.includes("plays CC"))).toBe(false)
