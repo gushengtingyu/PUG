@@ -923,17 +923,6 @@
 								style="flex: 1"
 							/>
 						</div>
-						<div class="control-row">
-							<span style="font-size: 13px; color: #888; width: 50px">备注</span>
-							<input
-								type="text"
-								id="conn-comment"
-								class="prop-input"
-								placeholder="备注信息"
-								onchange="updateEdgeProp('comment', this.value)"
-								style="flex: 1"
-							/>
-						</div>
 						<button class="danger btn-full" style="margin-top: 8px" onclick="deleteSelectedEdge()">
 							🗑️ 删除连接
 						</button>
@@ -995,9 +984,9 @@
 
 			// Embedded Default Data (Minimal fallback)
 			const defaultSpacesCSV = `id,map,name,x,y,w,h,nation,faction,terrain,vp,fort,port,capital,region,island_base,beach_for,area,tribal_activity_grid,jihad_city
-1,pug,Kronstadt,525,91,44,44,,,,,,,,,,,,,,,,`
-			const defaultEdgesCSV = `a,b,nations,type,crossing,flags,comment
-1,5,,rail,,,`
+1,pug,Kronstadt,525,91,,,,,,,,,,,,,,,,,`
+			const defaultEdgesCSV = `a,b,nations,type,crossing,flags
+1,5,,rail,,`
 
 			function getCSVHeaders(csv) {
 				if (!csv) return []
@@ -1093,8 +1082,8 @@
 							...s,
 							x: parseInt(s.x) || 0,
 							y: parseInt(s.y) || 0,
-							w: parseInt(s.w) || 44,
-							h: parseInt(s.h) || 44,
+							w: s.w || "",
+							h: s.h || "",
 							id: parseInt(s.id)
 						}))
 
@@ -1311,9 +1300,12 @@
 
 			function updateProp(key, value) {
 				if (!selectedSpace) return
-				if (["x", "y", "w", "h"].includes(key)) {
+				if (["x", "y"].includes(key)) {
 					const num = parseInt(value)
 					selectedSpace[key] = Number.isNaN(num) ? 0 : num
+				} else if (["w", "h"].includes(key)) {
+					const num = parseInt(value)
+					selectedSpace[key] = Number.isNaN(num) || num === 0 ? "" : num
 				} else if (["vp", "fort"].includes(key)) {
 					// Allow empty string to mean 0 or not set, but generally store as number or string
 					const num = parseInt(value)
@@ -1433,8 +1425,8 @@
 				document.getElementById("prop-island-base").value = s.island_base || ""
 				document.getElementById("prop-beach-for").value = s.beach_for || ""
 				document.getElementById("prop-tribal-activity-grid").value = s.tribal_activity_grid || ""
-				document.getElementById("prop-w").value = s.w || 44
-				document.getElementById("prop-h").value = s.h || 44
+				document.getElementById("prop-w").value = s.w || ""
+				document.getElementById("prop-h").value = s.h || ""
 				syncToggleLabel("capital")
 				syncToggleLabel("jihad_city")
 
@@ -1593,8 +1585,6 @@
 				document.getElementById("conn-type").value = edge.type || ""
 				document.getElementById("conn-nations").value = edge.nations || ""
 				document.getElementById("conn-flags").value = edge.flags || ""
-				document.getElementById("conn-comment").value = edge.comment || ""
-
 				// Update Crossing Options with Names
 				const sA = spaces.find((s) => s.id === edge.a)
 				const sB = spaces.find((s) => s.id === edge.b)
@@ -1686,8 +1676,7 @@
 							type: currentConnectType,
 							crossing: "",
 							nations: "",
-							flags: "",
-							comment: ""
+							flags: ""
 						})
 						showToast("已连接")
 					}
@@ -2044,8 +2033,8 @@
 					name: "新地点 " + id,
 					x: x,
 					y: y,
-					w: 80,
-					h: 80,
+					w: "",
+					h: "",
 					nation: "",
 					faction: "",
 					terrain: "",

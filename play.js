@@ -19,13 +19,7 @@ const CP_ELIMINATED_BOX = spaces.findIndex((s) => s.name === "CP Eliminated")
 const AP_PERMANENTLY_ELIMINATED_BOX = spaces.findIndex((s) => s.name === "AP Permanently Eliminated Box")
 const CP_PERMANENTLY_ELIMINATED_BOX = spaces.findIndex((s) => s.name === "CP Permanently Eliminated Box")
 
-const BELGRADE = 17
-const SOFIA = 36
-const CONSTANTINOPLE = 65
 const DOIRAN = 73
-const SALONIKA = 95
-const ATHENS = 149
-const CYPRUS = 183
 
 const SUPPLY_OVERLAY_SPACE_IDS = []
 const UPDATE_SPACE_IDS = []
@@ -105,8 +99,6 @@ function init_layout() {
 			}
 		}
 	}
-	// [调试] 检查 layout 是否生成正确
-	console.log("Layout initialized:", Object.keys(layout).length, "elements")
 }
 
 // 立即初始化 layout，以便后续的 top-level 循环（如 build_space）能够使用。
@@ -114,7 +106,6 @@ init_layout()
 
 const DEBUG_SPACES = false
 const DEBUG_CONNECTIONS = false
-const DEBUG_TRIBE_RESERVE = true
 function read_debug_switch(name, fallback = false) {
 	if (typeof window === "undefined" || typeof params === "undefined" || !params || !params.title_id) {
 		return fallback
@@ -130,12 +121,12 @@ function read_debug_switch(name, fallback = false) {
 }
 let DEBUG_STACK_INTERACTION = read_debug_switch("debug_stack_interaction", true)
 let DEBUG_INTERACTION_PERF = read_debug_switch("debug_interaction_perf", false)
+let DEBUG_TRIBE_RESERVE = read_debug_switch("debug_tribe_reserve", false)
 let interaction_perf_seq = 0
 let last_interaction_perf = null
 const AP = "ap"
 const CP = "cp"
 const ELIMINATED = 0
-const RESERVE = -1
 const REMOVED = -2
 const REINFORCEMENTS = -3
 
@@ -779,9 +770,9 @@ function hide_dialog(id) {
 window.hide_dialog = hide_dialog
 
 /**
- * 显示卡牌列表对话框（弃牌堆或移出游戏的卡牌）。
+ * 显示卡牌列表对话框（弃牌堆、移出游戏、牌库与手牌）。
  * @param {string} id - 对话框 ID。
- * @param {object} card_lists - 包含 discard 和 removed 卡牌 ID 数组的对象。
+ * @param {object} card_lists - 包含 discard、removed、deck 卡牌 ID 数组的对象。
  */
 function show_card_list(id, card_lists) {
 	if (!card_lists) {
@@ -792,38 +783,35 @@ function show_card_list(id, card_lists) {
 		drag_element(dialog_elt)
 	}
 	show_dialog(id, (body) => {
-		const cards_to_show = [...(card_lists.discard || []), ...(card_lists.removed || [])]
-		if (cards_to_show.length === 0) {
+		const discard = card_lists.discard || []
+		const removed = card_lists.removed || []
+		const deck = card_lists.deck || []
+		if (discard.length === 0 && removed.length === 0 && deck.length === 0) {
 			body.innerHTML = `<div style="padding:20px;text-align:center;color:#7f8c8d">无卡牌</div>`
 			return
 		}
-
-		const list = document.createElement("div")
-		list.style.display = "flex"
-		list.style.flexDirection = "column"
-		list.style.gap = "8px"
-		list.style.padding = "10px"
-		list.style.maxHeight = "60vh"
-		list.style.overflowY = "auto"
-
-		cards_to_show.forEach((c) => {
-			const card_elt = document.createElement("button")
-			const card_data = cards[c]
-			card_elt.type = "button"
-			card_elt.textContent = card_data?.name || `未知卡牌 #${c}`
-			card_elt.style.textAlign = "left"
-			card_elt.style.padding = "8px 10px"
-			card_elt.style.border = "1px solid #3b4b5a"
-			card_elt.style.background = "#1b2430"
-			card_elt.style.color = "#ecf0f1"
-			card_elt.style.borderRadius = "4px"
-			card_elt.style.cursor = "pointer"
-			card_elt.onmouseenter = () => on_focus_card_tip(c)
-			card_elt.onmouseleave = on_blur_card_tip
-			card_elt.onclick = () => on_click_card_tip(c)
-			list.appendChild(card_elt)
-		})
-		body.appendChild(list)
+		const dl = document.createElement("dl")
+		const append_header = (text) => {
+			const header = document.createElement("dt")
+			header.textContent = text
+			dl.appendChild(header)
+		}
+		const append_card = (c) => {
+			const p = document.createElement("dd")
+			p.className = `cardtip ${cards[c]?.faction === "ap" ? "ap-card" : "cp-card"}`
+			p.onmouseenter = () => on_focus_card_tip(c)
+			p.onmouseleave = on_blur_card_tip
+			p.onclick = () => on_click_card_tip(c)
+			p.textContent = cards[c]?.name || `未知卡牌 #${c}`
+			dl.appendChild(p)
+		}
+		append_header(`弃牌堆 (${discard.length})`)
+		discard.forEach(append_card)
+		append_header(`移出游戏 (${removed.length})`)
+		removed.forEach(append_card)
+		append_header(`手牌或牌库 (${deck.length})`)
+		deck.forEach(append_card)
+		body.appendChild(dl)
 	})
 }
 
@@ -989,15 +977,6 @@ function show_score_summary() {
 		history_title.className = "score_row"
 		history_title.textContent = "历史记录摘要"
 		body.appendChild(history_title)
-		body.appendChild(build_history_summary(5))
-	})
-}
-
-/**
- * 显示历史记录摘要对话框。
- */
-function show_history_summary() {
-	show_dialog("history_summary", (body) => {
 		body.appendChild(build_history_summary(5))
 	})
 }
@@ -1235,7 +1214,6 @@ function show_track_dialog() {
 	})
 }
 
-let card_language = "cn"
 let card_dir = "cards.CN"
 let card_ext = "jpg"
 
@@ -1255,13 +1233,11 @@ function set_card_assets(options) {
 	}
 
 	if (use_english_cards) {
-		card_language = "en"
 		card_dir = "cards.EN"
 		card_ext = "jpg"
 		body.classList.remove("lang-cn")
 		body.classList.add("lang-en")
 	} else {
-		card_language = "cn"
 		card_dir = "cards.CN"
 		card_ext = "jpg"
 		body.classList.remove("lang-en")
@@ -2019,44 +1995,71 @@ function has_loose_id(set_or_null, id) {
 	return !!(set_or_null && (set_or_null.has(id) || set_or_null.has(String(id))))
 }
 
-function build_ui_frame_state() {
-	const state = {
-		reduced: to_id_set(view?.reduced),
-		oos: to_id_set(view?.oos),
-		beachheads: to_id_set(view?.beachheads),
-		trenches: to_id_set(view?.trenches),
-		trenches_2: to_id_set(view?.trenches_2),
-		forts_destroyed: to_id_set(view?.forts?.destroyed),
-		oos_spaces: to_id_set(view?.oos_spaces),
-		entrenching: to_id_set(view?.entrenching),
-		moved: to_id_set(view?.moved),
-		attacked: to_id_set(view?.attacked),
-		supply_warnings: to_id_set(view?.supply_warnings),
-		activated_move_spaces: to_id_set(view?.activated?.move),
-		activated_attack_spaces: to_id_set(view?.activated?.attack),
-		ru_control_markers: to_id_set(view?.ru_control_markers),
-		attack_pieces: to_id_set(view?.attack?.pieces),
-		move_pieces: to_id_set(view?.move?.pieces),
-		action_space: to_loose_id_set(view?.actions?.space),
-		action_activate_move: to_loose_id_set(view?.actions?.activate_move),
-		action_activate_attack: to_loose_id_set(view?.actions?.activate_attack),
-		action_activate_combine: to_loose_id_set(view?.actions?.activate_combine),
-		action_deactivate: to_loose_id_set(view?.actions?.deactivate),
-		action_piece: to_loose_id_set(view?.actions?.piece),
-		action_attack_piece: to_loose_id_set(view?.actions?.attack),
-		action_move_piece: to_loose_id_set(view?.actions?.move),
-		action_advance_pieces: to_loose_id_set(view?.actions?.advance_pieces),
-		action_retreat_pieces: to_loose_id_set(view?.actions?.retreat_pieces),
-		violations_spaces: null,
-		where_single: Array.isArray(view?.where) ? null : view?.where,
-		where_set: Array.isArray(view?.where) ? new Set(view.where) : null,
-		who_single: view?.who,
-		who_set: Array.isArray(view?.who) ? new Set(view.who) : null
+const UI_FRAME_STATE_FIELDS = [
+	{
+		key: "control",
+		diff: "control_array",
+		build: () => (Array.isArray(view?.control) ? view.control : null),
+		snapshot: (value) => (Array.isArray(value) ? value.slice() : null)
+	},
+	{ key: "reduced", diff: "piece_set", build: () => to_id_set(view?.reduced) },
+	{ key: "oos", diff: "piece_set", build: () => to_id_set(view?.oos) },
+	{ key: "beachheads", diff: "space_set", build: () => to_id_set(view?.beachheads) },
+	{ key: "trenches", diff: "space_set", build: () => to_id_set(view?.trenches) },
+	{ key: "trenches_2", diff: "space_set", build: () => to_id_set(view?.trenches_2) },
+	{ key: "forts_destroyed", diff: "space_set", build: () => to_id_set(view?.forts?.destroyed) },
+	{ key: "oos_spaces", diff: "space_set", build: () => to_id_set(view?.oos_spaces) },
+	{ key: "entrenching", diff: "piece_set", build: () => to_id_set(view?.entrenching) },
+	{ key: "moved", diff: "piece_set", build: () => to_id_set(view?.moved) },
+	{ key: "attacked", diff: "piece_set", build: () => to_id_set(view?.attacked) },
+	{ key: "supply_warnings", diff: "space_set", build: () => to_id_set(view?.supply_warnings) },
+	{ key: "activated_move_spaces", diff: "space_set", build: () => to_id_set(view?.activated?.move) },
+	{ key: "activated_attack_spaces", diff: "space_set", build: () => to_id_set(view?.activated?.attack) },
+	{ key: "ru_control_markers", diff: "space_set", build: () => to_id_set(view?.ru_control_markers) },
+	{ key: "attack_pieces", diff: "piece_set", build: () => to_id_set(view?.attack?.pieces) },
+	{ key: "move_pieces", diff: "piece_set", build: () => to_id_set(view?.move?.pieces) },
+	{ key: "action_space", diff: "space_set", build: () => to_loose_id_set(view?.actions?.space) },
+	{ key: "action_activate_move", diff: "space_set", build: () => to_loose_id_set(view?.actions?.activate_move) },
+	{ key: "action_activate_attack", diff: "space_set", build: () => to_loose_id_set(view?.actions?.activate_attack) },
+	{ key: "action_deactivate", diff: "space_set", build: () => to_loose_id_set(view?.actions?.deactivate) },
+	{ key: "action_piece", diff: "piece_set", build: () => to_loose_id_set(view?.actions?.piece) },
+	{ key: "action_attack_piece", diff: "piece_set", build: () => to_loose_id_set(view?.actions?.attack) },
+	{ key: "action_move_piece", diff: "piece_set", build: () => to_loose_id_set(view?.actions?.move) },
+	{ key: "action_advance_pieces", diff: "piece_set", build: () => to_loose_id_set(view?.actions?.advance_pieces) },
+	{ key: "action_retreat_pieces", diff: "piece_set", build: () => to_loose_id_set(view?.actions?.retreat_pieces) },
+	{
+		key: "violations_spaces",
+		diff: "space_set",
+		build: () => (Array.isArray(view?.violations) ? new Set(view.violations.map((v) => v.space)) : null)
+	},
+	{
+		key: "where_single",
+		diff: "space_scalar",
+		build: () => (Array.isArray(view?.where) ? null : view?.where)
+	},
+	{
+		key: "where_set",
+		diff: "space_set",
+		build: () => (Array.isArray(view?.where) ? new Set(view.where) : null)
+	},
+	{ key: "who_single", diff: "piece_scalar", build: () => view?.who },
+	{
+		key: "who_set",
+		diff: "piece_set",
+		build: () => (Array.isArray(view?.who) ? new Set(view.who) : null)
 	}
-	if (Array.isArray(view?.violations)) {
-		state.violations_spaces = new Set(view.violations.map((v) => v.space))
+]
+
+function build_ui_frame_state() {
+	const state = {}
+	for (const field of UI_FRAME_STATE_FIELDS) {
+		state[field.key] = field.build()
 	}
 	return state
+}
+
+function get_active_ui_frame_state(state = null) {
+	return state || ui_frame_state || build_ui_frame_state()
 }
 
 function has_id(set_or_null, id) {
@@ -2120,6 +2123,71 @@ function clone_id_set(set_or_null) {
 	return set_or_null ? new Set(set_or_null) : null
 }
 
+function clone_ui_frame_state_value(field, value) {
+	if (field.snapshot) {
+		return field.snapshot(value)
+	}
+	if (field.diff === "space_set" || field.diff === "piece_set") {
+		return clone_id_set(value)
+	}
+	return value
+}
+
+function create_ui_frame_snapshot(state) {
+	const snapshot = {}
+	for (const field of UI_FRAME_STATE_FIELDS) {
+		snapshot[field.key] = clone_ui_frame_state_value(field, state[field.key])
+	}
+	return snapshot
+}
+
+function add_dirty_ui_frame_state_changes(dirty_spaces, prev_state, next_state, prev_locations, next_locations) {
+	for (const field of UI_FRAME_STATE_FIELDS) {
+		const prev_value = prev_state[field.key]
+		const next_value = next_state[field.key]
+		switch (field.diff) {
+			case "space_set":
+				add_dirty_space_set_diff(dirty_spaces, prev_value, next_value)
+				break
+			case "piece_set":
+				add_dirty_piece_set_diff(dirty_spaces, prev_value, next_value, prev_locations, next_locations)
+				break
+			case "space_scalar":
+				if (prev_value !== next_value) {
+					add_dirty_update_space(dirty_spaces, prev_value)
+					add_dirty_update_space(dirty_spaces, next_value)
+				}
+				break
+			case "piece_scalar":
+				if (prev_value !== next_value) {
+					const prev_piece = normalize_numeric_id(prev_value)
+					const next_piece = normalize_numeric_id(next_value)
+					if (prev_piece !== null) {
+						add_dirty_update_space(dirty_spaces, prev_locations[prev_piece])
+						add_dirty_update_space(dirty_spaces, next_locations[prev_piece])
+					}
+					if (next_piece !== null) {
+						add_dirty_update_space(dirty_spaces, prev_locations[next_piece])
+						add_dirty_update_space(dirty_spaces, next_locations[next_piece])
+					}
+				}
+				break
+			case "control_array":
+				if (prev_value || next_value) {
+					const max_len = Math.max(prev_value ? prev_value.length : 0, next_value ? next_value.length : 0)
+					for (let s = 1; s < max_len; s++) {
+						const prev_control = prev_value ? prev_value[s] : undefined
+						const next_control = next_value ? next_value[s] : undefined
+						if (prev_control !== next_control) {
+							add_dirty_update_space(dirty_spaces, s)
+						}
+					}
+				}
+				break
+		}
+	}
+}
+
 /**
  * 更新整个地图的状态，包括单位位置和各个盒子的内容。
  */
@@ -2165,112 +2233,7 @@ function update_map() {
 			}
 		}
 
-		add_dirty_space_set_diff(dirty, prev_map_snapshot.beachheads, ui_frame_state.beachheads)
-		add_dirty_space_set_diff(dirty, prev_map_snapshot.trenches, ui_frame_state.trenches)
-		add_dirty_space_set_diff(dirty, prev_map_snapshot.trenches_2, ui_frame_state.trenches_2)
-		add_dirty_space_set_diff(dirty, prev_map_snapshot.forts_destroyed, ui_frame_state.forts_destroyed)
-		add_dirty_space_set_diff(dirty, prev_map_snapshot.oos_spaces, ui_frame_state.oos_spaces)
-		add_dirty_space_set_diff(dirty, prev_map_snapshot.activated_move_spaces, ui_frame_state.activated_move_spaces)
-		add_dirty_space_set_diff(dirty, prev_map_snapshot.activated_attack_spaces, ui_frame_state.activated_attack_spaces)
-		add_dirty_space_set_diff(dirty, prev_map_snapshot.ru_control_markers, ui_frame_state.ru_control_markers)
-		add_dirty_space_set_diff(dirty, prev_map_snapshot.supply_warnings, ui_frame_state.supply_warnings)
-		add_dirty_space_set_diff(dirty, prev_map_snapshot.violations_spaces, ui_frame_state.violations_spaces)
-		add_dirty_space_set_diff(dirty, prev_map_snapshot.action_space, ui_frame_state.action_space)
-		add_dirty_space_set_diff(dirty, prev_map_snapshot.action_activate_move, ui_frame_state.action_activate_move)
-		add_dirty_space_set_diff(dirty, prev_map_snapshot.action_activate_attack, ui_frame_state.action_activate_attack)
-		add_dirty_space_set_diff(dirty, prev_map_snapshot.action_activate_combine, ui_frame_state.action_activate_combine)
-		add_dirty_space_set_diff(dirty, prev_map_snapshot.action_deactivate, ui_frame_state.action_deactivate)
-
-		add_dirty_piece_set_diff(dirty, prev_map_snapshot.reduced, ui_frame_state.reduced, prev_map_piece_locations, piece_locations)
-		add_dirty_piece_set_diff(dirty, prev_map_snapshot.oos, ui_frame_state.oos, prev_map_piece_locations, piece_locations)
-		add_dirty_piece_set_diff(
-			dirty,
-			prev_map_snapshot.entrenching,
-			ui_frame_state.entrenching,
-			prev_map_piece_locations,
-			piece_locations
-		)
-		add_dirty_piece_set_diff(dirty, prev_map_snapshot.moved, ui_frame_state.moved, prev_map_piece_locations, piece_locations)
-		add_dirty_piece_set_diff(dirty, prev_map_snapshot.attacked, ui_frame_state.attacked, prev_map_piece_locations, piece_locations)
-		add_dirty_piece_set_diff(
-			dirty,
-			prev_map_snapshot.action_piece,
-			ui_frame_state.action_piece,
-			prev_map_piece_locations,
-			piece_locations
-		)
-		add_dirty_piece_set_diff(
-			dirty,
-			prev_map_snapshot.action_attack_piece,
-			ui_frame_state.action_attack_piece,
-			prev_map_piece_locations,
-			piece_locations
-		)
-		add_dirty_piece_set_diff(
-			dirty,
-			prev_map_snapshot.action_move_piece,
-			ui_frame_state.action_move_piece,
-			prev_map_piece_locations,
-			piece_locations
-		)
-		add_dirty_piece_set_diff(
-			dirty,
-			prev_map_snapshot.action_advance_pieces,
-			ui_frame_state.action_advance_pieces,
-			prev_map_piece_locations,
-			piece_locations
-		)
-		add_dirty_piece_set_diff(
-			dirty,
-			prev_map_snapshot.action_retreat_pieces,
-			ui_frame_state.action_retreat_pieces,
-			prev_map_piece_locations,
-			piece_locations
-		)
-		add_dirty_piece_set_diff(
-			dirty,
-			prev_map_snapshot.attack_pieces,
-			ui_frame_state.attack_pieces,
-			prev_map_piece_locations,
-			piece_locations
-		)
-		add_dirty_piece_set_diff(
-			dirty,
-			prev_map_snapshot.move_pieces,
-			ui_frame_state.move_pieces,
-			prev_map_piece_locations,
-			piece_locations
-		)
-		add_dirty_space_set_diff(dirty, prev_map_snapshot.where_set, ui_frame_state.where_set)
-		if (prev_map_snapshot.where_single !== ui_frame_state.where_single) {
-			add_dirty_update_space(dirty, prev_map_snapshot.where_single)
-			add_dirty_update_space(dirty, ui_frame_state.where_single)
-		}
-		add_dirty_piece_set_diff(dirty, prev_map_snapshot.who_set, ui_frame_state.who_set, prev_map_piece_locations, piece_locations)
-		if (prev_map_snapshot.who_single !== ui_frame_state.who_single) {
-			const prev_who = normalize_numeric_id(prev_map_snapshot.who_single)
-			const curr_who = normalize_numeric_id(ui_frame_state.who_single)
-			if (prev_who !== null) {
-				add_dirty_update_space(dirty, prev_map_piece_locations[prev_who])
-				add_dirty_update_space(dirty, piece_locations[prev_who])
-			}
-			if (curr_who !== null) {
-				add_dirty_update_space(dirty, prev_map_piece_locations[curr_who])
-				add_dirty_update_space(dirty, piece_locations[curr_who])
-			}
-		}
-		const prev_control = prev_map_snapshot.control
-		const next_control = view.control
-		if (prev_control || next_control) {
-			const max_len = Math.max(prev_control ? prev_control.length : 0, next_control ? next_control.length : 0)
-			for (let s = 1; s < max_len; s++) {
-				const prev_v = prev_control ? prev_control[s] : undefined
-				const next_v = next_control ? next_control[s] : undefined
-				if (prev_v !== next_v) {
-					add_dirty_update_space(dirty, s)
-				}
-			}
-		}
+		add_dirty_ui_frame_state_changes(dirty, prev_map_snapshot, ui_frame_state, prev_map_piece_locations, piece_locations)
 		if (pending_focus_dirty_spaces) {
 			for (const s of pending_focus_dirty_spaces) {
 				add_dirty_update_space(dirty, s)
@@ -2289,40 +2252,7 @@ function update_map() {
 
 	update_system_markers()
 	prev_map_piece_locations = piece_locations
-	prev_map_snapshot = {
-		control: Array.isArray(view.control) ? view.control.slice() : null,
-		where_single: ui_frame_state.where_single,
-		where_set: clone_id_set(ui_frame_state.where_set),
-		reduced: clone_id_set(ui_frame_state.reduced),
-		oos: clone_id_set(ui_frame_state.oos),
-		beachheads: clone_id_set(ui_frame_state.beachheads),
-		trenches: clone_id_set(ui_frame_state.trenches),
-		trenches_2: clone_id_set(ui_frame_state.trenches_2),
-		forts_destroyed: clone_id_set(ui_frame_state.forts_destroyed),
-		oos_spaces: clone_id_set(ui_frame_state.oos_spaces),
-		entrenching: clone_id_set(ui_frame_state.entrenching),
-		moved: clone_id_set(ui_frame_state.moved),
-		attacked: clone_id_set(ui_frame_state.attacked),
-		supply_warnings: clone_id_set(ui_frame_state.supply_warnings),
-		activated_move_spaces: clone_id_set(ui_frame_state.activated_move_spaces),
-		activated_attack_spaces: clone_id_set(ui_frame_state.activated_attack_spaces),
-		ru_control_markers: clone_id_set(ui_frame_state.ru_control_markers),
-		attack_pieces: clone_id_set(ui_frame_state.attack_pieces),
-		move_pieces: clone_id_set(ui_frame_state.move_pieces),
-		action_space: clone_id_set(ui_frame_state.action_space),
-		action_activate_move: clone_id_set(ui_frame_state.action_activate_move),
-		action_activate_attack: clone_id_set(ui_frame_state.action_activate_attack),
-		action_activate_combine: clone_id_set(ui_frame_state.action_activate_combine),
-		action_deactivate: clone_id_set(ui_frame_state.action_deactivate),
-		action_piece: clone_id_set(ui_frame_state.action_piece),
-		action_attack_piece: clone_id_set(ui_frame_state.action_attack_piece),
-		action_move_piece: clone_id_set(ui_frame_state.action_move_piece),
-		action_advance_pieces: clone_id_set(ui_frame_state.action_advance_pieces),
-		action_retreat_pieces: clone_id_set(ui_frame_state.action_retreat_pieces),
-		violations_spaces: clone_id_set(ui_frame_state.violations_spaces),
-		who_single: ui_frame_state.who_single,
-		who_set: clone_id_set(ui_frame_state.who_set)
-	}
+	prev_map_snapshot = create_ui_frame_snapshot(ui_frame_state)
 	ui_frame_state = null
 }
 
@@ -3633,7 +3563,6 @@ function get_bug_report_map_status() {
 		activated_move_space_count: set_count(state.activated_move_spaces),
 		activated_attack_space_count: set_count(state.activated_attack_spaces),
 		action_space_count: set_count(state.action_space),
-		action_activate_combine_count: set_count(state.action_activate_combine),
 		action_piece_count: set_count(state.action_piece),
 		action_move_piece_count: set_count(state.action_move_piece),
 		action_attack_piece_count: set_count(state.action_attack_piece),
@@ -4138,11 +4067,6 @@ function update_system_markers() {
 }
 
 /**
- * 更新强制进攻状态。
- */
-function update_mandatory_offensive() {}
-
-/**
  * 更新中立国标记显示状态。
  */
 function update_neutral_markers() {
@@ -4279,6 +4203,7 @@ const UI_ACTIONS = [
 	["choose_mesopotamia", "选择美索不达米亚"],
 	["choose_egypt", "选择埃及"],
 	["choose_russia", "选择俄国"],
+	["combine", "组合"],
 	["entrench", "掘壕"],
 	["select_lcu", "选择 LCU"],
 	["select_all", "全选"],
@@ -4319,7 +4244,6 @@ function should_highlight_space(s, state = null) {
 			has_loose_id(state.action_space, s) ||
 			has_loose_id(state.action_activate_move, s) ||
 			has_loose_id(state.action_activate_attack, s) ||
-			has_loose_id(state.action_activate_combine, s) ||
 			has_loose_id(state.action_deactivate, s)
 		)
 	}
@@ -4327,7 +4251,6 @@ function should_highlight_space(s, state = null) {
 		is_action("space", s) ||
 		is_action("activate_move", s) ||
 		is_action("activate_attack", s) ||
-		is_action("activate_combine", s) ||
 		is_action("deactivate", s)
 	)
 }
@@ -4367,7 +4290,7 @@ function has_clickable_piece_intent_in_space(space_id, state = null) {
  */
 function update_space_highlight(s) {
 	const space = spaces[s]
-	const state = ui_frame_state || build_ui_frame_state()
+	const state = get_active_ui_frame_state()
 	if (space && space.element) {
 		space.element.classList.toggle("highlight", should_highlight_space(s, state))
 		space.element.classList.toggle("selected", state.where_single === s || has_id(state.where_set, s))
@@ -4378,19 +4301,228 @@ function update_space_highlight(s) {
 	}
 }
 
-/**
- * 更新指定空间的状态，包括单位位置、控制标记、战壕和激活状态。
- * @param {number} s - 空间的索引。
- * @param {number[]} pieces_in_this_space - 当前空间内的单位 ID 数组。
- */
-/**
- * 更新指定空间的状态，包括其中的单位和标记。
- * @param {number} s - 空间 ID。
- * @param {number[]} pieces_in_this_space - 空间中的单位 ID 数组。
- */
+function set_piece_image(el, image) {
+	if (image && el.current_image !== image) {
+		el.style.backgroundImage = `url("pieces/${image}")`
+		el.current_image = image
+	}
+}
+
+function is_action_piece_highlighted(state, piece_id) {
+	return (
+		has_loose_id(state.action_piece, piece_id) ||
+		has_loose_id(state.action_advance_pieces, piece_id) ||
+		has_loose_id(state.action_retreat_pieces, piece_id)
+	)
+}
+
+function create_space_stack_parts() {
+	return {
+		top_markers: [],
+		full_scu: [],
+		reduced_scu: [],
+		full_lcu: [],
+		reduced_lcu: [],
+		bottom_markers: [],
+		has_oos_unit: false
+	}
+}
+
+function get_space_marker_list(s) {
+	return ui.space_list[s].markers || (ui.space_list[s].markers = [])
+}
+
+function get_space_control(state, s) {
+	return state.control && state.control[s]
+}
+
+function has_space_special_marker(space, state, s) {
+	const control = get_space_control(state, s)
+	return (
+		!!(control && control !== space.faction) ||
+		has_id(state.ru_control_markers, s) ||
+		has_id(state.trenches_2, s) ||
+		has_id(state.trenches, s) ||
+		has_id(state.beachheads, s) ||
+		has_id(state.forts_destroyed, s) ||
+		has_id(state.activated_move_spaces, s) ||
+		has_id(state.activated_attack_spaces, s) ||
+		has_id(state.oos_spaces, s)
+	)
+}
+
+function render_space_piece(piece_id, state, stack_parts) {
+	const piece = pieces[piece_id]
+	if (!piece || !piece.element) {
+		return
+	}
+	const el = piece.element
+	const is_reduced = has_id(state.reduced, piece_id)
+	const is_selected =
+		has_loose_id(state.action_advance_pieces, piece_id) ||
+		has_loose_id(state.action_retreat_pieces, piece_id) ||
+		has_loose_id(state.action_move_piece, piece_id) ||
+		state.who_single === piece_id ||
+		has_id(state.who_set, piece_id)
+	const is_activated =
+		has_loose_id(state.action_attack_piece, piece_id) ||
+		has_loose_id(state.action_move_piece, piece_id) ||
+		has_id(state.attack_pieces, piece_id) ||
+		has_id(state.move_pieces, piece_id)
+	const is_oos = has_id(state.oos, piece_id)
+
+	el.classList.remove("offmap")
+	el.classList.toggle("reduced", is_reduced)
+	el.classList.toggle("highlight", is_action_piece_highlighted(state, piece_id))
+	el.classList.toggle("activated", is_activated)
+	el.classList.toggle("selected", is_selected)
+	el.classList.toggle("oos", is_oos)
+	el.classList.toggle("entrenching", has_id(state.entrenching, piece_id))
+	el.classList.toggle("spent", has_id(state.moved, piece_id) || has_id(state.attacked, piece_id))
+	set_piece_image(el, is_reduced ? piece.image_reduced : piece.image_full)
+
+	if (is_oos) {
+		stack_parts.has_oos_unit = true
+	}
+	if (piece.piece_class === "LCU") {
+		;(is_reduced ? stack_parts.reduced_lcu : stack_parts.full_lcu).push(el)
+		return
+	}
+	if (piece.piece_class === "SCU") {
+		;(is_reduced ? stack_parts.reduced_scu : stack_parts.full_scu).push(el)
+		return
+	}
+	stack_parts.bottom_markers.push(el)
+}
+
+function render_space_pieces(pieces_in_this_space, state, stack_parts) {
+	if (!pieces_in_this_space || pieces_in_this_space.length === 0) {
+		return
+	}
+	for (const piece_id of pieces_in_this_space) {
+		render_space_piece(piece_id, state, stack_parts)
+	}
+}
+
+function get_space_activation_marker_count(s) {
+	if (!view.activation_cost) {
+		return 1
+	}
+	return Math.max(1, map_get(view.activation_cost, s, 1))
+}
+
+function render_space_markers(space, state, s, stack_parts) {
+	const control = get_space_control(state, s)
+	if (control) {
+		if (control !== space.faction) {
+			const marker = build_control_marker(s, control)
+			if (marker) {
+				stack_parts.bottom_markers.push(marker)
+			}
+		} else {
+			destroy_control_marker(s)
+		}
+	} else {
+		destroy_control_marker(s)
+	}
+
+	if (has_id(state.ru_control_markers, s)) {
+		stack_parts.bottom_markers.push(build_russian_control_marker(s))
+	} else {
+		destroy_russian_control_marker(s)
+	}
+
+	const trench_level = has_id(state.trenches_2, s) ? 2 : has_id(state.trenches, s) ? 1 : 0
+	if (trench_level > 0) {
+		const marker_list = get_space_marker_list(s)
+		const existing = marker_list.find((marker) => marker.type === "trench")
+		if (existing && existing.value !== trench_level) {
+			destroy_marker(marker_list, (marker) => marker.type === "trench")
+		}
+		stack_parts.bottom_markers.push(build_trench_marker(s, trench_level))
+	} else {
+		destroy_trench_marker(s)
+	}
+
+	if (has_id(state.beachheads, s)) {
+		stack_parts.bottom_markers.push(build_beachhead_marker(s))
+	} else {
+		destroy_beachhead_marker(s)
+	}
+
+	if (has_id(state.forts_destroyed, s)) {
+		stack_parts.bottom_markers.push(build_fort_destroyed_marker(s))
+	} else {
+		destroy_fort_destroyed_marker(s)
+	}
+
+	if (view.activated) {
+		const marker_list = get_space_marker_list(s)
+		if (has_id(state.activated_move_spaces, s)) {
+			destroy_marker(marker_list, (marker) => marker.type === "attack")
+			const count = get_space_activation_marker_count(s)
+			for (let i = 0; i < count; i++) {
+				stack_parts.top_markers.push(build_activation_marker(s, "move", i))
+			}
+		} else if (has_id(state.activated_attack_spaces, s)) {
+			destroy_marker(marker_list, (marker) => marker.type === "move")
+			const count = get_space_activation_marker_count(s)
+			for (let i = 0; i < count; i++) {
+				stack_parts.top_markers.push(build_activation_marker(s, "attack", i))
+			}
+		} else {
+			destroy_activation_markers(s)
+		}
+	} else {
+		destroy_activation_markers(s)
+	}
+
+	if (has_id(state.oos_spaces, s) || stack_parts.has_oos_unit) {
+		stack_parts.top_markers.push(build_oos_marker(s))
+	} else {
+		destroy_oos_marker(s)
+	}
+}
+
+function populate_space_stack(stack, s, stack_parts) {
+	stack.length = 0
+	const stack_groups = [
+		stack_parts.top_markers,
+		stack_parts.full_scu,
+		stack_parts.reduced_scu,
+		stack_parts.full_lcu,
+		stack_parts.reduced_lcu,
+		stack_parts.bottom_markers
+	]
+	for (const group of stack_groups) {
+		for (const el of group) {
+			push_stack(stack, el)
+		}
+	}
+	for (const el of stack) {
+		el.dataset.space = String(s)
+	}
+}
+
+function get_space_stack_center(space) {
+	const rect = layout[space.name]
+	if (rect) {
+		return [rect[0] + rect[2] / 2, rect[1] + rect[3] / 2]
+	}
+	return [
+		parseFloat(space.element.style.left) + parseFloat(space.element.style.width) / 2,
+		parseFloat(space.element.style.top) + parseFloat(space.element.style.height) / 2
+	]
+}
+
+function layout_space_stack(space, stack) {
+	const [x, y] = get_space_stack_center(space)
+	layout_stack(stack, x, y)
+}
+
 function update_space(s, pieces_in_this_space) {
 	const space = spaces[s]
-	const state = ui_frame_state || build_ui_frame_state()
+	const state = get_active_ui_frame_state()
 	if (!space || !space.element) {
 		return
 	}
@@ -4402,16 +4534,7 @@ function update_space(s, pieces_in_this_space) {
 	const stack = space.stack
 	stack.space_id = s
 	const has_pieces = !!(pieces_in_this_space && pieces_in_this_space.length > 0)
-	const has_special_marker =
-		!!(view.control && view.control[s] && view.control[s] !== space.faction) ||
-		has_id(state.ru_control_markers, s) ||
-		has_id(state.trenches_2, s) ||
-		has_id(state.trenches, s) ||
-		has_id(state.beachheads, s) ||
-		has_id(state.forts_destroyed, s) ||
-		has_id(state.activated_move_spaces, s) ||
-		has_id(state.activated_attack_spaces, s) ||
-		has_id(state.oos_spaces, s)
+	const has_special_marker = has_space_special_marker(space, state, s)
 	const marker_list = ui.space_list[s] && ui.space_list[s].markers
 	const has_existing_markers = !!(marker_list && marker_list.length > 0)
 
@@ -4420,204 +4543,11 @@ function update_space(s, pieces_in_this_space) {
 		return
 	}
 
-	stack.length = 0
-
-	const full_lcu = []
-	const reduced_lcu = []
-	const full_scu = []
-	const reduced_scu = []
-	const space_markers_bottom = []
-	const space_markers_top = []
-
-	let space_has_oos_unit = false
-
-	// Find pieces in this space using the lookup table
-	if (pieces_in_this_space) {
-		for (const p of pieces_in_this_space) {
-			const piece = pieces[p]
-			if (!piece.element) {
-				continue
-			}
-			const el = piece.element
-
-			el.classList.remove("offmap")
-
-			const is_reduced = has_id(state.reduced, p)
-			const image = is_reduced ? piece.image_reduced : piece.image_full
-
-			el.classList.toggle("reduced", is_reduced)
-
-			if (image && el.current_image !== image) {
-				el.style.backgroundImage = `url("pieces/${image}")`
-				el.current_image = image
-			}
-
-			const is_highlight =
-				has_loose_id(state.action_piece, p) ||
-				has_loose_id(state.action_advance_pieces, p) ||
-				has_loose_id(state.action_retreat_pieces, p)
-			el.classList.toggle("highlight", is_highlight)
-
-			const activated_by_action = has_loose_id(state.action_attack_piece, p) || has_loose_id(state.action_move_piece, p)
-			const activated_by_selection = has_id(state.attack_pieces, p) || has_id(state.move_pieces, p)
-			el.classList.toggle("activated", activated_by_action || activated_by_selection)
-
-			const is_selected =
-				(has_loose_id(state.action_advance_pieces, p) ||
-					has_loose_id(state.action_retreat_pieces, p) ||
-					has_loose_id(state.action_move_piece, p) ||
-					state.who_single === p ||
-					has_id(state.who_set, p))
-			el.classList.toggle("selected", is_selected)
-
-			const is_oos = has_id(state.oos, p)
-			if (is_oos) space_has_oos_unit = true
-			el.classList.toggle("oos", is_oos)
-
-			const is_entrenching = has_id(state.entrenching, p)
-			el.classList.toggle("entrenching", is_entrenching)
-
-			const is_spent = has_id(state.moved, p) || has_id(state.attacked, p)
-			el.classList.toggle("spent", is_spent)
-
-			if (piece.piece_class === "LCU") {
-				if (is_reduced) {
-					reduced_lcu.push(el)
-				} else {
-					full_lcu.push(el)
-				}
-			} else if (piece.piece_class === "SCU") {
-				if (is_reduced) {
-					reduced_scu.push(el)
-				} else {
-					full_scu.push(el)
-				}
-			} else {
-				// Irregular or other?
-				space_markers_bottom.push(el)
-			}
-		}
-	}
-
-	if (view.control && view.control[s]) {
-		const ctrl = view.control[s]
-		if (ctrl !== space.faction) {
-			const m = build_control_marker(s, ctrl)
-			if (m) space_markers_bottom.push(m)
-		} else {
-			destroy_control_marker(s)
-		}
-	} else {
-		destroy_control_marker(s)
-	}
-
-	if (has_id(state.ru_control_markers, s)) {
-		const m = build_russian_control_marker(s)
-		space_markers_bottom.push(m)
-	} else {
-		destroy_russian_control_marker(s)
-	}
-
-	let trench_level = 0
-	if (has_id(state.trenches_2, s)) {
-		trench_level = 2
-	} else if (has_id(state.trenches, s)) {
-		trench_level = 1
-	}
-
-	if (trench_level > 0) {
-		const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
-		const existing = list.find((m) => m.type === "trench")
-		if (existing && existing.value !== trench_level) {
-			destroy_marker(list, (m) => m.type === "trench")
-		}
-		const m = build_trench_marker(s, trench_level)
-		space_markers_bottom.push(m)
-	} else {
-		destroy_trench_marker(s)
-	}
-
-	if (has_id(state.beachheads, s)) {
-		const m = build_beachhead_marker(s)
-		space_markers_bottom.push(m)
-	} else {
-		destroy_beachhead_marker(s)
-	}
-
-	if (has_id(state.forts_destroyed, s)) {
-		const m = build_fort_destroyed_marker(s)
-		space_markers_bottom.push(m)
-	} else {
-		destroy_fort_destroyed_marker(s)
-	}
-
-	if (view.activated) {
-		const get_activation_marker_count = () => {
-			if (!view.activation_cost) return 1
-			return Math.max(1, map_get(view.activation_cost, s, 1))
-		}
-		if (has_id(state.activated_move_spaces, s)) {
-			const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
-			destroy_marker(list, (m) => m.type === "attack")
-			const markers = get_activation_marker_count()
-			for (let i = 0; i < markers; i++) {
-				const m = build_activation_marker(s, "move", i)
-				space_markers_top.push(m)
-			}
-		} else if (has_id(state.activated_attack_spaces, s)) {
-			const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
-			destroy_marker(list, (m) => m.type === "move")
-			const markers = get_activation_marker_count()
-			for (let i = 0; i < markers; i++) {
-				const m = build_activation_marker(s, "attack", i)
-				space_markers_top.push(m)
-			}
-		} else {
-			destroy_activation_markers(s)
-		}
-	} else {
-		destroy_activation_markers(s)
-	}
-
-	if (has_id(state.oos_spaces, s) || space_has_oos_unit) {
-		const m = build_oos_marker(s)
-		space_markers_top.push(m)
-	} else {
-		destroy_oos_marker(s)
-	}
-
-	for (const el of space_markers_top) {
-		push_stack(stack, el)
-	}
-	for (const el of full_scu) {
-		push_stack(stack, el)
-	}
-	for (const el of reduced_scu) {
-		push_stack(stack, el)
-	}
-	for (const el of full_lcu) {
-		push_stack(stack, el)
-	}
-	for (const el of reduced_lcu) {
-		push_stack(stack, el)
-	}
-	for (const el of space_markers_bottom) {
-		push_stack(stack, el)
-	}
-	for (const el of stack) {
-		el.dataset.space = String(s)
-	}
-
-	const rect = layout[space.name]
-	const x = rect
-		? rect[0] + rect[2] / 2
-		: parseFloat(space.element.style.left) + parseFloat(space.element.style.width) / 2
-	const y = rect
-		? rect[1] + rect[3] / 2
-		: parseFloat(space.element.style.top) + parseFloat(space.element.style.height) / 2
-
-	layout_stack(stack, x, y)
-
+	const stack_parts = create_space_stack_parts()
+	render_space_pieces(pieces_in_this_space, state, stack_parts)
+	render_space_markers(space, state, s, stack_parts)
+	populate_space_stack(stack, s, stack_parts)
+	layout_space_stack(space, stack)
 	update_space_highlight(s)
 }
 
@@ -4627,9 +4557,6 @@ function update_space(s, pieces_in_this_space) {
  * @returns {string} 国家代码或 MINOR。
  */
 function get_reserve_box_stack(piece, order) {
-	if (piece.rptype === "allied") {
-		return MINOR
-	}
 	const nation = piece.nation
 	if (order.includes(nation)) {
 		return nation
@@ -4693,35 +4620,69 @@ function get_eliminated_box_group(piece, order) {
 	return OTHER
 }
 
-/**
- * 更新预备盒的状态。
- * @param {number} space_id - 空间的索引。
- * @param {number[]} piece_ids - 预备盒中的单位 ID 数组。
- */
-/**
- * 更新预备盒的状态。
- * @param {number} space_id - 空间的索引。
- * @param {number[]} piece_ids - 盒中的单位 ID 数组。
- */
-function update_reserve_box(space_id, piece_ids) {
+function apply_box_piece_interaction_state(el, state, piece_id, interactive = true) {
+	el.classList.toggle("highlight", interactive && is_action_piece_highlighted(state, piece_id))
+	el.classList.toggle("selected", interactive && (state.who_single === piece_id || has_id(state.who_set, piece_id)))
+	el.classList.remove("activated")
+	el.classList.remove("spent")
+	el.classList.remove("oos")
+	el.classList.remove("entrenching")
+	el.style.pointerEvents = interactive ? "" : "none"
+}
+
+function render_grouped_box_space(space_id, piece_ids, options) {
 	if (!(space_id > 0) || !spaces[space_id] || !spaces[space_id].element) {
 		return
 	}
-	const state = ui_frame_state || build_ui_frame_state()
+	const state = get_active_ui_frame_state()
 	const space = spaces[space_id]
-	const is_ap_box = space_id === AP_RESERVE_BOX || space_id === AP_CORPS_ASSETS_BOX
-	const is_cp_box = space_id === CP_RESERVE_BOX || space_id === CP_CORPS_ASSETS_BOX
-	let order = is_ap_box ? ap_reserve_box_order : cp_reserve_box_order
-
-	// For tribal or other custom reserve boxes on the map, use a single stack for that nation
-	const is_custom_reserve = !is_ap_box && !is_cp_box && (space.type === "Reserve Box" || space.map === "Reserve Box")
-	if (is_custom_reserve && space.nation) {
-		order = [space.nation]
-	}
-
+	const order = options.get_order(space_id, space)
 	if (!space.stacks) {
 		space.stacks = {}
 	}
+	options.reset_groups(space, order)
+	for (const piece_id of piece_ids) {
+		const piece = pieces[piece_id]
+		if (!piece || !piece.element) {
+			continue
+		}
+		options.place_piece({
+			space_id,
+			space,
+			state,
+			order,
+			piece_id,
+			piece,
+			element: piece.element
+		})
+	}
+	const rec = get_layout_rect(space)
+	const fallback_center = rec ? layout_center(rec) : [0, 0]
+	const centers = options.get_centers(rec, order, space, space_id)
+	for (let i = 0; i < order.length; ++i) {
+		options.layout_group({
+			space_id,
+			space,
+			state,
+			order,
+			group: order[i],
+			index: i,
+			center: centers[i] || fallback_center
+		})
+	}
+	update_space_highlight(space_id)
+}
+
+function get_reserve_box_order(space_id, space) {
+	const is_ap_box = space_id === AP_RESERVE_BOX || space_id === AP_CORPS_ASSETS_BOX
+	const is_cp_box = space_id === CP_RESERVE_BOX || space_id === CP_CORPS_ASSETS_BOX
+	if (!is_ap_box && !is_cp_box && (space.type === "Reserve Box" || space.map === "Reserve Box") && space.nation) {
+		return [space.nation]
+	}
+	return is_ap_box ? ap_reserve_box_order : cp_reserve_box_order
+}
+
+function reset_reserve_box_groups(space, order) {
 	for (const nation of order) {
 		if (!Array.isArray(space.stacks[nation])) {
 			space.stacks[nation] = []
@@ -4729,74 +4690,69 @@ function update_reserve_box(space_id, piece_ids) {
 			space.stacks[nation].length = 0
 		}
 	}
+}
 
-	for (const p of piece_ids) {
-		const piece = pieces[p]
-		if (!piece || !piece.element) {
-			continue
-		}
-		const el = piece.element
-		const is_reduced = has_id(state.reduced, p)
-		el.classList.remove("offmap")
-		el.classList.toggle("reduced", is_reduced)
-
-		const is_highlight =
-			has_loose_id(state.action_piece, p) ||
-			has_loose_id(state.action_advance_pieces, p) ||
-			has_loose_id(state.action_retreat_pieces, p)
-		el.classList.toggle("highlight", is_highlight)
-
-		const is_selected = state.who_single === p || has_id(state.who_set, p)
-		el.classList.toggle("selected", is_selected)
-
-		el.classList.remove("activated")
-		el.classList.remove("spent")
-		el.classList.remove("oos")
-		el.classList.remove("entrenching")
-
-		let nation = get_reserve_box_stack(piece, order)
-		// For custom reserve boxes, force pieces into the single allowed stack if it's the only one
-		if (is_custom_reserve && order.length === 1) {
-			nation = order[0]
-		}
-
-		const bucket = space.stacks[nation]
-		if (bucket) {
-			if (piece.piece_class === "SCU") {
-				unshift_stack(bucket, el)
-			} else {
-				push_stack(bucket, el)
-			}
-		}
+function place_reserve_box_piece({ space, state, order, piece_id, piece, element }) {
+	const is_reduced = has_id(state.reduced, piece_id)
+	let nation = get_reserve_box_stack(piece, order)
+	if (order.length === 1) {
+		nation = order[0]
 	}
-
-	const rec = get_layout_rect(space)
-	const centers = is_custom_reserve
-		? [[...(rec ? layout_center(rec) : [0, 0])]]
-		: compute_group_centers(rec, order.length, {
-				min_stride_x: 56,
-				min_stride_y: 72,
-				max_stride_x: 78,
-				max_stride_y: 92,
-				margin_x: 18,
-				margin_y: 24
-			})
-	for (let i = 0; i < order.length; ++i) {
-		const nation = order[i]
-		const stack = space.stacks[nation]
-		if (stack.length > 0) {
-			const [x, y] = centers[i] || (rec ? layout_center(rec) : [0, 0])
-			stack.x = x
-			stack.y = y
-			stack.side = is_ap_box ? "ap" : "cp"
-			stack.is_reinforcement = true
-			stack.name = `reserve:${space.name}:${nation}`
-			bind_stack_interaction(stack)
-			layout_stack(stack, x, y)
-		}
+	element.classList.remove("offmap")
+	element.classList.toggle("reduced", is_reduced)
+	apply_box_piece_interaction_state(element, state, piece_id)
+	set_piece_image(element, is_reduced ? piece.image_reduced : piece.image_full)
+	const bucket = space.stacks[nation]
+	if (!bucket) {
+		return
 	}
+	if (piece.piece_class === "SCU") {
+		unshift_stack(bucket, element)
+	} else {
+		push_stack(bucket, element)
+	}
+}
 
-	update_space_highlight(space_id)
+function get_reserve_box_centers(rec, order, space, space_id) {
+	const is_ap_box = space_id === AP_RESERVE_BOX || space_id === AP_CORPS_ASSETS_BOX
+	const is_cp_box = space_id === CP_RESERVE_BOX || space_id === CP_CORPS_ASSETS_BOX
+	const is_custom_reserve = !is_ap_box && !is_cp_box && (space.type === "Reserve Box" || space.map === "Reserve Box")
+	if (is_custom_reserve) {
+		return [[...(rec ? layout_center(rec) : [0, 0])]]
+	}
+	return compute_group_centers(rec, order.length, {
+		min_stride_x: 56,
+		min_stride_y: 72,
+		max_stride_x: 78,
+		max_stride_y: 92,
+		margin_x: 18,
+		margin_y: 24
+	})
+}
+
+function layout_reserve_box_group({ space_id, space, group, center }) {
+	const stack = space.stacks[group]
+	if (!stack || stack.length === 0) {
+		return
+	}
+	const [x, y] = center
+	stack.x = x
+	stack.y = y
+	stack.side = space_id === AP_RESERVE_BOX || space_id === AP_CORPS_ASSETS_BOX ? AP : CP
+	stack.is_reinforcement = true
+	stack.name = `reserve:${space.name}:${group}`
+	bind_stack_interaction(stack)
+	layout_stack(stack, x, y)
+}
+
+function update_reserve_box(space_id, piece_ids) {
+	render_grouped_box_space(space_id, piece_ids, {
+		get_order: get_reserve_box_order,
+		reset_groups: reset_reserve_box_groups,
+		place_piece: place_reserve_box_piece,
+		get_centers: get_reserve_box_centers,
+		layout_group: layout_reserve_box_group
+	})
 }
 
 /**
@@ -4805,106 +4761,72 @@ function update_reserve_box(space_id, piece_ids) {
  * @param {number[]} piece_ids - 盒中的单位 ID 数组。
  */
 function update_eliminated_box(space_id, piece_ids) {
-	if (!(space_id > 0) || !spaces[space_id] || !spaces[space_id].element) {
-		return
-	}
-	const state = ui_frame_state || build_ui_frame_state()
-	const space = spaces[space_id]
-	const order = get_eliminated_box_order(space_id)
-	const is_removed_box = is_permanently_eliminated_box_space_id(space_id)
-
-	if (!space.stacks) {
-		space.stacks = {}
-	}
-	for (const group of order) {
-		if (!space.stacks[group] || Array.isArray(space.stacks[group])) {
-			space.stacks[group] = { lcus: [], scus: [] }
+	render_grouped_box_space(space_id, piece_ids, {
+		get_order: (id) => get_eliminated_box_order(id),
+		reset_groups: (space, order) => {
+			for (const group of order) {
+				if (!space.stacks[group] || Array.isArray(space.stacks[group])) {
+					space.stacks[group] = { lcus: [], scus: [] }
+				}
+				space.stacks[group].lcus.length = 0
+				space.stacks[group].scus.length = 0
+			}
+		},
+		place_piece: ({ space_id, space, state, order, piece_id, piece, element }) => {
+			const is_removed_box = is_permanently_eliminated_box_space_id(space_id)
+			element.my_stack = null
+			element.classList.remove("offmap")
+			element.classList.remove("reduced")
+			apply_box_piece_interaction_state(element, state, piece_id, !is_removed_box)
+			set_piece_image(element, piece.image_full)
+			const group = get_eliminated_box_group(piece, order)
+			const bucket = piece.piece_class === "LCU" ? space.stacks[group].lcus : space.stacks[group].scus
+			unshift_stack(bucket, element)
+		},
+		get_centers: (rec, order) =>
+			compute_group_centers(rec, order.length, {
+				min_stride_x: 52,
+				min_stride_y: 90,
+				max_stride_x: 76,
+				max_stride_y: 120,
+				margin_x: 18,
+				margin_y: 20
+			}),
+		layout_group: ({ space_id, space, group, center }) => {
+			const is_removed_box = is_permanently_eliminated_box_space_id(space_id)
+			const side = get_eliminated_box_side(space_id)
+			const [gx, gy] = center
+			const class_row_offset = 22
+			const lcu_stack = space.stacks[group].lcus
+			const scu_stack = space.stacks[group].scus
+			if (lcu_stack.length > 0) {
+				const x = gx
+				const y = gy - class_row_offset
+				lcu_stack.x = x
+				lcu_stack.y = y
+				lcu_stack.side = side
+				lcu_stack.is_reinforcement = true
+				lcu_stack.name = `eliminated:${space.name}:${group}:lcu`
+				if (!is_removed_box) {
+					bind_stack_interaction(lcu_stack)
+				}
+				layout_stack(lcu_stack, x, y)
+			}
+			if (scu_stack.length > 0) {
+				const x = gx
+				const y = gy + class_row_offset
+				scu_stack.x = x
+				scu_stack.y = y
+				scu_stack.side = side
+				scu_stack.is_reinforcement = true
+				scu_stack.name = `eliminated:${space.name}:${group}:scu`
+				if (!is_removed_box) {
+					bind_stack_interaction(scu_stack)
+				}
+				layout_stack(scu_stack, x, y)
+			}
 		}
-		space.stacks[group].lcus.length = 0
-		space.stacks[group].scus.length = 0
-	}
-
-	for (const p of piece_ids) {
-		const piece = pieces[p]
-		if (!piece || !piece.element) {
-			continue
-		}
-		const el = piece.element
-		el.my_stack = null
-		el.classList.remove("offmap")
-		el.classList.remove("reduced")
-		el.style.pointerEvents = is_removed_box ? "none" : ""
-		const image = piece.image_full
-		if (image && el.current_image !== image) {
-			el.style.backgroundImage = `url("pieces/${image}")`
-			el.current_image = image
-		}
-
-		const is_highlight =
-			!is_removed_box &&
-			(has_loose_id(state.action_piece, p) ||
-				has_loose_id(state.action_advance_pieces, p) ||
-				has_loose_id(state.action_retreat_pieces, p))
-		el.classList.toggle("highlight", is_highlight)
-
-		const is_selected = !is_removed_box && (state.who_single === p || has_id(state.who_set, p))
-		el.classList.toggle("selected", is_selected)
-
-		el.classList.remove("activated")
-		el.classList.remove("spent")
-		el.classList.remove("oos")
-		el.classList.remove("entrenching")
-
-		const group = get_eliminated_box_group(piece, order)
-		const bucket = piece.piece_class === "LCU" ? space.stacks[group].lcus : space.stacks[group].scus
-		unshift_stack(bucket, el)
-	}
-
-	const rec = get_layout_rect(space)
-	const group_centers = compute_group_centers(rec, order.length, {
-		min_stride_x: 52,
-		min_stride_y: 90,
-		max_stride_x: 76,
-		max_stride_y: 120,
-		margin_x: 18,
-		margin_y: 20
 	})
-	const class_row_offset = 22
-	const side = get_eliminated_box_side(space_id)
-	for (let i = 0; i < order.length; ++i) {
-		const group = order[i]
-		const lcu_stack = space.stacks[group].lcus
-		const scu_stack = space.stacks[group].scus
-		const [gx, gy] = group_centers[i] || (rec ? layout_center(rec) : [0, 0])
-		if (lcu_stack.length > 0) {
-			const x = gx
-			const y = gy - class_row_offset
-			lcu_stack.x = x
-			lcu_stack.y = y
-			lcu_stack.side = side
-			lcu_stack.is_reinforcement = true
-			lcu_stack.name = `eliminated:${space.name}:${group}:lcu`
-			if (!is_removed_box) {
-				bind_stack_interaction(lcu_stack)
-			}
-			layout_stack(lcu_stack, x, y)
-		}
-		if (scu_stack.length > 0) {
-			const x = gx
-			const y = gy + class_row_offset
-			scu_stack.x = x
-			scu_stack.y = y
-			scu_stack.side = side
-			scu_stack.is_reinforcement = true
-			scu_stack.name = `eliminated:${space.name}:${group}:scu`
-			if (!is_removed_box) {
-				bind_stack_interaction(scu_stack)
-			}
-			layout_stack(scu_stack, x, y)
-		}
-	}
-
-	update_space_highlight(space_id)
 }
 
 /**
@@ -5227,7 +5149,6 @@ ensure_popup(
 	<li class="separator">
 	<li data-action="activate_move"> Activate to Move
 	<li data-action="activate_attack"> Activate to Attack
-	<li data-action="activate_combine"> Activate to Combine
 `
 )
 
@@ -5499,7 +5420,15 @@ function on_log(text, ix) {
 		log_box_cp = 0
 	}
 
-	if (text.startsWith(">")) {
+	if (text.startsWith(">>")) {
+		text = text.substring(2)
+		if (text.startsWith(" ")) {
+			text = text.substring(1)
+		}
+		p.classList.add("i")
+		p.classList.add("detail")
+		p.classList.add("align")
+	} else if (text.startsWith(">")) {
 		text = text.substring(1)
 		if (text.startsWith(" ")) {
 			text = text.substring(1)
@@ -5508,7 +5437,7 @@ function on_log(text, ix) {
 		p.classList.add("detail")
 	}
 
-	if (text.startsWith("*")) {
+	if (text.startsWith("*") && !text.startsWith("**")) {
 		text = text.substring(1)
 		p.classList.add("bold")
 	}
@@ -5534,6 +5463,9 @@ function on_log(text, ix) {
 			p.className = "h2 cp"
 		} else {
 			p.className = "h2"
+			if (text === "强制进攻阶段" || text === "行动阶段") {
+				p.classList.add("phase-strong")
+			}
 		}
 	} else if (text.startsWith(".h3cp")) {
 		text = text.substring(6)
@@ -5589,6 +5521,7 @@ function escape_text(text) {
 	text = text.replace(" 1 spaces", " 1 space")
 	text = text.replace(/\+\d VP/g, (match) => `<span class="cpvp">${match}</span>`)
 	text = text.replace(/[-−]\d VP/g, (match) => `<span class="apvp">${match}</span>`)
+	text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
 	return text
 }
 
@@ -5767,10 +5700,8 @@ function on_focus_space(_e, s) {
 
 /**
  * 处理空间焦点离开事件，清除状态文本。
- * @param {Event|number} _e - 事件对象或空间 ID。
- * @param {number} [s] - 空间 ID（如果第一个参数是事件）。
  */
-function on_blur_space(_e, s) {
+function on_blur_space() {
 	ui.status.textContent = ""
 	if (DEBUG_CONNECTIONS || DEBUG_SPACES) {
 		for (let i = 0; i < spaces.length; ++i) {
@@ -5837,9 +5768,8 @@ function on_focus_marker(evt) {
 
 /**
  * 处理标记焦点离开事件。
- * @param {MouseEvent} _evt - 事件对象。
  */
-function on_blur_marker(_evt) {
+function on_blur_marker() {
 	ui.status.textContent = ""
 	if (mouse_focus) {
 		blur_stack()
@@ -5867,26 +5797,23 @@ function on_focus_piece(_e, p) {
 
 /**
  * 处理单位焦点离开事件。
- * @param {Event|number} _e - 事件对象或单位 ID。
- * @param {number} _p - 单位 ID。
  */
-function on_blur_piece(_e, _p) {
+function on_blur_piece() {
 	document.getElementById("status").textContent = ""
 	if (mouse_focus) {
 		blur_stack()
 	}
 }
 
-void AP_RESERVE_BOX
-void CP_RESERVE_BOX
-void AP_ELIMINATED_BOX
-void CP_ELIMINATED_BOX
-
 Object.assign(window, {
+	on_init,
 	on_update,
 	on_log,
 	on_prompt,
 	on_reply,
+	hide_popup_menu,
+	set_style,
+	set_mouse_focus,
 	on_focus_space_tip,
 	on_blur_space_tip,
 	on_click_space_tip,
@@ -5897,6 +5824,8 @@ Object.assign(window, {
 	on_blur_piece_tip,
 	on_click_piece_tip,
 	show_score_summary,
+	show_track_dialog,
+	toggle_counters,
 	to_reinforcements,
 	flag_supply_warnings,
 	open_bug_report_dialog,
@@ -6234,41 +6163,3 @@ function layout_center(rec) {
 	}
 	return [rec[0] + rec[2] / 2, rec[1] + rec[3] / 2]
 }
-
-/**
- * 获取矩形左上角坐标。
- * @param {number[]} rec - [x, y, w, h] 格式的矩形。
- * @returns {number[]} [x, y] 左上角坐标。
- */
-function layout_pos(rec) {
-	if (!rec) {
-		return [0, 0]
-	}
-	return [rec[0], rec[1]]
-}
-
-// --- 核心全局函数挂载 (确保脚本完全加载后才可被 client.js 使用) ---
-window.on_init = on_init
-window.on_update = on_update
-window.on_reply = on_reply
-window.on_log = on_log
-window.on_prompt = on_prompt
-window.hide_popup_menu = hide_popup_menu
-window.set_style = set_style
-window.set_mouse_focus = set_mouse_focus
-window.flag_supply_warnings = flag_supply_warnings
-window.open_bug_report_dialog = open_bug_report_dialog
-window.close_bug_report_dialog = close_bug_report_dialog
-window.submit_bug_report = submit_bug_report
-window.propose_rollback = propose_rollback
-window.propose_rollback_cancel = propose_rollback_cancel
-window.propose_rollback_submit = propose_rollback_submit
-window.review_rollback_cancel = review_rollback_cancel
-window.review_rollback_reject = review_rollback_reject
-window.review_rollback_accept = review_rollback_accept
-window.update_rollback_dialog = update_rollback_dialog
-window.hide_dialog = hide_dialog
-window.show_score_summary = show_score_summary
-window.to_reinforcements = to_reinforcements
-window.show_track_dialog = show_track_dialog
-window.toggle_counters = toggle_counters

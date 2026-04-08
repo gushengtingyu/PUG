@@ -7,7 +7,6 @@ const ROOT = path.resolve(__dirname, "..") // pursuit-of-glory root
 const SPACES_PATH = path.join(ROOT, "csv", "spaces.csv")
 const EDGES_PATH = path.join(ROOT, "csv", "edges.csv")
 const PIECES_PATH = path.join(ROOT, "csv", "pieces.csv")
-const CARDS_PATH = path.join(ROOT, "csv", "cards.csv")
 const UI_PATH = path.join(ROOT, "csv", "ui.csv")
 const REINFORCEMENTS_PATH = path.join(ROOT, "csv", "reinforcements.csv")
 
@@ -33,7 +32,7 @@ const SPACE_HEADERS = [
 	"tribal_activity_grid",
 	"jihad_city"
 ]
-const EDGE_HEADERS = ["a", "b", "nations", "type", "crossing", "flags", "comment"]
+const EDGE_HEADERS = ["a", "b", "nations", "type", "crossing", "flags"]
 // Determine headers dynamically for pieces/cards to be safe, or define them if fixed.
 // Based on file read:
 const PIECE_HEADERS = [
@@ -47,7 +46,6 @@ const PIECE_HEADERS = [
 	"rcf",
 	"rlf",
 	"rmf",
-	"rptype",
 	"symbol",
 	"region_limit",
 	"type",
@@ -55,26 +53,6 @@ const PIECE_HEADERS = [
 	"piece_class",
 	"image_full",
 	"image_reduced"
-]
-const CARD_HEADERS = [
-	"num",
-	"faction",
-	"commitment",
-	"ops",
-	"sr",
-	"remove",
-	"cc",
-	"ws",
-	"rp_a",
-	"rp_br",
-	"rp_ru",
-	"rp_ah",
-	"rp_ge",
-	"rp_tu",
-	"rp_in",
-	"name",
-	"event",
-	"effect"
 ]
 const UI_HEADERS = ["id", "key", "x", "y", "w", "h"]
 const REINFORCEMENT_HEADERS = ["id", "card", "name", "x", "y", "side", "type"]

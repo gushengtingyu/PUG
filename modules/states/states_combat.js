@@ -102,6 +102,21 @@ exports.register = function (states, Engine, context) {
 		game.where = -1
 	}
 
+	function format_piece_log(p, reduced = null) {
+		let is_reduced = reduced
+		if (is_reduced === null) is_reduced = Engine.game_utils.is_piece_reduced(game, p)
+		let name = data.pieces[p] ? data.pieces[p].name : piece_name(p)
+		if (is_reduced) return `(${name})`
+		return name
+	}
+
+	function ensure_attack_log_section(flag, title) {
+		if (!game.attack) return
+		if (game.attack[flag]) return
+		log(`**${title}**`)
+		game.attack[flag] = true
+	}
+
 	states.attack = {
 		prompt(res) {
 			refresh_attack_eligibility()
@@ -329,13 +344,83 @@ exports.register = function (states, Engine, context) {
 
 	function finalize_attacker_cc_step() {
 		if (!game.combat_cards) game.combat_cards = { attacker: [], defender: [] }
+		log_combat_card_side("attacker")
 		game.active = other_faction(game.active)
-		game.state = "play_cc_defender"
+		enter_combat_card_state("play_cc_defender")
 	}
 
 	function finalize_defender_cc_step() {
 		if (!game.combat_cards) game.combat_cards = { attacker: [], defender: [] }
+		log_combat_card_side("defender")
 		resolve_battle_sequence()
+	}
+
+	function apply_severe_weather_before_cc() {
+		if (!game.attack || game.attack.severe_weather_checked) return
+		combat.apply_severe_weather(game, log, get_season(game), reduce_piece)
+		game.attack.severe_weather_checked = true
+	}
+
+	function format_combat_card_summary_line(side) {
+		let cards = (game.combat_cards && game.combat_cards[side]) || []
+		let label = side === "attacker" ? "进攻方" : "防守方"
+		return `${label}：${cards.length ? cards.map((c) => card_name(c)).join("，") : "无"}`
+	}
+
+	function ensure_combat_card_log_header() {
+		if (!game.attack) return
+		if (game.attack.cc_log_header) return
+		game.attack.cc_log_header = true
+		log("*战斗卡：")
+	}
+
+	function log_combat_card_side(side) {
+		if (!game.attack) return
+		if (!game.attack.cc_log_sides) game.attack.cc_log_sides = {}
+		if (game.attack.cc_log_sides[side]) return
+		game.attack.cc_log_sides[side] = true
+		log(`>> ${format_combat_card_summary_line(side)}`)
+	}
+
+	function enter_combat_card_state(state) {
+		game.state = state
+	}
+
+	function start_standard_cc_window() {
+		apply_severe_weather_before_cc()
+		game.active = game.attack?.attacker || game.active
+		ensure_combat_card_log_header()
+		enter_combat_card_state("play_cc_attacker")
+	}
+
+	function finalize_pre_weather_attacker_cc_step() {
+		if (!game.combat_cards) game.combat_cards = { attacker: [], defender: [] }
+		game.active = game.attack?.defender || other_faction(game.active)
+		if (has_window_cc_options("pre_weather_cc_defender", game.active, false)) {
+			enter_combat_card_state("pre_weather_cc_defender")
+			return
+		}
+		start_standard_cc_window()
+	}
+
+	function finalize_pre_weather_defender_cc_step() {
+		if (!game.combat_cards) game.combat_cards = { attacker: [], defender: [] }
+		start_standard_cc_window()
+	}
+
+	function goto_pre_weather_step() {
+		game.active = game.attack?.attacker || game.active
+		if (has_window_cc_options("pre_weather_cc_attacker", game.active, true)) {
+			enter_combat_card_state("pre_weather_cc_attacker")
+			return
+		}
+		let defender = game.attack?.defender || other_faction(game.active)
+		if (has_window_cc_options("pre_weather_cc_defender", defender, false)) {
+			game.active = defender
+			enter_combat_card_state("pre_weather_cc_defender")
+			return
+		}
+		start_standard_cc_window()
 	}
 
 	states.declare_turkish_retreat = {
@@ -391,6 +476,8 @@ exports.register = function (states, Engine, context) {
 	}
 
 	const WINDOW_CC_ALLOWED = {
+		pre_weather_cc_attacker: new Set([combat.CC_CP_PASHA_1]),
+		pre_weather_cc_defender: new Set([]),
 		post_roll_cc_defender: new Set([
 			combat.CC_CP_WATER_SHORTAGE,
 			combat.CC_CP_CONFUSED_ORDERS,
@@ -510,7 +597,6 @@ exports.register = function (states, Engine, context) {
 		} else {
 			game.combat_cards.defender.push(c)
 		}
-
 		const mark_effected = (card) => {
 			set_add(game.combat_cards_effected, card)
 		}
@@ -550,7 +636,7 @@ exports.register = function (states, Engine, context) {
 			}
 			game.rp_cp.tu += 2
 			game.reserves_to_front_pieces = combat_cards.get_reserves_to_front_piece_pool(game)
-			log("前线预备役：")
+			log(`${card_name(c)}：`)
 			game.state = "event_reserves_to_front"
 			mark_effected(c)
 			return
@@ -625,7 +711,7 @@ exports.register = function (states, Engine, context) {
 			return
 		}
 
-		game.state = is_attacker ? "play_cc_attacker" : "play_cc_defender"
+		enter_combat_card_state(is_attacker ? "play_cc_attacker" : "play_cc_defender")
 	}
 
 	register_combat_card_state("play_cc_attacker", {
@@ -641,6 +727,22 @@ exports.register = function (states, Engine, context) {
 		is_attacker: false,
 		get_options: () => collect_playable_cc_options(game, game.active, false),
 		done: finalize_defender_cc_step,
+		allow_pass: true
+	})
+
+	register_combat_card_state("pre_weather_cc_attacker", {
+		prompt: "进攻方：打出先于恶劣天气判定的战斗卡",
+		is_attacker: true,
+		get_options: () => collect_window_cc_options(game, "pre_weather_cc_attacker", game.active, true),
+		done: finalize_pre_weather_attacker_cc_step,
+		allow_pass: true
+	})
+
+	register_combat_card_state("pre_weather_cc_defender", {
+		prompt: "防守方：打出先于恶劣天气判定的战斗卡",
+		is_attacker: false,
+		get_options: () => collect_window_cc_options(game, "pre_weather_cc_defender", game.active, false),
+		done: finalize_pre_weather_defender_cc_step,
 		allow_pass: true
 	})
 
@@ -670,7 +772,7 @@ exports.register = function (states, Engine, context) {
 		},
 		cancel() {
 			delete game.march_and_countermarch
-			game.state = "play_cc_attacker"
+			enter_combat_card_state("play_cc_attacker")
 		}
 	}
 
@@ -716,12 +818,12 @@ exports.register = function (states, Engine, context) {
 				set_add(game.attack.pieces, p)
 				set_add(game.attacked, p)
 				delete game.march_and_countermarch
-				game.state = "play_cc_attacker"
+				enter_combat_card_state("play_cc_attacker")
 			}
 		},
 		cancel() {
 			delete game.march_and_countermarch
-			game.state = "play_cc_attacker"
+			enter_combat_card_state("play_cc_attacker")
 		}
 	}
 
@@ -898,13 +1000,17 @@ exports.register = function (states, Engine, context) {
 		delete game.retreat_choice_resume_state
 		delete game.retreat_choice_prev_active
 		delete game.battle_resolution_applied
-		combat.start_attack_sequence(game)
-		
+		combat.start_attack_sequence(game, log)
+		if (game.attack) {
+			delete game.attack.cc_log_header
+			delete game.attack.cc_log_sides
+		}
+
 		// Rule 12.2 sequence: Flank Attack Announcement (Step 2) before CC (Step 5)
 		if (combat.check_can_flank(game) && game.attack.flank_attempt === undefined) {
 			game.state = "choose_flank_attack"
 		} else {
-			game.state = "play_cc_attacker"
+			goto_pre_weather_step()
 		}
 	}
 
@@ -944,6 +1050,8 @@ exports.register = function (states, Engine, context) {
 			return
 		}
 
+		combat.resolve_flank_attempt(game, log)
+
 		if (combat.resolve_battle_sequence(game, ctx) === "end") {
 			end_battle_sequence()
 		}
@@ -958,12 +1066,12 @@ exports.register = function (states, Engine, context) {
 		flank() {
 			push_undo()
 			game.attack.flank_attempt = true
-			game.state = "play_cc_attacker"
+			goto_pre_weather_step()
 		},
 		no_flank() {
 			push_undo()
 			game.attack.flank_attempt = false
-			game.state = "play_cc_attacker"
+			goto_pre_weather_step()
 		}
 	}
 
@@ -1138,7 +1246,14 @@ exports.register = function (states, Engine, context) {
 		piece(p) {
 			push_undo()
 			let lf = get_piece_lf(game, p)
+			let was_reduced = Engine.game_utils.is_piece_reduced(game, p)
+			ensure_attack_log_section("defender_loss_log_started", "防守方承伤：")
 			reduce_piece(p)
+			if (was_reduced) {
+				log(`>> ${format_piece_log(p, true)} 被消灭`)
+			} else {
+				log(`>> ${format_piece_log(p, false)} 减员为 ${format_piece_log(p, true)}`)
+			}
 			game.attack.defender_losses_absorbed += lf
 			mark_reserves_to_front_damage(p)
 		},
@@ -1182,7 +1297,7 @@ exports.register = function (states, Engine, context) {
 		},
 		piece(p) {
 			push_undo()
-			log(`${piece_name(p)} 因本行动轮先前已退却，在当前战斗造成损失后被摧毁。`)
+			log(`${format_piece_log(p, true)} 因本行动轮先前已退却，在当前战斗造成损失后被摧毁。`)
 			eliminate_piece(p)
 			set_delete(game.retreated, p)
 		},
@@ -1227,7 +1342,14 @@ exports.register = function (states, Engine, context) {
 		piece(p) {
 			push_undo()
 			let lf = get_piece_lf(game, p)
+			let was_reduced = Engine.game_utils.is_piece_reduced(game, p)
+			ensure_attack_log_section("attacker_loss_log_started", "进攻方承伤：")
 			reduce_piece(p)
+			if (was_reduced) {
+				log(`>> ${format_piece_log(p, true)} 被消灭`)
+			} else {
+				log(`>> ${format_piece_log(p, false)} 减员为 ${format_piece_log(p, true)}`)
+			}
 			game.attack.attacker_losses_absorbed += lf
 			mark_reserves_to_front_damage(p)
 		},
@@ -1477,15 +1599,12 @@ exports.register = function (states, Engine, context) {
 
 	function enter_advance_state(resume) {
 		if (!combat.begin_advance(game, game.battle_result, resume.advance_space)) {
-			log("Attacker has no units capable of advancing.")
 			clear_save_tiflis_flags()
 			goto_attack()
 			return
 		}
 		if (resume.save_tiflis_failed && game.battle_result?.no_advance) {
 			log("Russian units could not retreat towards Tiflis; full-strength TU/TUA units may advance.")
-		} else {
-			log("Attacker may advance.")
 		}
 		clear_save_tiflis_flags()
 	}
@@ -1500,7 +1619,6 @@ exports.register = function (states, Engine, context) {
 			clear_retreat_runtime_state()
 			return
 		}
-		log("Attacker may not advance.")
 		clear_save_tiflis_flags()
 		goto_attack()
 	}
@@ -1640,7 +1758,7 @@ exports.register = function (states, Engine, context) {
 		},
 		piece(p) {
 			push_undo()
-			log(`Defender cancels retreat. ${piece_name(p)} takes 1 loss.`)
+			log(`防守方取消撤退 ${format_piece_log(p)} 额外承受1级损失`)
 
 			game.retreat_pieces = []
 			game.selected_piece = null
@@ -1752,7 +1870,8 @@ exports.register = function (states, Engine, context) {
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
 				let from = game.pieces[p]
-				log(data.pieces[p].name + " retreats to " + data.spaces[s].name)
+				ensure_attack_log_section("retreat_log_started", "撤退：")
+				log(`>> ${format_piece_log(p)} → s${s}`)
 				game.pieces[p] = s
 				game.retreat_from = s
 				game.retreat_space = s
@@ -1789,7 +1908,8 @@ exports.register = function (states, Engine, context) {
 		eliminate_retreating() {
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
-				log(data.pieces[p].name + " cannot retreat and is eliminated.")
+				ensure_attack_log_section("retreat_log_started", "撤退：")
+				log(`>> ${format_piece_log(p, true)} 无法撤退并被消灭`)
 				eliminate_piece(p, true)
 				set_delete(game.retreat_pieces, p)
 				if (game.retreat_steps_left) delete game.retreat_steps_left[p]
@@ -1882,7 +2002,8 @@ exports.register = function (states, Engine, context) {
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
 				let from = game.pieces[p]
-				log(data.pieces[p].name + " retreats to " + data.spaces[s].name)
+				ensure_attack_log_section("retreat_log_started", "撤退：")
+				log(`>> ${format_piece_log(p)} → s${s}`)
 				game.pieces[p] = s
 
 				// Retreat control check: capture neutral spaces
@@ -1918,7 +2039,8 @@ exports.register = function (states, Engine, context) {
 			sync_turkish_retreat_state()
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
-				log(data.pieces[p].name + " cannot retreat and is eliminated.")
+				ensure_attack_log_section("retreat_log_started", "撤退：")
+				log(`>> ${format_piece_log(p, true)} 无法撤退并被消灭`)
 				eliminate_piece(p, true)
 				if (game.turkish_retreat_mandatory && set_has(game.turkish_retreat_mandatory, p)) {
 					set_delete(game.turkish_retreat_mandatory, p)
@@ -1997,8 +2119,8 @@ exports.register = function (states, Engine, context) {
 			Engine.sync_neutral_vp_state(game, from_space)
 		}
 		Engine.sync_neutral_vp_state(game, to_space)
-		if (Engine.greece.is_greece_neutral(game) && Engine.greece.is_athens_space(to_space)) {
-			Engine.greece.trigger_greece_entry(game, to_space, active_faction(), "战斗推进进入雅典", (msg) => log(msg))
+		if (Engine.neutral.is_greece_neutral(game) && Engine.neutral.is_athens_space(to_space)) {
+			Engine.neutral.trigger_greece_entry(game, to_space, active_faction(), "战斗推进进入雅典", (msg) => log(msg))
 		}
 		return true
 	}
@@ -2084,8 +2206,9 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 
-			log(data.pieces[p].name + " advances.")
 			let from_space = game.pieces[p]
+			ensure_attack_log_section("advance_log_started", "挺近：")
+			log(`>> ${format_piece_log(p)} → s${game.advance_space}`)
 			if (!advance_piece_into_space(p, from_space, game.advance_space)) {
 				set_delete(game.advance_pieces, p)
 				this.end_advance()
@@ -2177,7 +2300,8 @@ exports.register = function (states, Engine, context) {
 			if (p === null || p === undefined) return
 			let valid = get_follow_advance_spaces(p)
 			if (!set_has(valid, s)) return
-			log(data.pieces[p].name + " continues advancing to " + data.spaces[s].name + ".")
+			ensure_attack_log_section("advance_log_started", "挺近：")
+			log(`>> ${format_piece_log(p)} → s${s}`)
 			let from_space = game.pieces[p]
 			if (!advance_piece_into_space(p, from_space, s)) {
 				set_delete(game.advance_follow_pieces, p)

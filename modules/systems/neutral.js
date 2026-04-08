@@ -46,56 +46,40 @@ module.exports = function (Engine) {
 	function should_trigger_greece_entry_on_beachhead(game, space_id, faction) {
 		if (!is_greece_neutral(game)) return false
 		if (data.spaces[space_id].nation !== "gr") return false
-		// Rule 19.2.5: AP placing a beachhead at Salonika (and only Salonika) does NOT trigger Greek entry.
-		return !(faction === AP && is_salonika_space(space_id));
+		return !(faction === AP && is_salonika_space(space_id))
 	}
 
 	function violates_neutral_greece_movement_restriction(game, p, target, faction, total_cost) {
 		const { map } = Engine
 		if (!is_greece_neutral(game)) return false
 		if (is_greek_piece(p)) return false
-
-		// Rule 19.2.3: Both players may enter Greece... so long as they do not enter Athens.
 		if (is_athens_space(target)) return true
-
-		// Rule 19.2.3: AP units may move through spaces containing GR units... but may not end a move in a space with Greek units.
 		if (faction === AP) {
 			if (!has_greek_units_in_space(game, target)) return false
 			let mf = map.get_piece_mf(p)
 			let remaining = mf - total_cost
 			return remaining <= 0
 		}
-
-		// Rule 19.2.3: CP units may enter Greece and trace supply through vacant spaces in Greece.
-		// They do not have the privilege to move through spaces containing GR units.
 		if (faction === CP) {
 			if (data.spaces[target].nation === "gr") {
 				if (has_greek_units_in_space(game, target)) return true
 			}
 		}
-
 		return false
 	}
 
 	function can_end_move_in_neutral_greece(game, p, target, faction) {
 		if (!is_greece_neutral(game)) return true
 		if (is_greek_piece(p)) return true
-
-		// Rule 19.2.3: Both players may enter Greece... so long as they do not enter Athens.
 		if (is_athens_space(target)) return false
-
-		// Rule 19.2.3: AP units may not end a move in a space with Greek units.
 		if (faction === AP) {
 			if (has_greek_units_in_space(game, target)) return false
 		}
-
-		// Rule 19.2.3: CP units may enter Greece... through vacant spaces.
 		if (faction === CP) {
 			if (data.spaces[target].nation === "gr") {
 				if (has_greek_units_in_space(game, target)) return false
 			}
 		}
-
 		return true
 	}
 
@@ -118,14 +102,12 @@ module.exports = function (Engine) {
 
 	function can_move_piece_for_faction(game, p, faction) {
 		if (!is_greek_piece(p)) return false
-		// Rule 19.2.5: The CND unit always belongs to the AP Player.
 		if (is_greek_cnd(p) && faction === AP) return true
 		return is_greek_controlled_by_faction(game, faction)
 	}
 
 	function can_attack_piece_for_faction(game, p, faction) {
 		if (!is_greek_piece(p)) return false
-		// Rule 19.2.5: The CND unit always belongs to the AP Player.
 		if (is_greek_cnd(p) && faction === AP) return true
 		return is_greek_controlled_by_faction(game, faction)
 	}
@@ -134,9 +116,8 @@ module.exports = function (Engine) {
 		const { map } = Engine
 		if (!is_greece_neutral(game)) return false
 		if (data.spaces[s].nation !== "gr") return false
-		if (faction === AP) return true // AP can always trace through Greek spaces while neutral
+		if (faction === AP) return true
 		if (faction === CP) {
-			// Rule 19.2.3: CP units may trace supply through vacant spaces in Greece while neutral.
 			return map.get_pieces_in_space(game, s).length === 0
 		}
 		return false
@@ -144,12 +125,10 @@ module.exports = function (Engine) {
 
 	function check_constantine_entry_conditions(game) {
 		const { map } = Engine
-		// Condition (1): CP unit at Larissa
 		let larissa = find_space("Larissa")
 		if (larissa >= 0 && map.get_pieces_in_space(game, larissa).some((p) => data.pieces[p].faction === CP)) {
 			return true
 		}
-		// Condition (2): all non-Greek VP spaces in the Balkans are CP-controlled or neutral.
 		let balkan_vp_spaces = []
 		for (let s = 1; s < data.spaces.length; s++) {
 			let info = data.spaces[s]
@@ -157,7 +136,7 @@ module.exports = function (Engine) {
 				balkan_vp_spaces.push(s)
 			}
 		}
-		return !!(balkan_vp_spaces.length > 0 && balkan_vp_spaces.every((s) => !map.is_controlled_by(game, s, AP)));
+		return !!(balkan_vp_spaces.length > 0 && balkan_vp_spaces.every((s) => !map.is_controlled_by(game, s, AP)))
 	}
 
 	function trigger_greece_entry(game, target, entering_faction, reason, log_fn) {
@@ -166,22 +145,15 @@ module.exports = function (Engine) {
 		let opponent = map.other_faction(entering_faction)
 		set_greece_faction(game, opponent)
 		game.entry_gr = true
-
 		if (typeof log_fn === "function") {
-			log_fn(
-				`希腊加入${opponent === AP ? "协约国" : "同盟国"}阵营（${reason}${target ? " " + data.spaces[target].name : ""}）`
-			)
+			log_fn(`希腊加入${opponent === AP ? "协约国" : "同盟国"}阵营（${reason}${target ? " " + data.spaces[target].name : ""}）`)
 		}
-
-		// Rule 19.2.6: Control of all unoccupied spaces in Greece
 		for (let s = 1; s < data.spaces.length; s++) {
 			if (!data.spaces[s] || data.spaces[s].nation !== "gr") continue
 			if (map.get_pieces_in_space(game, s).length === 0 && typeof Engine.set_control === "function") {
 				Engine.set_control(game, s, opponent)
 			}
 		}
-
-		// Rule 19.2.6: Gain control of Athens and record VP if not occupied by enemy
 		let athens = find_space("Athens")
 		if (
 			athens >= 0 &&
@@ -191,7 +163,6 @@ module.exports = function (Engine) {
 				Engine.set_control(game, athens, opponent)
 			}
 		}
-
 		return true
 	}
 
@@ -200,8 +171,7 @@ module.exports = function (Engine) {
 		if (!is_greece_neutral(game)) return false
 		let greek_defenders = map.get_pieces_in_space(game, target).filter((p) => data.pieces[p].nation === "gr")
 		if (greek_defenders.length === 0) return false
-		// Rule 19.2.3: Attack on a Greek unit other than the CND...
-		return !(attacker_faction === CP && greek_defenders.every((p) => is_greek_cnd(p)));
+		return !(attacker_faction === CP && greek_defenders.every((p) => is_greek_cnd(p)))
 	}
 
 	function on_beachhead_placed(game, space_id, faction) {
@@ -212,7 +182,6 @@ module.exports = function (Engine) {
 
 	function check_athens_entry(game, pieces, space_id, faction) {
 		if (is_greece_neutral(game) && is_athens_space(space_id)) {
-			// Rule 19.2.1: Entry into neutral Athens by any non-Greek unit.
 			let non_greek = pieces.some((p) => !is_greek_piece(p))
 			if (non_greek) {
 				trigger_greece_entry(game, space_id, faction, "进入雅典事件", (msg) => Engine.log(game, msg))
@@ -223,6 +192,157 @@ module.exports = function (Engine) {
 	function check_attack_trigger(game, target, attacker_faction) {
 		if (should_trigger_greece_entry_on_attack(game, target, attacker_faction)) {
 			trigger_greece_entry(game, target, attacker_faction, "攻击中立希腊单位事件", (msg) => Engine.log(game, msg))
+		}
+	}
+
+	function is_neutral_vp_space(s) {
+		let info = data.spaces[s]
+		return !!(info && info.faction === "neutral" && info.vp > 0)
+	}
+
+	function check_persia_entry_vp_penalty(game, s, entered_pieces) {
+		if (!game || !Array.isArray(entered_pieces) || entered_pieces.length === 0) return
+		if (!game.events) game.events = {}
+		let in_revolution = game.events["russian_revolution"] >= 1
+		let space = data.spaces[s] || {}
+		if (!game.events["russian_british_sphere_penalty"]) {
+			let has_russian_entry = entered_pieces.some((p) => Engine.game_utils.piece_counts_as_nation_for_rule(game, p, "ru"))
+			if (Engine.map.is_arabistan(s) && has_russian_entry) {
+				game.events["russian_british_sphere_penalty"] = true
+				game.vp += 1
+				Engine.log(game, "帝国间的猜忌：俄国部队首次进入阿拉伯斯坦，CP +1 VP。")
+			}
+		}
+		if (!game.events["ap_russian_sphere_penalty"] && !in_revolution) {
+			let has_ap_entry = entered_pieces.some((p) =>
+				["br", "fr", "in", "it", "anz"].some((nation) => Engine.game_utils.piece_counts_as_nation_for_rule(game, p, nation))
+			)
+			let region = String(space.region || "").toLowerCase()
+			let in_three_persian_regions =
+				region === "east persia" || region === "central persia" || region === "south persia"
+			let is_neutral_persia_outside_three = Engine.map.is_persia(s) && space.nation === "pe" && !in_three_persian_regions
+			if ((Engine.map.is_azerbaijan(s) || is_neutral_persia_outside_three) && has_ap_entry) {
+				game.events["ap_russian_sphere_penalty"] = true
+				game.vp += 1
+				Engine.log(game, "俄国势力范围受侵犯：协约军首次进入阿塞拜疆或中立波斯非三大区，CP +1 VP。")
+			}
+		}
+	}
+
+	function get_neutral_vp_partial_owner(game, s) {
+		if (!is_neutral_vp_space(s)) return 0
+		let has_ap_regular = false
+		let has_cp_regular = false
+		let has_ap_partial = false
+		let has_cp_partial = false
+		for (let p of Engine.map.get_pieces_in_space(game, s)) {
+			let info = data.pieces[p]
+			if (!info || info.type === "hq") continue
+			let faction = Engine.game_utils.get_piece_effective_faction(game, p)
+			if (Engine.game_utils.is_regular(p)) {
+				if (faction === AP) has_ap_regular = true
+				else if (faction === CP) has_cp_regular = true
+				continue
+			}
+			if (Engine.game_utils.is_irregular(p) || Engine.game_utils.is_tribe(p)) {
+				if (faction === AP) has_ap_partial = true
+				else if (faction === CP) has_cp_partial = true
+			}
+		}
+		if (has_ap_regular && !has_cp_regular) return AP
+		if (has_cp_regular && !has_ap_regular) return CP
+		if (has_ap_partial && !has_cp_partial) return AP
+		if (has_cp_partial && !has_ap_partial) return CP
+		return (game.control && game.control[s]) || 0
+	}
+
+	function sync_neutral_vp_state(game, s, previous_override) {
+		if (!is_neutral_vp_space(s)) return
+		if (!game.neutral_vp_partial_control) game.neutral_vp_partial_control = []
+		let vp_val = (data.spaces[s] && data.spaces[s].vp) || 0
+		let previous =
+			previous_override !== undefined ? previous_override || 0 : game.neutral_vp_partial_control[s] || 0
+		let next = get_neutral_vp_partial_owner(game, s) || 0
+		if (previous === next) {
+			game.neutral_vp_partial_control[s] = next
+			return
+		}
+		if (previous === AP) game.vp += vp_val
+		else if (previous === CP) game.vp -= vp_val
+		if (next === AP) game.vp -= vp_val
+		else if (next === CP) game.vp += vp_val
+		game.neutral_vp_partial_control[s] = next
+	}
+
+	function is_ru_capture_piece(info) {
+		if (!info) return false
+		return info.nation === "ru" || info.name.startsWith("Armenian") || info.name.startsWith("RU/PE")
+	}
+
+	function apply_control_change(game, s, faction, previous_neutral_vp_owner) {
+		if (is_neutral_vp_space(s)) {
+			sync_neutral_vp_state(game, s, previous_neutral_vp_owner)
+			if (!game.ru_control_markers) game.ru_control_markers = []
+			if (faction === AP) {
+				let is_ru_capture = false
+				let pieces = Engine.map.get_pieces_in_space(game, s)
+				for (let p of pieces) {
+					let info = data.pieces[p]
+					if (is_ru_capture_piece(info)) {
+						is_ru_capture = true
+						break
+					}
+				}
+				if (is_ru_capture) {
+					game.russian_vp += 1
+					if (!game.ru_control_markers.includes(s)) game.ru_control_markers.push(s)
+					Engine.log(game, `俄国部队占领VP点，俄国VP +1 (当前: ${game.russian_vp})`)
+				}
+			} else if (faction === CP) {
+				let is_ru_vp = Engine.map.is_russian_vp_space(game, s)
+				let was_ru_controlled = game.ru_control_markers.includes(s)
+				if (was_ru_controlled) {
+					game.ru_control_markers = game.ru_control_markers.filter((x) => x !== s)
+				}
+				if (is_ru_vp || was_ru_controlled) {
+					game.russian_vp -= 1
+					Engine.log(game, `同盟国占领俄国VP点，俄国VP -1 (当前: ${game.russian_vp})`)
+				}
+			}
+			return
+		}
+		let vp_val = (data.spaces[s] && data.spaces[s].vp) || 0
+		if (vp_val <= 0) return
+		if (!game.ru_control_markers) game.ru_control_markers = []
+		if (faction === AP) {
+			game.vp -= vp_val
+			Engine.log(game, `AP 获得 ${vp_val} VP (当前VP: ${game.vp})`)
+			let is_ru_capture = false
+			let pieces = Engine.map.get_pieces_in_space(game, s)
+			for (let p of pieces) {
+				let info = data.pieces[p]
+				if (is_ru_capture_piece(info)) {
+					is_ru_capture = true
+					break
+				}
+			}
+			if (is_ru_capture) {
+				game.russian_vp += 1
+				if (!game.ru_control_markers.includes(s)) game.ru_control_markers.push(s)
+				Engine.log(game, `俄国部队占领VP点，俄国VP +1 (当前: ${game.russian_vp})`)
+			}
+		} else if (faction === CP) {
+			game.vp += vp_val
+			Engine.log(game, `CP 获得 ${vp_val} VP (当前VP: ${game.vp})`)
+			let is_ru_vp = Engine.map.is_russian_vp_space(game, s)
+			let was_ru_controlled = game.ru_control_markers.includes(s)
+			if (was_ru_controlled) {
+				game.ru_control_markers = game.ru_control_markers.filter((x) => x !== s)
+			}
+			if (is_ru_vp || was_ru_controlled) {
+				game.russian_vp -= 1
+				Engine.log(game, `同盟国占领俄国VP点，俄国VP -1 (当前: ${game.russian_vp})`)
+			}
 		}
 	}
 
@@ -248,7 +368,12 @@ module.exports = function (Engine) {
 		should_trigger_greece_entry_on_attack,
 		on_beachhead_placed,
 		check_athens_entry,
-		check_attack_trigger
+		check_attack_trigger,
+		is_neutral_vp_space,
+		check_persia_entry_vp_penalty,
+		get_neutral_vp_partial_owner,
+		sync_neutral_vp_state,
+		apply_control_change
 	})
 
 	return exports

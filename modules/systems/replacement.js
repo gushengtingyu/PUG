@@ -12,8 +12,6 @@ module.exports = function (Engine) {
 		is_base_supply_source,
 		get_supply_sources_from_data,
 		get_ru_supply_sources,
-		get_bu_supply_sources,
-		get_gr_supply_sources,
 		get_tribe_type,
 		get_connected_spaces,
 		get_piece_effective_faction
@@ -25,8 +23,6 @@ module.exports = function (Engine) {
 		is_central_asia,
 		is_india,
 		is_baluchistan,
-		is_egypt,
-		is_sudan_and_darfur,
 		is_afghanistan,
 		is_persia,
 		is_aegean_east_med_port,
@@ -41,7 +37,6 @@ module.exports = function (Engine) {
 		find_capital,
 		is_eliminated,
 		is_in_reserve,
-		is_removed,
 		is_not_on_map,
 		get_tribe_key_space,
 		get_piece_nations_for_rule,
@@ -844,23 +839,6 @@ module.exports = function (Engine) {
 		}
 
 		return valid
-	}
-
-	function is_persian_gulf_port(s) {
-		let space = data.spaces[s]
-		if (!space || !space.port) return false
-		return space.map === "persian_gulf" || ["Basra", "Kuwait", "Bushire", "Bahrain", "Muscat"].includes(space.name)
-	}
-
-	function is_syria_palestine_port(s) {
-		let space = data.spaces[s]
-		if (!space || !space.port) return false
-		return Engine.map.get_area(s) === "syria_palestine"
-	}
-
-	function is_greek_piece(p) {
-		let info = data.pieces[p]
-		return info.nation === "gr"
 	}
 
 	Object.assign(exports, {

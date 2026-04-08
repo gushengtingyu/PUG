@@ -4,7 +4,6 @@ module.exports = function (Engine) {
 	const { data } = Engine
 	const { AP, CP, RESERVE } = Engine.constants
 	const { set_delete } = Engine.utils
-	const BULGARIAN_ENTRY_AH_DIVISIONS = Engine.collapse.get_bulgarian_entry_ah_divisions()
 	const { find_space, get_capacity, get_piece_badge } = Engine.game_utils
 
 	const states = {}
@@ -285,7 +284,6 @@ module.exports = function (Engine) {
 		game.activated.move = []
 		if (!Array.isArray(game.activated.attack)) game.activated.attack = []
 		game.activated.attack = []
-		delete game.activated.combine
 		if (!game.activation_cost) game.activation_cost = {}
 		game.activation_cost = {}
 		game.russo_british_russian_activation = true
@@ -632,7 +630,7 @@ module.exports = function (Engine) {
 			rules.push_undo()
 			if (!game.beachheads) game.beachheads = []
 			game.beachheads.push(s)
-			Engine.greece.on_beachhead_placed(game, s, AP)
+			Engine.neutral.on_beachhead_placed(game, s, AP)
 			rules.log(`Beachhead placed at ${data.spaces[s].name}.`)
 			event.event_port = s
 			game.state = "event_project_alexandria_sr"
@@ -1188,8 +1186,8 @@ module.exports = function (Engine) {
 				rules.log(`Beachhead placed at ${data.spaces[s].name}.`)
 
 				// Rule 19.2.1: Placing a Beachhead marker in Athens triggers Greek entry as CP ally
-				if (Engine.greece.is_greece_neutral(game) && Engine.greece.is_athens_space(s)) {
-					Engine.greece.trigger_greece_entry(game, s, AP, "在雅典放置滩头", (msg) => rules.log(msg))
+				if (Engine.neutral.is_greece_neutral(game) && Engine.neutral.is_athens_space(s)) {
+					Engine.neutral.trigger_greece_entry(game, s, AP, "在雅典放置滩头", (msg) => rules.log(msg))
 				}
 			} else {
 				rules.log("Beachhead placed in Reserve Box.")
@@ -1631,10 +1629,10 @@ module.exports = function (Engine) {
 			if (is_elim_or_removed_exception) {
 				game.pieces[p] = game.attack.space
 				rules.set_add(game.reduced, p)
-				rules.log(`> ${rules.piece_name(p)} 在 ${rules.space_name(game.attack.space)} 重建。`)
+				rules.log(`>> ${rules.piece_name(p)} 在 ${rules.space_name(game.attack.space)} 重建`)
 			} else {
 				rules.set_delete(game.reduced, p)
-				rules.log(`> ${rules.piece_name(p)} (${rules.space_name(game.pieces[p])}) 补员至满员状态。`)
+				rules.log(`>> ${rules.piece_name(p)} 补员至满员状态`)
 			}
 		},
 		done(ctx) {
@@ -2165,22 +2163,44 @@ module.exports = function (Engine) {
 		}
 	}
 
-	// === NATIONAL COLLAPSE (Rules 19.3.6, 19.4.6, 19.5.6) ===
+	// === NATIONAL COLLAPSE (Rules 19.3.5, 19.4.6, 19.5.6) ===
+
+	function ensure_collapse_choice_ctx(game) {
+		// 自愿/自动崩溃都会复用这一段状态，因此这里统一补齐结构。
+		if (!game.event_ctx) game.event_ctx = {}
+		if (!game.event_ctx.data) game.event_ctx.data = {}
+		if (!Array.isArray(game.event_ctx.data.removed)) game.event_ctx.data.removed = []
+		if (!Number.isInteger(game.event_ctx.move_limit)) {
+			game.event_ctx.move_limit = Engine.collapse.get_collapse_sr_limit()
+		}
+		return game.event_ctx
+	}
+
+	function ensure_collapse_sr_ctx(game) {
+		if (!game.event_ctx) game.event_ctx = {}
+		if (!game.event_ctx.data) game.event_ctx.data = {}
+		if (!Array.isArray(game.event_ctx.data.moved)) game.event_ctx.data.moved = []
+		if (!Number.isInteger(game.event_ctx.move_limit)) {
+			game.event_ctx.move_limit = Engine.collapse.get_collapse_sr_limit()
+		}
+		return game.event_ctx
+	}
 
 	function handle_collapse_choice_prompt(ctx, nation_name) {
 		let { game, res, rules } = ctx
-		if (!game.event_ctx) game.event_ctx = { data: { removed: [] }, count: 2 }
-		if (!game.event_ctx.data) game.event_ctx.data = { removed: [] }
-		let removed = game.event_ctx.data.removed
-		let count = game.event_ctx.count || 2
+		let event_ctx = ensure_collapse_choice_ctx(game)
+		let removed = event_ctx.data.removed
+		let count = event_ctx.choice_limit || 0
+		// 塞尔维亚与罗马尼亚崩溃的“可选移除名单”不同，这里从 collapse 子系统按国家动态取得。
+		let selectable_units = Engine.collapse.get_collapse_choice_unit_names(event_ctx.collapse_nation)
 
-		res.prompt(`${nation_name}崩溃：CP 玩家必须选择 ${count} 个奥匈师移除 (${removed.length}/${count})`)
+		res.prompt(`${nation_name}崩溃：CP 玩家必须选择 ${count} 个奥匈单位移除 (${removed.length}/${count})`)
 
 		if (removed.length >= count) {
 			res.action("confirm")
 		} else {
 			let options = 0
-			for (let name of BULGARIAN_ENTRY_AH_DIVISIONS) {
+			for (let name of selectable_units) {
 				let p = Engine.game_utils.find_piece_by_name(CP, name)
 				if (p >= 0 && !rules.set_has(removed, p)) {
 					if (!rules.is_removed(game, p)) {
@@ -2198,11 +2218,16 @@ module.exports = function (Engine) {
 	function handle_collapse_choice_confirm(ctx, next_state) {
 		let { game, rules } = ctx
 		rules.push_undo()
-		let removed = game.event_ctx.data.removed
+		let event_ctx = ensure_collapse_choice_ctx(game)
+		let removed = event_ctx.data.removed
 		for (let p of removed) {
 			rules.eliminate_piece(p, true)
 		}
-		delete game.event_ctx
+		game.event_ctx = {
+			move_limit: event_ctx.move_limit,
+			data: { moved: [] }
+		}
+		// “移除”完成后执行“最多 2 个单位免费 SR”。
 		game.state = next_state
 		game.active = CP
 	}
@@ -2242,24 +2267,29 @@ module.exports = function (Engine) {
 
 	function handle_collapse_sr_prompt(ctx, nation_name) {
 		let { game, res, rules } = ctx
-		if (!game.event_ctx) game.event_ctx = { data: { moved: [] } }
-		if (!game.event_ctx.data) game.event_ctx.data = { moved: [] }
-		let moved = game.event_ctx.data.moved
+		let event_ctx = ensure_collapse_sr_ctx(game)
+		let moved = event_ctx.data.moved
+		let move_limit = event_ctx.move_limit
 
-		res.prompt(`${nation_name}崩溃：CP 玩家可选择符合条件的单位进行战略转移 (SR)`)
+		res.prompt(`${nation_name}崩溃：CP 玩家可免费对至多 ${move_limit} 个巴尔干单位进行战略转移 (${moved.length}/${move_limit})`)
 		res.action("done")
+
+		// 规则 19.4.6 / 19.5.6：崩溃后的免费 SR 上限始终为 2 个单位。
+		if (moved.length >= move_limit) return
+
+		if (game.sr_piece !== undefined && game.sr_piece !== null) {
+			// 已选定 SR 单位时，只高亮目的地，避免在同一步骤里再次选择其他单位。
+			let destinations = Engine.collapse.get_collapse_sr_destination_spaces(game)
+			for (let s of destinations) {
+				res.space(s)
+			}
+			return
+		}
 
 		// Find units that can be SR'd
 		for (let p = 0; p < data.pieces.length; p++) {
 			if (Engine.collapse.can_collapse_sr_piece(game, p) && !rules.set_has(moved, p)) {
 				res.piece(p)
-			}
-		}
-
-		if (game.sr_piece !== undefined && game.sr_piece !== null) {
-			let destinations = Engine.collapse.get_collapse_sr_destination_spaces(game)
-			for (let s of destinations) {
-				res.space(s)
 			}
 		}
 	}
@@ -2383,7 +2413,7 @@ module.exports = function (Engine) {
 			}
 
 			let unit = data.greek_units[data.current_unit_index]
-			res.prompt(`鲁贝尔堡的背叛：为希腊部队 ${Engine.game_utils.piece_name(unit)} 选择移动目的地`)
+			res.prompt(`鲁贝尔堡的背叛：为希腊部队 ${rules.piece_name(unit)} 选择移动目的地`)
 			res.space(131) // Lamia
 			res.space(149) // Athens
 		},
@@ -2396,7 +2426,7 @@ module.exports = function (Engine) {
 			let unit = data.greek_units[data.current_unit_index]
 			rules.push_undo()
 			game.pieces[unit] = s
-			res.log(`鲁贝尔堡的背叛：希腊部队 ${Engine.game_utils.piece_name(unit)} 移动至 ${Engine.game_utils.space_name(s)}。`)
+			res.log(`鲁贝尔堡的背叛：希腊部队 ${rules.piece_name(unit)} 移动至 ${rules.space_name(s)}。`)
 
 			data.current_unit_index++
 			if (data.current_unit_index >= data.greek_units.length) {

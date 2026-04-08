@@ -5,7 +5,7 @@ module.exports = function (Engine) {
 	const exports = {}
 
 	const { set_add, set_has, random } = Engine.utils
-	const { AP, CP, RESERVE, REMOVED, ELIMINATED, REINFORCEMENTS } = Engine.constants
+	const { AP, CP, RESERVE, REMOVED } = Engine.constants
 	const {
 		find_space,
 		find_piece,
@@ -19,15 +19,13 @@ module.exports = function (Engine) {
 		is_turn_event,
 		is_scu,
 		is_lcu,
-		is_tribe,
 		is_eliminated,
-		is_not_on_map,
+		is_piece_reduced,
 		get_piece_faction,
 		get_reserve_box_for_piece,
 		count_tribes_on_map,
 		get_piece_nation,
 		piece_counts_as_nation_for_rule,
-		get_piece_type,
 		get_piece_badge,
 		space_name,
 		piece_name
@@ -45,15 +43,12 @@ module.exports = function (Engine) {
 	// === Constants for Space IDs ===
 	const SALONIKA = find_space("Salonika")
 	const LEMNOS = find_space("Lemnos")
-	const TO_ATHENS = find_space("to Athens")
 	const BAGHDAD = find_space("Baghdad")
 	const GALICIA = find_space("Galicia")
 	const BAKU = find_space("Baku")
-	const ENZELI = find_space("Enzeli")
 	const PETROVSK = find_space("Petrovsk")
 	const AP_ELIMINATED = find_space("AP Eliminated")
 	const AP_REMOVED = find_space("AP Permanently Eliminated Box")
-	const MECCA = find_space("Mecca")
 	const AQABA = find_space("Aqaba")
 	const JIDDAH = find_space("Jiddah")
 	const CYPRUS = find_space("Cyprus")
@@ -100,11 +95,6 @@ module.exports = function (Engine) {
 		if (typeof text !== "string") text = String(text)
 		if (game && Array.isArray(game.log)) game.log.push(text)
 		else console.log(text)
-	}
-
-	function card_name(card, ctx) {
-		if (ctx && typeof ctx.card_name === "function") return ctx.card_name(card)
-		return Engine.card_name(card)
 	}
 
 	function card_names(cards, ctx) {
@@ -295,7 +285,7 @@ module.exports = function (Engine) {
 		is_grah: {
 			faction: CP,
 			desc: "加里西亚 (Galicia)",
-			check: (game, s) => check_reinforcement_space(game, s, CP, (space) => s === GALICIA)
+			check: (game, s) => check_reinforcement_space(game, s, CP, () => s === GALICIA)
 		},
 		is_frit: {
 			faction: AP,
@@ -481,7 +471,8 @@ module.exports = function (Engine) {
 					if (scus.length > 0) {
 						let p = scus.pop()
 						game.pieces[p] = get_scu_reserve_box(CP)
-						log(game, `Bull's Eye Cleanup: ${piece_name(p)} returned to reserve from ${space_name(s)}`)
+						let name = is_piece_reduced(game, p) ? `(${piece_name(p)})` : piece_name(p)
+						log(game, `Bull's Eye Cleanup: ${name} returned to reserve from ${space_name(s)}`)
 					}
 				}
 			}
@@ -593,12 +584,12 @@ module.exports = function (Engine) {
 			if (
 				space !== null &&
 				space !== RESERVE &&
-				Engine.greece.is_greece_neutral(game) &&
-				Engine.greece.is_athens_space(space)
+				Engine.neutral.is_greece_neutral(game) &&
+				Engine.neutral.is_athens_space(space)
 			) {
 				// Only trigger if the reinforced piece is NOT a Greek piece (Greek pieces are reinforced to Athens when they join)
-				if (!Engine.greece.is_greek_piece(p)) {
-					Engine.greece.trigger_greece_entry(game, space, faction, "增援进入雅典", (msg) => log(game, msg))
+				if (!Engine.neutral.is_greek_piece(p)) {
+					Engine.neutral.trigger_greece_entry(game, space, faction, "增援进入雅典", (msg) => log(game, msg))
 				}
 			}
 
@@ -853,7 +844,7 @@ module.exports = function (Engine) {
 			name_cn: "皇家海军封锁",
 			effect_cn:
 				"把土耳其最大补给限度标记放置在25，每次土耳其打出RP卡记录其补员点数时扣除相应数值。当扣减为0时，土耳其无法通过RP卡再记录补员点数。(注:使用同盟国事件和其他规则获得的奖励补员点数、德国补员点数转换的土耳其补员点数不会影响该标志的移动。补员阶段时，若有土耳其补员点数未使用，则将最大补给限度标志向更高处移动等同于尚未使用的土耳其补员点数的格数)每个冬季回合战争状态结算阶段时-1VP，直到同盟国进入全面战争状态**和**柏林-君士坦丁堡的铁路第一次完成连通(铁路沿途地区全部被同盟国控制)。如果同盟国玩家在一个冬季回合使战争状态抵达全面战争(且完成铁路连通条件)，则封锁扣分先于同盟国战争状态调整进行(**意味着还是必须先扣这一分**)。。封锁效果**一旦**被同盟国玩家取消，则无法再适用，即使在以上两个条件都被满足后，柏林-君士坦丁堡铁路再次被协约国夺取并占据，也无法继续带来罚分效果。此后的游戏中，同盟国不能通过爱琴海、东地中海、波斯湾或红海运送补给或者战略调整。(这意味着被同盟国所控制的黑海、里海以外的港口不能给其部队提供补给，也无法接受海上SR)",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["royal_navy_blockade"] = true
 				game.tu_rp_limit = 25
 				game.blockade_vp_penalty_active = true
@@ -907,7 +898,7 @@ module.exports = function (Engine) {
 			can_play: function (game) {
 				return !game.events["lloyd_george_takes_command"]
 			},
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["kitchener"] = game.turn
 				game.events["kitchener_conversion"] = true
 				game.rp_ap.br += 1
@@ -984,7 +975,7 @@ module.exports = function (Engine) {
 			effect_cn:
 				"(黄色事件)<当作事件打出时，正常使用此牌记录的OP点数。本回合剩余时间同盟国手牌需要持续公开>-1圣战等级。允许打出【阿拉伯起义】事件。",
 			use_ops: true,
-			handler: function (game, ctx) {
+			handler: function (game) {
 				update_jihad_level(game, -1)
 				game.events["lawrence"] = true
 			}
@@ -1011,7 +1002,7 @@ module.exports = function (Engine) {
 			name: "ARMORED CARS CC",
 			name_cn: "装甲车",
 			effect_cn: "一次协约国对或者在非山区、非沼泽地区的攻击/防御+1drm",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["armored_cars"] = game.turn
 			}
 		},
@@ -1020,7 +1011,7 @@ module.exports = function (Engine) {
 			name_cn: "不留活口",
 			effect_cn:
 				"(在战斗的掷骰前打出)一次攻击堆叠包含协约国阿拉伯起义部队或者同盟国部落部队的战斗中，攻击方受到的伤害+1，防御方受到的伤害-1。当你使用完这张卡后，该卡交予同盟国方并保持正面朝上，使其可以选择在一次战斗中当作战斗牌使用。以此法使用完毕的这张卡丢入弃牌堆",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["no_prisoners"] = game.turn
 			}
 		},
@@ -1124,7 +1115,7 @@ module.exports = function (Engine) {
 			name_cn: "俄国增援",
 			effect_cn:
 				"增援:俄国高加索第5军团、俄国黑海陆战队、1个近卫步兵师。注:黑海陆战队一场游戏一次，可以实施海上两栖突袭。。与其他协约国海上入侵不同，这次行动在冬季回合也能进行。。这需要其在一个协约国控制的黑海港口被协约国玩家启动，并声明进行一次海上两栖突袭。则黑海陆战队可以立即移动至黑海沿岸任意一个同盟国控制的、没有部队占据的港口区域(包括拥有完好堡垒的博斯普鲁斯要塞和特拉布宗)。如果选择以上两个完好的堡垒地区作为目标，则在围攻阶段黑海陆战队在结算围攻掷骰时可以**被视为3个SCU**。。被围攻的港口堡垒可以被视为俄国的友好港口，为俄国部队提供补给，并可以接受俄国SCU的海上战略调整。。若黑海陆战队于这些地区战败，则和一般单位不同，如果其没有被消灭，则其可以**通过海上撤退**至任何一个被协约国控制的黑海港口，而不会因为失去撤退路径而永久移除。",
-			can_play: function (game) {
+			can_play: function () {
 				return true
 			},
 			handler: function (game, ctx) {
@@ -1143,7 +1134,7 @@ module.exports = function (Engine) {
 			add_rein_record: "in_anz",
 			name_cn: "印度增援",
 			effect_cn: "增援:印度底格里斯军团。增援:印度第2军团 至预备军格。增援:1个步兵师",
-			can_play: function (game) {
+			can_play: function () {
 				return true
 			},
 			handler: function (game, ctx) {
@@ -1160,7 +1151,7 @@ module.exports = function (Engine) {
 			name: "LET THE FRENCH BLEED",
 			name_cn: "让法国人流血",
 			effect_cn: "增援:3个英国精锐步兵师(视作从西线战场调来)至 任何协约国控制港口/滩头。+1VP",
-			can_play: function (game) {
+			can_play: function () {
 				return true
 			},
 			handler: function (game, ctx) {
@@ -1179,7 +1170,7 @@ module.exports = function (Engine) {
 			name_cn: "莫德",
 			effect_cn:
 				"增援:HQ:莫德，印度第15步兵师。。在战斗开始前，可以立即把莫德HQ立即移动至任一本轮参与战斗的包含有至少1个英国部队和1个印度部队的堆叠。。只在本次战斗中，若莫德所在堆叠攻击的是非VP点，则取消所有战壕效果。。(在战斗前将印度第15步兵师完成放置)",
-			can_play: function (game) {
+			can_play: function () {
 				return true
 			},
 			handler: function (game, ctx) {
@@ -1213,7 +1204,7 @@ module.exports = function (Engine) {
 				}
 				return has_ap_lcu
 			},
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["romania"] = true
 				game.entry_ro = true
 
@@ -1263,7 +1254,7 @@ module.exports = function (Engine) {
 				return get_season(game) === "Winter"
 			},
 			use_ops: true,
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["russian_winter_offensive"] = game.turn
 			}
 		},
@@ -1275,7 +1266,7 @@ module.exports = function (Engine) {
 			can_play: function (game) {
 				return game.events["pan_turkism"]
 			},
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.vp -= 1
 				game.events["armenian_uprising"] = true
 			}
@@ -1285,7 +1276,7 @@ module.exports = function (Engine) {
 			name_cn: "阿斯奎斯-劳合乔治联合政府",
 			effect_cn:
 				"增援:1个英国骑兵师。获得2点英国补员点数。在本场游戏剩余的时间内，可以在补员阶段将任何数量的英国补员点数转化为俄国补员点数。。在剩余的游戏时间内协约国MO掷骰+2drm。",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.mo_ap_modifier += 1
 				reinforce(game, "BR Cavalry #2", AP)
 				game.rp_ap.br += 2
@@ -1335,7 +1326,7 @@ module.exports = function (Engine) {
 			add_rein_record: "in_anz",
 			name_cn: "印度增援",
 			effect_cn: "增援:印度第17步兵师、印度第18步兵师，2个骑兵师",
-			can_play: function (game) {
+			can_play: function () {
 				return true
 			},
 			handler: function (game, ctx) {
@@ -1353,7 +1344,7 @@ module.exports = function (Engine) {
 			add_rein_record: "ru",
 			name_cn: "俄国增援",
 			effect_cn: "增援:3个俄国步兵师",
-			can_play: function (game) {
+			can_play: function () {
 				return true
 			},
 			handler: function (game, ctx) {
@@ -1370,7 +1361,7 @@ module.exports = function (Engine) {
 			name: "ROYAL FLYING CORPS CC",
 			name_cn: "皇家空军",
 			effect_cn: "任何英国/印度/澳新部队的进攻/防御+1drm。此牌第一次打出后，阻止同盟国在剩余的游戏时间打出【飞行分队】",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["royal_flying_corps"] = game.turn
 				game.events["royal_flying_corps_permanent"] = true
 			}
@@ -1379,7 +1370,7 @@ module.exports = function (Engine) {
 			name: "TANKS CC",
 			name_cn: "坦克",
 			effect_cn: "(只能在埃及、西奈或叙利亚/巴勒斯坦的平地或者沙漠地区使用)。一次包含英国部队的进攻+1drm。",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["tanks"] = game.turn
 			}
 		},
@@ -1392,7 +1383,7 @@ module.exports = function (Engine) {
 				if (game.events["russian_revolution"]) return false
 				return get_warm_water_port_options(game).length > 0
 			},
-			handler: function (game, ctx) {
+			handler: function (game) {
 				let options = get_warm_water_port_options(game)
 				if (options.length === 1) {
 					apply_warm_water_port_effect(game, options[0])
@@ -1408,7 +1399,7 @@ module.exports = function (Engine) {
 			name: "BALFOUR DECLARATION",
 			name_cn: "贝尔福宣言",
 			effect_cn: "(只有在协约国控制耶路撒冷、雅法、海法或者纳布卢斯时才能打出)。-1VP。",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.vp -= 1
 				game.events["balfour_declaration"] = true
 			}
@@ -1418,7 +1409,7 @@ module.exports = function (Engine) {
 			name_cn: "圣诞节前收复圣城",
 			effect_cn:
 				"协约国在一个同盟国控制的**圣战城市**或者**补给点**和两个回合后的纪录条上各放置一个“圣诞节前收复圣城”标志。如果在两回合后该地区被英国/印度/澳新部队占据，则-1VP，反之+1VP。",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["jerusalem_by_christmas"] = game.turn + 2
 			}
 		},
@@ -1449,7 +1440,7 @@ module.exports = function (Engine) {
 			can_play: function (game) {
 				return game.turn >= 13
 			},
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["war_weary_balkans"] = game.turn
 			}
 		},
@@ -1459,8 +1450,8 @@ module.exports = function (Engine) {
 			effect_cn:
 				"——中立国参战——。(只有在希腊仍处于中立状态且在塞尔维亚至少存在1支英国/法国LCU时。或罗马尼亚已经加入战争且尚未崩溃时才能打出)。-1VP(获得中立地区格雅典的VP)。希腊加入协约国。",
 			can_play: function (game) {
-				const { greece, map } = Engine
-				if (!greece.is_greece_neutral(game)) return false
+				const { neutral } = Engine
+				if (!neutral.is_greece_neutral(game)) return false
 
 				// Check for 1 BR/FR LCUs in Serbia
 				let br_fr_lcus_in_serbia = 0
@@ -1482,8 +1473,8 @@ module.exports = function (Engine) {
 				return Engine.collapse.is_romania_uncollapsed(game)
 			},
 			handler: function (game, ctx) {
-				const { greece } = Engine
-				greece.trigger_greece_entry(game, null, CP, "希腊事件", (msg) => log(game, msg, ctx))
+				const { neutral } = Engine
+				neutral.trigger_greece_entry(game, null, CP, "希腊事件", (msg) => log(game, msg, ctx))
 				game.events["greece_event_played"] = true
 			}
 		},
@@ -1495,7 +1486,7 @@ module.exports = function (Engine) {
 			can_play: function (game) {
 				return game.events["arab_revolt"] && game.combined_war > 29 && game.turn >= 13
 			},
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["arab_desertion"] = true
 			}
 		},
@@ -1504,7 +1495,7 @@ module.exports = function (Engine) {
 			add_rein_record: "in_anz",
 			name_cn: "印度增援",
 			effect_cn: "增援:印度第3军团。增援:1个精锐步兵师，1个骑兵师",
-			can_play: function (game) {
+			can_play: function () {
 				return true
 			},
 			handler: function (game, ctx) {
@@ -1536,7 +1527,7 @@ module.exports = function (Engine) {
 			name: "MASSED CAVALRY CHARGE CC",
 			name_cn: "集群骑兵冲锋",
 			effect_cn: "一次由包含澳新沙漠军团的堆叠发起的攻击获得+1drm并取消所有战壕效果**(和沙漠地形效果(LCU沙漠限制效果除外)*这是可选规则的一部分，双方玩家需要在游戏开始前决定是否采用澳新沙漠军团可选规则【该规则较大地加强了澳新沙漠军团】)**。若协约国赢得这场战斗，则所有参与战斗的满员骑兵单位可以挺进最多3格。",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["massed_cavalry_charge"] = game.turn
 			}
 		},
@@ -1548,7 +1539,7 @@ module.exports = function (Engine) {
 			can_play: function (game) {
 				return game.events["allenby"]
 			},
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["push_to_breaking_point"] = game.turn
 			}
 		},
@@ -1560,7 +1551,7 @@ module.exports = function (Engine) {
 			can_play: function (game) {
 				return game.events["allenby"]
 			},
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["haversack_ruse"] = game.turn
 			}
 		},
@@ -1572,7 +1563,7 @@ module.exports = function (Engine) {
 			can_play: function (game) {
 				return game.events["allenby"]
 			},
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["march_and_countermarch"] = game.turn
 			}
 		},
@@ -1607,7 +1598,7 @@ module.exports = function (Engine) {
 			name_cn: "艾伦比",
 			effect_cn:
 				"(只能在【劳合乔治接管指挥权】后打出)。增援:英国第20军团、英国第21军团。增援:2个英国步兵师，1个澳新骑兵师，1个英国骑兵师。协约国MO掷骰+1drm。",
-			can_play: function (game) {
+			can_play: function () {
 				return true
 			},
 			handler: function (game, ctx) {
@@ -1633,7 +1624,7 @@ module.exports = function (Engine) {
 			name: "LLOYD GEORGE TAKES COMMAND",
 			name_cn: "劳合乔治接管指挥权",
 			effect_cn: "(不能在1916年秋季回合前打出，除非联合战争状态不小于26)。增援:澳新沙漠军团 至预备军格。增援:1个英国步兵师，1个英国骑兵师。在剩余的游戏时间中，每回合获得额外1点英国补员点数，在剩余的游戏时间内协约国MO掷骰+2drm",
-			can_play: function (game) {
+			can_play: function () {
 				return true
 			},
 			handler: function (game, ctx) {
@@ -1658,7 +1649,7 @@ module.exports = function (Engine) {
 			can_play: function (game) {
 				return (game.war_status_cp || 0) < 8
 			},
-			handler: function (game, ctx) {
+			handler: function (game) {
 				update_jihad_level(game, 3)
 				game.rp_cp.tu += 2
 				game.events["jihad"] = game.turn
@@ -1668,7 +1659,7 @@ module.exports = function (Engine) {
 			name: "FRESH RECRUITS",
 			name_cn: "新兵征募",
 			effect_cn: "同盟国玩家获得2点土耳其补员点数，来立即进行土耳其部队的补员",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.rp_cp.tu += 2
 				game.fresh_recruits_pieces = []
 				game.state = "event_fresh_recruits"
@@ -1725,7 +1716,7 @@ module.exports = function (Engine) {
 			name: "GERMAN HIGH COMMAND CC",
 			name_cn: "德国最高司令部",
 			effect_cn: "一次同盟国部队攻击/防御+1drm。",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["german_high_command"] = game.turn
 			}
 		},
@@ -1733,7 +1724,7 @@ module.exports = function (Engine) {
 			name: "SANDSTORMS & MOSQUITOES CC",
 			name_cn: "沙尘暴和疟蚊",
 			effect_cn: "一回合只能有一次，取消一次从沙漠/沼泽地区发起 或 向沙漠/沼泽地区进行的协约国攻击。",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["sandstorms_mosquitoes"] = game.turn
 			}
 		},
@@ -1742,7 +1733,7 @@ module.exports = function (Engine) {
 			name_cn: "戈本号",
 			effect_cn:
 				"立即减少2点俄国补员点数（不能被取消）炮击巴统，掷一次骰子，结果为奇数时，摧毁巴统的要塞（要塞内的俄军不受伤害）",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				// 立即减少 2 点俄国补员点数
 				let current_ru_rp = game.rp_ap.ru || 0
 				game.rp_ap.ru = Math.max(0, current_ru_rp - 2)
@@ -1785,7 +1776,7 @@ module.exports = function (Engine) {
 				}
 				return false
 			},
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["parliamentary_inquiry"] = game.turn
 			}
 		},
@@ -1807,7 +1798,7 @@ module.exports = function (Engine) {
 			name_cn: "回援第比利斯",
 			effect_cn:
 				"(只能在土耳其LCU攻击俄国LCU的战斗撤退选择阶段时打出。不能在【尼古拉大公抵达第比利斯】后打出)协约国玩家需要把所有阿塞拜疆、波斯和土耳其的俄国单位向第比利斯方向撤退一格。俄国位于完好要塞内的部队、有尤德尼奇HQ驻扎的部队可以免受影响。如果不能进行合法撤退或者无法让这些部队向第比利斯方向撤退，满员的土耳其/土耳其-阿拉伯部队可以照常挺进。",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["save_tiflis"] = game.turn
 			}
 		},
@@ -1820,7 +1811,7 @@ module.exports = function (Engine) {
 				return game.jihad >= 1
 			},
 			use_ops: true,
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.rp_cp.tu += 1
 				update_jihad_level(game, 1)
 				game.events["liberate_suez"] = game.turn
@@ -1864,7 +1855,7 @@ module.exports = function (Engine) {
 				return game.jihad >= 9
 			},
 			use_ops: true,
-			handler: function (game, ctx) {
+			handler: function (game) {
 				update_jihad_level(game, 1)
 				game.events["indian_mutiny"] = game.turn
 				// 规则补充：本轮任何土耳其对印度部队的攻击+1drm
@@ -1899,11 +1890,11 @@ module.exports = function (Engine) {
 				return game.events["rupel"]
 			},
 			handler: function (game, ctx) {
-				const { greece, map } = Engine
+				const { neutral } = Engine
 
 				// Rule 19.2.1: Neutral Greece becomes a CP ally if King Constantine is played when conditions met.
-				if (greece.is_greece_neutral(game) && greece.check_constantine_entry_conditions(game)) {
-					greece.trigger_greece_entry(game, null, AP, "康斯坦丁国王事件", (msg) => log(game, msg, ctx))
+				if (neutral.is_greece_neutral(game) && neutral.check_constantine_entry_conditions(game)) {
+					neutral.trigger_greece_entry(game, null, AP, "康斯坦丁国王事件", (msg) => log(game, msg, ctx))
 				} else {
 					// Even if not joining, CP gets reinforcements and control of Salonika
 					reinforce(game, "GR Inf #1", CP)
@@ -1928,10 +1919,10 @@ module.exports = function (Engine) {
 			effect_cn:
 				"(只有在希腊仍保持中立，协约国部队占据萨洛尼卡时才能打出)所有希腊部队(希腊国防军除外)移动至拉米亚或者雅典(协约国玩家选择)，所有与多里安相邻的同盟国部队向前挺进一格，清除挺进位置的战壕并破坏要塞。打出该卡不会侵犯希腊的中立。",
 			can_play: function (game) {
-				const { greece, map } = Engine
+				const { neutral } = Engine
 				if (game.events["constantine"]) return false
-				if (!greece.is_greece_neutral(game)) return false
-				
+				if (!neutral.is_greece_neutral(game)) return false
+
 				let salonika = find_space("Salonika")
 				if (salonika >= 0) {
 					let pieces = get_pieces_in_space(game, salonika)
@@ -1940,12 +1931,12 @@ module.exports = function (Engine) {
 				return false
 			},
 			handler: function (game, ctx) {
-				const { map, greece } = Engine
+				const { neutral } = Engine
 
 				// Identify Greek units to move (except CND)
 				let greek_units_to_move = []
 				for (let p = 0; p < game.pieces.length; p++) {
-					if (greece.is_greek_piece(p) && !greece.is_greek_cnd(p) && !Engine.game_utils.is_not_on_map(game, p)) {
+					if (neutral.is_greek_piece(p) && !neutral.is_greek_cnd(p) && !Engine.game_utils.is_not_on_map(game, p)) {
 						greek_units_to_move.push(p)
 					}
 				}
@@ -1958,7 +1949,7 @@ module.exports = function (Engine) {
 					game.state = "event_rupel_move_greek_units"
 				} else {
 					// No Greek units to move, proceed to CP advance
-					this.advance_cp_units(game, ctx)
+					events_by_id[72].advance_cp_units(game)
 				}
 
 				let salonika = find_space("Salonika")
@@ -1971,7 +1962,7 @@ module.exports = function (Engine) {
 
 				game.events["rupel"] = true
 			},
-			advance_cp_units: function (game, ctx) {
+			advance_cp_units: function (game) {
 				const { map } = Engine
 				let doiran = find_space("Doiran")
 				if (doiran < 0) return
@@ -2062,7 +2053,7 @@ module.exports = function (Engine) {
 				let area = Engine.map.get_area(game.attack.space)
 				return ["mesopotamia", "syria_palestine", "sinai"].includes(area)
 			},
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["surprise"] = game.turn
 				if (game.attack) {
 					game.surprise = { remaining: 2, space: game.attack.space }
@@ -2075,7 +2066,7 @@ module.exports = function (Engine) {
 			name_cn: "贾法尔帕夏",
 			effect_cn:
 				"允许防守方选择。A:在战斗发生前后撤一格。B:在第一次掷骰结果发生后，重新进行一次掷骰。。在战斗发生后，进行一次掷骰，结果为1-3时，将其交予协约国方保持正面朝上，使其可以选择在一次战斗中当作CC使用。以此方法使用后该卡移除游戏。结果为4-6时，丢入弃牌堆。",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				reinforce(game, "Jafar Pasha HQ", CP)
 				game.events["jafar_pasha"] = true
 			}
@@ -2087,7 +2078,7 @@ module.exports = function (Engine) {
 			can_play: function (game) {
 				return !game.events["royal_air_force"]
 			},
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["fliegerabteilung"] = game.turn
 			}
 		},
@@ -2110,7 +2101,7 @@ module.exports = function (Engine) {
 				let baghdad = find_space("Baghdad")
 				return baghdad >= 0 && is_controlled_by(game, baghdad, CP)
 			},
-			handler: function (game, ctx) {
+			handler: function (game) {
 				update_jihad_level(game, 1)
 				reinforce(game, "TU Persian Insurgents", CP)
 				game.events["german_intrigue_persia"] = true
@@ -2124,7 +2115,7 @@ module.exports = function (Engine) {
 			can_play: function (game) {
 				return game.jihad >= 4
 			},
-			handler: function (game, ctx) {
+			handler: function (game) {
 				update_jihad_level(game, 1)
 				game.events["mission_to_afghanistan"] = true
 			}
@@ -2175,7 +2166,7 @@ module.exports = function (Engine) {
 			name_cn: "灾难性攻击",
 			effect_cn:
 				"(不能在大区和滩头的战斗中使用)。- **攻击战斗**中失败的英国/印度/澳新部队堆叠需要撤退1-2格(协约国选择)，所有参与防御的同盟国单位可以穿过攻击单位挺进最多4格，**此挺进的过程可以穿越该撤退的部队堆叠来进行。**。- 若在该行动后，参与攻击的英国部队处于断补状态，则在其上放置1个围攻标志。这些部队若在损耗结算阶段仍被保持围攻状态，则正常结算因OOS消灭。。- **同盟国部队可以正常通过被围攻的英帝国部队所在格计算补给线。**",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["catastrophic_attack"] = game.turn
 			}
 		},
@@ -2183,7 +2174,7 @@ module.exports = function (Engine) {
 			name: "I ORDER YOU TO DIE CC",
 			name_cn: "战斗至死！",
 			effect_cn: "一个完全由土耳其部队组成的堆叠在防御时视为处于1级战壕内。若已在1级战壕内则视为处于2级战壕内。",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["i_order_you_to_die"] = game.turn
 			}
 		},
@@ -2211,7 +2202,7 @@ module.exports = function (Engine) {
 			effect_cn:
 				"(黄色事件)。当作事件打出时，正常使用此牌记录的OP点数。在**所有**被本轮启动战斗的地区从预备军格战略调整1个土耳其/土耳其-阿拉伯SCU**(此时忽略堆叠限制，意味着这些地区在本次战斗中可以容纳3个以上的单位)**。本轮任何对俄国的进攻+1drm。战斗胜利后挺进的一支土耳其/土耳其-阿拉伯部队堆叠可以被再度启动进行一次额外攻击。。战斗全部结束后，将所有超过堆叠限制的SCU放回预备军格。",
 			use_ops: true,
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["bulls_eye_directive"] = game.turn
 				game.events["bulls_eye_used"] = false
 				game.bulls_eye_sr_done = false
@@ -2224,7 +2215,7 @@ module.exports = function (Engine) {
 			name_cn: "戈尔利采-塔尔诺夫攻势",
 			effect_cn:
 				"协约国玩家需要选择:。A: +2VP。B: 将一个地图上的俄国LCU暂时移除游戏(派往东线)，4个回合后重新放置在预备军格。。阻止继续记录本回合的俄国补员点数。",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["gorlice_tarnow"] = true
 				game.active = AP
 				game.state = "event_gorlice_tarnow_choice"
@@ -2250,7 +2241,7 @@ module.exports = function (Engine) {
 				}
 				return true
 			},
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["verdun"] = true
 				game.active = AP
 				game.state = "event_verdun_choice"
@@ -2261,7 +2252,7 @@ module.exports = function (Engine) {
 			name: "BULGARIA",
 			name_cn: "保加利亚",
 			effect_cn: "——中立国参战——。保加利亚加入同盟国，按照规则中的保加利亚参战条目放置同盟国和协约国单位。",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["bulgaria"] = true
 				game.entry_sb = true
 				const bulgariaPlan = Engine.collapse.get_bulgaria_entry_plan()
@@ -2312,7 +2303,7 @@ module.exports = function (Engine) {
 			name_cn: "帕尔乌斯游说柏林",
 			effect_cn:
 				"开始进行俄国革命计时。把帕尔乌斯标志放置在这回合，把俄国革命标志放置在四回合后。把“上帝保佑沙皇”标志放置在帕尔乌斯的同一回合，随后根据俄国VP标记调整其位置。。俄国VP标记反映的是俄国在高加索战场所取得的成果。每当**接受俄国补给源补给**的俄国部队(或俄国波斯部队、亚美尼亚起义军)**占领一个非协约国原始VP点**，或者**解放一个协约国原始VP点**时，放置1个俄国占领标志，该标记向后移动一格。。每当俄国境内(俄国和阿塞拜疆)VP点被同盟国占领，或者放置了俄国占领标记的VP点被同盟国解放时，该标记向前移动一格。“上帝保佑沙皇”标志和俄国VP标志保持一致进行移动，但是当【不冻港】事件发生后，“上帝保佑沙皇”标志永远位于俄国VP标志+2的位置(革命推迟2个回合)。每个回合革命阶段，检查俄国革命标志和“上帝保佑沙皇”标志的位置。当回合纪录标志到达俄国革命标志及其以后的回合，同时满足到达“上帝保佑沙皇”标志及其以后的回合时，俄国革命开始，移除帕尔乌斯标志和“上帝保佑沙皇”标志，将俄国革命标志放置在革命进程进度条内的1位置，并在每个接下来的回合革命阶段前进一格。。- **(例外:某个回合革命阶段，当俄国占领了君士坦丁堡时，即使已经满足革命发生的条件，未发生的俄国革命不会发生，已发生的革命不会继续推进)(沙皇格勒天下第一.jpg)**",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["parvus_to_berlin"] = game.turn
 				game.events["russian_revolution_timer"] = game.turn + 4
 			}
@@ -2335,7 +2326,7 @@ module.exports = function (Engine) {
 			name_cn: "“蜜蜂”党骚乱",
 			effect_cn:
 				"立即消灭一个塞尔维亚集团军(同盟国选择)。本回合塞尔维亚军队无法用于进攻**(但是协约国玩家在启动包含这些单位的地区时，仍需计算其启动花费)**",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["apis"] = game.turn
 				game.active = CP
 				game.state = "event_apis_eliminate"
@@ -2369,7 +2360,7 @@ module.exports = function (Engine) {
 			name_cn: "淡水短缺",
 			effect_cn:
 				"(可以在战斗掷骰阶段后打出。只能适用于美索不达米亚、叙利亚/巴勒斯坦或者西奈的防守战斗)。获胜的协约国部队战斗后无法挺进，战败的同盟国部队无需撤退。",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["water_shortage"] = game.turn
 			}
 		},
@@ -2377,7 +2368,7 @@ module.exports = function (Engine) {
 			name: "PASHA 1 CC",
 			name_cn: "帕夏一号",
 			effect_cn: "这次战斗中，同盟国部队忽略恶劣天气修正，并可以以强火力表(LCU火力表)开火。",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["pasha_1"] = game.turn
 			}
 		},
@@ -2402,7 +2393,7 @@ module.exports = function (Engine) {
 				}
 				return has_ap_lcu
 			},
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["to_help_and_save_you"] = true
 				game.active = CP
 				game.state = "event_to_help_and_save_you"
@@ -2416,7 +2407,7 @@ module.exports = function (Engine) {
 			can_play: function (game) {
 				return game.vp < 10
 			},
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.mo_cp_cancelled = true
 				game.events["talaat_pasha"] = true
 			}
@@ -2429,7 +2420,7 @@ module.exports = function (Engine) {
 			can_play: function (game) {
 				return game.events["russian_revolution"]
 			},
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.rp_cp.tu += 4
 			}
 		},
@@ -2438,7 +2429,7 @@ module.exports = function (Engine) {
 			name_cn: "混乱指令",
 			effect_cn:
 				"(只能在战斗掷骰后、挺进/撤退阶段前打出)。取消一次协约国的挺进和(或者)同盟国的撤退。。可以立即移动一个同盟国单位进入防守部队所在地区。(需要满足堆叠限制)",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["confused_orders"] = game.turn
 			}
 		},
@@ -2450,7 +2441,7 @@ module.exports = function (Engine) {
 			can_play: function (game) {
 				return game.events["pan_turkism"] && game.jihad >= 6
 			},
-			handler: function (game, ctx) {
+			handler: function (game) {
 				reinforce(game, "TU Army of Islam HQ", CP)
 				game.events["army_of_islam"] = true
 			}
@@ -2506,7 +2497,7 @@ module.exports = function (Engine) {
 			can_play: function (game) {
 				return game.jihad >= 8
 			},
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["jihad_offensive"] = game.turn
 			}
 		},
@@ -2544,7 +2535,7 @@ module.exports = function (Engine) {
 			name_cn: "皇帝攻势",
 			effect_cn:
 				"协约国玩家必须选择:。A:+1VP。B:将最多3个英国/印度/澳新师移除游戏(派往西线)。。本回合德国补员点数无法使用。。(注:协约国移除时，也可以以1LCU=3SCU的代价进行。选择移除师时，不能选择骑兵/骆驼师和英国特殊部队(例如英国波斯宪兵或者印度卫戍师等))",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["kaiserschlacht"] = true
 				game.active = AP
 				game.state = "event_kaiserschlacht_choice"
@@ -2572,7 +2563,7 @@ module.exports = function (Engine) {
 			name_cn: "高加索军队重组",
 			effect_cn:
 				"立即消灭4个地图上/预备军格的土耳其/土耳其-阿拉伯LCU作为代价。。增援:土耳其高加索第1军团、土耳其高加索第2军团 至安纳托利亚、高加索或者加利波里的同盟国控制区域。",
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["caucasian_army_reforms"] = true
 				game.active = CP
 				game.state = "event_caucasian_army_reforms_eliminate"
@@ -2588,7 +2579,7 @@ module.exports = function (Engine) {
 				let year = get_year(game)
 				return (year > 1917 || (year === 1917 && get_season(game) !== "Winter")) && game.events["german_subs"]
 			},
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.vp -= 1
 				game.events["unrestricted_submarine_warfare"] = true
 			}
@@ -2599,7 +2590,7 @@ module.exports = function (Engine) {
 			effect_cn:
 				"(黄色事件)。(只能在君士坦丁堡-加利西亚的铁路相连时打出)。当作事件打出时，正常使用此牌记录的OP点数。本轮所有土耳其/土耳其-阿拉伯部队进攻+1drm，一次包含有耶尔德里姆师的堆叠进攻时取消所有战壕效果。",
 			use_ops: true,
-			handler: function (game, ctx) {
+			handler: function (game) {
 				game.events["yildrim_offensive"] = game.turn
 			}
 		},

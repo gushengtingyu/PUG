@@ -112,22 +112,6 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
-	function count_fast_combine_candidates(pieces, faction) {
-		const { game_utils } = Engine
-		let count = 0
-		for (let p of pieces) {
-			let info = data.pieces[p]
-			if (!is_scu(p)) continue
-			if (game_utils.get_piece_effective_faction(game, p) !== faction) continue
-			if (set_has(game.moved, p)) continue
-			if (info.type === "irregular") continue
-			if (game_utils.get_piece_badge(p) === "yellow") continue
-			count += 1
-			if (count >= 2) return count
-		}
-		return count
-	}
-
 	function log_activation_group(title, spaces) {
 		if (!Array.isArray(spaces) || spaces.length === 0) return
 		log(title)
@@ -138,30 +122,22 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function log_activation_summary() {
-		let combine_spaces = Array.isArray(game.activated.combine) ? game.activated.combine : []
-		let move_spaces = Array.isArray(game.activated.move)
-			? game.activated.move.filter((s) => !set_has(combine_spaces, s))
-			: []
+		let move_spaces = Array.isArray(game.activated.move) ? game.activated.move : []
 		let attack_spaces = Array.isArray(game.activated.attack) ? game.activated.attack : []
 
 		log_activation_group("MOVE", move_spaces)
 		log_activation_group("ATTACK", attack_spaces)
-		log_activation_group("COMBINE", combine_spaces)
 	}
 
 	// === ACTIVATION HELPER ===
-	function is_space_activated_for_combine(s) {
-		return !!(game.activated && game.activated.combine && set_has(game.activated.combine, s))
-	}
-
 	function can_piece_participate_in_activation(p, faction) {
 		if (p < 0 || !data.pieces[p]) return false
 		if (is_not_on_map(game, p)) return false
 		if (Engine.game_utils.get_piece_effective_faction(game, p) !== faction) return false
-		if (Engine.greece.is_greek_piece(p)) {
+		if (Engine.neutral.is_greek_piece(p)) {
 			return (
-				Engine.greece.can_move_piece_for_faction(game, p, faction) ||
-				Engine.greece.can_attack_piece_for_faction(game, p, faction)
+				Engine.neutral.can_move_piece_for_faction(game, p, faction) ||
+				Engine.neutral.can_attack_piece_for_faction(game, p, faction)
 			)
 		}
 		return true
@@ -169,13 +145,13 @@ exports.register = function (states, Engine, context) {
 
 	function can_piece_move_in_activation(p, faction) {
 		if (!can_piece_participate_in_activation(p, faction)) return false
-		if (Engine.greece.is_greek_piece(p) && !Engine.greece.can_move_piece_for_faction(game, p, faction)) return false
+		if (Engine.neutral.is_greek_piece(p) && !Engine.neutral.can_move_piece_for_faction(game, p, faction)) return false
 		return get_piece_mf(p) > 0
 	}
 
 	function can_piece_attack_in_activation(p, s, faction) {
 		if (!can_piece_participate_in_activation(p, faction)) return false
-		if (Engine.greece.is_greek_piece(p) && !Engine.greece.can_attack_piece_for_faction(game, p, faction)) return false
+		if (Engine.neutral.is_greek_piece(p) && !Engine.neutral.can_attack_piece_for_faction(game, p, faction)) return false
 		return can_activate_piece_in_space_to_attack(p, s)
 	}
 
@@ -185,14 +161,42 @@ exports.register = function (states, Engine, context) {
 		return Engine.game_utils.get_entrenching_units_in_space(game, s, active_faction()).length > 0
 	}
 
+	function can_selected_move_pieces_combine(selected_pieces) {
+		if (!Array.isArray(selected_pieces) || selected_pieces.length < 2 || selected_pieces.length > 3) return false
+		let available = get_available_combine_scus()
+		if (!selected_pieces.every((p) => set_has(available, p))) return false
+		return get_valid_lcus_for_selected_scus(selected_pieces).length > 0
+	}
+
+	function space_has_adjacent_enemy(s, faction) {
+		let info = data.spaces[s]
+		if (!info || !Array.isArray(info.connections)) return false
+		for (let n of info.connections) {
+			if (Engine.map.contains_enemy_pieces(game, n, faction)) return true
+		}
+		return false
+	}
+
 	function is_russo_british_russian_activation() {
 		return Engine.event_states.is_russo_british_russian_activation(game)
 	}
 
-	function get_russo_british_legal_attack_spaces() {
+	function get_russo_british_legal_attack_spaces(pieces_by_space) {
+		if (!pieces_by_space) {
+			pieces_by_space = new Map()
+			for (let p = 0; p < game.pieces.length; p++) {
+				let s = game.pieces[p]
+				if (s <= 0 || is_not_on_map(game, p)) continue
+				let list = pieces_by_space.get(s)
+				if (!list) {
+					list = []
+					pieces_by_space.set(s, list)
+				}
+				list.push(p)
+			}
+		}
 		let legal = []
-		for (let s = 1; s < data.spaces.length; s++) {
-			let pieces = get_pieces_in_space(game, s)
+		for (let [s, pieces] of pieces_by_space) {
 			let has_ru_can_attack = pieces.some(
 				(p) => data.pieces[p].nation === "ru" && can_piece_attack_in_activation(p, s, AP)
 			)
@@ -207,9 +211,9 @@ exports.register = function (states, Engine, context) {
 		prompt(res) {
 			let perf_start = DEBUG_ACTIVATION_TRACE ? activation_now() : 0
 			let perf_attack_checks = 0
-			let perf_combine_checks = 0
+			let perf_enemy_adjacency_checks = 0
 			let perf_attack_ms = 0
-			let perf_combine_ms = 0
+			let perf_enemy_adjacency_ms = 0
 			let event_prompt = Engine.event_states.get_activation_prompt(game)
 			if (event_prompt) {
 				res.prompt(event_prompt)
@@ -220,9 +224,6 @@ exports.register = function (states, Engine, context) {
 			let faction = active_faction()
 			let russo_british_mode = is_russo_british_russian_activation()
 			let russo_british_selected = Array.isArray(game.activated?.attack) ? game.activated.attack.length : 0
-			let russo_british_legal_spaces = russo_british_mode ? get_russo_british_legal_attack_spaces() : []
-			let russo_british_required_count = russo_british_mode ? Math.min(2, russo_british_legal_spaces.length) : 0
-			let russo_british_legal_set = russo_british_mode ? new Set(russo_british_legal_spaces) : null
 			let pieces_by_space = new Map()
 			let activated_move_set = new Set(game.activated.move || [])
 			let activated_attack_set = new Set(game.activated.attack || [])
@@ -237,6 +238,9 @@ exports.register = function (states, Engine, context) {
 				}
 				list.push(p)
 			}
+			let russo_british_legal_spaces = russo_british_mode ? get_russo_british_legal_attack_spaces(pieces_by_space) : []
+			let russo_british_required_count = russo_british_mode ? Math.min(2, russo_british_legal_spaces.length) : 0
+			let russo_british_legal_set = russo_british_mode ? new Set(russo_british_legal_spaces) : null
 
 			for (let [s, friendly_pieces] of pieces_by_space) {
 				if (activated_move_set.has(s) || activated_attack_set.has(s)) continue
@@ -249,20 +253,20 @@ exports.register = function (states, Engine, context) {
 				let can_move = game.ops >= move_cost
 				let can_attack = false
 				if (game.ops >= attack_cost && unmoved_pieces.length > 0) {
-					let t0 = DEBUG_ACTIVATION_TRACE ? activation_now() : 0
-					can_attack = unmoved_pieces.some((p) => can_piece_attack_in_activation(p, s, faction))
+					let has_adjacent_enemy = false
+					let t_adj = DEBUG_ACTIVATION_TRACE ? activation_now() : 0
+					has_adjacent_enemy = space_has_adjacent_enemy(s, faction)
 					if (DEBUG_ACTIVATION_TRACE) {
-						perf_attack_checks += 1
-						perf_attack_ms += activation_now() - t0
+						perf_enemy_adjacency_checks += 1
+						perf_enemy_adjacency_ms += activation_now() - t_adj
 					}
-				}
-				let can_combine = false
-				if (can_move && count_fast_combine_candidates(friendly_pieces, faction) >= 2) {
-					let t0 = DEBUG_ACTIVATION_TRACE ? activation_now() : 0
-					can_combine = Engine.game_utils.can_combine_in_space(game, s, faction)
-					if (DEBUG_ACTIVATION_TRACE) {
-						perf_combine_checks += 1
-						perf_combine_ms += activation_now() - t0
+					if (has_adjacent_enemy) {
+						let t0 = DEBUG_ACTIVATION_TRACE ? activation_now() : 0
+						can_attack = unmoved_pieces.some((p) => can_piece_attack_in_activation(p, s, faction))
+						if (DEBUG_ACTIVATION_TRACE) {
+							perf_attack_checks += 1
+							perf_attack_ms += activation_now() - t0
+						}
 					}
 				}
 
@@ -276,7 +280,6 @@ exports.register = function (states, Engine, context) {
 
 				if (can_move) res.action("activate_move", s)
 				if (can_attack) res.action("activate_attack", s)
-				if (can_combine) res.action("activate_combine", s)
 			}
 
 			let deactivated_spaces = new Set()
@@ -314,10 +317,10 @@ exports.register = function (states, Engine, context) {
 					phase: "activate_spaces.prompt",
 					total_ms: activation_now() - perf_start,
 					pieces_by_space: pieces_by_space.size,
+					enemy_adjacency_checks: perf_enemy_adjacency_checks,
+					enemy_adjacency_ms: perf_enemy_adjacency_ms,
 					attack_checks: perf_attack_checks,
-					attack_ms: perf_attack_ms,
-					combine_checks: perf_combine_checks,
-					combine_ms: perf_combine_ms
+					attack_ms: perf_attack_ms
 				})
 			}
 		},
@@ -326,18 +329,6 @@ exports.register = function (states, Engine, context) {
 			let cost = get_activation_cost(game, s, "move")
 			game.ops -= cost
 			set_add(game.activated.move, s)
-			if (game.activated.combine) set_delete(game.activated.combine, s)
-			if (!game.activation_cost) game.activation_cost = {}
-			map_set(game.activation_cost, s, cost)
-			if (game.ops === 0) states.activate_spaces.done()
-		},
-		activate_combine(s) {
-			push_undo()
-			let cost = get_activation_cost(game, s, "move")
-			game.ops -= cost
-			set_add(game.activated.move, s)
-			if (!game.activated.combine) game.activated.combine = []
-			set_add(game.activated.combine, s)
 			if (!game.activation_cost) game.activation_cost = {}
 			map_set(game.activation_cost, s, cost)
 			if (game.ops === 0) states.activate_spaces.done()
@@ -348,7 +339,6 @@ exports.register = function (states, Engine, context) {
 			let cost = russo_british_mode ? 0 : get_activation_cost(game, s, "attack")
 			game.ops -= cost
 			set_add(game.activated.attack, s)
-			if (game.activated.combine) set_delete(game.activated.combine, s)
 			if (!game.activation_cost) game.activation_cost = {}
 			map_set(game.activation_cost, s, cost)
 			if (!russo_british_mode && game.ops === 0) states.activate_spaces.done()
@@ -365,11 +355,11 @@ exports.register = function (states, Engine, context) {
 
 				set_delete(game.activated.move, s)
 				set_delete(game.activated.attack, s)
-				if (game.activated.combine) set_delete(game.activated.combine, s)
 				map_delete(game.activation_cost, s)
 			}
 		},
 		done() {
+			let russo_british_mode = is_russo_british_russian_activation()
 			if (is_russo_british_russian_activation()) {
 				let required_count = Math.min(2, get_russo_british_legal_attack_spaces().length)
 				if (required_count > 0 && game.activated.attack.length < required_count) {
@@ -377,7 +367,7 @@ exports.register = function (states, Engine, context) {
 				}
 				delete game.russo_british_russian_activation
 			}
-			log_activation_summary()
+			if (!russo_british_mode) log_activation_summary()
 			if (Engine.event_states.on_activation_done(game)) {
 				return
 			}
@@ -400,10 +390,10 @@ exports.register = function (states, Engine, context) {
 	states.choose_move_space = {
 		prompt(res) {
 			let can_entrench = false
+			let can_combine = false
 			res.prompt("移动已激活的单位.")
 
 			let can_move = false
-			let can_combine = false
 			for (let s of game.activated.move) {
 				let pieces = get_pieces_in_space(game, s)
 				let has_movable = false
@@ -419,9 +409,7 @@ exports.register = function (states, Engine, context) {
 				if (has_movable || can_combine_here || can_entrench_here) {
 					res.space(s)
 				}
-
 				if (can_combine_here) {
-					res.action("combine", s)
 					can_combine = true
 				}
 				if (can_entrench_here) {
@@ -435,18 +423,13 @@ exports.register = function (states, Engine, context) {
 
 			res.action("done")
 
-			if (!can_move && !can_combine && !can_entrench) {
+			if (!can_move && !can_entrench && !can_combine) {
 				this.done()
 			}
 		},
 		space(s) {
 			if (game.activated.move.includes(s)) {
 				let can_entrench_here = can_space_entrench_in_activation(s)
-				if (is_space_activated_for_combine(s)) {
-					push_undo()
-					enter_combine_lcu_state(s)
-					return
-				}
 				if (Engine.game_utils.can_combine_in_space(game, s, active_faction()) || can_entrench_here) {
 					game.where = s
 					game.state = "choose_move_action"
@@ -464,17 +447,8 @@ exports.register = function (states, Engine, context) {
 				game.state = "choose_pieces_to_move"
 			}
 		},
-		combine(s) {
-			push_undo()
-			enter_combine_lcu_state(s)
-		},
 		piece(p) {
 			let s = game.pieces[p]
-			if (is_space_activated_for_combine(s)) {
-				push_undo()
-				enter_combine_lcu_state(s)
-				return
-			}
 			push_undo()
 			game.where = s
 			game.move = {
@@ -489,7 +463,6 @@ exports.register = function (states, Engine, context) {
 		done() {
 			game.where = -1
 			game.activated.move = []
-			game.activated.combine = []
 
 			if (game.move_from_event) {
 				delete game.move_from_event
@@ -629,9 +602,6 @@ exports.register = function (states, Engine, context) {
 			if (!game.entrench_attempts) game.entrench_attempts = []
 			set_add(game.entrench_attempts, s)
 
-			log(`${active_faction()} 尝试在 ${space_name(s)} 挖壕，参与单位: ${selected.length}。`)
-			log(`> 掷骰结果: ${roll}`)
-
 			// Rule 15.4.2:
 			// • If there is an LCU in the space, the Trench is built on a roll of 1–3. On a roll of 4–6, the attempt fails.
 			// • If only SCUs are in the space, a roll equal to or less than the number of regular combat SCUs indicates that the Trench was built.
@@ -649,13 +619,9 @@ exports.register = function (states, Engine, context) {
 					success = true // SCU only: roll <= count (max 3)
 				}
 			}
-
-			if (success) {
-				log(`> 成功！战壕已建立。`)
-				place_trench(game, s, active_faction())
-			} else {
-				log(`> 失败。`)
-			}
+			let target = has_lcu_val ? 3 : Math.min(3, regular_scu_count)
+			log(`掘壕尝试：${space_name(s)}`)
+			log(`> ${roll} <= ${target} -> ${success ? "成功" : "失败"}`)
 
 			// All participating units are marked as moved (cannot move further)
 			for (let p of selected) {
@@ -998,7 +964,6 @@ exports.register = function (states, Engine, context) {
 			log(`${active_faction()} combines 3 SCUs into a Full LCU ${lcu_info.name} in ${space_name(space)}.`)
 		}
 		set_add(game.moved, ctx.lcu_id)
-		if (game.activated.combine) set_delete(game.activated.combine, space)
 		clear_combine_ctx()
 		return_to_combine_entry()
 	}
@@ -1048,6 +1013,9 @@ exports.register = function (states, Engine, context) {
 						}
 					}
 				}
+				if (can_selected_move_pieces_combine(game.move.pieces)) {
+					res.action("combine")
+				}
 
 				if (!has_moves) res.action("stop")
 			} else if (!any_available) {
@@ -1081,11 +1049,23 @@ exports.register = function (states, Engine, context) {
 			let s = game.move.initial
 			let participating = game.move.pieces.slice()
 			push_undo()
-			log(`> 尝试在 ${space_name(s)} 掘壕，参与单位: ${participating.map(p => piece_name(p)).join(", ")}`)
+			for (let p of participating) {
+				log(`>${piece_name(p)} 掘壕`)
+			}
 			game.where = s
 			game.entrench_pieces = participating
 			game.state = "entrench_roll"
 			delete game.move
+		},
+		combine() {
+			let s = game.move.initial
+			let selected = game.move.pieces.slice()
+			if (!can_selected_move_pieces_combine(selected)) return
+			push_undo()
+			delete game.move
+			game.where = s
+			game.combine_ctx = { selected_scus: selected.slice() }
+			game.state = "combine_lcu_select_lcu"
 		},
 		done() {
 			delete game.move
@@ -1208,7 +1188,7 @@ exports.register = function (states, Engine, context) {
 		set_add(game.move.touched_spaces, target)
 
 		// Rule 19.2.1: Athens Entry Trigger
-		Engine.greece.check_athens_entry(game, pieces_moving, target, active_faction())
+		Engine.neutral.check_athens_entry(game, pieces_moving, target, active_faction())
 
 		for (let p of pieces_stopped) {
 			set_add(game.moved, p)
@@ -1234,8 +1214,8 @@ exports.register = function (states, Engine, context) {
 			}
 
 			// Rule 19.2.1: Entering neutral Athens triggers Greek entry
-			if (Engine.greece.is_greece_neutral(game) && Engine.greece.is_athens_space(target)) {
-				Engine.greece.trigger_greece_entry(game, target, active_faction(), "进入雅典", (msg) => log(msg))
+			if (Engine.neutral.is_greece_neutral(game) && Engine.neutral.is_athens_space(target)) {
+				Engine.neutral.trigger_greece_entry(game, target, active_faction(), "进入雅典", (msg) => log(msg))
 			}
 
 			check_immediate_jihad_rebellion_on_entry(from_space, target, pieces_moving)
@@ -1309,9 +1289,6 @@ exports.register = function (states, Engine, context) {
 		if (game.activated && game.activated.move) {
 			set_delete(game.activated.move, s)
 		}
-		if (game.activated && game.activated.combine) {
-			set_delete(game.activated.combine, s)
-		}
 		game.where = -1
 		if (game.event_next_state) {
 			let next_state = game.event_next_state
@@ -1328,9 +1305,6 @@ exports.register = function (states, Engine, context) {
 			game.activated.move = game.activated.move.filter((s) =>
 				has_unmoved_pieces_in_space(game, s, active_faction())
 			)
-		}
-		if (game.activated && game.activated.combine) {
-			game.activated.combine = game.activated.combine.filter((s) => set_has(game.activated.move, s))
 		}
 
 		if (game.activated.move && game.activated.move.length > 0) {

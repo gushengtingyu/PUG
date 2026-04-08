@@ -1931,9 +1931,7 @@ After one of these cards is played as an event, the other card remains playable 
 
 **(19.6.2) Persian Tribes**: The CP Player may place Tribes in Neutral Persia prior to the play of Persian Push or Secret Treaty, but these Tribes may not Activate for Movement or combat.
 
-**(19.6.3) Azerbaijan and Arabistan**: Azerbaijan (north Persia) and Arabistan (southwest Persia) are parts of Persia, but are not part of Neutral Persia (in terms of game play). In 1914, Azerbaijan was controlled by Russia, and Arabistan was leased to and controlled by Britain. RU and CP units may enter these areas prior to play of
-
-Persian Push or Secret Treaty. However:
+**(19.6.3) Azerbaijan and Arabistan**: Azerbaijan (north Persia) and Arabistan (southwest Persia) are parts of Persia, but are not part of Neutral Persia (in terms of game play). In 1914, Azerbaijan was controlled by Russia, and Arabistan was leased to and controlled by Britain. RU and CP units may enter these areas prior to play of Persian Push or Secret Treaty. However:
 
 • BR, FR, IN, IT, or ANZ units may not enter Neutral Persia or Azerbaijan prior to the Russian Revolution. Only RU and CP units may do so.
 

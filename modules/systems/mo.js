@@ -2,7 +2,7 @@
 
 module.exports = function (Engine) {
 	const { data, game_utils } = Engine
-	const { is_regular, get_piece_nation, is_not_on_map, piece_counts_as_nation_for_rule } = game_utils
+	const { is_regular, get_piece_nation, get_piece_faction, is_not_on_map, piece_counts_as_nation_for_rule } = game_utils
 	const exports = {}
 
 	const { roll_die } = Engine.utils
@@ -252,22 +252,23 @@ module.exports = function (Engine) {
 	/**
 	 * Checks if Mandated Offensive requirements were fulfilled by an attack.
 	 * @param {Object} game - Game state
-	 * @param {Object} result - Combat result
+	 * @param {string} attacker - Attacking side
+	 * @param {number} space - Target space
+	 * @param {number[]} pieces - Attacking pieces
+	 * @param {number[]} defender_pieces - Defending pieces
 	 * @param {Function} log - Logging function
 	 */
-	function check_mo_fulfillment(game, result, log) {
-		if (!game || !game.attack || !result) return
-		const space = game.attack.space
-		const attacker = game.active
-		const pieces = result.attackers || []
-		const defender_pieces = result.defenders || []
-
+	function check_mo_fulfillment_core(game, attacker, space, pieces, defender_pieces, log) {
 		if (attacker === AP) {
 			if (
 				game.event_ctx && game.event_ctx.key === "russo_british_assault" &&
 				(game.mo_ap === MO_RUSSIA || game.mo_ap === MO_RUSSIA_CAUCASUS)
 			) {
-				if (log) log("英俄突袭：不能完成俄国MO")
+				let has_russian_attacker = Array.isArray(pieces) && pieces.some((p) => get_piece_nation(p) === RUSSIA)
+				if (has_russian_attacker && game.attack && !game.attack.russo_british_mo_block_logged) {
+					game.attack.russo_british_mo_block_logged = true
+					if (log) log("英俄突袭：不能完成俄国MO")
+				}
 				return
 			}
 			if (game.mo_ap === MO_BRITISH_NO_ATTACK) {
@@ -279,48 +280,64 @@ module.exports = function (Engine) {
 				}
 				return
 			}
-
 			if (game.mo_ap_fulfilled) return
-
 			if (game.mo_ap && check_mo_criteria(game, game.mo_ap, AP, space, pieces, defender_pieces)) {
 				game.mo_ap_fulfilled = true
 				if (log) log(`协约国强制进攻 (${mo_name(game.mo_ap)}) 已完成。`)
 			}
-		} else {
-			if (game.mo_cp_fulfilled) return
-
-			if (game.mo_cp === MO_ENVER) {
-				let fulfilled_1_now = false
-				if (
-					!game.mo_cp_1_fulfilled &&
-					game.mo_cp_1 &&
-					check_mo_criteria(game, game.mo_cp_1, CP, space, pieces, defender_pieces)
-				) {
-					game.mo_cp_1_fulfilled = true
-					fulfilled_1_now = true
-					if (log) log(`同盟国恩维尔攻势 #1 (${mo_name(game.mo_cp_1)}) 已完成。`)
-				}
-				let can_fulfill_second_in_this_attack = !(fulfilled_1_now && game.mo_cp_1 === game.mo_cp_2)
-				if (
-					can_fulfill_second_in_this_attack &&
-					!game.mo_cp_2_fulfilled &&
-					game.mo_cp_2 &&
-					check_mo_criteria(game, game.mo_cp_2, CP, space, pieces, defender_pieces)
-				) {
-					game.mo_cp_2_fulfilled = true
-					if (log) log(`同盟国恩维尔攻势 #2 (${mo_name(game.mo_cp_2)}) 已完成。`)
-				}
-				if (game.mo_cp_1_fulfilled && game.mo_cp_2_fulfilled) {
-					game.mo_cp_fulfilled = true
-					if (log) log("同盟国恩维尔攻势已全部完成。")
-				}
-			} else {
-				if (game.mo_cp && check_mo_criteria(game, game.mo_cp, CP, space, pieces, defender_pieces)) {
-					game.mo_cp_fulfilled = true
-					if (log) log(`同盟国强制进攻 (${mo_name(game.mo_cp)}) 已完成。`)
-				}
-			}
+			return
 		}
+
+		if (game.mo_cp_fulfilled) return
+		if (game.mo_cp === MO_ENVER) {
+			let fulfilled_1_now = false
+			if (
+				!game.mo_cp_1_fulfilled &&
+				game.mo_cp_1 &&
+				check_mo_criteria(game, game.mo_cp_1, CP, space, pieces, defender_pieces)
+			) {
+				game.mo_cp_1_fulfilled = true
+				fulfilled_1_now = true
+				if (log) log(`同盟国恩维尔攻势 #1 (${mo_name(game.mo_cp_1)}) 已完成。`)
+			}
+			let can_fulfill_second_in_this_attack = !(fulfilled_1_now && game.mo_cp_1 === game.mo_cp_2)
+			if (
+				can_fulfill_second_in_this_attack &&
+				!game.mo_cp_2_fulfilled &&
+				game.mo_cp_2 &&
+				check_mo_criteria(game, game.mo_cp_2, CP, space, pieces, defender_pieces)
+			) {
+				game.mo_cp_2_fulfilled = true
+				if (log) log(`同盟国恩维尔攻势 #2 (${mo_name(game.mo_cp_2)}) 已完成。`)
+			}
+			if (game.mo_cp_1_fulfilled && game.mo_cp_2_fulfilled) {
+				game.mo_cp_fulfilled = true
+				if (log) log("同盟国恩维尔攻势已全部完成。")
+			}
+			return
+		}
+
+		if (game.mo_cp && check_mo_criteria(game, game.mo_cp, CP, space, pieces, defender_pieces)) {
+			game.mo_cp_fulfilled = true
+			if (log) log(`同盟国强制进攻 (${mo_name(game.mo_cp)}) 已完成。`)
+		}
+	}
+
+	function check_mo_on_attack_declared(game, log) {
+		if (!game || !game.attack) return
+		let attacker = game.attack.attacker || game.active
+		let defender = game.attack.defender || (attacker === AP ? CP : AP)
+		let space = game.attack.space
+		let pieces = game.attack.pieces || []
+		let defender_pieces = Engine.map.get_pieces_in_space(game, space).filter(
+			(p) => get_piece_faction(p) === defender
+		)
+		check_mo_fulfillment_core(game, attacker, space, pieces, defender_pieces, log)
+	}
+
+	function check_mo_fulfillment(game, result, log) {
+		if (!game || !game.attack || !result) return
+		check_mo_fulfillment_core(game, game.active, game.attack.space, result.attackers || [], result.defenders || [], log)
 	}
 
 	/**
@@ -655,6 +672,7 @@ module.exports = function (Engine) {
 		check_mo_criteria,
 		check_mo_validity,
 		update_mo_fulfillment_status,
+		check_mo_on_attack_declared,
 		check_mo_fulfillment,
 		register,
 		states

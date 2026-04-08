@@ -390,6 +390,7 @@
 
 		<script>
 			let reinforcements = []
+			let reinforcementHeaders = ["id", "card", "name", "x", "y", "side", "type"]
 			let selectedId = null
 			let scale = 1
 			let panX = 0
@@ -406,6 +407,42 @@
 			const searchInput = document.getElementById("search-input")
 
 			// --- 数据处理 ---
+			function parseCSVLine(line) {
+				const values = []
+				let current = ""
+				let inQuotes = false
+				for (let i = 0; i < line.length; i++) {
+					const char = line[i]
+					if (char === '"') {
+						if (inQuotes && line[i + 1] === '"') {
+							current += '"'
+							i++
+						} else {
+							inQuotes = !inQuotes
+						}
+					} else if (char === "," && !inQuotes) {
+						values.push(current.trim())
+						current = ""
+					} else {
+						current += char
+					}
+				}
+				values.push(current.trim())
+				return values
+			}
+
+			function buildCSVLine(values) {
+				return values
+					.map((value) => {
+						const text = String(value ?? "")
+						if (text.includes(",") || text.includes('"') || text.includes("\n") || text.includes("\r")) {
+							return `"${text.replace(/"/g, '""')}"`
+						}
+						return text
+					})
+					.join(",")
+			}
+
 			async function loadData() {
 				try {
 					const res = await fetch(`${API_BASE}/csv/reinforcements.csv?t=${Date.now()}`)
@@ -419,23 +456,15 @@
 
 			function parseCSV(text) {
 				const lines = text.split(/\r?\n/).filter((l) => l.trim())
-				const headers = lines[0].split(",").map((h) => h.trim())
+				if (lines.length === 0) {
+					reinforcementHeaders = ["id", "card", "name", "x", "y", "side", "type"]
+					return []
+				}
+				reinforcementHeaders = parseCSVLine(lines[0]).map((h) => h.trim())
 				return lines.slice(1).map((line) => {
-					// 处理带引号的 CSV 字段
-					const values = []
-					let current = ""
-					let inQuotes = false
-					for (let char of line) {
-						if (char === '"') inQuotes = !inQuotes
-						else if (char === "," && !inQuotes) {
-							values.push(current.trim())
-							current = ""
-						} else current += char
-					}
-					values.push(current.trim())
-
+					const values = parseCSVLine(line)
 					const obj = {}
-					headers.forEach((h, i) => (obj[h] = values[i]))
+					reinforcementHeaders.forEach((h, i) => (obj[h] = values[i] ?? ""))
 					return obj
 				})
 			}
@@ -570,15 +599,17 @@
 			function addNew(x, y) {
 				const currentSide = boardSelect.value.startsWith("AP") ? "ap" : "cp"
 				const newId = Math.max(0, ...reinforcements.map((r) => parseInt(r.id))) + 1
-				const newItem = {
-					id: newId.toString(),
-					card: "0",
-					name: "New Slot",
-					x: x.toString(),
-					y: y.toString(),
-					side: currentSide,
-					type: "reinforcement"
-				}
+				const newItem = {}
+				reinforcementHeaders.forEach((header) => {
+					newItem[header] = ""
+				})
+				newItem.id = newId.toString()
+				newItem.card = "0"
+				newItem.name = "New Slot"
+				newItem.x = x.toString()
+				newItem.y = y.toString()
+				newItem.side = currentSide
+				newItem.type = "reinforcement"
 				reinforcements.push(newItem)
 				selectItem(newId)
 			}
@@ -665,17 +696,14 @@
 			}
 
 			document.getElementById("save-btn").onclick = async () => {
-				const headers = ["id", "card", "name", "x", "y", "side", "type"]
-				const csvRows = [headers.join(",")]
+				const headers = reinforcementHeaders.length
+					? reinforcementHeaders
+					: ["id", "card", "name", "x", "y", "side", "type"]
+				const csvRows = [buildCSVLine(headers)]
 
 				reinforcements.forEach((r) => {
-					const row = headers.map((h) => {
-						let val = r[h] || ""
-						// 如果字段包含逗号，则包裹引号
-						if (val.includes(",")) return `"${val}"`
-						return val
-					})
-					csvRows.push(row.join(","))
+					const row = headers.map((h) => r[h] ?? "")
+					csvRows.push(buildCSVLine(row))
 				})
 
 				const csv = csvRows.join("\n")

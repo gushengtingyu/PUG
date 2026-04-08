@@ -93,7 +93,7 @@ function findEmptyEntrenchSpace(game) {
 		) {
 			continue
 		}
-		if (space.terrain !== "clear" && space.terrain !== "forest") continue
+		if (space.terrain) continue
 		if (Engine.map.is_beachhead_space && Engine.map.is_beachhead_space(game, s)) continue
 		if (Engine.map.get_pieces_in_space(game, s).length === 0) return s
 	}
@@ -289,7 +289,7 @@ function createCombineDisposeGame(faction, type) {
 		hand_cp: [],
 		state: "combine_lcu_dispose_reserve",
 		where: space,
-		activated: { move: [space], combine: [space], attack: [] },
+		activated: { move: [space], attack: [] },
 		eligible_attackers: [],
 		combine_ctx: {
 			selected_scus: plan.scus.slice(),
@@ -315,7 +315,7 @@ function createManualCombineGame(faction, lcu, scus) {
 		hand_cp: [],
 		state: "combine_lcu",
 		where: space,
-		activated: { move: [space], combine: [space], attack: [] },
+		activated: { move: [space], attack: [] },
 		eligible_attackers: [],
 		combine_ctx: { selected_scus: [] },
 		log: []
@@ -456,7 +456,7 @@ describe("运行时烟雾测试", () => {
 		expect(game.log.some((line) => line.includes("打出事件"))).toBe(false)
 	})
 
-	test("OPS 激活完成后按 MOVE ATTACK COMBINE 分组记录地区", () => {
+	test("OPS 激活完成后按 MOVE ATTACK 分组记录地区", () => {
 		let [moveSpace, combineSpace, attackSpace] = findTestSpaces(3)
 		let game = setupGame(12345)
 		game.state = "activate_spaces"
@@ -465,8 +465,7 @@ describe("运行时烟雾测试", () => {
 		game.active = AP
 		game.activated = {
 			move: [moveSpace, combineSpace],
-			attack: [attackSpace],
-			combine: [combineSpace]
+			attack: [attackSpace]
 		}
 		game.activation_cost = {
 			[moveSpace]: 1,
@@ -482,10 +481,9 @@ describe("运行时烟雾测试", () => {
 		expect(game.log).toEqual([
 			"MOVE",
 			`>${data.spaces[moveSpace].name}`,
+			`>${data.spaces[combineSpace].name} (2 OPS)`,
 			"ATTACK",
-			`>${data.spaces[attackSpace].name} (3 OPS)`,
-			"COMBINE",
-			`>${data.spaces[combineSpace].name} (2 OPS)`
+			`>${data.spaces[attackSpace].name} (3 OPS)`
 		])
 		expect(game.log.some((line) => line.includes("activated for"))).toBe(false)
 	})
@@ -545,6 +543,78 @@ describe("运行时烟雾测试", () => {
 
 		expect(Engine.map.is_besieged(game, space)).toBe(true)
 		expect(Engine.game_utils.can_entrench_in_space(game, space, AP)).toBe(true)
+	})
+
+	test("山地中非先进国家正规军不能掘壕，但 YLD 可以", () => {
+		let regular = findPieceId(
+			(p) =>
+				p.faction === CP &&
+				p.piece_class === "SCU" &&
+				p.type === "regular" &&
+				!["ge", "ah"].includes(p.nation) &&
+				p.symbol !== "Y" &&
+				p.symbol !== "H"
+		)
+		let yildirim = findPieceId((p) => p.faction === CP && p.symbol === "Y")
+		let mountain = findSpaceByPredicate(
+			(space) => !space.region && !space.island_base && space.map !== "Reserve Box" && space.terrain === "mountain"
+		)
+		let game = createMinimalGame({
+			active: CP,
+			moved: [],
+			entrenching: [],
+			entrench_attempts: []
+		})
+
+		game.pieces[regular] = mountain
+		game.pieces[yildirim] = mountain
+		Engine.set_control(game, mountain, CP)
+
+		expect(Engine.game_utils.can_entrench_in_space(game, mountain, CP)).toBe(true)
+		expect(Engine.game_utils.get_entrenching_units_in_space(game, mountain, CP)).toEqual([yildirim])
+	})
+
+	test("森林地形中任何正规军都可以掘壕", () => {
+		let regular = findPieceId(
+			(p) => p.faction === AP && p.piece_class === "SCU" && p.type === "regular" && p.symbol !== "Y" && p.symbol !== "H"
+		)
+		let forest = findSpaceByPredicate(
+			(space) => !space.region && !space.island_base && space.map !== "Reserve Box" && space.terrain === "forest"
+		)
+		let game = createMinimalGame({
+			active: AP,
+			moved: []
+		})
+
+		game.pieces[regular] = forest
+		Engine.set_control(game, forest, AP)
+
+		expect(Engine.game_utils.can_entrench_in_space(game, forest, AP)).toBe(true)
+		expect(Engine.game_utils.get_entrenching_units_in_space(game, forest, AP)).toEqual([regular])
+	})
+
+	test("山地中先进国家正规军可以掘壕", () => {
+		let advanced = findPieceId(
+			(p) =>
+				p.faction === AP &&
+				p.piece_class === "SCU" &&
+				p.type === "regular" &&
+				["br", "fr", "in", "anz"].includes(p.nation) &&
+				p.symbol !== "H"
+		)
+		let mountain = findSpaceByPredicate(
+			(space) => !space.region && !space.island_base && space.map !== "Reserve Box" && space.terrain === "mountain"
+		)
+		let game = createMinimalGame({
+			active: AP,
+			moved: []
+		})
+
+		game.pieces[advanced] = mountain
+		Engine.set_control(game, mountain, AP)
+
+		expect(Engine.game_utils.can_entrench_in_space(game, mountain, AP)).toBe(true)
+		expect(Engine.game_utils.get_entrenching_units_in_space(game, mountain, AP)).toEqual([advanced])
 	})
 
 	test("战争状态阶段会判定同盟国自动胜利标记达成", () => {
@@ -1093,11 +1163,32 @@ describe("堆叠规则回归测试", () => {
 		for (let p of [...regulars, ...yildirim]) game.pieces[p] = space
 
 		expect(Engine.map.get_stack_count([...regulars, ...yildirim])).toBe(3)
+		expect(Engine.map.can_move_stack_composition(game, [...regulars, ...yildirim])).toBe(false)
 		expect(Engine.game_utils.get_capacity(game, space)).toBe(0)
 
 		game.pieces[yildirim[1]] = ELIMINATED
 		expect(Engine.map.get_stack_count([...regulars, yildirim[0]])).toBe(2)
+		expect(Engine.map.can_move_stack_composition(game, [...regulars, yildirim[0]])).toBe(true)
 		expect(Engine.game_utils.get_capacity(game, space)).toBe(1)
+	})
+
+	test("耶尔德里姆师不计入启动国籍费用", () => {
+		let space = findTestSpace()
+		let turkish = findPieceId(
+			(p) => ["tu", "tua"].includes(p.nation) && p.piece_class === "SCU" && p.type !== "hq" && p.symbol !== "H"
+		)
+		let yildirim = findPieceId((p) => p.faction === CP && p.symbol === "Y")
+		let game = createMinimalGame({
+			active: CP,
+			card_ops: 4,
+			events: {}
+		})
+
+		game.pieces[turkish] = space
+		game.pieces[yildirim] = space
+
+		expect(Engine.map.get_activation_cost(game, space, "move")).toBe(1)
+		expect(Engine.map.get_activation_cost(game, space, "attack")).toBe(1)
 	})
 
 	test("英俄混编例外仅在俄国革命后允许两支俄军", () => {
@@ -1949,6 +2040,124 @@ test("波斯单位在波斯全域始终视为完全补给", () => {
 		expect(afterPick.move.pieces).toEqual([extraScu])
 	})
 
+	test("移动选片阶段选中可组合的 2 个 SCU 时会出现组合操作", () => {
+		let plan = findCombinationPlan(AP, "reduced")
+		let space = findLegalCombineSpace(AP, plan.lcu, plan.scus)
+		let game = createMinimalGame({
+			active: AP,
+			state: "choose_pieces_to_move",
+			action_round: 1,
+			player_order: [AP, CP],
+			hand_ap: [],
+			hand_cp: [],
+			activated: { move: [space], attack: [] },
+			eligible_attackers: [],
+			where: space,
+			move: {
+				initial: space,
+				current: space,
+				spaces_moved: 0,
+				pieces: plan.scus.slice(0, 2),
+				touched_spaces: [space]
+			},
+			moved: [],
+			log: []
+		})
+		game.pieces[plan.lcu] = Engine.game_utils.get_lcu_reserve_box(AP)
+		game.pieces[plan.scus[0]] = space
+		game.pieces[plan.scus[1]] = space
+
+		let role = currentPlayer(game)
+		let view = rules.view(game, role)
+		expect(view.actions.combine).toBe(1)
+	})
+
+	test("自动行动 1 点激活移动后会进入移动阶段而非直接结束行动轮", () => {
+		let piece = findPieceId((p) => p.faction === AP && p.piece_class === "SCU" && p.type === "regular")
+		let space = findTestSpace()
+		let game = createMinimalGame({
+			active: AP,
+			state: "activate_spaces",
+			action_round: 1,
+			player_order: [AP, CP],
+			hand_ap: [],
+			hand_cp: [],
+			ops: 1,
+			card_ops: 1,
+			activated: { move: [], attack: [] },
+			activation_cost: {},
+			eligible_attackers: [],
+			moved: [],
+			log: []
+		})
+		game.pieces[piece] = space
+		let role = currentPlayer(game)
+
+		let before = rules.view(game, role)
+		expect(Array.isArray(before.actions.activate_move)).toBe(true)
+		expect(before.actions.activate_move).toContain(space)
+
+		let after = rules.action(game, role, "activate_move", space)
+		expect(after.ops).toBe(0)
+		expect(after.activated.move).toContain(space)
+		expect(after.state).toBe("choose_move_space")
+	})
+
+	test("掘壕后同地块剩余 SCU 仍可继续移动", () => {
+		let entrencher = findPieceId((p) => p.faction === AP && p.piece_class === "SCU" && p.type === "regular")
+		let extraScu = data.pieces.findIndex(
+			(info, p) =>
+				p !== entrencher &&
+				info &&
+				info.faction === AP &&
+				info.piece_class === "SCU" &&
+				info.type === "regular" &&
+				Engine.game_utils.get_piece_mf(p) > 0
+		)
+		if (entrencher < 0 || extraScu < 0) throw new Error("未找到掘壕测试所需 SCU")
+
+		let game = setupGame(12345)
+		let space = findEmptyEntrenchSpace(game)
+
+		game.active = AP
+		game.state = "choose_move_space"
+		game.where = -1
+		game.log = []
+		game.moved = []
+		game.entrenching = []
+		game.entrench_attempts = []
+		game.activated = {
+			move: [space],
+			attack: []
+		}
+		game.pieces[entrencher] = space
+		game.pieces[extraScu] = space
+		game.trenches = (game.trenches || []).filter((x) => x !== space)
+		game.trenches_2 = (game.trenches_2 || []).filter((x) => x !== space)
+		Engine.set_control(game, space, AP)
+		let role = currentPlayer(game)
+		expect(Engine.game_utils.can_entrench_in_space(game, space, AP)).toBe(true)
+
+		game = rules.action(game, role, "space", space)
+		expect(game.state).toBe("choose_move_action")
+		game = rules.action(game, role, "entrench")
+		expect(game.state).toBe("entrench")
+
+		game = rules.action(game, role, "piece", entrencher)
+		game = rules.action(game, role, "roll")
+		expect(game.state).toBe("entrench_roll")
+		game = rules.action(game, role, "roll")
+
+		expect(game.state).toBe("choose_move_space")
+		expect(game.pieces[extraScu]).toBe(space)
+		expect(game.moved).toContain(entrencher)
+		expect(game.moved).not.toContain(extraScu)
+
+		let view = rules.view(game, role)
+		expect(Array.isArray(view.actions.piece)).toBe(true)
+		expect(view.actions.piece).toContain(extraScu)
+	})
+
 	test("攻击阶段若已无合法攻击者，视图与 action 会同步归一化到结束操作", () => {
 		let space = findTestSpace()
 		let attacker = findPieceId((p) => p.faction === AP && p.piece_class === "SCU" && p.type !== "hq")
@@ -2165,11 +2374,12 @@ test("波斯单位在波斯全域始终视为完全补给", () => {
 		expect(game.vp).toBe(1)
 	})
 
-	test("俄国革命前 FR/IT/BR/IN/ANZ 不得进入已开放的中立波斯与阿塞拜疆", () => {
+	test("俄国革命前 FR/IT/BR/IN/ANZ 可进入已开放的中立波斯与阿塞拜疆，但首次进入指定区域触发 1VP", () => {
 		let hamadan = findSpaceByPredicate((space) => space.name === "Hamadan")
 		let azerbaijan = findSpaceByPredicate((space) => space.area === "azerbaijan")
+		let southPersia = findSpaceByPredicate((space) => String(space.region || "").toLowerCase() === "south persia")
 		let game = createMinimalGame({ events: { secret_treaty: true }, log: [] })
-		let forbiddenPieces = [
+		let affectedPieces = [
 			findPieceId((p) => p.faction === AP && p.nation === "br" && p.type === "regular"),
 			findPieceId((p) => p.faction === AP && p.nation === "in" && p.type === "regular"),
 			findPieceId((p) => p.faction === AP && p.nation === "anz" && p.type === "regular"),
@@ -2177,10 +2387,27 @@ test("波斯单位在波斯全域始终视为完全补给", () => {
 			findPieceId((p) => p.faction === AP && p.nation === "it" && p.type === "regular")
 		]
 
-		for (let p of forbiddenPieces) {
-			expect(Engine.map.can_enter_region(game, p, hamadan)).toBe(false)
-			expect(Engine.map.can_enter_region(game, p, azerbaijan)).toBe(false)
+		for (let p of affectedPieces) {
+			expect(Engine.map.can_enter_region(game, p, hamadan)).toBe(true)
+			expect(Engine.map.can_enter_region(game, p, azerbaijan)).toBe(true)
 		}
+
+		Engine.check_persia_entry_vp_penalty(game, hamadan, [affectedPieces[0]])
+		expect(game.vp).toBe(1)
+		expect(game.events["ap_russian_sphere_penalty"]).toBe(true)
+
+		Engine.check_persia_entry_vp_penalty(game, azerbaijan, [affectedPieces[1]])
+		expect(game.vp).toBe(1)
+
+		let gameInThreeRegions = createMinimalGame({ events: { secret_treaty: true }, log: [] })
+		Engine.check_persia_entry_vp_penalty(gameInThreeRegions, southPersia, [affectedPieces[0]])
+		expect(gameInThreeRegions.vp).toBe(0)
+		expect(gameInThreeRegions.events["ap_russian_sphere_penalty"]).toBeUndefined()
+
+		let gameAfterRevolution = createMinimalGame({ events: { secret_treaty: true, russian_revolution: 1 }, log: [] })
+		Engine.check_persia_entry_vp_penalty(gameAfterRevolution, hamadan, [affectedPieces[0]])
+		expect(gameAfterRevolution.vp).toBe(0)
+		expect(gameAfterRevolution.events["ap_russian_sphere_penalty"]).toBeUndefined()
 	})
 
 	test("俄国革命开始后 FR/IT/BR/IN/ANZ 可进入已开放的中立波斯与阿塞拜疆", () => {

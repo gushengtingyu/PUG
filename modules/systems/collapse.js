@@ -4,6 +4,7 @@ module.exports = function (Engine) {
 	const { data } = Engine
 	const { AP, CP } = Engine.constants
 	const ROMANIA_COLLAPSE_EVENT_KEY = "romania_collapse"
+	const COLLAPSE_SR_LIMIT = 2
 
 	const BULGARIA_ENTRY_PLAN = Object.freeze({
 		cp: Object.freeze({
@@ -66,6 +67,12 @@ module.exports = function (Engine) {
 		...ROMANIA_ENTRY_PLAN.cp.ah_units
 	])
 	const ROMANIAN_COLLAPSE_AH_UNIT_NAMES = new Set([...ROMANIA_ENTRY_PLAN.cp.ah_units])
+	// 两个崩溃事件的“可选保留/移除”名单并不相同：
+	// 塞尔维亚崩溃看保加利亚入场时的 AH 师，罗马尼亚崩溃看罗马尼亚入场时的 AH 单位。
+	const COLLAPSE_OPTIONAL_REMOVAL_PLAN = Object.freeze({
+		serbia: BULGARIA_ENTRY_PLAN.cp.ah_division_pool,
+		romania: ROMANIA_ENTRY_PLAN.cp.ah_units
+	})
 	const {
 		find_space,
 		eliminate_piece,
@@ -74,9 +81,11 @@ module.exports = function (Engine) {
 		is_in_reserve,
 		is_lcu,
 		is_scu,
+		is_piece_reduced,
 		get_piece_nation,
 		get_capacity,
-		piece_counts_as_nation_for_rule
+		piece_counts_as_nation_for_rule,
+		piece_name
 	} = Engine.game_utils
 
 	const { is_controlled_by, get_pieces_in_space, is_balkans } = Engine.map
@@ -142,8 +151,16 @@ module.exports = function (Engine) {
 		return BULGARIA_ENTRY_PLAN.cp.ah_division_pool
 	}
 
+	function get_collapse_choice_unit_names(nation) {
+		return COLLAPSE_OPTIONAL_REMOVAL_PLAN[nation] || []
+	}
+
 	function get_romanian_entry_plan() {
 		return ROMANIA_ENTRY_PLAN
+	}
+
+	function get_collapse_sr_limit() {
+		return COLLAPSE_SR_LIMIT
 	}
 
 	function is_romania_uncollapsed(game) {
@@ -200,6 +217,7 @@ module.exports = function (Engine) {
 	}
 
 	function can_offer_serbian_collapse(game) {
+		// 19.4.5：只要贝尔格莱德已被 CP 控制，AP 每个战争状态阶段都可以选择宣布塞尔维亚崩溃。
 		if (game.events && game.events["serbian_collapse"]) return false
 		if (!game.events["bulgaria"]) return false
 		let belgrade = find_space("BELGRADE")
@@ -207,6 +225,7 @@ module.exports = function (Engine) {
 	}
 
 	function should_auto_serbian_collapse(game) {
+		// 19.4.5：自动崩溃需要同时满足“贝尔格莱德与斯科普里皆为 CP 控制”且“塞尔维亚境内无 SB LCU”。
 		if (game.events && game.events["serbian_collapse"]) return false
 		if (!game.events["bulgaria"]) return false
 
@@ -225,15 +244,17 @@ module.exports = function (Engine) {
 	}
 
 	function can_offer_romanian_collapse(game) {
+		// 19.5.5：只要罗马尼亚已经参战且尚未崩溃，AP 就可以在战争状态阶段主动宣布其崩溃。
 		if (game.events && game.events[ROMANIA_COLLAPSE_EVENT_KEY]) return false
 		return !!game.events["romania"]
 	}
 
 	function should_auto_romanian_collapse(game) {
+		// 19.5.5：自动崩溃二选一——三座关键城市全失，或 RO LCU 全灭且罗马尼亚境内没有 RU LCU。
 		if (game.events && game.events[ROMANIA_COLLAPSE_EVENT_KEY]) return false
 		if (!game.events["romania"]) return false
 
-		let bucharest = find_space("Bucharest")
+		let bucharest = find_space("BUCHAREST")
 		let ploesti = find_space("Ploesti")
 		let constanta = find_space("Constanta")
 		if (
@@ -257,6 +278,7 @@ module.exports = function (Engine) {
 		let info = data.spaces[target]
 		if (!info) return false
 
+		// 19.4.6：塞军在贝尔格莱德收复前只能攻击塞尔维亚/希腊；一旦贝尔格莱德回到 AP 手中，限制扩展为整个巴尔干。
 		let belgrade = find_space("BELGRADE")
 		if (belgrade >= 0 && is_controlled_by(game, belgrade, AP)) {
 			return is_balkans(target)
@@ -282,6 +304,23 @@ module.exports = function (Engine) {
 		return list
 	}
 
+	function create_collapse_choice_ctx(collapse_nation, choice_limit) {
+		// 选择移除阶段结束后，还要无缝衔接“最多 2 个单位免费 SR”的后续步骤。
+		return {
+			collapse_nation,
+			choice_limit,
+			move_limit: COLLAPSE_SR_LIMIT,
+			data: { removed: [] }
+		}
+	}
+
+	function create_collapse_sr_ctx() {
+		return {
+			move_limit: COLLAPSE_SR_LIMIT,
+			data: { moved: [] }
+		}
+	}
+
 	function apply_bulgarian_collapse(game, log) {
 		if (game.events && game.events["bulgarian_collapse"]) return "none"
 		if (!game.events["bulgaria"]) return "none"
@@ -303,10 +342,12 @@ module.exports = function (Engine) {
 			if (gebu_xi >= 0 && !is_not_on_map(game, gebu_xi)) {
 				let s = game.pieces[gebu_xi]
 				eliminate_piece(game, gebu_xi, log, true)
+				// 19.3.5：GE-BU 第 11 集团军移除后，用预备盒中的一支 GE 步兵 SCU 替换（若可用）。
 				for (let p = 0; p < data.pieces.length; p++) {
 					if (get_piece_nation(p) === "ge" && is_scu(p) && is_in_reserve(game, p)) {
 						game.pieces[p] = s
-						log(`德布第11集团军被 ${Engine.game_utils.piece_name(p)} 替换。`)
+						let name = is_piece_reduced(game, p) ? `(${piece_name(p)})` : piece_name(p)
+						log(`德布第11集团军被 ${name} 替换。`)
 						break
 					}
 				}
@@ -360,6 +401,7 @@ module.exports = function (Engine) {
 
 		const exceptions = ["German 11th Army", "GE Mackenson HQ", "GE Hvy Arty"]
 		let romania_uncollapsed = is_romania_uncollapsed(game)
+		// 19.4.6：若罗马尼亚已参战且尚未崩溃，GE Alpenkorps 也会保留。
 		if (romania_uncollapsed) exceptions.push("GE Alpenkorps")
 
 		let ge_inf_scu_count = 0
@@ -375,6 +417,7 @@ module.exports = function (Engine) {
 				is_exception = true
 				ge_inf_scu_count++
 			}
+			// 19.4.6：在罗马尼亚尚未崩溃时，AH 单位不立即自动移除，而是交给后续“选择移除 2 个 AH 师”步骤处理。
 			if (info.nation === "ah" && romania_uncollapsed) {
 				is_exception = true
 			}
@@ -387,10 +430,10 @@ module.exports = function (Engine) {
 		game.active = CP
 		if (romania_uncollapsed) {
 			game.state = "event_serbian_collapse_choice"
-			game.event_ctx = { count: 2 }
+			game.event_ctx = create_collapse_choice_ctx("serbia", 2)
 		} else {
 			game.state = "event_serbian_collapse_sr"
-			game.event_ctx = { data: { moved: [] }, count: 2 }
+			game.event_ctx = create_collapse_sr_ctx()
 		}
 
 		return "interactive"
@@ -416,20 +459,23 @@ module.exports = function (Engine) {
 		if (ge_cav >= 0) eliminate_piece(game, ge_cav, log, true)
 
 		let choice_available = !!game.events["bulgaria"] && !game.events["serbian_collapse"]
+		// 19.5.6：若保加利亚已参战且塞尔维亚尚未崩溃，则罗马尼亚崩溃后不是直接清空 AH 入场单位，
+		// 而是让 CP 从这些单位中选择 3 个移除。
 		for (let p = 0; p < data.pieces.length; p++) {
 			let info = data.pieces[p]
 			if (!info || !ROMANIAN_COLLAPSE_AH_UNIT_NAMES.has(info.name)) continue
-			if (info.nation === "ah" && choice_available) continue
+			// 名单里包含 Combined BU/AH Div；虽然数据国别是 bu，但规则上它也属于此处“3 个单位中任选移除”的集合。
+			if (choice_available) continue
 			eliminate_piece(game, p, log, true)
 		}
 
 		game.active = CP
 		if (choice_available) {
 			game.state = "event_romanian_collapse_choice"
-			game.event_ctx = { count: 3 }
+			game.event_ctx = create_collapse_choice_ctx("romania", 3)
 		} else {
 			game.state = "event_romanian_collapse_sr"
-			game.event_ctx = { data: { moved: [] }, count: 2 }
+			game.event_ctx = create_collapse_sr_ctx()
 		}
 
 		return "interactive"
@@ -492,7 +538,9 @@ module.exports = function (Engine) {
 	exports.handle_national_collapse = handle_national_collapse
 	exports.get_bulgaria_entry_plan = get_bulgaria_entry_plan
 	exports.get_bulgarian_entry_ah_divisions = get_bulgarian_entry_ah_divisions
+	exports.get_collapse_choice_unit_names = get_collapse_choice_unit_names
 	exports.get_romanian_entry_plan = get_romanian_entry_plan
+	exports.get_collapse_sr_limit = get_collapse_sr_limit
 	exports.is_bulgarian_entry_piece = is_bulgarian_entry_piece
 	exports.is_romanian_entry_piece = is_romanian_entry_piece
 	exports.is_romania_uncollapsed = is_romania_uncollapsed

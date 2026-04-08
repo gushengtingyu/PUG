@@ -30,7 +30,6 @@ coverage/
 .cache
 
 # Project specific
-tests/
 .env*
 *.tmp
 *.temp

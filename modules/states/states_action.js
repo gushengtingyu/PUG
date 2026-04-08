@@ -8,6 +8,12 @@ exports.set_globals = function (g) {
 
 exports.register = function (states, Engine, context) {
 	const { data } = Engine
+	const DEBUG_ACTION_TRACE = !!(
+		typeof process !== "undefined" &&
+		process &&
+		process.env &&
+		(process.env.PUG_DEBUG_ACTION === "1" || process.env.PUG_DEBUG_ACTION === "true")
+	)
 
 	const {
 		log,
@@ -61,7 +67,17 @@ exports.register = function (states, Engine, context) {
 		card_name
 	} = context
 
+	function action_now() {
+		return Date.now()
+	}
+
+	function log_action_debug(payload) {
+		if (!DEBUG_ACTION_TRACE) return
+		console.log("[调试][action-perf]", payload)
+	}
+
 	function begin_ops_action(card, ops) {
+		let t0 = DEBUG_ACTION_TRACE ? action_now() : 0
 		if (card === undefined || card === null) {
 			log(`自动行动 (${ops})`)
 			record_action(ACTION_ONE_OP, 0)
@@ -80,6 +96,14 @@ exports.register = function (states, Engine, context) {
 		game.retreated = []
 		game.balkan_attack_targets = { ap: -1, ap_mo: -1, cp: -1 }
 		game.state = "activate_spaces"
+		if (DEBUG_ACTION_TRACE) {
+			log_action_debug({
+				phase: "begin_ops_action",
+				card: card ?? null,
+				ops,
+				elapsed_ms: action_now() - t0
+			})
+		}
 	}
 
 	function log_card_action(card, mode, value) {
@@ -93,19 +117,32 @@ exports.register = function (states, Engine, context) {
 	states.play_card = {
 		inactive: "play a card",
 		prompt(res) {
+			let t0 = DEBUG_ACTION_TRACE ? action_now() : 0
+			let event_check_count = 0
 			res.prompt(`第 ${game.turn} 回合, 行动轮 ${game.action_round}: 请选择一项行动`)
 			let hand = game.active === AP ? game.hand_ap : game.hand_cp
 			let allow_sr = can_play_sr_card_this_round(active_faction())
 			let allow_rp = can_play_rp_card_this_round(active_faction())
 			for (let c of hand) {
 				let info = data.cards[c]
-				if (info.event && !info.cc && can_play_event(game, c)) res.action("play_event", c)
+				if (info.event && !info.cc) {
+					event_check_count += 1
+					if (can_play_event(game, c)) res.action("play_event", c)
+				}
 				if (info.ops) res.action("play_ops", c)
 				if (info.sr && allow_sr) res.action("play_sr", c)
 				if ((info.rp_a || info.rp_br || info.rp_ru || info.rp_ge || info.rp_tu || info.rp_in) && allow_rp)
 					res.action("play_rps", c)
 			}
 			res.action("single_op")
+			if (DEBUG_ACTION_TRACE) {
+				log_action_debug({
+					phase: "play_card.prompt",
+					hand_size: hand.length,
+					event_checks: event_check_count,
+					elapsed_ms: action_now() - t0
+				})
+			}
 		},
 		card(c) {
 			push_undo()
@@ -165,6 +202,7 @@ exports.register = function (states, Engine, context) {
 				log(`${card_name(c)} 不能作为事件打出`)
 				return
 			}
+			let t0 = DEBUG_ACTION_TRACE ? action_now() : 0
 			push_undo()
 			game.card = c
 			game.last_card = c
@@ -178,18 +216,17 @@ exports.register = function (states, Engine, context) {
 				update_war_status(game.active, info.ws)
 			}
 
-			if (
-				!play_event(game, c, {
-					log,
-					goto_end_event,
-					goto_end_operations,
-					start_ops_from_event,
-					start_event,
-					push_state,
-					card_name,
-					update_jihad_level: (g, amount) => update_jihad_level(g, amount)
-				})
-			) {
+			let done = play_event(game, c, {
+				log,
+				goto_end_event,
+				goto_end_operations,
+				start_ops_from_event,
+				start_event,
+				push_state,
+				card_name,
+				update_jihad_level: (g, amount) => update_jihad_level(g, amount)
+			})
+			if (!done) {
 				log("事件未实现。")
 				let entry = get_event_entry(c)
 				if (entry && entry.use_ops) {
@@ -198,11 +235,20 @@ exports.register = function (states, Engine, context) {
 					goto_end_operations()
 				}
 			}
+			if (DEBUG_ACTION_TRACE) {
+				log_action_debug({
+					phase: "play_card.play_event",
+					card: c,
+					use_ops_fallback: !done && !!(get_event_entry(c) && get_event_entry(c).use_ops),
+					elapsed_ms: action_now() - t0
+				})
+			}
 		}
 	}
 
 	states.card_action = {
 		prompt(res) {
+			let t0 = DEBUG_ACTION_TRACE ? action_now() : 0
 			let info = data.cards[game.card]
 			res.prompt(`打出 ${card_name(game.card)}`)
 			let allow_sr = can_play_sr_card_this_round(active_faction())
@@ -213,6 +259,13 @@ exports.register = function (states, Engine, context) {
 				res.action("play_rps", game.card)
 			if (info.event && !info.cc && can_play_event(game, game.card)) res.action("play_event", game.card)
 			res.action("cancel")
+			if (DEBUG_ACTION_TRACE) {
+				log_action_debug({
+					phase: "card_action.prompt",
+					card: game.card,
+					elapsed_ms: action_now() - t0
+				})
+			}
 		},
 		play_ops(c) {
 			if (c === undefined) c = game.card
@@ -252,6 +305,7 @@ exports.register = function (states, Engine, context) {
 				log(`${card_name(c)} 不能作为事件打出`)
 				return
 			}
+			let t0 = DEBUG_ACTION_TRACE ? action_now() : 0
 			log_card_action(c, "Event")
 			record_action(ACTION_EVENT, c)
 
@@ -262,18 +316,17 @@ exports.register = function (states, Engine, context) {
 				update_war_status(game.active, info.ws)
 			}
 
-			if (
-				!play_event(game, c, {
-					log,
-					goto_end_event,
-					goto_end_operations,
-					start_ops_from_event,
-					start_event,
-					push_state,
-					card_name,
-					update_jihad_level: (g, amount) => update_jihad_level(g, amount)
-				})
-			) {
+			let done = play_event(game, c, {
+				log,
+				goto_end_event,
+				goto_end_operations,
+				start_ops_from_event,
+				start_event,
+				push_state,
+				card_name,
+				update_jihad_level: (g, amount) => update_jihad_level(g, amount)
+			})
+			if (!done) {
 				log("事件未实现。")
 				let entry = get_event_entry(c)
 				if (entry && entry.use_ops) {
@@ -281,6 +334,14 @@ exports.register = function (states, Engine, context) {
 				} else {
 					goto_end_operations()
 				}
+			}
+			if (DEBUG_ACTION_TRACE) {
+				log_action_debug({
+					phase: "card_action.play_event",
+					card: c,
+					use_ops_fallback: !done && !!(get_event_entry(c) && get_event_entry(c).use_ops),
+					elapsed_ms: action_now() - t0
+				})
 			}
 		},
 		cancel() {
@@ -392,8 +453,8 @@ exports.register = function (states, Engine, context) {
 			game.pieces[p] = s
 
 			// 战略再部署进入雅典，触发希腊参战（规则 19.2.1）
-			if (Engine.greece.is_greece_neutral(game) && Engine.greece.is_athens_space(s)) {
-				Engine.greece.trigger_greece_entry(game, s, active_faction(), "战略再部署进入雅典", (msg) => log(msg))
+			if (Engine.neutral.is_greece_neutral(game) && Engine.neutral.is_athens_space(s)) {
+				Engine.neutral.trigger_greece_entry(game, s, active_faction(), "战略再部署进入雅典", (msg) => log(msg))
 			}
 
 			if (!game.sr_moved) game.sr_moved = []

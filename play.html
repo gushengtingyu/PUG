@@ -36,7 +36,6 @@
 			<li class="separator"></li>
 			<li data-action="activate_move">激活以移动</li>
 			<li data-action="activate_attack">激活以进攻</li>
-			<li data-action="activate_combine">激活以组合</li>
 		</menu>
 
 		<div id="track_dialog" class="dialog" hidden>
@@ -48,6 +47,18 @@
 		<div id="score" class="dialog" hidden>
 			<div class="dialog_header">得分摘要</div>
 			<div class="dialog_x" onclick="hide_dialog('score')">&#x274c;</div>
+			<div class="dialog_body"></div>
+		</div>
+
+		<div id="cp_card_dialog" class="dialog" hidden>
+			<div class="dialog_header">同盟国卡牌</div>
+			<div class="dialog_x" onclick="hide_dialog('cp_card_dialog')">&#x274c;</div>
+			<div class="dialog_body"></div>
+		</div>
+
+		<div id="ap_card_dialog" class="dialog" hidden>
+			<div class="dialog_header">协约国卡牌</div>
+			<div class="dialog_x" onclick="hide_dialog('ap_card_dialog')">&#x274c;</div>
 			<div class="dialog_body"></div>
 		</div>
 

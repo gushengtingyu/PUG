@@ -60,6 +60,26 @@ function findBattleSpacesWithRetreatPath() {
 	}
 }
 
+function findBattleSpacesMatching(predicate) {
+	let target = data.spaces.findIndex(
+		(s, idx) =>
+			idx > 0 &&
+			s &&
+			Array.isArray(s.connections) &&
+			s.connections.length > 0 &&
+			s.type !== "generated_gap" &&
+			s.type !== "Reserve Box" &&
+			s.map !== "Reserve Box" &&
+			s.type !== "Eliminated" &&
+			predicate(s, idx)
+	)
+	if (target < 0) throw new Error("未找到满足条件的战斗测试地块")
+	return {
+		targetSpace: target,
+		fromSpace: data.spaces[target].connections[0]
+	}
+}
+
 function createMinimalBattleGame() {
 	let apPiece = findPieceId((p) => p.faction === AP && p.type !== "hq" && p.piece_class === "LCU")
 	let cpTuScu = findPieceId(
@@ -927,12 +947,12 @@ describe("土耳其撤退回归测试", () => {
 
 		expect(game.state).toBe("post_battle_cc_cp")
 		expect(game.cc_retained.ap).toContain(5)
-		expect(game.log.filter((line) => typeof line === "string" && line.includes("Retained CC:")).length).toBe(1)
+		expect(game.log.filter((line) => typeof line === "string" && line.includes("保留 CC:")).length).toBe(1)
 
 		rules.action(game, "Central Powers", "done")
 
 		expect(game.state).not.toBe("post_battle_cc_cp")
-		expect(game.log.filter((line) => typeof line === "string" && line.includes("Retained CC:")).length).toBe(1)
+		expect(game.log.filter((line) => typeof line === "string" && line.includes("保留 CC:")).length).toBe(1)
 	})
 
 	test("战斗卡窗口不再输出 plays CC 与 done with CC 日志", () => {
@@ -1043,5 +1063,142 @@ describe("土耳其撤退回归测试", () => {
 		expect(game.active).toBe(AP)
 		expect(game.attack.attacker).toBe(AP)
 		expect(game.attack.defender).toBe(CP)
+	})
+
+	test("沙尘暴和疟蚊只能由同盟国防守方在标准战斗卡窗口打出", () => {
+		let { targetSpace, fromSpace } = findBattleSpacesMatching((space) => {
+			let terrain = space.terrain
+			return terrain === "desert" || terrain === "swamp"
+		})
+		let apPiece = findPieceId((p) => p.faction === AP && p.type !== "hq" && p.piece_class === "LCU")
+		let cpPiece = findPieceId((p) => p.faction === CP && p.type !== "hq")
+		let game = {
+			pieces: new Array(data.pieces.length).fill(ELIMINATED),
+			events: {},
+			turn: 1,
+			active: CP,
+			state: "play_cc_attacker",
+			attack: {
+				space: targetSpace,
+				pieces: [cpPiece],
+				attacker: CP,
+				defender: AP,
+				from: [fromSpace]
+			}
+		}
+		game.pieces[cpPiece] = fromSpace
+		game.pieces[apPiece] = targetSpace
+
+		expect(Engine.combat_cards.can_play_sandstorms(game)).toBe(false)
+
+		game.state = "play_cc_defender"
+		game.attack.attacker = AP
+		game.attack.defender = CP
+		game.attack.pieces = [apPiece]
+		game.pieces[apPiece] = fromSpace
+		game.pieces[cpPiece] = targetSpace
+
+		expect(Engine.combat_cards.can_play_sandstorms(game)).toBe(true)
+	})
+
+	test("淡水缺乏结算后会退出同盟国战斗卡窗口并回到协约国流程", () => {
+		let { targetSpace, fromSpace } = findBattleSpacesMatching((space, idx) => {
+			return Engine.map.get_area(idx) === "mesopotamia"
+		})
+		let apPiece = findPieceId((p) => p.faction === AP && p.type !== "hq" && p.piece_class === "LCU")
+		let apPiece2 = findPieceId(
+			(p, idx) => idx !== apPiece && p.faction === AP && p.type !== "hq" && p.piece_class === "LCU"
+		)
+		let cpPiece = findPieceId((p) => p.faction === CP && p.type !== "hq")
+		let game = {
+			pieces: new Array(data.pieces.length).fill(ELIMINATED),
+			reduced: [],
+			retreated: [],
+			control: [],
+			events: {},
+			log: [],
+			turn: 1,
+			active: CP,
+			state: "post_roll_cc_defender",
+			hand_ap: [],
+			hand_cp: [],
+			discard_ap: [],
+			discard_cp: [],
+			removed_ap: [],
+			removed_cp: [],
+			cc_retained: { ap: [], cp: [] },
+			cc_retained_after_use: { ap: {}, cp: {} },
+			attacked: [apPiece],
+			activated: { attack: [fromSpace], move: [] },
+			combat_cards: { attacker: [], defender: [93] },
+			attack: {
+				space: targetSpace,
+				pieces: [apPiece],
+				attacker: AP,
+				defender: CP,
+				from: [fromSpace],
+				initial_defenders: [cpPiece],
+				defender_losses: 0
+			},
+			battle_result: createBattleResult(apPiece, cpPiece, {
+				retreat_needed: false,
+				no_advance: true,
+				turkish_retreat: false,
+				turkish_retreat_units: [],
+				turkish_retreat_optional_units: []
+			})
+		}
+		game.pieces[apPiece] = fromSpace
+		game.pieces[apPiece2] = fromSpace
+		game.pieces[cpPiece] = targetSpace
+
+		rules.action(game, "Central Powers", "done")
+
+		expect(["attack", "end_operations"]).toContain(game.state)
+		expect(game.active).toBe(AP)
+		expect(game.attack).toBeNull()
+	})
+
+	test("问号血量单位掷骰后会记录简洁日志", () => {
+		let { targetSpace, fromSpace } = findBattleSpaces()
+		let variableApPiece = findPieceId(
+			(p) => p.faction === AP && p.type !== "hq" && p.piece_class !== "HQ" && (p.lf === null || p.lf === "?")
+		)
+		let cpPiece = findPieceId((p) => p.faction === CP && p.type !== "hq")
+		let game = {
+			pieces: new Array(data.pieces.length).fill(ELIMINATED),
+			reduced: [],
+			retreated: [],
+			control: [],
+			events: {},
+			log: [],
+			turn: 1,
+			active: AP,
+			state: "battle",
+			hand_ap: [],
+			hand_cp: [],
+			discard_ap: [],
+			discard_cp: [],
+			removed_ap: [],
+			removed_cp: [],
+			cc_retained: { ap: [], cp: [] },
+			cc_retained_after_use: { ap: {}, cp: {} },
+			combat_cards: { attacker: [], defender: [] },
+			attack: {
+				space: targetSpace,
+				pieces: [variableApPiece],
+				attacker: AP,
+				defender: CP,
+				from: [fromSpace],
+				initial_defenders: [cpPiece],
+				defender_losses: 0
+			}
+		}
+		game.pieces[variableApPiece] = fromSpace
+		game.pieces[cpPiece] = targetSpace
+
+		Engine.combat.resolve_battle(game, (msg) => game.log.push(msg))
+
+		expect(game.log.some((line) => typeof line === "string" && /^.+ 血量掷骰：[1-6]$/.test(line))).toBe(true)
 	})
 })

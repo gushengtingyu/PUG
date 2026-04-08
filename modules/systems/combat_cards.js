@@ -15,7 +15,12 @@ module.exports = function (Engine) {
 		piece_counts_as_nation_for_rule
 	} = game_utils
 
-	const STANDARD_CC_STATES = new Set(["play_cc_attacker", "play_cc_defender"])
+	const STANDARD_CC_STATES = new Set([
+		"play_cc_attacker",
+		"play_cc_defender",
+		"pre_weather_cc_attacker",
+		"pre_weather_cc_defender"
+	])
 	const SINAI_SPACES = new Set([
 		"Romani",
 		"Bir el Abd",
@@ -259,6 +264,7 @@ module.exports = function (Engine) {
 	}
 
 	function can_play_sandstorms(game) {
+		if (!can_play_in_window(game, "play_cc_defender", CP)) return false
 		if (game.events && game.events["sandstorms_mosquitoes"] === game.turn) return false
 		return is_desert_or_swamp_battle(game)
 	}
@@ -279,7 +285,8 @@ module.exports = function (Engine) {
 
 	function can_play_water_shortage(game) {
 		if (!can_play_in_window(game, "post_roll_cc_defender", CP)) return false
-		return is_middle_east_area(game.attack.space)
+		let area = map.get_area(game.attack.space)
+		return SURPRISE_AREAS.has(area)
 	}
 
 	function can_play_confused_orders(game) {

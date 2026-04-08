@@ -89,45 +89,47 @@ header.Central_Powers {
 #log > div {
 	padding-left: 20px;
 	text-indent: -12px;
-	line-height: 1.35;
-	padding-top: 1px;
-	padding-bottom: 1px;
 }
 
 #log .group {
-	margin: 1px 8px;
-	border-left: 2px solid transparent;
+	margin: 0 8px;
 }
 #log .group.h4 {
 	text-align: center;
-	padding: 1px 0;
-	font-weight: 600;
-	letter-spacing: 0.2px;
+	padding: 0px;
 }
 #log .group.h4.ap {
 	background-color: hsl(0, 20%, 80%);
-	border-left-color: hsl(0, 35%, 60%);
 }
 #log .group.h4.cp {
 	background-color: hsl(214, 30%, 80%);
-	border-left-color: hsl(214, 35%, 60%);
 }
 #log .group.ap {
 	background-color: hsl(0, 20%, 90%);
-	border-left-color: hsl(0, 35%, 72%);
 }
 #log .group.cp {
 	background-color: hsl(214, 30%, 90%);
-	border-left-color: hsl(214, 35%, 72%);
 }
 
 #log div.i {
 	padding-left: 32px;
 	text-indent: -12px;
 }
+#log div.i.align {
+	padding-left: 24px;
+	text-indent: 0;
+}
 #log div.detail {
-	font-size: 13px;
-	color: #303030;
+	font-size: inherit;
+	color: inherit;
+	font-weight: normal;
+}
+#log div.detail strong {
+	font-weight: normal;
+}
+#log div.detail .cardtip {
+	font-weight: 700;
+	font-variant: small-caps;
 }
 #log div.ii {
 	padding-left: 44px;
@@ -184,15 +186,20 @@ header.Central_Powers {
 }
 
 #log .cardtip {
-	font-weight: bold;
+	font-variant: small-caps;
+	font-weight: 700;
 }
 
-#log .cardtip.ap-card {
-	color: #5a1a1a;
+.cardtip.ap-card {
+	color: #6b3f06;
 }
 
-#log .cardtip.cp-card {
-	color: #1a2a5a;
+.cardtip.cp-card {
+	color: #0f4690;
+}
+
+#log .phase-strong {
+	font-weight: 700;
 }
 .piecetip.ap-unit {
 	color: brown;
@@ -429,13 +436,19 @@ header.Central_Powers {
 	padding: 4px 8px;
 	overflow-y: auto; /* Only show scrollbar when needed */
 	background-color: floralwhite;
+	color: #1f2328;
 }
 
 .dialog_body dl {
 	margin: 0;
 }
+.dialog_body dt {
+	font-weight: 700;
+	color: #2c3e50;
+}
 .dialog_body dd {
 	margin-left: 20px;
+	color: #1f2328;
 }
 
 #track_dialog {

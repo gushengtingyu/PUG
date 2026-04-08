@@ -1,7 +1,7 @@
 "use strict"
 
 module.exports = function (Engine) {
-	const { data, game_utils, map, utils } = Engine
+	const { data, game_utils, map } = Engine
 	const { get_tribe_type } = map
 	const {
 		is_tribe,
@@ -10,12 +10,19 @@ module.exports = function (Engine) {
 		is_reinforcement,
 		is_eliminated,
 		is_removed,
+		is_piece_reduced,
 		get_piece_nation,
 		piece_name,
 		get_piece_faction,
 		is_regular
 	} = game_utils
 	const exports = {}
+
+	function format_piece_name(game, p) {
+		let name = piece_name(p)
+		if (is_piece_reduced(game, p)) return `(${name})`
+		return name
+	}
 
 	function can_select_tribe_for_jihad_placement(game, p) {
 		return is_tribe(p) && (is_in_reserve(game, p) || is_reinforcement(game, p))
@@ -188,7 +195,7 @@ module.exports = function (Engine) {
 				if (is_in_reserve(game, p) || !is_not_on_map(game, p)) {
 					let kill_roll = helpers.roll_die()
 					if (kill_roll <= 2) {
-						helpers.log(`印度哗变：${piece_name(p)} 被消灭 (掷骰 ${kill_roll})`)
+						helpers.log(`印度哗变：${format_piece_name(game, p)} 被消灭 (掷骰 ${kill_roll})`)
 						helpers.eliminate_piece(game, p, helpers.log, true)
 					}
 				}
@@ -227,7 +234,6 @@ module.exports = function (Engine) {
 	states.jihad_removal = {
 		active: "cp",
 		prompt(res) {
-			const { game_utils } = Engine
 			res.prompt(`圣战等级下降或调整: 请从地图上移除 ${res.game.tribes_to_remove} 个部落单位。`)
 
 			let has_tribes = false
@@ -262,12 +268,12 @@ module.exports = function (Engine) {
 
 			game.pieces[p] = rb
 			game.tribes_to_remove--
-			log(`${piece_name(p)} 返回部落预备格`)
+			log(`${format_piece_name(game, p)} 返回部落预备格`)
 			if (game.tribes_to_remove <= 0) {
 				Engine.resume_previous_state(game)
 			}
 		},
-		done(game, log) {
+		done(game) {
 			game.tribes_to_remove = 0
 			Engine.resume_previous_state(game)
 		}
@@ -276,7 +282,6 @@ module.exports = function (Engine) {
 	states.jihad_placement = {
 		active: "cp",
 		prompt(res) {
-			const { CP } = Engine.constants
 			res.prompt(`圣战等级上升: 请放置 ${res.game.tribes_to_place} 个部落单位到对应的活动格。`)
 
 			// Find tribes in reserve
@@ -329,7 +334,7 @@ module.exports = function (Engine) {
 			game.pieces[p] = s
 			game.selected_piece = null
 			game.tribes_to_place--
-			log(`${piece_name(p)} 放置在 ${data.spaces[s].name}`)
+			log(`${format_piece_name(game, p)} 放置在 ${data.spaces[s].name}`)
 			if (game.tribes_to_place <= 0) {
 				Engine.resume_previous_state(game)
 			}
@@ -345,22 +350,17 @@ module.exports = function (Engine) {
 		active: "cp",
 		prompt(res) {
 			res.prompt("圣战叛乱判定：选择一个地区进行判定，或跳过。")
-			let has_options = false
 			if (has_jihad_prereq(res.game, "Egypt") && !res.game.jihad_revolt_egypt) {
 				res.action("rebel_egypt")
-				has_options = true
 			}
 			if (has_jihad_prereq(res.game, "India") && !res.game.jihad_revolt_india) {
 				res.action("rebel_india")
-				has_options = true
 			}
 			if (has_jihad_prereq(res.game, "Afghanistan") && !res.game.jihad_revolt_afghanistan) {
 				res.action("rebel_afghanistan")
-				has_options = true
 			}
 			if (has_jihad_prereq(res.game, "Central Asia") && !res.game.jihad_revolt_central_asia) {
 				res.action("rebel_central_asia")
-				has_options = true
 			}
 			res.action("skip")
 		},

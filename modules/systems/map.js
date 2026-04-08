@@ -8,9 +8,6 @@ module.exports = function (Engine) {
 		AP,
 		CP,
 		RESERVE,
-		ELIMINATED,
-		REMOVED,
-		REINFORCEMENTS,
 		COMMITMENT_MOBILIZATION,
 		COMMITMENT_LIMITED,
 		COMMITMENT_TOTAL
@@ -38,7 +35,7 @@ module.exports = function (Engine) {
 		is_greek_piece,
 		has_greek_units_in_space,
 		can_move_piece_for_faction
-	} = Engine.greece
+	} = Engine.neutral
 
 	// --- Unit/Space Helpers ---
 
@@ -278,13 +275,6 @@ module.exports = function (Engine) {
 	}
 	function is_arabistan(s) {
 		return get_area(s) === "arabistan"
-	}
-
-	function is_barred_from_persian_russian_sphere_before_revolution(game, p, s) {
-		if (game.events && game.events["russian_revolution"] >= 1) return false
-		if (!is_persia(s) && !is_azerbaijan(s)) return false
-		let nations = get_piece_nations_for_rule(game, p)
-		return nations.some((nation) => ["br", "fr", "in", "it", "anz"].includes(nation))
 	}
 
 	function is_sinai(s) {
@@ -684,9 +674,8 @@ module.exports = function (Engine) {
 		return true
 	}
 
-	let debug_log = () => {}
 	function set_debug_log(fn) {
-		debug_log = fn
+		return fn
 	}
 
 	function connection_allowed(game, a, b, mode, faction) {
@@ -849,8 +838,6 @@ module.exports = function (Engine) {
 		let restricted_area = get_restricted_area(s)
 		let space_info = data.spaces[s]
 
-		if (is_barred_from_persian_russian_sphere_before_revolution(game, p, s)) return false
-
 		if (space_info && space_info.faction === "neutral") {
 			if (is_afghanistan(s)) {
 				// Rule 19.7.1: Neutral Afghanistan.
@@ -862,12 +849,12 @@ module.exports = function (Engine) {
 				let nation = space_info.nation
 				if (nation === "gr") {
 					// Rule 19.2.3: Both players may enter Greece... so long as they do not enter Athens.
-					if (is_athens_space(s) && Engine.greece.is_greece_neutral(game)) return false
+					if (is_athens_space(s) && Engine.neutral.is_greece_neutral(game)) return false
 					// Rule 19.2.3: CP units do not have the privilege to move through spaces containing GR units.
 					if (
 						data.pieces[p].faction === CP &&
-						Engine.greece.is_greece_neutral(game) &&
-						Engine.greece.has_greek_units_in_space(game, s)
+						Engine.neutral.is_greece_neutral(game) &&
+						Engine.neutral.has_greek_units_in_space(game, s)
 					)
 						return false
 				} else {
@@ -984,9 +971,18 @@ module.exports = function (Engine) {
 		return hqs
 	}
 
+function get_stack_yildirim_count(pieces) {
+	let yildirim = 0
+	for (let p of pieces) {
+		if (get_stack_special_key(p) === "Y") yildirim++
+	}
+	return yildirim
+}
+
 	function get_stack_composition_reason(game, pieces) {
 		if (has_br_ru_mix(game, pieces)) return "英俄混编"
 		if (get_stack_hq_count(pieces) > 1) return "HQ超限"
+		if (get_stack_yildirim_count(pieces) > 1) return "YLD超限"
 		return null
 	}
 
@@ -1017,7 +1013,7 @@ module.exports = function (Engine) {
 	function can_stack_end_in_space(game, target, pieces) {
 		if (!pieces || pieces.length === 0) return false
 		if (pieces.some((p) => p < 0 || !data.pieces[p])) return false
-		if (!Engine.greece.can_end_move_in_neutral_greece(game, pieces[0], target, data.pieces[pieces[0]].faction))
+		if (!Engine.neutral.can_end_move_in_neutral_greece(game, pieces[0], target, data.pieces[pieces[0]].faction))
 			return false
 
 		// Rule 17.1.4: Tribe Movement Range
@@ -1070,7 +1066,7 @@ module.exports = function (Engine) {
 
 	function get_stack_end_block_reason(game, target, pieces) {
 		if (!pieces || pieces.length === 0) return "无移动单位"
-		if (!Engine.greece.can_end_move_in_neutral_greece(game, pieces[0], target, data.pieces[pieces[0]].faction))
+		if (!Engine.neutral.can_end_move_in_neutral_greece(game, pieces[0], target, data.pieces[pieces[0]].faction))
 			return "中立希腊移动限制"
 
 		for (let p of pieces) {
@@ -1923,17 +1919,6 @@ module.exports = function (Engine) {
 		return flag
 	}
 
-	function is_disrupted(game, s, faction) {
-		let enemy = faction === AP ? CP : AP
-		for (let p = 0; p < game.pieces.length; p++) {
-			if (game.pieces[p] === s && get_piece_effective_faction(game, p) === enemy) {
-				if (is_disrupting_piece(p)) return true
-			}
-		}
-		// Also check for uprising markers if they are not pieces (but in this project they seem to be pieces)
-		return false
-	}
-
 	function is_neutral_supply_blocked(game, s, faction) {
 		if (data.spaces[s].faction !== "neutral") return false
 		if (game.control && game.control[s]) return false
@@ -1947,19 +1932,6 @@ module.exports = function (Engine) {
 		return !is_neutral_greece_supply_passable(game, s, faction)
 	}
 
-	function contains_enemy_regular_pieces_for_faction(game, s, faction) {
-		let enemy = faction === AP ? CP : AP
-		for (let p = 0; p < game.pieces.length; p++) {
-			if (game.pieces[p] === s && get_piece_effective_faction(game, p) === enemy) {
-				if (is_lcu(p) || is_scu(p)) {
-					// Rule 10.2 & 14.1.7: Only Regular Combat Units block supply
-					let info = data.pieces[p]
-					if (info.type === "regular") return true
-				}
-			}
-		}
-		return false
-	}
 	function is_besieged(game, s) {
 		if (game.special_besieged && set_has(game.special_besieged, s)) return true
 		if (!data.spaces[s].fort) return false
@@ -2030,7 +2002,7 @@ module.exports = function (Engine) {
 		for (let s of sources) {
 			let is_friendly = is_controlled_by(game, s, faction)
 			// Rule 19.2.6: Salonika is an AP source even when neutral
-			if (faction === AP && data.spaces[s].name === "Salonika" && Engine.greece.is_greece_neutral(game)) {
+			if (faction === AP && data.spaces[s].name === "Salonika" && Engine.neutral.is_greece_neutral(game)) {
 				is_friendly = true
 			}
 			// Rule 14.2.4: SB units are in supply anywhere in Serbia prior to collapse
@@ -2198,7 +2170,7 @@ module.exports = function (Engine) {
 
 			// Special: Greece (14.2.6)
 			if (info.nation === "gr") {
-				if (Engine.greece.is_greece_neutral(game) || Engine.greece.is_greek_controlled_by_faction(game, AP)) {
+				if (Engine.neutral.is_greece_neutral(game) || Engine.neutral.is_greek_controlled_by_faction(game, AP)) {
 					if (info.name === "Salonika") return true
 					if (nation === "gr") return true
 				}
@@ -2257,16 +2229,6 @@ module.exports = function (Engine) {
 			source_cache.set(key, get_ru_supply_sources(game, for_placement_or_sr))
 		}
 		return source_cache.get(key)
-	}
-
-	function get_bu_supply_sources(game, for_placement_or_sr = false) {
-		let bu_sources = []
-		for (let s of get_supply_eligible_space_ids()) {
-			if (is_base_supply_source(game, s, CP, "bu", for_placement_or_sr)) {
-				bu_sources.push(s)
-			}
-		}
-		return bu_sources
 	}
 
 	function get_gr_supply_sources(game, for_placement_or_sr = false) {
@@ -2551,7 +2513,7 @@ module.exports = function (Engine) {
 			// National "Home" supply rules
 			if (nation === "sb") {
 				if (data.spaces[space].nation === "sb") return cache_result("FULL")
-			} else if (nation === "gr" || (faction === AP && Engine.greece.is_greece_neutral(game))) {
+			} else if (nation === "gr" || (faction === AP && Engine.neutral.is_greece_neutral(game))) {
 				if (data.spaces[space].nation === "gr") return cache_result("FULL")
 			} else if (nation === "pe") {
 				if (is_persia(space) || is_azerbaijan(space) || is_arabistan(space)) return cache_result("FULL")

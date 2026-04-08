@@ -43,7 +43,7 @@ const {
 	RUSSO_BRITISH_ASSAULT
 } = Engine.constants
 const {
-	piece_name,
+	piece_name: raw_piece_name,
 	space_name,
 	find_space,
 	find_capital,
@@ -61,7 +61,6 @@ const {
 	is_not_on_map,
 	is_piece_reduced,
 	reduce_piece: utils_reduce_piece,
-	get_nation_group,
 	has_scu_in_reserve,
 	get_pieces_in_reserve,
 	get_pieces_in_eliminated,
@@ -83,7 +82,6 @@ const {
 	is_lcu,
 	is_scu,
 	is_tribe,
-	is_region,
 	is_island_base,
 	is_beachhead_space,
 	is_controlled_by,
@@ -161,7 +159,6 @@ const {
 	bulls_eye_record_advanced_piece,
 	bulls_eye_can_extra_attack,
 	bulls_eye_use_extra_attack,
-	is_turkish_replacement_blocked,
 	reinforce
 } = Engine.events
 const mo = Engine.mo
@@ -204,6 +201,13 @@ function with_optional_game_arg(arg1, arg2, fn) {
 	return fn(game, arg1)
 }
 
+function piece_name(p, reduced = null) {
+	let name = raw_piece_name(p)
+	if (reduced === null) reduced = !!(game && is_piece_reduced(game, p))
+	if (reduced) return `(${name})`
+	return name
+}
+
 function move_piece(target_game, p, s) {
 	if (target_game.pieces[p] !== s) {
 		let from = target_game.pieces[p]
@@ -231,10 +235,10 @@ function move_piece(target_game, p, s) {
 		}
 
 		// Rule 19.2.1: Entering neutral Athens triggers Greek entry
-		if (target_game === game && Engine.greece.is_greece_neutral(game) && Engine.greece.is_athens_space(s)) {
+		if (target_game === game && Engine.neutral.is_greece_neutral(game) && Engine.neutral.is_athens_space(s)) {
 			// Get faction of the piece
 			let faction = data.pieces[p].faction
-			Engine.greece.trigger_greece_entry(game, s, faction, "事件移动进入雅典", (msg) => log(msg))
+			Engine.neutral.trigger_greece_entry(game, s, faction, "事件移动进入雅典", (msg) => log(msg))
 		}
 
 		if (target_game === game) {
@@ -621,8 +625,8 @@ exports.query = function (state, current, q) {
 	game = normalize_game(state)
 	update_supply_if_missing()
 
-	if (q === "ap_cards") return game.hand_ap || []
-	if (q === "cp_cards") return game.hand_cp || []
+	if (q === "ap_cards") return query_cards(game, AP)
+	if (q === "cp_cards") return query_cards(game, CP)
 
 	if (q === "ap_supply") {
 		if (game.supply_projection_ap_split) {
@@ -660,6 +664,19 @@ exports.query = function (state, current, q) {
 	}
 
 	return null
+}
+
+function query_cards(state, faction) {
+	const is_ap = faction === AP
+	const hand = is_ap ? state.hand_ap || [] : state.hand_cp || []
+	const deck = is_ap ? state.deck_ap || [] : state.deck_cp || []
+	const discard = is_ap ? state.discard_ap || [] : state.discard_cp || []
+	const removed = is_ap ? state.removed_ap || [] : state.removed_cp || []
+	return {
+		discard: [...discard].sort((a, b) => a - b),
+		deck: [...deck, ...hand].sort((a, b) => a - b),
+		removed: [...removed].sort((a, b) => a - b)
+	}
 }
 
 exports.view = function (state, current) {
@@ -1354,12 +1371,6 @@ function gen_action(action, argument) {
 	}
 }
 
-function gen_action_piece(p) {
-	if (res) res.piece(p)
-}
-function gen_action_space(s) {
-	if (res) res.space(s)
-}
 function draw_card(deck) {
 	let i = random(deck.length, game)
 	let c = deck[i]
@@ -1627,7 +1638,7 @@ function refresh_attack_eligibility() {
 			if (Array.isArray(game.retreated) && set_has(game.retreated, p)) continue
 
 			let is_active_piece = Engine.game_utils.get_piece_effective_faction(game, p) === faction
-			if (Engine.greece.is_greek_piece(p) && !Engine.greece.can_attack_piece_for_faction(game, p, faction)) {
+			if (Engine.neutral.is_greek_piece(p) && !Engine.neutral.can_attack_piece_for_faction(game, p, faction)) {
 				is_active_piece = false
 			}
 			if (is_active_piece && (is_lcu(p) || is_scu(p))) {

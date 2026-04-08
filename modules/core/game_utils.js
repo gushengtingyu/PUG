@@ -202,6 +202,7 @@ module.exports = function (Engine) {
 			if (purpose !== "mo" && game && game.events && game.events["russian_revolution"] >= 4) return ["br"]
 			return ["ru", "sb"]
 		}
+		if (purpose === "activation" && info.symbol === "Y" && info.nation === "ge") return []
 		return [info.nation]
 	}
 
@@ -240,10 +241,10 @@ module.exports = function (Engine) {
 		let info = data.pieces[p]
 		if (!info) return null
 		if (info.name === "GE GeoProtect") return AP
-		if (info.nation === "gr" && Engine.greece) {
-			let greece_faction = Engine.greece.get_greece_faction(game)
+		if (info.nation === "gr" && Engine.neutral) {
+			let greece_faction = Engine.neutral.get_greece_faction(game)
 			if (greece_faction) return greece_faction
-			if (Engine.greece.is_greek_cnd && Engine.greece.is_greek_cnd(p)) return AP
+			if (Engine.neutral.is_greek_cnd && Engine.neutral.is_greek_cnd(p)) return AP
 			return "neutral"
 		}
 		return info.faction
@@ -428,7 +429,7 @@ module.exports = function (Engine) {
 			set_add(game.battle_result.turkish_retreat_optional_units, scu)
 		}
 		if (log)
-			log(`LCU ${data.pieces[lcu].name} 被移除并在 ${space_name(space)} 替换为 SCU ${data.pieces[scu].name}。`)
+			log(`LCU ${data.pieces[lcu].name} 被替换为 SCU ${data.pieces[scu].name}。`)
 		return scu
 	}
 
@@ -539,45 +540,28 @@ module.exports = function (Engine) {
 		if (map.is_beachhead_space(game, s)) return false
 		if (map.is_region(game, s)) return false
 
-		let terrain = data.spaces[s].terrain || "clear"
-		if (terrain === "desert") return false
-
-		// Rule 15.4.3: Mountains or Swamps only with advanced nations
-		if (terrain === "mountain" || terrain === "swamp") {
-			let pieces = map.get_pieces_in_space(game, s)
-			let regulars = pieces.filter((p) => {
-				let info = data.pieces[p]
-				return info.faction === faction && !is_tribe(p) && !is_irregular(p) && !set_has(game.moved, p)
-			})
-			const ADVANCED_NATIONS = ["br", "fr", "in", "anz", "ge", "ah"]
-			let has_advanced = regulars.some((p) => ADVANCED_NATIONS.includes(data.pieces[p].nation))
-			if (!has_advanced) return false
-		} else if (terrain !== "clear" && terrain !== "forest") {
-			// Rule 15.4.1: Regular units... in a clear or forest space... may attempt to build a Trench
-			return false
-		}
-
-		// PUG Rule: Only build Level 1 trench. Cannot upgrade.
+		let terrain = data.spaces[s].terrain || ""
 		if (has_trench(game, s) > 0) return false
+		return get_entrenching_units_in_space(game, s, faction, terrain).length !== 0
+	}
 
+	function get_entrenching_units_in_space(game, s, faction, terrain_override = null) {
+		const { map } = Engine
+		let terrain = terrain_override || data.spaces[s].terrain || ""
 		let pieces = map.get_pieces_in_space(game, s)
-		// Rule 15.4.1: Only non-moving regular Combat Units count towards building a trench.
 		let regulars = pieces.filter((p) => {
 			let info = data.pieces[p]
 			return info.faction === faction && !is_tribe(p) && !is_irregular(p) && !set_has(game.moved, p)
 		})
-
-		return regulars.length !== 0
-	}
-
-	function get_entrenching_units_in_space(game, s, faction) {
-		const { map } = Engine
-		let pieces = map.get_pieces_in_space(game, s)
-		return pieces.filter((p) => {
-			let info = data.pieces[p]
-			// Regular units count for building. Irregulars/Tribes benefit but don't help building.
-			return info.faction === faction && !is_tribe(p) && !is_irregular(p) && !set_has(game.moved, p)
-		})
+		if (!terrain || terrain === "forest") return regulars
+		if (terrain === "mountain" || terrain === "swamp") {
+			const ADVANCED_NATIONS = ["br", "fr", "in", "anz", "ge", "ah"]
+			return regulars.filter((p) => {
+				let info = data.pieces[p]
+				return (info.symbol === "Y" && info.nation === "ge") || ADVANCED_NATIONS.includes(info.nation)
+			})
+		}
+		return []
 	}
 
 	function place_trench(game, s, faction) {
@@ -711,8 +695,7 @@ module.exports = function (Engine) {
 	function is_same_combination_nationality(lcu_nation, scu_nation) {
 		if (lcu_nation === scu_nation) return true
 		if (is_turkish_combination_nation(lcu_nation) && is_turkish_combination_nation(scu_nation)) return true
-		if (is_british_empire(lcu_nation) && is_british_empire(scu_nation)) return true
-		return false
+		return !!(is_british_empire(lcu_nation) && is_british_empire(scu_nation));
 	}
 
 	function get_available_lcus_in_reserve(game, faction) {

@@ -280,10 +280,12 @@ module.exports = function (Engine) {
 	}
 
 	function finish_attack(game) {
+		let attacker = game.attack?.attacker
 		if (game.attack && !game.attack.keep_context) {
 			clear_combat_card_context(game)
 		}
 		game.attack = null
+		if (attacker !== undefined && attacker !== null) game.active = attacker
 		game.state = "attack"
 		delete game.battle_result
 		delete game.battle_resolution_applied
@@ -314,9 +316,7 @@ module.exports = function (Engine) {
 		if (!log_fn) return
 		if (game.save_tiflis_failed && result.no_advance) {
 			log_fn("Russian units could not retreat towards Tiflis; full-strength TU/TUA units may advance.")
-			return
 		}
-		log_fn("Attacker may advance.")
 	}
 
 	function can_offer_post_battle_cc_window(game) {
@@ -332,7 +332,6 @@ module.exports = function (Engine) {
 			log_post_battle_advance(game, result, log_fn)
 			return
 		}
-		if (log_fn) log_fn("Attacker has no units capable of advancing.")
 		finish_attack(game)
 	}
 
@@ -421,7 +420,7 @@ module.exports = function (Engine) {
 						} else {
 							Engine.game_utils.reduce_piece(game, p)
 						}
-						log(`恶劣天气: ${piece_name(p)} 被减损。`)
+						log(`恶劣天气: ${format_piece_for_battle_log(game, p)} 被减损。`)
 					}
 				}
 			}
@@ -467,6 +466,93 @@ module.exports = function (Engine) {
 		if (log_fn && msg) {
 			log_fn(`  ${msg}`)
 		}
+	}
+
+	function format_piece_for_battle_log(game, p) {
+		let name = data.pieces[p] ? data.pieces[p].name : piece_name(p)
+		if (is_piece_reduced(game, p)) return `(${name})`
+		return name
+	}
+
+	function log_attack_overview(game, log_fn) {
+		if (!log_fn || !game.attack || !(game.attack.space > 0)) return
+
+		let factions = infer_attack_factions(game)
+		let attacker_faction = factions.attacker
+		let defender_faction = factions.defender
+		let target_space = game.attack.space
+		let attack_sources = Array.from(
+			new Set(
+				game.attack.pieces
+					.filter((p) => !is_not_on_map(game, p))
+					.map((p) => game.pieces[p])
+					.filter((s) => s > 0)
+			)
+		)
+		let defenders = get_pieces_in_space(game, target_space).filter(
+			(p) => get_piece_faction(p) === defender_faction && !(Array.isArray(game.retreated) && set_has(game.retreated, p))
+		)
+
+		log_fn("")
+		if (attacker_faction === AP) log_fn(`#ap 战斗：${space_name(target_space)}`)
+		else log_fn(`#cp 战斗：${space_name(target_space)}`)
+
+		log_fn("**进攻方**：")
+		for (let source of attack_sources) {
+			let attackers_in_space = game.attack.pieces.filter((p) => !is_not_on_map(game, p) && game.pieces[p] === source)
+			if (attackers_in_space.length > 0) {
+				log_fn(`>> ${attackers_in_space.map((p) => format_piece_for_battle_log(game, p)).join(", ")} (${space_name(source)})`)
+			}
+		}
+
+		log_fn("**防守方**：")
+		if (has_undestroyed_fort(game, target_space, defender_faction)) {
+			if (defenders.length > 0) {
+				log_fn(`>> ${defenders.map((p) => format_piece_for_battle_log(game, p)).join(", ")}，要塞`)
+			} else {
+				log_fn(">> 要塞")
+			}
+			return
+		}
+
+		if (defenders.length > 0) {
+			log_fn(`>> ${defenders.map((p) => format_piece_for_battle_log(game, p)).join(", ")}`)
+		} else {
+			log_fn(">> （空）")
+		}
+	}
+
+	function resolve_flank_attempt(game, log_fn) {
+		if (!game.attack || !game.attack.flank_attempt || game.attack.flank_resolved) return
+
+		let factions = infer_attack_factions(game)
+		let attacker_faction = factions.attacker
+		let target_space = game.attack.space
+		let attackers = game.attack.pieces.filter((p) => !is_not_on_map(game, p))
+		let sorted_spaces = Array.from(new Set(attackers.map((p) => game.pieces[p]))).sort((a, b) => {
+			let a_adds = adds_flanking_drm(game, a, attacker_faction, target_space) ? 1 : 0
+			let b_adds = adds_flanking_drm(game, b, attacker_faction, target_space) ? 1 : 0
+			return a_adds - b_adds
+		})
+		let flank_drm = 0
+
+		sorted_spaces.shift()
+
+		if (log_fn) log_fn("侧翼尝试：")
+		for (let s of sorted_spaces) {
+			if (adds_flanking_drm(game, s, attacker_faction, target_space)) {
+				flank_drm += 1
+				log_detail(log_fn, `+1 ${space_name(s)}`)
+			}
+		}
+
+		let flank_roll = roll_die(6, game)
+		game.attack.flank_resolved = true
+		game.attack.flank_successful = flank_roll + flank_drm >= 4
+		game.attack.flank_failed = !game.attack.flank_successful
+
+		if (game.attack.flank_successful) log_detail(log_fn, `${fmt_roll(flank_roll, flank_drm, attacker_faction)} 成功`)
+		else log_detail(log_fn, `${fmt_roll(flank_roll, flank_drm, attacker_faction)} 失败`)
 	}
 
 	function get_advance_pieces(game, result) {
@@ -1157,11 +1243,11 @@ module.exports = function (Engine) {
 		return `${attacker_label} vs ${defender_label}`
 	}
 
-	function start_attack_sequence(game) {
+	function start_attack_sequence(game, log_fn) {
 		register_balkan_attack_target(game)
 
 		// Rule 19.2.1: Attack on neutral Greek unit triggers Greek entry
-		Engine.greece.check_attack_trigger(game, game.attack.space, game.active)
+		Engine.neutral.check_attack_trigger(game, game.attack.space, game.active)
 
 		// Normalize legacy event payloads that still use attacker_faction.
 		// The combat state machine uses attack.attacker/attack.defender as canonical fields.
@@ -1191,6 +1277,10 @@ module.exports = function (Engine) {
 		delete game.captured_russian_vp_in_advance
 		if (game.attack) {
 			delete game.attack.flank_attempt
+			delete game.attack.flank_resolved
+			delete game.attack.flank_successful
+			delete game.attack.flank_failed
+			delete game.attack.severe_weather_checked
 			delete game.attack.reserves_to_front_damaged_pieces
 		}
 		if (game.attack && game.attack.space > 0) {
@@ -1205,6 +1295,9 @@ module.exports = function (Engine) {
 		// Keep combat context (cards played) for continued sequence (like Enver Goes East)
 		if (game.attack && game.attack.keep_context) ensure_combat_card_context(game)
 		else reset_combat_card_context(game)
+
+		log_attack_overview(game, log_fn)
+		if (Engine.mo && Engine.mo.check_mo_on_attack_declared) Engine.mo.check_mo_on_attack_declared(game, log_fn)
 	}
 
 	function is_battle_cancelled_by_cc(game) {
@@ -1222,9 +1315,7 @@ module.exports = function (Engine) {
 	function resolve_battle_sequence(game, context) {
 		const {
 			log: log_fn,
-			check_mo_fulfillment: check_mo_fulfillment_fn,
-			get_season: get_season_fn,
-			reduce_piece
+			check_mo_fulfillment: check_mo_fulfillment_fn
 		} = context
 
 		// Anchor attacker/defender once per battle sequence to avoid active-side drift
@@ -1237,7 +1328,6 @@ module.exports = function (Engine) {
 		} else {
 			game.active = other_faction(game.active)
 		}
-		if (get_season_fn) apply_severe_weather(game, log_fn, get_season_fn(), reduce_piece)
 		let result = resolve_battle(game, log_fn)
 
 		delete game.battle_resolution_applied
@@ -1259,7 +1349,7 @@ module.exports = function (Engine) {
 				const return_to_hand = (card) => {
 					if (cancelling_cards.includes(card)) return
 					if (effected_cards.includes(card)) {
-						if (log_fn) log_fn(`战斗取消: ${Engine.card_name(card)} 已产生效果，不返回.`)
+						if (log_fn) log_fn(`战斗取消: ${Engine.card_name(card)} `)
 						return
 					}
 
@@ -1392,7 +1482,10 @@ module.exports = function (Engine) {
 			if (set_has(discard, c)) set_delete(discard, c)
 			if (set_has(removed, c)) set_delete(removed, c)
 
-			if (!already_retained && log_fn) log_fn(`Retained CC: ${Engine.card_name(c)}`)
+			if (!already_retained && log_fn) {
+				if (c === CC_CP_RESERVES_TO_FRONT) log_fn(`${Engine.card_name(c)}：保留`)
+				else log_fn(`保留 CC: ${Engine.card_name(c)}`)
+			}
 		}
 	}
 
@@ -1763,11 +1856,9 @@ module.exports = function (Engine) {
 				}
 
 				if (result.retreat_can_cancel) {
-					if (log_fn) log_fn("Defender may cancel retreat.")
 					enter_defender_retreat_state(game, defender_faction, true)
 					return
 				}
-				if (log_fn) log_fn("Defender must retreat.")
 				enter_defender_retreat_state(game, defender_faction, false)
 
 				// PUG 12.5.1 / 15.2.3: Siege requirement for advance
@@ -1780,19 +1871,16 @@ module.exports = function (Engine) {
 			// No retreat needed or everyone is dead.
 			// POG/PUG Rule 12.9.1: Advance if all defenders retreated or were eliminated.
 			if (defenders_in_space.length === 0) {
-				// Advance
-				if (log_fn) log_fn("Defenders were eliminated.")
-
 				// PUG 12.5.1 / 15.2.3: Siege requirement for advance
 				check_advance_siege_requirement(game, result, defender_faction, log_fn)
 
 				if (!result.no_advance || game.save_tiflis_failed) {
 					handle_post_battle_advance(game, result, game.attack.space, log_fn)
 				} else {
-					handle_post_battle_finish_attack(game, log_fn, "Attacker may not advance.")
+					handle_post_battle_finish_attack(game, log_fn)
 				}
 			} else {
-				handle_post_battle_finish_attack(game, log_fn, "Defender held.")
+				handle_post_battle_finish_attack(game, log_fn)
 			}
 
 			// Cleanup Rule 66 flags
@@ -2107,20 +2195,9 @@ module.exports = function (Engine) {
 		if (defenders.length === 0) {
 			if (!game.battle_result || !game.battle_result.no_advance) {
 				if (begin_advance(game, game.battle_result, retreat_space)) {
-					if (log_fn) {
-						log_fn(
-							`[调试] finish_turkish_retreat -> advance: active=${game.active}, attacker=${game.attack?.attacker}, defender=${game.attack?.defender}`
-						)
-					}
-					if (log_fn) log_fn("Attacker may advance.")
 					return
 				}
-				if (log_fn) log_fn("Attacker has no units capable of advancing.")
-			} else {
-				if (log_fn) log_fn("Attacker may not advance.")
 			}
-		} else {
-			if (log_fn) log_fn("Defender held.")
 		}
 		finish_attack(game)
 	}
@@ -2465,7 +2542,7 @@ module.exports = function (Engine) {
 		// 1. Check Sandstorms (Cancel) - CP Card 61
 		if (game.combat_cards && game.combat_cards.defender && game.combat_cards.defender.includes(CC_CP_SANDSTORMS)) {
 			if (Engine.combat_cards.is_desert_or_swamp_battle(game)) {
-				log("CP plays Sandstorms & Mosquitoes! Attack Cancelled.")
+				log("CP打出[沙尘暴和疟蚊] 战斗取消.")
 				return { cancelled: true, cancelling_cards: [CC_CP_SANDSTORMS], attackers, defenders }
 			}
 		}
@@ -2490,12 +2567,12 @@ module.exports = function (Engine) {
 		for (let p of variable_loss_pieces) {
 			let roll = roll_die(6, game)
 			game.attack.piece_lf[p] = roll
-			log(`Rule 337: ${data.pieces[p].name} loss value rolled as ${roll}`)
+			log(`${data.pieces[p].name} 血量掷骰：${roll}`)
 		}
 
 		// Combat Card Flags
-		let att_fire_first = false
-		let def_fire_first = false
+		let att_fire_first = !!(game.attack && game.attack.flank_successful)
+		let def_fire_first = !!(game.attack && game.attack.flank_failed)
 		let ignore_terrain = false
 		let ignore_trench = false
 		let ignore_desert = false
@@ -2730,41 +2807,7 @@ module.exports = function (Engine) {
 			}
 		}
 
-		if (attempt_flank) {
-			log_detail(log, "侧翼进攻：")
-			let flank_drm = 0
-			let attacker_faction = game.active
-
-			// PUG 12.4.2: Each additional attacking space (other than the "pinning" space)
-			// that is not connected to an enemy-occupied space gives +1 DRM.
-			let sorted_spaces = Array.from(new Set(attackers.map((p) => game.pieces[p]))).sort((a, b) => {
-				let a_adds = adds_flanking_drm(game, a, attacker_faction, target_space) ? 1 : 0
-				let b_adds = adds_flanking_drm(game, b, attacker_faction, target_space) ? 1 : 0
-				return a_adds - b_adds // Pinning space should be one that DOESN'T add DRM if possible
-			})
-
-			let pinning_space = sorted_spaces.shift()
-
-			for (let s of sorted_spaces) {
-				if (adds_flanking_drm(game, s, attacker_faction, target_space)) {
-					flank_drm += 1
-					log_detail(log, `  +1 DRM 来自额外的进攻空间：${space_name(s)}（无其他相邻敌军）`)
-				}
-			}
-
-			// PUG 12.3.3: Success on 4-6 (modified)
-			let flank_roll = roll_die(6, game)
-			let flank_final = flank_roll + flank_drm
-			if (flank_final >= 4) {
-				log(`侧翼尝试成功！（掷骰：${flank_roll} + ${flank_drm} = ${flank_final}）`)
-				att_fire_first = true
-			} else {
-				log(`侧翼尝试失败。（掷骰：${flank_roll} + ${flank_drm} = ${flank_final}）`)
-				def_fire_first = true
-			}
-		} else if (can_flank) {
-			log_detail(log, "进攻方选择不进行侧翼进攻。")
-		} else {
+		if (!attempt_flank) {
 			let attacking_spaces_count = new Set(attackers.map((p) => game.pieces[p])).size
 			if (attacking_spaces_count >= 2) {
 				let has_lcu_val = attackers.some((p) => is_lcu(p))
@@ -2871,8 +2914,8 @@ module.exports = function (Engine) {
 		// +1 DRM if attacking into mountains or defending in mountains
 		let is_mountain = target_terrain === MOUNTAIN
 		if (is_mountain) {
-			let att_has_alpenkorps = attackers.some((p) => piece_name(p) === "GE Alpenkorps")
-			let def_has_alpenkorps = defenders.some((p) => piece_name(p) === "GE Alpenkorps")
+			let att_has_alpenkorps = attackers.some((p) => data.pieces[p] && data.pieces[p].name === "GE Alpenkorps")
+			let def_has_alpenkorps = defenders.some((p) => data.pieces[p] && data.pieces[p].name === "GE Alpenkorps")
 			if (att_has_alpenkorps) {
 				att_drm += 1
 				log_detail(log, "Alpenkorps: Attacker +1 DRM in Mountains")
@@ -3001,33 +3044,11 @@ module.exports = function (Engine) {
 		let att_table_type = att_table === fire_table.lcu ? "lcu" : "scu"
 		let def_table_type = def_table === fire_table.lcu ? "lcu" : "scu"
 
-		// Log battle start with units
-		log("")
-		if (game.active === AP) log(`#ap 战斗：${space_name(target_space)}`)
-		else log(`#cp 战斗：${space_name(target_space)}`)
-		log(`进攻方：${game.attack.pieces.map((p) => piece_name(p)).join(", ")}`)
-		log(`防守方：`)
-		if (defenders.length > 0) {
-			log(`> ${defenders.map((p) => piece_name(p)).join(", ")}`)
-		} else {
-			log(`> （空）`)
-		}
-		let attacker_cc_names = (game.combat_cards && game.combat_cards.attacker ? game.combat_cards.attacker : []).map(
-			(c) => Engine.card_name(c)
-		)
-		let defender_cc_names = (game.combat_cards && game.combat_cards.defender ? game.combat_cards.defender : []).map(
-			(c) => Engine.card_name(c)
-		)
 		let fmt_shift_total = (n) => (n > 0 ? `+${n}` : `${n}`)
 		let fmt_shift_factors = (factors) => (factors.length > 0 ? factors.join("，") : "无")
-		if (attacker_cc_names.length > 0 || defender_cc_names.length > 0) {
-			log(`战斗卡：`)
-			log(`> 进攻方：${attacker_cc_names.length ? attacker_cc_names.join(", ") : "无"}`)
-			log(`> 防守方：${defender_cc_names.length ? defender_cc_names.join(", ") : "无"}`)
-		}
-		log(`火力列位移：`)
-		log(`> 进攻方：${fmt_shift_factors(att_shift_factors)}`)
-		log(`> 防守方：${fmt_shift_factors(def_shift_factors)}`)
+		log(`**火力列位移：**`)
+		log(`>> 进攻方：${fmt_shift_factors(att_shift_factors)}`)
+		log(`>> 防守方：${fmt_shift_factors(def_shift_factors)}`)
 
 		// Combat Card Loss Modifiers
 		let att_loss_mod = 0
@@ -3048,7 +3069,7 @@ module.exports = function (Engine) {
 		function log_fire(faction, cf, roll, drm, losses, table, shifts) {
 			let col = find_fire_column(table === fire_table.lcu ? "lcu" : "scu", cf, shifts)
 			let name = faction === game.active ? "进攻方" : "防守方"
-			log(`${name}开火 (${cf} CF)：`)
+			log(`**${name}开火 (${cf} CF)：**`)
 			log(`> ${fmt_roll(roll, drm, faction)} × ${col.name} = ${losses}`)
 		}
 
@@ -3151,7 +3172,8 @@ module.exports = function (Engine) {
 			game.combat_cards.defender &&
 			game.combat_cards.defender.includes(CC_CP_WATER_SHORTAGE)
 		) {
-			if (Engine.combat_cards.is_middle_east_area(target_space)) {
+			let area = Engine.map.get_area(target_space)
+			if (area === "mesopotamia" || area === "syria_palestine" || area === "sinai") {
 				no_advance = true
 				no_retreat = true
 				log("淡水缺乏：获胜的协约国部队战斗后无法挺进，战败的同盟国部队无需撤退。")
@@ -3455,6 +3477,7 @@ module.exports = function (Engine) {
 		get_loss_options,
 		fmt_attack_odds,
 		start_attack_sequence,
+		resolve_flank_attempt,
 		resolve_battle_sequence,
 		end_battle_sequence,
 		get_defender_losses_state,
