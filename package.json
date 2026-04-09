@@ -23,9 +23,12 @@
 		"trailingComma": "none",
 		"bracketSpacing": true
 	},
+	"engines": {
+		"node": "22.22.0"
+	},
 	"devDependencies": {
 		"@eslint/js": "^9.19.0",
-		"@types/node": "^25.5.2",
+		"@types/node": "^22.0.0",
 		"@vitest/ui": "^3.0.0",
 		"autoprefixer": "^10.4.27",
 		"eslint": "^9.19.0",

@@ -36,6 +36,8 @@ module.exports = function (Engine) {
 		get_pieces_in_space,
 		is_balkans,
 		get_region,
+		is_anatolia,
+		is_gallipoli,
 		is_besieged,
 		can_trace_supply_to_source
 	} = Engine.map
@@ -70,6 +72,7 @@ module.exports = function (Engine) {
 
 	// === Game Constants ===
 	const STACKING_LIMIT = 3
+	const NEUTRAL_ENTRY_CARD_IDS = new Set([29, 45, 88])
 
 	/**
 	 * 事件编写约定：
@@ -131,6 +134,32 @@ module.exports = function (Engine) {
 		return next
 	}
 
+	const PARVUS_MARKER_TURN = 5
+	const REVOLUTION_MARKER_TURN = 9
+
+	function get_parvus_marker_turn(game) {
+		if (!game.events || game.events["parvus_to_berlin"] === undefined) return undefined
+		return PARVUS_MARKER_TURN
+	}
+
+	function get_revolution_marker_turn(game) {
+		if (!game.events || game.events["parvus_to_berlin"] === undefined) return undefined
+		return REVOLUTION_MARKER_TURN
+	}
+
+	function get_long_live_czar_turn(game) {
+		if (!game.events || game.events["parvus_to_berlin"] === undefined) return undefined
+		let offset = game.events["warm_water_port"] ? 2 : 0
+		return PARVUS_MARKER_TURN + (game.russian_vp || 0) + offset
+	}
+
+	function sync_russian_revolution_markers(game) {
+		if (!game.events || game.events["parvus_to_berlin"] === undefined) return
+		game.events["parvus_to_berlin"] = PARVUS_MARKER_TURN
+		game.events["russian_revolution_timer"] = REVOLUTION_MARKER_TURN
+		game.god_save_the_tsar = get_long_live_czar_turn(game)
+	}
+
 	function get_warm_water_port_options(game) {
 		let options = []
 		for (let s of WARM_WATER_PORTS) {
@@ -146,10 +175,9 @@ module.exports = function (Engine) {
 
 	function apply_warm_water_port_effect(game, s) {
 		game.warm_water_port = s
-		// The event effect: "If the port is not a VP, it is treated as a VP for the rest of the game"
-		// And "God Save the Tsar" marker is at RU VP + 2.
-		// These will be handled by game.events["warm_water_port"] = true
+		game.warm_water_port_vp = s
 		game.events["warm_water_port"] = true
+		if (game.events["parvus_to_berlin"] !== undefined) sync_russian_revolution_markers(game)
 		log(game, `Warm Water Port established at ${data.spaces[s].name}.`)
 	}
 
@@ -165,6 +193,17 @@ module.exports = function (Engine) {
 			game.event_ctx.data = Object.assign(game.event_ctx.data, data)
 		}
 		return game.event_ctx.data
+	}
+
+	function has_allied_lcu_in_verdun_restricted_zone(game) {
+		for (let p = 1; p < data.pieces.length; p++) {
+			if (!is_lcu(p) || get_piece_faction(p) !== AP) continue
+			if (Engine.game_utils.is_not_on_map(game, p)) continue
+			let s = game.pieces[p]
+			if (is_beachhead_space(game, s)) continue
+			if (is_anatolia(s) || is_gallipoli(s)) return true
+		}
+		return false
 	}
 
 	function get_pending_reinf_units(game) {
@@ -406,6 +445,15 @@ module.exports = function (Engine) {
 		if (ctx && typeof ctx.goto_end_operations === "function") {
 			ctx.goto_end_operations()
 		}
+	}
+
+	function can_play_neutral_entry_this_turn(game) {
+		function was_neutral_entry_event_action(action) {
+			return !!(action && action.type === "event" && NEUTRAL_ENTRY_CARD_IDS.has(action.card))
+		}
+		let ap_actions = Array.isArray(game.ap_actions) ? game.ap_actions : []
+		let cp_actions = Array.isArray(game.cp_actions) ? game.cp_actions : []
+		return !ap_actions.some(was_neutral_entry_event_action) && !cp_actions.some(was_neutral_entry_event_action)
 	}
 
 	function is_bulls_eye_active(game) {
@@ -975,9 +1023,17 @@ module.exports = function (Engine) {
 			effect_cn:
 				"(黄色事件)<当作事件打出时，正常使用此牌记录的OP点数。本回合剩余时间同盟国手牌需要持续公开>-1圣战等级。允许打出【阿拉伯起义】事件。",
 			use_ops: true,
-			handler: function (game) {
+			handler: function (game, ctx) {
 				update_jihad_level(game, -1)
 				game.events["lawrence"] = true
+
+				// 公开同盟国手牌逻辑：直接记录 Log
+				if (game.hand_cp && game.hand_cp.length > 0) {
+					let hand_names = card_names(game.hand_cp, ctx)
+					log(game, `同盟国当前手牌: ${hand_names.join(", ")}`, ctx)
+				} else {
+					log(game, "同盟国当前没有手牌。", ctx)
+				}
 			}
 		},
 		19: {
@@ -1190,6 +1246,7 @@ module.exports = function (Engine) {
 			effect_cn:
 				"——中立国参战——。(只有在巴尔干地区存在至少一个协约国LCU时才能打出)。罗马尼亚加入协约国，按照规则中的罗马尼亚参战条目放置同盟国和协约国单位。。立即启动1个包含罗马尼亚部队的地区进行战斗。。若此卡没有在俄国革命前打出，则+2VP并永久禁止该卡在剩余游戏时间当作事件打出。(除非单纯为了提升战争状态)",
 			can_play: function (game) {
+				if (!can_play_neutral_entry_this_turn(game)) return false
 				if (game.events["russian_revolution"]) return false
 				let has_ap_lcu = false
 				for (let p = 1; p < data.pieces.length; p++) {
@@ -1207,15 +1264,6 @@ module.exports = function (Engine) {
 			handler: function (game) {
 				game.events["romania"] = true
 				game.entry_ro = true
-
-				// Control all RO spaces to AP
-				for (let s = 1; s < data.spaces.length; s++) {
-					if (data.spaces[s] && data.spaces[s].nation === "ro") {
-						if (typeof Engine.set_control === "function") {
-							Engine.set_control(game, s, AP)
-						}
-					}
-				}
 
 				let romania_entry_plan = Engine.collapse.get_romanian_entry_plan()
 				let ro_units = romania_entry_plan.ap.ro_units
@@ -1277,12 +1325,11 @@ module.exports = function (Engine) {
 			effect_cn:
 				"增援:1个英国骑兵师。获得2点英国补员点数。在本场游戏剩余的时间内，可以在补员阶段将任何数量的英国补员点数转化为俄国补员点数。。在剩余的游戏时间内协约国MO掷骰+2drm。",
 			handler: function (game) {
-				game.mo_ap_modifier += 1
+				game.mo_ap_modifier += 2
 				reinforce(game, "BR Cavalry #2", AP)
 				game.rp_ap.br += 2
 				game.events["asquith_coalition"] = true
 
-				// Update UI token for RP conversion
 				if (!game.ui_tokens) game.ui_tokens = {}
 				game.ui_tokens["BR RPs TO RU"] = "MLG.png"
 			}
@@ -1450,6 +1497,7 @@ module.exports = function (Engine) {
 			effect_cn:
 				"——中立国参战——。(只有在希腊仍处于中立状态且在塞尔维亚至少存在1支英国/法国LCU时。或罗马尼亚已经加入战争且尚未崩溃时才能打出)。-1VP(获得中立地区格雅典的VP)。希腊加入协约国。",
 			can_play: function (game) {
+				if (!can_play_neutral_entry_this_turn(game)) return false
 				const { neutral } = Engine
 				if (!neutral.is_greece_neutral(game)) return false
 
@@ -2003,13 +2051,10 @@ module.exports = function (Engine) {
 			name_cn: "土耳其增援",
 			effect_cn:
 				"增援: 4个土耳其-阿拉伯精锐步兵师。如果在【阿拉伯起义】后打出，则这些部队以受损面进入。",
-			can_play: function (game) {
-				return game.events["arab_revolt"]
-			},
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "turkish_reinf_73")
 				game.active = CP
-				let units = ["TU-A DIV #11"]
+				let units = ["TU-A DIV #13", "TU-A DIV #14", "TU-A DIV #15", "TU-A DIV #16"]
 				event.reinf_to_place = units
 
 				let reduced = !!game.events["arab_revolt"]
@@ -2090,6 +2135,13 @@ module.exports = function (Engine) {
 				game.events["german_subs"] = true
 				game.events["german_subs_turn"] = game.turn
 				log(game, "地中海潜艇猎袭: 禁止所有的协约国海上支持。", ctx)
+
+				if (!game.ui_tokens) game.ui_tokens = {}
+				game.ui_tokens["SUB IN THE MED"] = "MUBMed.png"
+				let p = find_piece(undefined, "U_boats in the Med token")
+				if (p >= 0) {
+					game.pieces[p] = REMOVED
+				}
 			}
 		},
 		78: {
@@ -2226,20 +2278,9 @@ module.exports = function (Engine) {
 			name: "VERDUN",
 			name_cn: "凡尔登战役",
 			effect_cn:
-				"(只有在安纳托利亚地区以及加利波里地图没有协约国LCU时才能打出，**位于这些地区滩头标志上的协约国LCU不算作此列**)。协约国玩家需要选择。A: +2VP。B: 将最多4个英国/印度/澳新师移除游戏(派往西线)。。本回合德国补员点数无法使用。。(注:协约国玩家可以选择只移除2个师，并支付+1VP的代价，也可以以1LCU=3SCU的代价进行。选择移除师时，不能选择骑兵/骆驼师和英国特殊部队(例如英国波斯宪兵或者印度卫戍师等))",
+				"(只有在安纳托利亚地区以及加利波里小地图的陆上没有协约国LCU时才能打出)。协约国玩家需要选择。A: 让同盟国获得 +2VP。B: 移除至少2个师当量，使同盟国仅获得 +1VP。C: 移除至少4个师当量，使同盟国不获得 VP。本回合德国补员点数无法使用。(注: 1LCU=3SCU；可超额移除但不会找零。必须满足规则 21.1 的精锐/特种、BR→ANZ→IN 优先和补给要求。骑兵、骆驼以及英国特殊部队不能用于此效果。)",
 			can_play: function (game) {
-				for (let p = 1; p < data.pieces.length; p++) {
-					if (is_lcu(p) && get_piece_faction(p) === AP) {
-						let s = game.pieces[p]
-						if (s > 0) {
-							if (is_beachhead_space(game, s)) continue
-							let r = get_region(s)
-							let a = Engine.map.get_area(s)
-							if (a === "anatolia" || r === "gallipoli") return false
-						}
-					}
-				}
-				return true
+				return !has_allied_lcu_in_verdun_restricted_zone(game)
 			},
 			handler: function (game) {
 				game.events["verdun"] = true
@@ -2252,28 +2293,18 @@ module.exports = function (Engine) {
 			name: "BULGARIA",
 			name_cn: "保加利亚",
 			effect_cn: "——中立国参战——。保加利亚加入同盟国，按照规则中的保加利亚参战条目放置同盟国和协约国单位。",
+			can_play: function (game) {
+				return can_play_neutral_entry_this_turn(game)
+			},
 			handler: function (game) {
 				game.events["bulgaria"] = true
+				game.entry_bu = true
 				game.entry_sb = true
 				const bulgariaPlan = Engine.collapse.get_bulgaria_entry_plan()
 
 				const { AP, CP } = Engine.constants
 
-				// 1. Convert all SB spaces to AP control
-				for (let s = 1; s < data.spaces.length; s++) {
-					if (data.spaces[s] && data.spaces[s].nation === "sb") {
-						Engine.set_control(game, s, AP)
-					}
-				}
-
-				// 2. Convert all BU spaces to CP control
-				for (let s = 1; s < data.spaces.length; s++) {
-					if (data.spaces[s] && data.spaces[s].nation === "bu") {
-						Engine.set_control(game, s, CP)
-					}
-				}
-
-				// 3. Helper to find a division from Force Pool
+				// 1. Helper to find a division from Force Pool
 				function reinforce_first_available(names, faction, space) {
 					for (let name of names) {
 						if (reinforce(game, name, faction, space)) return true
@@ -2281,7 +2312,7 @@ module.exports = function (Engine) {
 					return false
 				}
 
-				// 4. Place CP pieces (Bulgaria)
+				// 2. Place CP pieces (Bulgaria)
 				// Rule 19.3.1: 1st Army, 2nd Army, 3rd Army, one BU division, one GE division, one AH division in any Bulgarian spaces.
 				for (let unit of bulgariaPlan.cp.fixed_armies) reinforce(game, unit, CP, "SOFIA")
 				reinforce_first_available(bulgariaPlan.cp.bu_division_pool, CP, "SOFIA")
@@ -2291,7 +2322,7 @@ module.exports = function (Engine) {
 				// Additional German units entering with Bulgaria (Rule 19.3.1 / Setup card)
 				for (let unit of bulgariaPlan.cp.ge_support) reinforce(game, unit, CP, "SOFIA")
 
-				// 5. Place AP pieces (Serbia)
+				// 3. Place AP pieces (Serbia)
 				// Rule 19.4.1: 1st Army, 2nd Army, 3rd Army, 6 divisions, and Cavalry in any non-enemy occupied Serbian spaces.
 				for (let unit of bulgariaPlan.ap.armies) reinforce(game, unit, AP, "BELGRADE")
 				reinforce(game, bulgariaPlan.ap.cavalry, AP, "BELGRADE")
@@ -2302,10 +2333,11 @@ module.exports = function (Engine) {
 			name: "PARVUS TO BERLIN",
 			name_cn: "帕尔乌斯游说柏林",
 			effect_cn:
-				"开始进行俄国革命计时。把帕尔乌斯标志放置在这回合，把俄国革命标志放置在四回合后。把“上帝保佑沙皇”标志放置在帕尔乌斯的同一回合，随后根据俄国VP标记调整其位置。。俄国VP标记反映的是俄国在高加索战场所取得的成果。每当**接受俄国补给源补给**的俄国部队(或俄国波斯部队、亚美尼亚起义军)**占领一个非协约国原始VP点**，或者**解放一个协约国原始VP点**时，放置1个俄国占领标志，该标记向后移动一格。。每当俄国境内(俄国和阿塞拜疆)VP点被同盟国占领，或者放置了俄国占领标记的VP点被同盟国解放时，该标记向前移动一格。“上帝保佑沙皇”标志和俄国VP标志保持一致进行移动，但是当【不冻港】事件发生后，“上帝保佑沙皇”标志永远位于俄国VP标志+2的位置(革命推迟2个回合)。每个回合革命阶段，检查俄国革命标志和“上帝保佑沙皇”标志的位置。当回合纪录标志到达俄国革命标志及其以后的回合，同时满足到达“上帝保佑沙皇”标志及其以后的回合时，俄国革命开始，移除帕尔乌斯标志和“上帝保佑沙皇”标志，将俄国革命标志放置在革命进程进度条内的1位置，并在每个接下来的回合革命阶段前进一格。。- **(例外:某个回合革命阶段，当俄国占领了君士坦丁堡时，即使已经满足革命发生的条件，未发生的俄国革命不会发生，已发生的革命不会继续推进)(沙皇格勒天下第一.jpg)**",
+				"开始进行俄国革命计时。把帕尔乌斯标志放置在第五回合，把俄国革命标志放置在第九回合。把“上帝保佑沙皇”标志放置在帕尔乌斯的同一回合，随后根据俄国VP标记调整其位置。俄国VP标记反映的是俄国在高加索战场所取得的成果。每当*接受俄国补给源补给*的俄国部队(或俄国波斯部队、亚美尼亚起义军)**占领一个非协约国原始VP点**，或者**解放一个协约国原始VP点**时，放置1个俄国占领标志，该标记向后移动一格。。每当俄国境内(俄国和阿塞拜疆)VP点被同盟国占领，或者放置了俄国占领标记的VP点被同盟国解放时，该标记向前移动一格。“上帝保佑沙皇”标志和俄国VP标志保持一致进行移动，但是当【不冻港】事件发生后，“上帝保佑沙皇”标志永远位于俄国VP标志+2的位置(革命推迟2个回合)。每个回合革命阶段，检查俄国革命标志和“上帝保佑沙皇”标志的位置。当回合纪录标志到达俄国革命标志及其以后的回合，同时满足到达“上帝保佑沙皇”标志及其以后的回合时，俄国革命开始，移除帕尔乌斯标志和“上帝保佑沙皇”标志，将俄国革命标志放置在革命进程进度条内的1位置，并在每个接下来的回合革命阶段前进一格。。- **(例外:某个回合革命阶段，当俄国占领了君士坦丁堡时，即使已经满足革命发生的条件，未发生的俄国革命不会发生，已发生的革命不会继续推进)**",
 			handler: function (game) {
-				game.events["parvus_to_berlin"] = game.turn
-				game.events["russian_revolution_timer"] = game.turn + 4
+				game.events["parvus_to_berlin"] = PARVUS_MARKER_TURN
+				game.events["russian_revolution_timer"] = REVOLUTION_MARKER_TURN
+				sync_russian_revolution_markers(game)
 			}
 		},
 		90: {
@@ -2649,6 +2681,11 @@ module.exports = function (Engine) {
 	exports.ensure_cp_auto_victory_marker = ensure_cp_auto_victory_marker
 	exports.set_cp_auto_victory_marker = set_cp_auto_victory_marker
 	exports.shift_cp_auto_victory_marker = shift_cp_auto_victory_marker
+	exports.apply_warm_water_port_effect = apply_warm_water_port_effect
+	exports.get_parvus_marker_turn = get_parvus_marker_turn
+	exports.get_revolution_marker_turn = get_revolution_marker_turn
+	exports.get_long_live_czar_turn = get_long_live_czar_turn
+	exports.sync_russian_revolution_markers = sync_russian_revolution_markers
 	exports.reinforce = reinforce
 
 	return exports

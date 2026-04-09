@@ -279,21 +279,35 @@ module.exports = function (Engine) {
 		return info.nation === "ru" || info.name.startsWith("Armenian") || info.name.startsWith("RU/PE")
 	}
 
+	function get_effective_vp_value(game, s) {
+		let space = data.spaces[s]
+		if (!space) return 0
+		if (space.vp > 0) return space.vp
+		if (game.warm_water_port_vp === s) return 1
+		return 0
+	}
+
+	function qualifies_for_ru_vp_capture(game, s) {
+		let pieces = Engine.map.get_pieces_in_space(game, s)
+		let has_ru_capture_piece = false
+		for (let p of pieces) {
+			if (is_ru_capture_piece(data.pieces[p])) {
+				has_ru_capture_piece = true
+				break
+			}
+		}
+		if (!has_ru_capture_piece) return false
+		let ru_sources = Engine.map.get_ru_supply_sources(game, false)
+		if (!ru_sources.length) return false
+		return Engine.map.can_trace_supply_to_source(game, s, AP, ru_sources)
+	}
+
 	function apply_control_change(game, s, faction, previous_neutral_vp_owner) {
 		if (is_neutral_vp_space(s)) {
 			sync_neutral_vp_state(game, s, previous_neutral_vp_owner)
 			if (!game.ru_control_markers) game.ru_control_markers = []
 			if (faction === AP) {
-				let is_ru_capture = false
-				let pieces = Engine.map.get_pieces_in_space(game, s)
-				for (let p of pieces) {
-					let info = data.pieces[p]
-					if (is_ru_capture_piece(info)) {
-						is_ru_capture = true
-						break
-					}
-				}
-				if (is_ru_capture) {
+				if (qualifies_for_ru_vp_capture(game, s)) {
 					game.russian_vp += 1
 					if (!game.ru_control_markers.includes(s)) game.ru_control_markers.push(s)
 					Engine.log(game, `俄国部队占领VP点，俄国VP +1 (当前: ${game.russian_vp})`)
@@ -311,22 +325,13 @@ module.exports = function (Engine) {
 			}
 			return
 		}
-		let vp_val = (data.spaces[s] && data.spaces[s].vp) || 0
+		let vp_val = get_effective_vp_value(game, s)
 		if (vp_val <= 0) return
 		if (!game.ru_control_markers) game.ru_control_markers = []
 		if (faction === AP) {
 			game.vp -= vp_val
 			Engine.log(game, `AP 获得 ${vp_val} VP (当前VP: ${game.vp})`)
-			let is_ru_capture = false
-			let pieces = Engine.map.get_pieces_in_space(game, s)
-			for (let p of pieces) {
-				let info = data.pieces[p]
-				if (is_ru_capture_piece(info)) {
-					is_ru_capture = true
-					break
-				}
-			}
-			if (is_ru_capture) {
+			if (qualifies_for_ru_vp_capture(game, s)) {
 				game.russian_vp += 1
 				if (!game.ru_control_markers.includes(s)) game.ru_control_markers.push(s)
 				Engine.log(game, `俄国部队占领VP点，俄国VP +1 (当前: ${game.russian_vp})`)

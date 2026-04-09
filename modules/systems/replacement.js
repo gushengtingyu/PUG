@@ -14,7 +14,13 @@ module.exports = function (Engine) {
 		get_ru_supply_sources,
 		get_tribe_type,
 		get_connected_spaces,
-		get_piece_effective_faction
+		get_piece_effective_faction,
+		is_connected_by_rail,
+		has_friendly_pieces,
+		is_disrupted_by_enemy,
+		contains_enemy_pieces,
+		is_port,
+		get_tribal_spaces
 	} = Engine.map
 	const { set_has, other_faction } = Engine.utils
 	const { can_stack_end_in_space } = Engine.map
@@ -25,6 +31,9 @@ module.exports = function (Engine) {
 		is_baluchistan,
 		is_afghanistan,
 		is_persia,
+		is_mesopotamia,
+		is_egypt,
+		is_sudan_and_darfur,
 		is_aegean_east_med_port,
 		get_area,
 		is_hejaz,
@@ -62,9 +71,7 @@ module.exports = function (Engine) {
 
 	function can_rebuild_regular_unit_in_space(game, s, faction) {
 		if (is_besieged(game, s)) return false
-		for (let p of get_pieces_in_space(game, s)) {
-			if (get_piece_effective_faction(game, p) === other_faction(faction)) return false
-		}
+		if (contains_enemy_pieces(game, s, faction)) return false
 		return true
 	}
 
@@ -162,23 +169,6 @@ module.exports = function (Engine) {
 		return false
 	}
 
-	function has_friendly_pieces(game, s, faction) {
-		for (let p of get_pieces_in_space(game, s)) {
-			if (get_piece_effective_faction(game, p) === faction) return true
-		}
-		return false
-	}
-
-	function is_disrupted_by_enemy(game, s, faction) {
-		let enemy = faction === AP ? CP : AP
-		for (let p of get_pieces_in_space(game, s)) {
-			if (get_piece_effective_faction(game, p) !== enemy) continue
-			let info = data.pieces[p]
-			if (info.type === "irregular" || info.type === "tribe" || info.nation === "Re") return true
-		}
-		return false
-	}
-
 	function can_trace_supply_to_unoccupied_ap_port(game, start, target) {
 		if (start <= 0 || target <= 0) return false
 		let visited = new Set([start])
@@ -209,19 +199,14 @@ module.exports = function (Engine) {
 		// 1) CP 补给源, 2) 友方港口(任何海域), 3) 未被占领的 AP 控制的港口(任何海域)
 		if (!is_tribe(p)) return false
 		let tribe_type = get_tribe_type(p)
-		let tribal_spaces = []
-		for (let s = 1; s < data.spaces.length; s++) {
-			if (data.spaces[s].tribal_activity_grid === tribe_type) {
-				tribal_spaces.push(s)
-			}
-		}
+		let tribal_spaces = get_tribal_spaces(tribe_type)
 		if (tribal_spaces.length === 0) return false
 
 		let sources = get_supply_sources_from_data(game, CP)
 		let friendly_ports = []
 		let ap_ports = []
 		for (let s = 1; s < data.spaces.length; s++) {
-			if (!data.spaces[s].port) continue
+			if (!is_port(s)) continue
 			if (is_controlled_by(game, s, CP)) {
 				friendly_ports.push(s)
 			} else if (is_controlled_by(game, s, AP) && get_pieces_in_space(game, s).length === 0) {
@@ -259,7 +244,7 @@ module.exports = function (Engine) {
 		let sources = []
 		for (let i = 1; i < data.spaces.length; i++) {
 			if (is_base_supply_source(game, i, faction)) {
-				let area = Engine.map.get_area(i)
+				let area = get_area(i)
 				if (area === "anatolia" || area === "syria_palestine" || area === "mesopotamia") {
 					sources.push(i)
 				}
@@ -351,7 +336,7 @@ module.exports = function (Engine) {
 		for (let s = 1; s < data.spaces.length; s++) {
 			if (is_galicia(s) && is_controlled_by(game, s, CP)) {
 				// Use is_connected_by_rail from map.js
-				if (Engine.map.is_connected_by_rail(game, constantinople, CP, [s])) return true
+				if (is_connected_by_rail(game, constantinople, CP, [s])) return true
 			}
 		}
 
@@ -429,39 +414,46 @@ module.exports = function (Engine) {
 	}
 
 	function can_afford_ap_replacement_as_nation(game, p, nation, cost, rps) {
-		if (nation === "br" && rps.br >= cost) return true
+		if (nation === "br") return rps.br >= cost
 		if (nation === "ru") {
 			if (rps.ru >= cost) return true
 			if (can_convert_br_to_ru(game, cost, rps)) return true
+			return false
 		}
-		if (nation === "in" && rps.in >= cost) return true
+		if (nation === "in") return rps.in >= cost
 		if (["anz", "ar", "gr"].includes(nation)) return rps.br >= cost || rps.a >= cost
 		if (["fr", "ro", "sb", "pe", "arm", "geo", "it"].includes(nation)) return rps.a >= cost
 		return rps.a >= cost
 	}
 
 	function can_afford_cp_replacement_as_nation(game, p, nation, cost, rps) {
-		if (nation === "ge" && rps.ge >= cost) return true
+		if (nation === "ge") return rps.ge >= cost
 		if (nation === "tu" || nation === "tua") {
 			if (rps.tu >= cost) return true
 			if (rps.ge >= cost && can_use_ge_rp_for_tu(game, cost)) return true
+			return false
 		}
 		if (nation === "ah") {
 			if (rps.a >= cost) return true
 			if (rps.ge >= cost && can_trace_supply_to_galicia(game, p)) return true
+			return false
 		}
 		if (nation === "bu") {
 			if (rps.a >= cost) return true
 			if (rps.ge >= cost && can_trace_supply_to_galicia(game, p)) return true
+			return false
 		}
 		if (nation === "gr") return rps.a >= cost || rps.ge >= cost
 		return rps.a >= cost
 	}
 
 	function spend_ap_replacement_as_nation(game, nation, cost, rps) {
-		if (nation === "br" && rps.br >= cost) {
-			rps.br -= cost
-			return true
+		if (nation === "br") {
+			if (rps.br >= cost) {
+				rps.br -= cost
+				return true
+			}
+			return false
 		}
 		if (nation === "ru") {
 			if (rps.ru >= cost) {
@@ -477,10 +469,14 @@ module.exports = function (Engine) {
 				game.br_to_ru_rp_used = true
 				return true
 			}
+			return false
 		}
-		if (nation === "in" && rps.in >= cost) {
-			rps.in -= cost
-			return true
+		if (nation === "in") {
+			if (rps.in >= cost) {
+				rps.in -= cost
+				return true
+			}
+			return false
 		}
 		if (["anz", "ar", "gr"].includes(nation)) {
 			if (rps.br >= cost) {
@@ -508,9 +504,12 @@ module.exports = function (Engine) {
 	}
 
 	function spend_cp_replacement_as_nation(game, p, nation, cost, rps) {
-		if (nation === "ge" && rps.ge >= cost) {
-			rps.ge -= cost
-			return true
+		if (nation === "ge") {
+			if (rps.ge >= cost) {
+				rps.ge -= cost
+				return true
+			}
+			return false
 		}
 		if (nation === "tu" || nation === "tua") {
 			if (rps.tu >= cost) {
@@ -644,16 +643,14 @@ module.exports = function (Engine) {
 			if (rebel_type) {
 				// Rule 22.2.2: Jihad Revolt units placement
 				if (rebel_type === "eg") {
-					let area = Engine.map.get_area(s)
-					if (area === "egypt" || area === "sudan_and_darfur") {
+					if (is_egypt(s) || is_sudan_and_darfur(s)) {
 						let ap_pieces = get_pieces_in_space(game, s).filter(p => data.pieces[p].faction === AP)
 						if (ap_pieces.length === 0) can_rebuild = true
 					}
 				} else {
-					let area = Engine.map.get_area(s)
-					if (rebel_type === "af" && area === "afghanistan") can_rebuild = true
-					if (rebel_type === "in" && area === "india") can_rebuild = true
-					if (rebel_type === "ca" && area === "central_asia") can_rebuild = true
+					if (rebel_type === "af" && is_afghanistan(s)) can_rebuild = true
+					if (rebel_type === "in" && is_india(s)) can_rebuild = true
+					if (rebel_type === "ca" && is_central_asia(s)) can_rebuild = true
 				}
 			} else if (is_br_indian_garrison_unit(info)) {
 				if (is_india(s) && can_rebuild_regular_unit_in_space(game, s, faction)) can_rebuild = true
@@ -676,7 +673,7 @@ module.exports = function (Engine) {
 			} else if (nation === "ru") {
 				// Rule 22.2.2: RU LCUs may be rebuilt only on AP-controlled RU Supply Sources (including Trabzon)
 				if (is_controlled_by(game, s, AP) && !is_besieged(game, s)) {
-					if (Engine.map.is_base_supply_source(game, s, AP, "ru")) can_rebuild = true
+					if (is_base_supply_source(game, s, AP, "ru")) can_rebuild = true
 					if (name === "Trabzon") can_rebuild = true
 				}
 			} else if (nation === "br" || nation === "in" || nation === "anz") {
@@ -686,14 +683,14 @@ module.exports = function (Engine) {
 					if (Engine.events.is_german_subs_blocked_port(game, s)) {
 						can_rebuild = false
 					} else {
-						if (Engine.map.is_base_supply_source(game, s, AP, "br", true)) can_rebuild = true
-						if (Engine.map.is_aegean_east_med_port(s)) can_rebuild = true
-						if (Engine.map.get_area(s) === "mesopotamia" && data.spaces[s].port) can_rebuild = true // Persian Gulf ports
+						if (is_base_supply_source(game, s, AP, "br", true)) can_rebuild = true
+						if (is_aegean_east_med_port(s)) can_rebuild = true
+						if (is_mesopotamia(s) && is_port(s)) can_rebuild = true // Persian Gulf ports
 					}
 				}
 			} else if (nation === "fr" || nation === "it") {
 				// Rule 22.2.2: FR and IT units may be rebuilt at any AP-controlled port on the Aegean or E. Mediterranean.
-				if (is_controlled_by(game, s, AP) && !is_besieged(game, s) && Engine.map.is_aegean_east_med_port(s)) {
+				if (is_controlled_by(game, s, AP) && !is_besieged(game, s) && is_aegean_east_med_port(s)) {
 					// Rule 13.3.2: 德国潜艇地中海猎袭期间，不能在特定港口增援/重建
 					if (!Engine.events.is_german_subs_blocked_port(game, s)) {
 						can_rebuild = true
@@ -724,7 +721,7 @@ module.exports = function (Engine) {
 				} else {
 					if (data.spaces[s].nation === "gr" && !is_besieged(game, s)) {
 						// Rule 13.3.2: 德国潜艇地中海猎袭期间，不能在特定港口增援/重建
-						if (data.spaces[s].port && Engine.events.is_german_subs_blocked_port(game, s)) {
+						if (is_port(s) && Engine.events.is_german_subs_blocked_port(game, s)) {
 							can_rebuild = false
 						} else {
 							if (get_pieces_in_space(game, s).length === 0 || is_controlled_by(game, s, faction))
@@ -793,7 +790,7 @@ module.exports = function (Engine) {
 					if (!Engine.events.is_german_subs_blocked_port(game, s)) {
 						if (
 							get_area(s) === "syria_palestine" &&
-							data.spaces[s].port &&
+							is_port(s) &&
 							is_controlled_by(game, s, AP) &&
 							!is_besieged(game, s)
 						)
@@ -816,7 +813,7 @@ module.exports = function (Engine) {
 				// Rule 22.1.3: Irregular Units rebuilt in their Supply Area.
 				if (
 					is_irregular(p) &&
-					Engine.map.is_persia(s) &&
+					is_persia(s) &&
 					is_controlled_by(game, s, AP) &&
 					!is_besieged(game, s)
 				)

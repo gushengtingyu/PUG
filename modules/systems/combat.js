@@ -111,7 +111,11 @@ module.exports = function (Engine) {
 			if (is_not_on_map(game, p)) continue
 			let s = game.pieces[p]
 			if (!(s > 0) || !data.spaces[s] || data.spaces[s].area === "balkans") continue
-			game.pieces[p] = get_removed_box(get_piece_faction(p))
+			if (is_lcu(p)) {
+				game.pieces[p] = Engine.game_utils.get_permanently_eliminated_box(get_piece_faction(p))
+			} else {
+				game.pieces[p] = get_removed_box(get_piece_faction(p))
+			}
 			if (Array.isArray(game.reduced)) set_delete(game.reduced, p)
 		}
 
@@ -2578,6 +2582,7 @@ module.exports = function (Engine) {
 		let ignore_desert = false
 		let jihad_ignore = false
 		let trench_bonus_cp = 0
+		let i_order_you_to_die_trench_bonus = false
 		const mark_effected = (card) => {
 			if (!game.combat_cards_effected) game.combat_cards_effected = []
 			if (!game.combat_cards_effected.includes(card)) {
@@ -2626,8 +2631,8 @@ module.exports = function (Engine) {
 				if (game.combat_cards.defender.includes(CC_CP_I_ORDER_YOU_TO_DIE)) {
 					if (defenders.every((p) => data.pieces[p].nation === "tu" || data.pieces[p].nation === "tua")) {
 						trench_bonus_cp = 1
+						i_order_you_to_die_trench_bonus = true
 						mark_effected(CC_CP_I_ORDER_YOU_TO_DIE)
-						log_detail(log, "I Order You To Die: Trench Level increased!")
 					}
 				}
 				if (game.combat_cards.defender.includes(CC_CP_ARMY_OF_ISLAM)) {
@@ -3024,7 +3029,9 @@ module.exports = function (Engine) {
 			if (!ignore_terrain && !ignore_trench) {
 				att_shifts -= trench_level
 				att_shift_factors.push(`-${trench_level} 战壕`)
-				log_detail(log, `Trench Level ${trench_level}: Shift ${trench_level} Left`)
+				if (!i_order_you_to_die_trench_bonus) {
+					log_detail(log, `Trench Level ${trench_level}: Shift ${trench_level} Left`)
+				}
 			}
 			def_shifts += 1
 			def_shift_factors.push("+1 战壕")
@@ -3035,7 +3042,9 @@ module.exports = function (Engine) {
 			) {
 				mark_effected(CC_CP_I_ORDER_YOU_TO_DIE)
 			}
-			log_detail(log, `Trench: Defender Shift 1 Right`)
+			if (!i_order_you_to_die_trench_bonus) {
+				log_detail(log, `Trench: Defender Shift 1 Right`)
+			}
 		}
 
 		// Resolve Fire (Sequential or Simultaneous)

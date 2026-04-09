@@ -30,6 +30,15 @@
 	article {
 		position: relative;
 	}
+	.hide {
+		display: none;
+	}
+	.scenario_info {
+		display: none;
+	}
+	.scenario_info.show {
+		display: block;
+	}
 	.poem {
 		font-size: 12px;
 		line-height: 1.6;
@@ -79,6 +88,16 @@
 	}
 </style>
 
+<div class="scenario_info" id="Historical">
+	<p>默认开局</p>
+</div>
+
+<div class="scenario_info" id="LIMITED WAR">
+	<p>
+		LIMITED WAR 从第3回合开始，WS为4，仅使用 Limited 牌组，用于测试中期卡牌。
+	</p>
+</div>
+
 <p>
 	<label><input type="checkbox" value="true" name="english_cards" />使用英文卡牌（默认中文卡牌）</label>
 </p>
@@ -90,3 +109,15 @@
 <p>
 	<label><input type="checkbox" value="true" name="seven_hand_size" />7张手牌上限（默认8张）</label>
 </p>
+
+<script>
+	let scenario = document.querySelector("select[name='scenario']")
+	if (scenario) {
+		scenario.onchange = function () {
+			document.querySelectorAll(".scenario_info").forEach((e) => e.classList.remove("show"))
+			let target = document.getElementById(scenario.value)
+			if (target) target.classList.add("show")
+		}
+		scenario.onchange()
+	}
+</script>

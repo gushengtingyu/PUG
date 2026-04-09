@@ -169,13 +169,21 @@ const Engine = {
 			Engine.neutral && Engine.neutral.is_neutral_vp_space && Engine.neutral.is_neutral_vp_space(s) && game.neutral_vp_partial_control
 				? game.neutral_vp_partial_control[s] || 0
 				: 0
-		if (game.control[s] === faction) {
+		let current_controller =
+			Engine.map && typeof Engine.map.get_space_controller === "function"
+				? Engine.map.get_space_controller(game, s)
+				: game.control[s] || (data.spaces[s] && data.spaces[s].faction)
+		if (current_controller === faction) {
 			if (Engine.neutral && Engine.neutral.is_neutral_vp_space && Engine.neutral.is_neutral_vp_space(s)) {
 				Engine.sync_neutral_vp_state(game, s, previous_neutral_vp_owner)
 			}
 			return
 		}
-		game.control[s] = faction
+		let default_controller =
+			Engine.map && typeof Engine.map.get_default_controller === "function"
+				? Engine.map.get_default_controller(game, s)
+				: data.spaces[s] && data.spaces[s].faction
+		game.control[s] = faction === default_controller ? null : faction
 
 		if (Engine.jihad && typeof Engine.jihad.on_control_changed === "function") {
 			Engine.jihad.on_control_changed(game, s, faction, {

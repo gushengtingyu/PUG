@@ -361,6 +361,8 @@ server.on("error", (err) => {
 })
 
 server.listen(PORT, () => {
-	console.log(`PUG Map Editor Server running at http://localhost:${PORT}/tools/map_editor.html`)
+	console.log(`PUG Editor Server running at http://localhost:${PORT}/tools/`)
+	console.log(`Reinforcements: http://localhost:${PORT}/tools/reinforcements_editor.html`)
+	console.log(`Map Editor: http://localhost:${PORT}/tools/map_editor.html`)
 	console.log(`Root directory: ${ROOT}`)
 })

@@ -15399,7 +15399,7 @@ var data = {
 		"card": 0,
 		"name": "Afghan Uprising #1 #2 #3",
 		"x": 81,
-		"y": 676,
+		"y": 711,
 		"side": "cp",
 		"type": "reinforcement",
 		"connections": [],
@@ -15411,7 +15411,7 @@ var data = {
 		"card": 0,
 		"name": "CAsia Uprising",
 		"x": 186,
-		"y": 677,
+		"y": 711,
 		"side": "cp",
 		"type": "reinforcement",
 		"connections": [],
@@ -15423,7 +15423,7 @@ var data = {
 		"card": 0,
 		"name": "Egypt Rebel #1 #2 #3",
 		"x": 290,
-		"y": 677,
+		"y": 711,
 		"side": "cp",
 		"type": "reinforcement",
 		"connections": [],
@@ -15435,7 +15435,7 @@ var data = {
 		"card": 0,
 		"name": "Indian Mutiny #1 #2 #3",
 		"x": 394,
-		"y": 677,
+		"y": 711,
 		"side": "cp",
 		"type": "reinforcement",
 		"connections": [],
@@ -15447,7 +15447,7 @@ var data = {
 		"card": 0,
 		"name": "Arm Transcas #1 #2 #3",
 		"x": 499,
-		"y": 677,
+		"y": 711,
 		"side": "cp",
 		"type": "reinforcement",
 		"connections": [],
@@ -15459,7 +15459,7 @@ var data = {
 		"card": 0,
 		"name": "Geo Transcaucasian #1 #2",
 		"x": 567,
-		"y": 677,
+		"y": 711,
 		"side": "cp",
 		"type": "reinforcement",
 		"connections": [],
@@ -15471,7 +15471,7 @@ var data = {
 		"card": 0,
 		"name": "GE GeoProtect",
 		"x": 636,
-		"y": 677,
+		"y": 711,
 		"side": "cp",
 		"type": "reinforcement",
 		"connections": [],
@@ -15483,7 +15483,7 @@ var data = {
 		"card": 0,
 		"name": "Baku Uprising token",
 		"x": 713,
-		"y": 684,
+		"y": 720,
 		"side": "cp",
 		"type": "reinforcement",
 		"connections": [],
@@ -15495,7 +15495,7 @@ var data = {
 		"card": 0,
 		"name": "C.Asia Uprising token",
 		"x": 797,
-		"y": 684,
+		"y": 720,
 		"side": "cp",
 		"type": "reinforcement",
 		"connections": [],
@@ -15507,7 +15507,7 @@ var data = {
 		"card": 0,
 		"name": "Enzeli Uprising token",
 		"x": 881,
-		"y": 684,
+		"y": 720,
 		"side": "cp",
 		"type": "reinforcement",
 		"connections": [],
@@ -16563,6 +16563,16 @@ var data = {
 		"name": "neutral_SB_UI",
 		"x": 80,
 		"y": 325,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1249,
+		"name": "SUB IN THE MED",
+		"x": 700,
+		"y": 1256,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -26084,6 +26094,14 @@ var data = {
 		"y": 325,
 		"w": 200,
 		"h": 160
+	},
+	{
+		"id": 104,
+		"key": "SUB IN THE MED",
+		"x": 700,
+		"y": 1256,
+		"w": 75,
+		"h": 75
 	}
 ]
 }
@@ -26694,7 +26712,8 @@ data.space_name = {
 	"Cyprus Allowed": 1245,
 	"Egypt Uprising": 1246,
 	"Sinai Railroad": 1247,
-	"neutral_SB_UI": 1248
+	"neutral_SB_UI": 1248,
+	"SUB IN THE MED": 1249
 }
 
 if (typeof module === 'object') {

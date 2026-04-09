@@ -55,6 +55,7 @@ const {
 	get_capacity,
 	get_eliminated_box,
 	get_removed_box,
+	get_permanently_eliminated_box,
 	is_in_reserve,
 	is_eliminated,
 	is_removed,
@@ -147,7 +148,7 @@ const {
 	can_choose_attack_with_piece: combat_can_choose_attack_with_piece
 } = combat
 
-const { setup_historical_scenario } = Engine.setup
+const { setup_historical_scenario, setup_limited_war_scenario } = Engine.setup
 const {
 	play_event,
 	can_play_event,
@@ -455,8 +456,9 @@ const CP_ROLE = "Central Powers"
 exports.roles = [AP_ROLE, CP_ROLE]
 
 const HISTORICAL = "Historical"
+const LIMITED_WAR = "LIMITED WAR"
 
-exports.scenarios = [HISTORICAL]
+exports.scenarios = [HISTORICAL, LIMITED_WAR]
 exports.default_scenario = HISTORICAL
 
 function roll_die() {
@@ -704,6 +706,11 @@ exports.view = function (state, current) {
 	if (game.events && game.events["xinai"] !== undefined) {
 		hidden_reinforcement_markers.push("SINAI RAILROAD")
 	}
+	if (game.events && game.events["parvus_to_berlin"] !== undefined) {
+		hidden_reinforcement_markers.push("Parvus to Berlin token")
+		hidden_reinforcement_markers.push("Revolution token")
+		hidden_reinforcement_markers.push("Long Live the Czar! token")
+	}
 
 	function create_view() {
 		return {
@@ -770,6 +777,18 @@ exports.view = function (state, current) {
 			mo_ap_fulfilled: game.mo_ap_fulfilled,
 			mo_cp_fulfilled: game.mo_cp_fulfilled,
 			ru_revolution: game.ru_revolution,
+			parvus_to_berlin:
+				game.events && game.events["parvus_to_berlin"] !== undefined && !game.events["russian_revolution"]
+					? Engine.events.get_parvus_marker_turn(game)
+					: undefined,
+			russian_revolution_timer:
+				game.events && game.events["parvus_to_berlin"] !== undefined && !game.events["russian_revolution"]
+					? Engine.events.get_revolution_marker_turn(game)
+					: undefined,
+			long_live_czar:
+				game.events && game.events["parvus_to_berlin"] !== undefined && !game.events["russian_revolution"]
+					? Engine.events.get_long_live_czar_turn(game)
+					: 0,
 			lcu_limit_ap: get_lcu_limit_for(game, AP),
 			lcu_limit_cp: get_lcu_limit_for(game, CP),
 			activated: game.activated,
@@ -910,12 +929,13 @@ exports.setup = function (seed, scenario, options) {
 		if (data.spaces[i].faction) game.control[i] = data.spaces[i].faction
 	}
 
-	setup_historical_scenario(game)
+	if (scenario === LIMITED_WAR) setup_limited_war_scenario(game)
+	else setup_historical_scenario(game)
 	game.is_eliminated = is_eliminated
 	game.is_in_reserve = is_in_reserve
 	game.eliminate_piece = eliminate_piece
 	game.options.hand_size = game.options.seven_hand_size ? 7 : 8
-	set_up_standard_decks(false) // false = mobilization only
+	set_up_standard_decks(false)
 
 	activation_states.set_globals(game)
 	combat_states.set_globals(game)
@@ -1879,10 +1899,15 @@ function goto_start_turn() {
 function set_up_standard_decks(full) {
 	game.deck_ap = []
 	game.deck_cp = []
+	let starting_commitment = game.initial_deck_commitment || COMMITMENT_MOBILIZATION
 	for (let i = 1; i < data.cards.length; i++) {
-		if (full || data.cards[i].commitment === COMMITMENT_MOBILIZATION) {
+		let card = data.cards[i]
+		if (!card) continue
+		let removed = (card.faction === AP ? game.removed_ap : game.removed_cp)?.includes(i)
+		if (removed) continue
+		if (full || card.commitment === starting_commitment) {
 			if (data.cards[i].faction === AP) {
-				if (i === RUSSO_BRITISH_ASSAULT) {
+				if (starting_commitment === COMMITMENT_MOBILIZATION && i === RUSSO_BRITISH_ASSAULT) {
 					game.hand_ap.push(i)
 				} else {
 					game.deck_ap.push(i)
@@ -1894,6 +1919,18 @@ function set_up_standard_decks(full) {
 	}
 	shuffle(game.deck_ap, game)
 	shuffle(game.deck_cp, game)
+
+	if (starting_commitment !== COMMITMENT_MOBILIZATION) {
+		while (game.hand_ap.length < game.options.hand_size) {
+			if (game.deck_ap.length > 0) game.hand_ap.push(game.deck_ap.pop())
+			else break
+		}
+		while (game.hand_cp.length < game.options.hand_size) {
+			if (game.deck_cp.length > 0) game.hand_cp.push(game.deck_cp.pop())
+			else break
+		}
+		return
+	}
 
 	// Special handling for Turn 1 opening:
 	// Ensure all CP mobilization 4-ops cards are in the deck for the "opening pick" phase.
@@ -2051,6 +2088,7 @@ activation_states.register(states, Engine, {
 	get_scu_reserve_box,
 	get_eliminated_box,
 	get_removed_box,
+	get_permanently_eliminated_box,
 	is_reserve_space,
 	is_in_reserve,
 	is_eliminated,

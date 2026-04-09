@@ -309,7 +309,7 @@ exports.register = function (states, Engine, context) {
 		prompt(res) {
 			let c = game.card !== null ? game.card : game.last_card
 			let info = data.cards[c]
-			res.prompt(`${info ? card_name(c) : "Event"}: 完成.`)
+			res.prompt(`${info ? info.name : "Event"}: 完成.`)
 			res.action("end_action")
 		},
 		end_action() {
@@ -1252,7 +1252,7 @@ exports.register = function (states, Engine, context) {
 			if (was_reduced) {
 				log(`>> ${format_piece_log(p, true)} 被消灭`)
 			} else {
-				log(`>> ${format_piece_log(p, false)} 减员为 ${format_piece_log(p, true)}`)
+				log(`>> ${format_piece_log(p, false)} 减员`)
 			}
 			game.attack.defender_losses_absorbed += lf
 			mark_reserves_to_front_damage(p)
@@ -1348,7 +1348,7 @@ exports.register = function (states, Engine, context) {
 			if (was_reduced) {
 				log(`>> ${format_piece_log(p, true)} 被消灭`)
 			} else {
-				log(`>> ${format_piece_log(p, false)} 减员为 ${format_piece_log(p, true)}`)
+				log(`>> ${format_piece_log(p, false)} 减员`)
 			}
 			game.attack.attacker_losses_absorbed += lf
 			mark_reserves_to_front_damage(p)
@@ -1910,7 +1910,7 @@ exports.register = function (states, Engine, context) {
 			if (p !== null && p !== undefined) {
 				ensure_attack_log_section("retreat_log_started", "撤退：")
 				log(`>> ${format_piece_log(p, true)} 无法撤退并被消灭`)
-				eliminate_piece(p, true)
+				eliminate_piece(p, is_lcu(p))
 				set_delete(game.retreat_pieces, p)
 				if (game.retreat_steps_left) delete game.retreat_steps_left[p]
 				game.selected_piece = null
@@ -2041,7 +2041,7 @@ exports.register = function (states, Engine, context) {
 			if (p !== null && p !== undefined) {
 				ensure_attack_log_section("retreat_log_started", "撤退：")
 				log(`>> ${format_piece_log(p, true)} 无法撤退并被消灭`)
-				eliminate_piece(p, true)
+				eliminate_piece(p, is_lcu(p))
 				if (game.turkish_retreat_mandatory && set_has(game.turkish_retreat_mandatory, p)) {
 					set_delete(game.turkish_retreat_mandatory, p)
 				}

@@ -288,6 +288,30 @@
 				backdrop-filter: blur(5px);
 				border: 1px solid var(--border-color);
 			}
+
+			#toast {
+				position: fixed;
+				bottom: 80px;
+				left: 50%;
+				transform: translateX(-50%);
+				background: rgba(0, 0, 0, 0.85);
+				color: #fff;
+				padding: 10px 25px;
+				border-radius: 30px;
+				font-size: 14px;
+				font-weight: 500;
+				pointer-events: none;
+				opacity: 0;
+				transition: opacity 0.3s, transform 0.3s;
+				z-index: 2000;
+				border: 1px solid var(--accent-color);
+				box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+			}
+			#toast.show {
+				opacity: 1;
+				transform: translate(-50%, -10px);
+			}
+
 			kbd {
 				background: #444;
 				padding: 2px 5px;
@@ -300,7 +324,12 @@
 	<body>
 		<div id="sidebar">
 			<div class="sidebar-header">
-				<h3 style="margin: 0 0 10px 0; font-size: 16px">增援板编辑器 v3.0</h3>
+				<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px">
+					<h3 style="margin: 0; font-size: 16px">增援板编辑器 v3.0</h3>
+					<button id="header-save-btn" style="flex: none; padding: 4px 12px; font-size: 12px; font-weight: bold" title="保存修改 (Ctrl+S)">
+						💾 保存
+					</button>
+				</div>
 				<select id="board-select">
 					<option value="APReinforcements.png">Allied (AP) Board</option>
 					<option value="CPReinforcements.png">Central (CP) Board</option>
@@ -376,7 +405,7 @@
 
 		<div id="viewport">
 			<div id="canvas-container">
-				<img id="board-img" src="../APReinforcements.png" />
+				<img id="board-img" src="/pieces/APReinforcements.png" />
 				<div id="markers-layer"></div>
 			</div>
 
@@ -385,8 +414,11 @@
 				<span><kbd>Space + Drag</kbd> Pan</span>
 				<span><kbd>Click</kbd> Add/Select</span>
 				<span id="drag-hint"><kbd>Drag</kbd> Move</span>
+				<span><kbd>Ctrl+S</kbd> Save</span>
 			</div>
 		</div>
+
+		<div id="toast">保存成功</div>
 
 		<script>
 			let reinforcements = []
@@ -395,7 +427,7 @@
 			let scale = 1
 			let panX = 0
 			let panY = 0
-			const API_BASE = "http://localhost:8082"
+			const API_BASE = location.origin && location.origin !== "null" ? location.origin : "http://localhost:8082"
 
 			const viewport = document.getElementById("viewport")
 			const container = document.getElementById("canvas-container")
@@ -577,9 +609,46 @@
 			let isSpaceDown = false
 			window.onkeydown = (e) => {
 				if (e.code === "Space") isSpaceDown = true
+				if (e.ctrlKey && e.key === "s") {
+					e.preventDefault()
+					saveData()
+				}
 			}
 			window.onkeyup = (e) => {
 				if (e.code === "Space") isSpaceDown = false
+			}
+
+			function showToast(msg, duration = 2000) {
+				const toast = document.getElementById("toast")
+				toast.innerText = msg
+				toast.classList.add("show")
+				setTimeout(() => toast.classList.remove("show"), duration)
+			}
+
+			async function saveData() {
+				const headers = reinforcementHeaders.length
+					? reinforcementHeaders
+					: ["id", "card", "name", "x", "y", "side", "type"]
+				const csvRows = [buildCSVLine(headers)]
+
+				reinforcements.forEach((r) => {
+					const row = headers.map((h) => r[h] ?? "")
+					csvRows.push(buildCSVLine(row))
+				})
+
+				const csv = csvRows.join("\n")
+
+				try {
+					const res = await fetch(`${API_BASE}/api/save`, {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ reinforcements: csv })
+					})
+					if (res.ok) showToast("✅ 保存成功！")
+					else showToast("❌ 保存失败")
+				} catch (e) {
+					showToast("❌ 网络错误")
+				}
 			}
 
 			viewport.onmousedown = (e) => {
@@ -685,7 +754,7 @@
 			}
 
 			boardSelect.onchange = () => {
-				img.src = `../${boardSelect.value}`
+				img.src = `/pieces/${boardSelect.value}`
 				const currentSide = boardSelect.value.startsWith("AP") ? "ap" : "cp"
 				selectedId = null
 				panX = 0
@@ -695,31 +764,8 @@
 				selectItem(null)
 			}
 
-			document.getElementById("save-btn").onclick = async () => {
-				const headers = reinforcementHeaders.length
-					? reinforcementHeaders
-					: ["id", "card", "name", "x", "y", "side", "type"]
-				const csvRows = [buildCSVLine(headers)]
-
-				reinforcements.forEach((r) => {
-					const row = headers.map((h) => r[h] ?? "")
-					csvRows.push(buildCSVLine(row))
-				})
-
-				const csv = csvRows.join("\n")
-
-				try {
-					const res = await fetch(`${API_BASE}/api/save`, {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({ reinforcements: csv })
-					})
-					if (res.ok) alert("保存成功！")
-					else alert("保存失败")
-				} catch (e) {
-					alert("网络错误")
-				}
-			}
+			document.getElementById("save-btn").onclick = saveData
+			document.getElementById("header-save-btn").onclick = saveData
 
 			document.getElementById("add-btn").onclick = () => {
 				const rect = viewport.getBoundingClientRect()

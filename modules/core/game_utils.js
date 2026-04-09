@@ -103,8 +103,14 @@ module.exports = function (Engine) {
 	}
 
 	function get_removed_box(faction) {
-		let s = find_space(faction === AP ? "AP Permanently Eliminated Box" : "CP Permanently Eliminated Box")
+		let s = find_space(faction === AP ? "AP Removed Box" : "CP Removed Box")
 		return s >= 0 ? s : REMOVED
+	}
+
+	function get_permanently_eliminated_box(faction) {
+		let s = find_space(faction === AP ? "AP Permanently Eliminated Box" : "CP Permanently Eliminated Box")
+		if (s < 0) s = get_removed_box(faction)
+		return s
 	}
 
 	function get_reinforcement_box() {
@@ -158,7 +164,16 @@ module.exports = function (Engine) {
 	function is_removed(game, p) {
 		if (p < 0 || !data.pieces[p]) return false
 		let s = game.pieces[p]
-		return s === get_removed_box(data.pieces[p].faction) || s === REMOVED
+		return s === get_removed_box(data.pieces[p].faction) || s === REMOVED || is_permanently_eliminated(game, p)
+	}
+
+	function is_permanently_eliminated(game, p) {
+		if (p < 0 || !data.pieces[p]) return false
+		let s = game.pieces[p]
+		let pe_box = get_permanently_eliminated_box(data.pieces[p].faction)
+		// If PE box is same as removed box, we don't want recursion
+		if (pe_box === get_removed_box(data.pieces[p].faction)) return false 
+		return s === pe_box
 	}
 
 	function is_reinforcement(game, p) {
@@ -468,8 +483,13 @@ module.exports = function (Engine) {
 		}
 
 		if (permanent || is_lcu_pe || info.badge === "dot" || info.badge === "triangle") {
-			game.pieces[p] = get_removed_box(info.faction)
-			if (log) log(`单位 ${data.pieces[p].name} 从游戏中永久移除。`)
+			if (is_lcu_pe || (info.piece_class === "LCU" && permanent)) {
+				game.pieces[p] = get_permanently_eliminated_box(info.faction)
+				if (log) log(`LCU ${data.pieces[p].name} 被永久消除 (Permanently Eliminated)。`)
+			} else {
+				game.pieces[p] = get_removed_box(info.faction)
+				if (log) log(`单位 ${data.pieces[p].name} 从游戏中永久移除 (Removed)。`)
+			}
 		} else if (is_tribe(p)) {
 			game.pieces[p] = get_eliminated_box(info.faction)
 			if (log) log(`${piece_name(p)} 被移除并送往被击败单位盒子。`)
@@ -957,6 +977,7 @@ module.exports = function (Engine) {
 		get_tribe_key_space,
 		get_eliminated_box,
 		get_removed_box,
+		get_permanently_eliminated_box,
 		has_scu_in_reserve,
 		get_pieces_in_reserve,
 		get_pieces_in_eliminated,

@@ -6,6 +6,7 @@ module.exports = function (Engine) {
 
 	const { set_add } = Engine.utils
 	const { find_space, find_piece } = Engine.game_utils
+	const { COMMITMENT_LIMITED, REMOVED } = Engine.constants
 
 	function place_piece(game, faction, name, space_name, reduced = false) {
 		let p = find_piece(faction, name)
@@ -69,6 +70,8 @@ module.exports = function (Engine) {
 	}
 
 	function setup_historical_scenario(game) {
+		game.scenario_max_turn = 17
+
 		// Initialize UI tokens
 		const CYPRUS = find_space("Cyprus")
 		const CYPRUS_BEACHHEADS = ["To Adana", "To Beirut", "To Haifa", "To Jaffa"].map(find_space)
@@ -216,6 +219,103 @@ module.exports = function (Engine) {
 		place_trench(game, 2, "Doiran")
 	}
 
+	function mark_removed_cards(game, card_ids) {
+		for (let card_id of card_ids) {
+			let info = data.cards[card_id]
+			if (!info) continue
+			let removed = info.faction === "ap" ? game.removed_ap : game.removed_cp
+			set_add(removed, card_id)
+		}
+	}
+
+	function apply_limited_war_started_events(game) {
+		const CYPRUS = find_space("Cyprus")
+		const CYPRUS_BEACHHEADS = ["To Adana", "To Beirut", "To Haifa", "To Jaffa"].map(find_space)
+		const prior_event_flags = {
+			russo_british_assault: true,
+			secret_treaty: true,
+			churchill_prevails: true,
+			lawrence: true,
+			goeben: true,
+			german_military_advisers: true,
+			persian_push: true
+		}
+
+		game.jihad = 2
+
+		game.events["egyptian_coup"] = true
+		game.jihad -= 1
+		if (game.ui_tokens) game.ui_tokens["Cyprus Allowed"] = "MCYPBR.png"
+		game.control[CYPRUS] = "ap"
+		for (let s of CYPRUS_BEACHHEADS) game.control[s] = "ap"
+
+		game.events["royal_navy_blockade"] = true
+		game.tu_rp_limit = 25
+		game.blockade_vp_penalty_active = true
+		game.events["royal_navy_blockade_transport_lock_placeholder"] = true
+		game.events["royal_navy_blockade_restricted_seas"] = [
+			"aegean",
+			"east_mediterranean",
+			"persian_gulf",
+			"red_sea"
+		]
+
+		game.events["kitchener"] = 1
+		game.events["kitchener_conversion"] = true
+		game.rp_ap.br += 1
+		game.rp_ap.in += 1
+		game.rp_ap.a += 1
+		game.rp_ap.ru += 1
+		if (game.ui_tokens) game.ui_tokens["BR RPs TO RU"] = "MKitch.png"
+		let kitchener_token = find_piece(undefined, "Kitch.token")
+		if (kitchener_token >= 0) game.pieces[kitchener_token] = REMOVED
+
+		game.events["liberate_suez"] = 2
+		game.events["liberate_suez_active"] = true
+		game.rp_cp.tu += 1
+		game.jihad += 1
+
+		game.events["pan_turkism"] = true
+		game.rp_cp.tu += 1
+		game.jihad += 1
+
+		game.events["indian_mutiny"] = 2
+		game.jihad += 1
+
+		for (let event_key in prior_event_flags) {
+			game.events[event_key] = prior_event_flags[event_key]
+		}
+
+		delete game.liberate_suez_op_required
+		delete game.liberate_suez_min_egypt_attack_ops
+		delete game.liberate_suez_egypt_attacked_spaces
+		delete game.liberate_suez_egypt_battle_done
+		delete game.liberate_suez_drm
+		delete game.indian_mutiny_drm
+	}
+
+	function setup_limited_war_scenario(game) {
+		setup_historical_scenario(game)
+
+		game.turn = 2
+		game.scenario_max_turn = 17
+		game.initial_deck_commitment = COMMITMENT_LIMITED
+		game.vp = 10
+		game.war_status_ap = 4
+		game.war_status_cp = 4
+		game.war_commitment_ap = COMMITMENT_LIMITED
+		game.war_commitment_cp = COMMITMENT_LIMITED
+		game.pending_commitment_shuffle = { ap: false, cp: false }
+		game.cp_opening_mobilization_pick_done = true
+
+		mark_removed_cards(game, [
+			1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68,
+			69
+		])
+		apply_limited_war_started_events(game)
+		game.combined_war = game.war_status_ap + game.war_status_cp
+	}
+
 	function get_reinforcement_box() {
 		return Engine.constants.REINFORCEMENTS
 	}
@@ -333,6 +433,7 @@ module.exports = function (Engine) {
 
 		let state = {
 			seed: seed,
+			scenario: scenario,
 			options: Object.assign({}, options || {}),
 			log: [],
 			undo: [],
@@ -402,7 +503,8 @@ module.exports = function (Engine) {
 	Object.assign(exports, {
 		create_game,
 		normalize_game,
-		setup_historical_scenario
+		setup_historical_scenario,
+		setup_limited_war_scenario
 	})
 
 	return exports

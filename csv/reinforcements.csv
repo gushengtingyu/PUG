@@ -119,15 +119,15 @@ id,card,name,x,y,side,type
 1131,51,TU-A DIV #17,523,496,cp,reinforcement
 1132,52,TU 1 Caucasian,635,503,cp,reinforcement
 1133,52,TU 2 Caucasian,720,503,cp,reinforcement
-1134,0,Afghan Uprising #1 #2 #3,81,676,cp,reinforcement
-1135,0,CAsia Uprising,186,677,cp,reinforcement
-1136,0,Egypt Rebel #1 #2 #3,290,677,cp,reinforcement
-1137,0,Indian Mutiny #1 #2 #3,394,677,cp,reinforcement
-1138,0,Arm Transcas #1 #2 #3,499,677,cp,reinforcement
-1139,0,Geo Transcaucasian #1 #2,567,677,cp,reinforcement
-1140,0,GE GeoProtect,636,677,cp,reinforcement
-1141,0,Baku Uprising token,713,684,cp,reinforcement
-1142,0,C.Asia Uprising token,797,684,cp,reinforcement
-1143,0,Enzeli Uprising token,881,684,cp,reinforcement
+1134,0,Afghan Uprising #1 #2 #3,81,711,cp,reinforcement
+1135,0,CAsia Uprising,186,711,cp,reinforcement
+1136,0,Egypt Rebel #1 #2 #3,290,711,cp,reinforcement
+1137,0,Indian Mutiny #1 #2 #3,394,711,cp,reinforcement
+1138,0,Arm Transcas #1 #2 #3,499,711,cp,reinforcement
+1139,0,Geo Transcaucasian #1 #2,567,711,cp,reinforcement
+1140,0,GE GeoProtect,636,711,cp,reinforcement
+1141,0,Baku Uprising token,713,720,cp,reinforcement
+1142,0,C.Asia Uprising token,797,720,cp,reinforcement
+1143,0,Enzeli Uprising token,881,720,cp,reinforcement
 1144,0,CP Removed Box,385,865,cp,reinforcement
 1145,0,CP Permanently Eliminated Box,686,865,cp,reinforcement

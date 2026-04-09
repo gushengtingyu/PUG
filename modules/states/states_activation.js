@@ -45,6 +45,7 @@ exports.register = function (states, Engine, context) {
 		get_scu_reserve_box,
 		get_eliminated_box,
 		get_removed_box,
+		get_permanently_eliminated_box,
 		is_reserve_space,
 		is_in_reserve,
 		is_eliminated,
@@ -815,9 +816,9 @@ exports.register = function (states, Engine, context) {
 				return_to_combine_entry()
 				return
 			}
-			res.prompt("选择移入REMOVE的SCU")
+			res.prompt("选择移入PE的SCU")
 			res.where(game.where)
-			res.space(get_removed_box(active_faction()))
+			res.space(get_permanently_eliminated_box(active_faction()))
 			res.who(ctx.pending_scus)
 			for (let p of ctx.pending_scus) res.piece(p)
 			res.action("cancel")
@@ -825,7 +826,7 @@ exports.register = function (states, Engine, context) {
 		piece(p) {
 			let ctx = game.combine_ctx
 			if (!ctx || !set_has(ctx.pending_scus, p)) return
-			game.pieces[p] = get_removed_box(data.pieces[p].faction)
+			game.pieces[p] = get_permanently_eliminated_box(data.pieces[p].faction)
 			set_delete(ctx.pending_scus, p)
 			log(`SCU ${data.pieces[p].name} removed.`)
 			finalize_manual_combination()

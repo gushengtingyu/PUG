@@ -56,21 +56,21 @@ module.exports = function (Engine) {
 	function mo_name(mo) {
 		switch (mo) {
 			case MO_RUSSIA:
-				return "俄国 (Russia)"
+				return "俄国"
 			case MO_BRITISH:
-				return "大英帝国 (British Empire)"
+				return "大英帝国"
 			case MO_TURKEY:
-				return "土耳其 (Turkey)"
+				return "土耳其"
 			case MO_ENVER:
-				return "恩维尔 (Enver)"
+				return "恩维尔"
 			case MO_MESOPOTAMIA:
-				return "美索不达米亚/波斯 (Mesopotamia/Persia)"
+				return "美索不达米亚/波斯"
 			case MO_BALKANS:
-				return "巴尔干 (Balkans)"
+				return "巴尔干"
 			case MO_EGYPT:
-				return "埃及 (Egypt)"
+				return "埃及"
 			case MO_BRITISH_NO_ATTACK:
-				return "英军进攻 (British No Attack)"
+				return "英军禁攻"
 			case MO_BRITISH_MESOPOTAMIA:
 				return "英军 (美索不达米亚)"
 			case MO_BRITISH_EGYPT:
@@ -84,7 +84,7 @@ module.exports = function (Engine) {
 			case MO_TURKEY_MESOPOTAMIA:
 				return "土耳其 (美索不达米亚)"
 			case MO_NONE:
-				return "无 (None)"
+				return "无"
 			default:
 				return mo
 		}

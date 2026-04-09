@@ -323,20 +323,21 @@ exports.register = function (states, Engine, context) {
 	function check_russian_revolution_step() {
 		if (!game.events["parvus_to_berlin"]) return
 
-		// Recalculate Long Live the Czar marker (god_save_the_tsar)
-		// It starts at Parvus + RU VP (net). Parvus is usually Turn 5.
-		// Warm Water Port adds 2 to this value.
-		let offset = game.events["warm_water_port"] ? 2 : 0
-		game.god_save_the_tsar = (game.events["parvus_to_berlin"] || 5) + (game.russian_vp || 0) + offset
+		if (typeof Engine.events.sync_russian_revolution_markers === "function") {
+			Engine.events.sync_russian_revolution_markers(game)
+		}
 
 		let constantinople = find_space("CONSTANTINOPLE")
 		let blocked = constantinople >= 0 && game.control[constantinople] === AP
 		if (!game.events["russian_revolution"]) {
-			let timer = game.events["russian_revolution_timer"] || 9
+			let timer =
+				typeof Engine.events.get_revolution_marker_turn === "function"
+					? Engine.events.get_revolution_marker_turn(game)
+					: game.events["russian_revolution_timer"] || 9
 			if (game.turn >= timer && game.turn >= game.god_save_the_tsar && !blocked) {
 				game.ru_revolution = 1
 				game.events["russian_revolution"] = 1
-				log("Russian Revolution starts: Phase 1.")
+				log("俄国革命开始：第1阶段。")
 				return
 			}
 			return
@@ -400,12 +401,13 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function start_turn() {
-		if (game.turn >= 20) {
-			log("End of Turn 20 reached. Game ends.")
+		let max_turn = game.scenario_max_turn || 20
+		if (game.turn >= max_turn) {
+			log(`End of Turn ${max_turn} reached. Game ends.`)
 			let final = final_victory_from_vp(game.vp)
 			game.state = "game_over"
 			game.result = final.result
-			game.victory = "End of Turn 20 - " + final.victory
+			game.victory = `End of Turn ${max_turn} - ` + final.victory
 			return
 		}
 

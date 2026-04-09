@@ -4413,8 +4413,9 @@ function get_space_activation_marker_count(s) {
 
 function render_space_markers(space, state, s, stack_parts) {
 	const control = get_space_control(state, s)
+	const hasRussianControlMarker = has_id(state.ru_control_markers, s)
 	if (control) {
-		if (control !== space.faction) {
+		if (control !== space.faction && !(control === AP && hasRussianControlMarker)) {
 			const marker = build_control_marker(s, control)
 			if (marker) {
 				stack_parts.bottom_markers.push(marker)
@@ -4426,7 +4427,7 @@ function render_space_markers(space, state, s, stack_parts) {
 		destroy_control_marker(s)
 	}
 
-	if (has_id(state.ru_control_markers, s)) {
+	if (hasRussianControlMarker) {
 		stack_parts.bottom_markers.push(build_russian_control_marker(s))
 	} else {
 		destroy_russian_control_marker(s)

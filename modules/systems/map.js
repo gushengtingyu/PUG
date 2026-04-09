@@ -63,6 +63,28 @@ module.exports = function (Engine) {
 		return found
 	}
 
+	function has_friendly_pieces(game, s, faction) {
+		if (faction === undefined) faction = game.active
+		let found = false
+		for_each_piece_in_space(game, s, (p) => {
+			if (get_piece_effective_faction(game, p) === faction) found = true
+		})
+		return found
+	}
+
+	function is_disrupted_by_enemy(game, s, faction) {
+		if (faction === undefined) faction = game.active
+		let enemy = other_faction(faction)
+		let found = false
+		for_each_piece_in_space(game, s, (p) => {
+			if (get_piece_effective_faction(game, p) === enemy) {
+				let type = data.pieces[p].type
+				if (type === "irregular" || type === "tribe" || data.pieces[p].nation === "Re") found = true
+			}
+		})
+		return found
+	}
+
 	function get_piece_connected_spaces_for_rule(game, from, p, mode = "move") {
 		let info = data.pieces[p]
 		if (!info) return []
@@ -115,6 +137,11 @@ module.exports = function (Engine) {
 		let space = data.spaces[s]
 		if (!space) return false
 		return !!space.port || is_gallipoli(s) || (game ? is_beachhead_space(game, s) : false)
+	}
+
+	function is_port(s) {
+		let space = data.spaces[s]
+		return !!(space && space.port)
 	}
 
 	const AEGEAN_EAST_MED_PORTS = new Set([
@@ -234,13 +261,13 @@ module.exports = function (Engine) {
 		return get_area(s) === "georgia"
 	}
 	function is_galicia(s) {
-		return get_region(s) === "Galicia"
+		return String(get_region(s) || "").toLowerCase() === "galicia"
 	}
 	function is_gallipoli(s) {
 		return get_area(s) === "gallipoli"
 	}
 	function is_india(s) {
-		return get_area(s) === "india"
+		return String(get_region(s) || "").toLowerCase() === "india"
 	}
 	function is_russia(s) {
 		return get_area(s) === "russia"
@@ -260,12 +287,12 @@ module.exports = function (Engine) {
 	}
 
 	function is_sudan_and_darfur(s) {
-		return get_region(s) === "Sudan and Darfur"
+		return String(get_region(s) || "").toLowerCase() === "sudan and darfur"
 	}
 
 	function is_persia(s) {
-		let region = get_region(s)
-		if (region && region.includes("Persia")) return true
+		let region = String(get_region(s) || "").toLowerCase()
+		if (region && region.includes("persia")) return true
 		let area = get_area(s)
 		return area === "persia" && !is_afghanistan(s) && !is_baluchistan(s)
 	}
@@ -288,7 +315,7 @@ module.exports = function (Engine) {
 	}
 
 	function is_hejaz(s) {
-		return get_region(s) === "Hejaz"
+		return String(get_region(s) || "").toLowerCase() === "hejaz"
 	}
 
 	function is_mesopotamia(s) {
@@ -320,14 +347,29 @@ module.exports = function (Engine) {
 
 	// --- Control Logic ---
 
-	function is_controlled_by(game, s, faction) {
-		// Check dynamic control
-		if (game.control && game.control[s]) {
-			return game.control[s] === faction
+	function get_default_controller(game, s) {
+		let info = data.spaces[s]
+		if (!info) return null
+		if (info.faction !== "neutral") return info.faction
+		if (info.nation === "bu" && game.events && game.events["bulgaria"]) return CP
+		if (info.nation === "sb" && game.events && game.events["bulgaria"]) return AP
+		if (info.nation === "ro" && game.events && game.events["romania"]) return AP
+		if (info.nation === "gr") {
+			if (Engine.neutral.is_greek_controlled_by_faction(game, AP)) return AP
+			if (Engine.neutral.is_greek_controlled_by_faction(game, CP)) return CP
 		}
+		return info.faction
+	}
 
-		// Fallback to static faction definition from data
-		return data.spaces[s].faction === faction
+	function get_space_controller(game, s) {
+		if (game.control && (game.control[s] === AP || game.control[s] === CP)) {
+			return game.control[s]
+		}
+		return get_default_controller(game, s)
+	}
+
+	function is_controlled_by(game, s, faction) {
+		return get_space_controller(game, s) === faction
 	}
 
 	function has_undestroyed_fort(game, s, faction) {
@@ -336,8 +378,7 @@ module.exports = function (Engine) {
 			if (data.spaces[s].nation === "tu" || data.spaces[s].nation === "tua") {
 				if (faction === CP && !set_has(game.forts.destroyed, s)) return true
 			} else {
-				let owner = data.spaces[s].faction
-				if (game.control && game.control[s]) owner = game.control[s]
+				let owner = get_space_controller(game, s)
 				if (owner === faction && !set_has(game.forts.destroyed, s)) return true
 			}
 		}
@@ -472,6 +513,14 @@ module.exports = function (Engine) {
 		if (name === "Qashqai") return "Qashqai"
 		if (name === "Laz") return "Laz"
 		return name
+	}
+
+	function get_tribal_spaces(tribe_type) {
+		let list = []
+		for (let s = 1; s < data.spaces.length; s++) {
+			if (data.spaces[s].tribal_activity_grid === tribe_type) list.push(s)
+		}
+		return list
 	}
 
 	function is_space_in_tribal_range(p, s) {
@@ -1765,7 +1814,7 @@ function get_stack_yildirim_count(pieces) {
 			return source_status !== "LIMITED"
 		}
 
-		if (game.control[s] !== faction && !contains_friendly_pieces(game, s, faction)) return false
+		if (!is_controlled_by(game, s, faction) && !contains_friendly_pieces(game, s, faction)) return false
 
 		// Rule 19.2.3: AP units may not end a move in a space with Greek units while neutral.
 		if (faction === AP && is_greece_neutral(game) && has_greek_units_in_space(game, s)) return false
@@ -1899,8 +1948,7 @@ function get_stack_yildirim_count(pieces) {
 			memo[s] = false
 			return false
 		}
-		let fort_owner = data.spaces[s].faction
-		if (game.control[s]) fort_owner = game.control[s]
+		let fort_owner = get_space_controller(game, s)
 		if (fort_owner === AP) {
 			memo[s] = supply_context.non_tribe[CP][s] === 1
 			return memo[s]
@@ -1921,7 +1969,7 @@ function get_stack_yildirim_count(pieces) {
 
 	function is_neutral_supply_blocked(game, s, faction) {
 		if (data.spaces[s].faction !== "neutral") return false
-		if (game.control && game.control[s]) return false
+		if (get_space_controller(game, s) !== "neutral") return false
 		if (
 			faction === CP &&
 			data.spaces[s].name === "Afghanistan" &&
@@ -1938,8 +1986,7 @@ function get_stack_yildirim_count(pieces) {
 		if (game.forts && game.forts.destroyed && set_has(game.forts.destroyed, s)) return false
 
 		// Check if it contains enemy units of the fort owner
-		let fort_owner = data.spaces[s].faction
-		if (game.control[s]) fort_owner = game.control[s]
+		let fort_owner = get_space_controller(game, s)
 
 		// Check enemy presence
 		// Must have at least one valid besieging unit (Regular or Irregular, but NOT Tribe)
@@ -2147,7 +2194,7 @@ function get_stack_yildirim_count(pieces) {
 
 			// British Supply Sources (14.2.3) (BR)
 			if (!nation || ["br", "fr", "it", "in", "anz", "sb", "gr"].includes(nation)) {
-				if (region === "Sudan and Darfur" || region === "India" || name === "Bahrain") return true
+				if (is_sudan_and_darfur(s) || is_india(s)) return true
 				// Island Bases (Lemnos, Cyprus)
 				if (is_island_base(game, s) && is_controlled_by(game, s, AP)) {
 					// Rule 13.3.2: German Subs in the Med blocks island bases from providing supply ONLY for Reinforcement/SR
@@ -2166,7 +2213,7 @@ function get_stack_yildirim_count(pieces) {
 			}
 
 			// Special: Arab Northern Army (14.2.7)
-			if (nation === "ar" && region === "Hejaz") return true
+			if (nation === "ar" && is_hejaz(s)) return true
 
 			// Special: Greece (14.2.6)
 			if (info.nation === "gr") {
@@ -2409,7 +2456,7 @@ function get_stack_yildirim_count(pieces) {
 				continue
 			}
 
-			let faction = game.control[s] || info.faction
+			let faction = get_space_controller(game, s)
 			if (faction === AP || faction === CP) {
 				let supply_info = faction === AP ? ap_supply : cp_supply
 				let status = "OOS"
@@ -3007,6 +3054,10 @@ function get_stack_yildirim_count(pieces) {
 		get_pieces_in_space,
 		for_each_piece_in_space,
 		contains_enemy_pieces,
+		has_friendly_pieces,
+		is_disrupted_by_enemy,
+		is_port,
+		get_tribal_spaces,
 		get_piece_connected_spaces_for_rule,
 		is_non_balkan_beachhead,
 		get_piece_effective_faction,
@@ -3032,6 +3083,8 @@ function get_stack_yildirim_count(pieces) {
 		is_galicia,
 		is_russia,
 		get_area,
+		get_default_controller,
+		get_space_controller,
 		is_controlled_by,
 		destroy_fort,
 		is_naval_access_space,
