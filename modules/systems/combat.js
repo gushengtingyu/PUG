@@ -42,7 +42,9 @@ module.exports = function (Engine) {
 		get_piece_nation_groups_for_rule,
 		get_piece_nations_for_rule,
 		piece_counts_as_nation_for_rule,
-		can_piece_be_activated
+		pieces_count_as_any_nation_for_rule,
+		can_piece_be_activated,
+		get_season
 	} = Engine.game_utils
 	const {
 		is_naval_access_space,
@@ -58,6 +60,7 @@ module.exports = function (Engine) {
 		get_crossing_type,
 		is_tribe,
 		is_region,
+		is_island_base,
 		get_area,
 		is_balkans,
 		is_caucasus,
@@ -188,35 +191,6 @@ module.exports = function (Engine) {
 		CC_CP_ARMY_OF_ISLAM
 	})
 
-	const COMBAT_CARD_DRM_BASE = new Set([
-		CC_AP_ROYAL_FLYING_CORPS,
-		CC_AP_TANKS,
-		CC_AP_MASSED_CAVALRY_CHARGE,
-		CC_AP_PUSH_TO_THE_BREAKING_POINT,
-		CC_AP_HAVERSACK_RUSE,
-		CC_AP_ARMORED_CARS,
-		CC_AP_SHORE_BOMBARDMENT,
-		CC_AP_WAR_WEARY_BALKANS,
-		CC_CP_JIHAD_OFFENSIVE,
-		CC_CP_SURPRISE,
-		CC_CP_JAFAR_PASHA,
-		CC_CP_FLIEGERABTEILUNG,
-		CC_CP_I_ORDER_YOU_TO_DIE,
-		CC_CP_CZARS_ARMORIES,
-		CC_CP_ARMY_OF_ISLAM,
-		CC_AP_ARMENIAN_DRUZHINY,
-		CC_AP_PUGNACITY,
-		CC_AP_GURKHAS,
-		CC_AP_MAUDE,
-		CC_CP_GERMAN_HIGH_COMMAND
-	])
-
-	const COMBAT_CARD_DRM_RULES = {
-		[CC_CP_PASHA_1]: (has_nation, side_pieces) => (has_nation(side_pieces, ["ge"]) ? 1 : 0)
-	}
-
-	const ATTACKER_DRM_PENALTY_CARDS = new Set([CC_CP_WATER_SHORTAGE, CC_CP_CONFUSED_ORDERS])
-
 	// Fire Table（PUG edition)
 	const fire_table = {
 		scu: [
@@ -266,6 +240,7 @@ module.exports = function (Engine) {
 	function clear_save_tiflis_state(game) {
 		delete game.save_tiflis_resolved
 		delete game.save_tiflis_failed
+		delete game.save_tiflis_pieces
 	}
 
 	function ensure_combat_card_context(game) {
@@ -356,6 +331,55 @@ module.exports = function (Engine) {
 	}
 
 	// PUG恶劣天气
+	function can_battle_trigger_severe_weather(game, season = null) {
+		if (!game.attack) return false
+		if (
+			game.active === CP &&
+			game.combat_cards &&
+			game.combat_cards.attacker &&
+			game.combat_cards.attacker.includes(CC_CP_PASHA_1)
+		) {
+			return false
+		}
+
+		const target_space = game.attack.space
+		const current_season = season || get_season(game)
+		const pugnacity_active = is_turn_event(game, "pugnacity_tenacity_no_weather")
+		if (pugnacity_active) {
+			let has_indian_attacker =
+				game.attack && game.attack.pieces.some((p) => piece_counts_as_nation_for_rule(game, p, "in"))
+			if (has_indian_attacker) return false
+		}
+
+		const is_summer = current_season === "Summer"
+		const is_winter = current_season === "Winter"
+
+		const is_severe_weather_space = (s) => {
+			const info = data.spaces[s]
+			const t = info.terrain
+			if (is_summer && (t === "desert" || t === "swamp")) return true
+			if (is_winter && t === "mountain") {
+				return get_area(s) !== "syria_palestine"
+			}
+			return false
+		}
+
+		let is_ru_attacking = game.attack.pieces.some((p) => piece_counts_as_nation_for_rule(game, p, "ru"))
+		if (is_winter && is_ru_attacking && is_turn_event(game, "russian_winter_offensive")) return false
+
+		let regular_attackers = game.attack.pieces.filter((p) => is_regular(p))
+		if (regular_attackers.length === 0) return false
+
+		for (let p of regular_attackers) {
+			const s = game.pieces[p]
+			if (is_severe_weather_space(s) || is_severe_weather_space(target_space)) {
+				return true
+			}
+		}
+
+		return false
+	}
+
 	function apply_severe_weather(game, log, season, reduce_piece_fn) {
 		if (
 			game.active === CP &&
@@ -372,25 +396,13 @@ module.exports = function (Engine) {
 		}
 		const target_space = game.attack.space
 		const round = game.action_round
-		const pugnacity_active = is_turn_event(game, "pugnacity_tenacity_no_weather")
-		if (pugnacity_active) {
-			let has_indian_attacker =
-				game.attack && game.attack.pieces.some((p) => piece_counts_as_nation_for_rule(game, p, "in"))
-			if (has_indian_attacker) return
-		}
-
 		const is_summer = season === "Summer"
 		const is_winter = season === "Winter"
-
-		// Condition: Summer -> desert/swamp, Winter -> mountain
 		const is_severe_weather_space = (s) => {
 			const info = data.spaces[s]
 			const t = info.terrain
 			if (is_summer && (t === "desert" || t === "swamp")) return true
-			if (is_winter && t === "mountain") {
-				// Rule 12.5.1: Exception: Mountains in Syria/Palestine do not have this effect.
-				return get_area(s) !== "syria_palestine"
-			}
+			if (is_winter && t === "mountain") return get_area(s) !== "syria_palestine"
 			return false
 		}
 
@@ -755,6 +767,7 @@ module.exports = function (Engine) {
 
 	function can_activate_piece_in_space_to_attack(game, p, s, faction, get_season_fn, is_rail_connected_to_supply_fn) {
 		if (!can_piece_be_activated(p)) return false
+		if (game.events && game.events["apis"] === game.turn && data.pieces[p].nation === "sb") return false
 		if (Engine.map.is_afghanistan(s) && !(game.events && game.events["afghan_alliance"])) return false
 		let enemy = other_faction(faction)
 		let adj = get_piece_connected_spaces_for_rule(game, s, p)
@@ -889,13 +902,7 @@ module.exports = function (Engine) {
 	}
 
 	function has_br_attacker(game, pieces) {
-		return pieces.some(
-			(p) =>
-				data.pieces[p] &&
-				(piece_counts_as_nation_for_rule(game, p, "br") ||
-					piece_counts_as_nation_for_rule(game, p, "in") ||
-					piece_counts_as_nation_for_rule(game, p, "anz"))
-		)
+		return pieces_count_as_any_nation_for_rule(game, pieces, ["br", "in", "anz"])
 	}
 
 	function is_attack_in_or_into_greece(game, pieces, target) {
@@ -1353,7 +1360,6 @@ module.exports = function (Engine) {
 				const return_to_hand = (card) => {
 					if (cancelling_cards.includes(card)) return
 					if (effected_cards.includes(card)) {
-						if (log_fn) log_fn(`战斗取消: ${Engine.card_name(card)} `)
 						return
 					}
 
@@ -1375,8 +1381,6 @@ module.exports = function (Engine) {
 
 					if (was_retained) {
 						set_add(retained, card)
-						if (log_fn)
-							log_fn(`战斗取消: 将 ${Engine.card_name(card)} 返回至 ${owner.toUpperCase()} 战场保留区.`)
 						// Note: We don't need to remove it from discard/removed because when played from retained,
 						// it was moved there. We should probably remove it from there now.
 						if (set_has(discard, card)) set_delete(discard, card)
@@ -1385,15 +1389,9 @@ module.exports = function (Engine) {
 						if (set_has(discard, card)) {
 							set_delete(discard, card)
 							set_add(hand, card)
-							if (log_fn)
-								log_fn(`战斗取消: 将 ${Engine.card_name(card)} 返回至 ${owner.toUpperCase()} 手牌.`)
 						} else if (set_has(removed, card)) {
 							set_delete(removed, card)
 							set_add(hand, card)
-							if (log_fn)
-								log_fn(
-									`战斗取消: 将 ${Engine.card_name(card)} (星号卡) 返回至 ${owner.toUpperCase()} 手牌.`
-								)
 						}
 					}
 				}
@@ -1603,22 +1601,7 @@ module.exports = function (Engine) {
 		let hand_cp = game.hand_cp || []
 		let retained_cp = (game.cc_retained && game.cc_retained.cp) || []
 		if (!hand_cp.includes(CC_CP_RESERVES_TO_FRONT) && !retained_cp.includes(CC_CP_RESERVES_TO_FRONT)) return false
-		let seen = new Set()
-		let groups = [
-			game.attack.pieces || [],
-			game.attack.initial_defenders || [],
-			get_pieces_in_space(game, game.attack.space)
-		]
-		for (let group of groups) {
-			for (let p of group) {
-				if (seen.has(p)) continue
-				if (Array.isArray(game.retreated) && set_has(game.retreated, p)) continue
-				seen.add(p)
-				if (!["tu", "tua"].includes(data.pieces[p].nation)) continue
-				if (set_has(game.reduced, p) || is_not_on_map(game, p)) return true
-			}
-		}
-		return false
+		return Engine.combat_cards.get_reserves_to_front_piece_pool(game).length > 0
 	}
 
 	function check_advance_siege_requirement(game, result, defender_faction, log_fn) {
@@ -1750,7 +1733,6 @@ module.exports = function (Engine) {
 			}
 
 			if (check_save_tiflis_event(game, log_fn)) {
-				delete game.battle_result
 				return
 			}
 
@@ -1917,6 +1899,7 @@ module.exports = function (Engine) {
 			for (let next of adj) {
 				if (contains_enemy_pieces(game, next, faction)) continue
 				if (local_avoided.includes(next)) continue
+				if (Engine.map.is_potential_beachhead_space(next) && !Engine.map.is_beachhead_space(game, next)) continue
 				if (!can_enter_region(game, piece, next)) continue
 
 				if (steps_left === 1) {
@@ -1926,6 +1909,12 @@ module.exports = function (Engine) {
 				}
 
 				if (is_region(game, next)) {
+					if (!ignore_stacking && !can_stack_end_in_space(game, next, [piece])) continue
+					valid.push(next)
+					continue
+				}
+
+				if (is_island_base(game, next)) {
 					if (!ignore_stacking && !can_stack_end_in_space(game, next, [piece])) continue
 					valid.push(next)
 					continue
@@ -2081,7 +2070,7 @@ module.exports = function (Engine) {
 		for (let name of capitals) {
 			let s = find_space(name)
 			if (s >= 0) {
-				if (game.control[s] !== faction || is_besieged(game, s)) return true
+				if (!Engine.map.is_controlled_by(game, s, faction) || is_besieged(game, s)) return true
 			}
 		}
 		return false
@@ -2111,8 +2100,7 @@ module.exports = function (Engine) {
 
 				// Determine besieging faction
 				let besieging_faction = null
-				let fort_owner = data.spaces[s].faction
-				if (game.control[s]) fort_owner = game.control[s]
+				let fort_owner = Engine.map.get_space_controller(game, s)
 
 				// Find an enemy unit to determine who captured it
 				let pieces = get_pieces_in_space(game, s)
@@ -2368,16 +2356,11 @@ module.exports = function (Engine) {
 	}
 
 	function get_combat_card_drm(card, side, game, attackers, defenders) {
-		const side_pieces = side === "attacker" ? attackers : defenders
-		const has_nation = (pieces, nations) =>
-			pieces.some((p) => nations.some((nation) => piece_counts_as_nation_for_rule(game, p, nation)))
-		let rule = COMBAT_CARD_DRM_RULES[card]
-		if (rule) return rule(has_nation, side_pieces, game)
-		return COMBAT_CARD_DRM_BASE.has(card) ? 1 : 0
+		return Engine.combat_cards.get_combat_card_drm(card, side, game, attackers, defenders)
 	}
 
-	function get_combat_card_penalty(card, side) {
-		return side === "attacker" && ATTACKER_DRM_PENALTY_CARDS.has(card) ? 1 : 0
+	function get_combat_card_penalty(card, side, game, attackers, defenders) {
+		return Engine.combat_cards.get_combat_card_penalty(card, side, game, attackers, defenders)
 	}
 
 	function no_prisoners_applies(attackers) {
@@ -2528,17 +2511,18 @@ module.exports = function (Engine) {
 		}
 
 		if (strait_violation) {
-			log("Battle Cancelled due to Strait Control Violation.")
+			log("战斗取消。")
 			return { cancelled: true, cancelling_cards: [], attackers, defenders }
 		}
 
-		if (game.liberate_suez_op_required && game.active === CP && Engine.map.is_egypt(target_space)) {
+		if (game.liberate_suez_battle_required && game.active === CP && Engine.map.is_egypt(target_space)) {
 			if (!Array.isArray(game.liberate_suez_egypt_attacked_spaces)) game.liberate_suez_egypt_attacked_spaces = []
 			for (let p of attackers) {
 				let from = game.pieces[p]
 				if (Engine.map.is_egypt(from) && game.activated && set_has(game.activated.attack, from)) {
 					set_add(game.liberate_suez_egypt_attacked_spaces, from)
 					game.liberate_suez_egypt_battle_done = true
+					delete game.liberate_suez_battle_required
 				}
 			}
 		}
@@ -2546,14 +2530,14 @@ module.exports = function (Engine) {
 		// 1. Check Sandstorms (Cancel) - CP Card 61
 		if (game.combat_cards && game.combat_cards.defender && game.combat_cards.defender.includes(CC_CP_SANDSTORMS)) {
 			if (Engine.combat_cards.is_desert_or_swamp_battle(game)) {
-				log("CP打出[沙尘暴和疟蚊] 战斗取消.")
+				log("战斗取消。")
 				return { cancelled: true, cancelling_cards: [CC_CP_SANDSTORMS], attackers, defenders }
 			}
 		}
 
 		// 2. Jafar Pasha Retreat (Cancel)
 		if (game.cc_jafar_pasha_retreat) {
-			log("CP uses Jafar Pasha to Retreat! Attack Cancelled.")
+			log("战斗取消。")
 			delete game.cc_jafar_pasha_retreat
 			return { cancelled: true, cancelling_cards: [CC_CP_JAFAR_PASHA], attackers, defenders }
 		}
@@ -2935,7 +2919,7 @@ module.exports = function (Engine) {
 			if (game.combat_cards.attacker) {
 				for (let c of game.combat_cards.attacker) {
 					let bonus = get_combat_card_drm(c, "attacker", game, attackers, defenders)
-					let penalty = get_combat_card_penalty(c, "attacker")
+					let penalty = get_combat_card_penalty(c, "attacker", game, attackers, defenders)
 					att_drm += bonus
 					def_drm -= penalty
 					if (bonus !== 0 || penalty !== 0) {
@@ -2946,7 +2930,7 @@ module.exports = function (Engine) {
 			if (game.combat_cards.defender) {
 				for (let c of game.combat_cards.defender) {
 					let bonus = get_combat_card_drm(c, "defender", game, attackers, defenders)
-					let penalty = get_combat_card_penalty(c, "defender")
+					let penalty = get_combat_card_penalty(c, "defender", game, attackers, defenders)
 					def_drm += bonus
 					att_drm -= penalty
 					if (bonus !== 0 || penalty !== 0) {
@@ -3467,6 +3451,7 @@ module.exports = function (Engine) {
 		get_piece_cf,
 		get_piece_lf,
 		apply_losses,
+		can_battle_trigger_severe_weather,
 		apply_severe_weather,
 		has_undestroyed_fort,
 		has_trench,

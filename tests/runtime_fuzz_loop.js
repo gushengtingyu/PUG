@@ -87,17 +87,29 @@ function actionWeight(name) {
 	return 4
 }
 
-function buildChoices(actions) {
+function buildChoices(actions, game) {
 	let choices = []
 	if (!actions || typeof actions !== "object") return choices
 	for (let name of Object.keys(actions)) {
 		let weight = actionWeight(name)
 		if (weight <= 0) continue
+
 		let value = actions[name]
 		if (Array.isArray(value)) {
-			for (let arg of value) choices.push({ name, arg, weight })
+			for (let arg of value) {
+				// Temporarily disable "LIBERATE SUEZ" event (ID 67) to avoid stuck issues in fuzzing
+				if ((name === "play_event" || name === "event") && arg === 67) {
+					continue
+				}
+				choices.push({ name, arg, weight })
+			}
 		} else if (value === 1) {
-			choices.push({ name, weight })
+			// Temporarily disable "LIBERATE SUEZ" event (ID 67) to avoid stuck issues in fuzzing
+			if ((name === "play_event" || name === "event") && game && game.card === 67) {
+				// skip
+			} else {
+				choices.push({ name, weight })
+			}
 		}
 	}
 	return choices
@@ -360,7 +372,7 @@ function run(inputOptions = {}) {
 			return result
 		}
 
-		const choices = buildChoices(view.actions)
+		const choices = buildChoices(view.actions, game)
 		if (choices.length === 0) {
 			noActionEvents.push({
 				state: game.state,

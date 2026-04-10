@@ -103,6 +103,15 @@ exports.register = function (states, Engine, context) {
 		return true
 	}
 
+	function should_stop_move_on_island_base(from_space, target) {
+		if (!Engine.map.is_island_base(game, target)) return false
+		return !Engine.map.is_island_base(game, from_space)
+	}
+
+	function should_create_beachhead_on_entry(from_space, target) {
+		return Engine.map.can_ap_initiate_invasion_to_beachhead(game, from_space, target, active_faction())
+	}
+
 	function activation_now() {
 		return Date.now()
 	}
@@ -1090,7 +1099,13 @@ exports.register = function (states, Engine, context) {
 			let s = game.move.current
 			res.where(s)
 			res.who(game.move.pieces)
-			res.prompt(`移动 ${space_name(s)} 处的堆叠`)
+
+			let current_block_reason = get_move_end_space_block_reason(game, s, active_faction())
+			if (current_block_reason) {
+				res.prompt(`移动 ${space_name(s)} 处的堆叠 (无法结束移动: ${current_block_reason})`)
+			} else {
+				res.prompt(`移动 ${space_name(s)} 处的堆叠`)
+			}
 
 			let all_neighbors = new Set()
 			for (let p of game.move.pieces) {
@@ -1104,7 +1119,9 @@ exports.register = function (states, Engine, context) {
 				}
 			}
 
-			res.action("stop")
+			if (!current_block_reason) {
+				res.action("stop")
+			}
 
 			// Allow dropping pieces
 			for (let p of game.move.pieces) {
@@ -1144,6 +1161,7 @@ exports.register = function (states, Engine, context) {
 		let from_space = game.move.current
 		let pieces_moving = []
 		let pieces_stopped = []
+		let creates_beachhead = should_create_beachhead_on_entry(from_space, target)
 
 		let is_siege_entry =
 			has_undestroyed_fort(game, target, other_faction(active_faction())) && !Engine.map.is_besieged(game, target)
@@ -1202,6 +1220,13 @@ exports.register = function (states, Engine, context) {
 		}
 
 		if (pieces_moving.length > 0) {
+			if (creates_beachhead) {
+				if (!game.beachheads) game.beachheads = []
+				set_add(game.beachheads, target)
+				game.unplaced_beachheads--
+				Engine.neutral.on_beachhead_placed(game, target, active_faction())
+				log(`Beachhead placed at ${space_name(target)}.`)
+			}
 			log("Moved to " + space_name(target))
 			if (resolve_cp_enter_empty_beachhead_by_movement(from_space, target, pieces_moving)) {
 				return
@@ -1233,7 +1258,7 @@ exports.register = function (states, Engine, context) {
 			}
 			Engine.sync_neutral_vp_state(game, target)
 
-			if (is_siege_entry) {
+			if (is_siege_entry || creates_beachhead || should_stop_move_on_island_base(from_space, target)) {
 				end_move_stack()
 			}
 		} else {
@@ -1257,14 +1282,12 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function end_move_stack() {
-		let touched_spaces = game.move.touched_spaces || [game.move.initial, game.move.current]
-		for (let s of touched_spaces) {
-			let reason = get_move_end_space_block_reason(game, s, active_faction())
-			if (reason) {
-				log(`不能结束移动：${space_name(s)} 不合法（${reason}）`)
-				set_next_state("move_stack")
-				return
-			}
+		let current_space = game.move.current
+		let reason = get_move_end_space_block_reason(game, current_space, active_faction())
+		if (reason) {
+			log(`不能结束移动：${space_name(current_space)} 不合法（${reason}）`)
+			set_next_state("move_stack")
+			return
 		}
 
 		for (let p of game.move.pieces) {

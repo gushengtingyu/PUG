@@ -3,7 +3,7 @@
 module.exports = function (Engine) {
 	const { data } = Engine
 	const { AP, CP, RESERVE } = Engine.constants
-	const { set_delete } = Engine.utils
+	const { set_add, set_delete } = Engine.utils
 	const { find_space, get_capacity, get_piece_badge } = Engine.game_utils
 
 	const states = {}
@@ -24,6 +24,7 @@ module.exports = function (Engine) {
 	const BAKU = find_space("Baku")
 	const ENZELI = find_space("Enzeli")
 	const PETROVSK = find_space("Petrovsk")
+	const GALICIA = find_space("Galicia")
 	const GALLIPOLI = find_space("Gallipoli")
 	const BOSPHORUS_FORTS = find_space("The Bosphorus Forts")
 	const MECCA = find_space("Mecca")
@@ -90,6 +91,96 @@ module.exports = function (Engine) {
 	function get_active_event_data(game) {
 		if (game && game.event_ctx && game.event_ctx.data) return game.event_ctx.data
 		return null
+	}
+
+	function get_available_invasion_island_bases(game, rules) {
+		let result = []
+		for (let s = 1; s < data.spaces.length; s++) {
+			if (!rules.is_island_base(game, s)) continue
+			if (!rules.is_controlled_by(game, s, AP)) continue
+			if (get_capacity(game, s) <= 0) continue
+			result.push(s)
+		}
+		return result
+	}
+
+	function can_start_invasion_event(game, rules) {
+		return (
+			game.events["churchill_prevails"] &&
+			rules.get_season(game) !== "Winter" &&
+			!game.events["unrestricted_submarine_warfare"]
+		)
+	}
+
+	function get_gallipoli_invasion_lcus(game, rules) {
+		let invasion = get_active_event_data(game)
+		let island_base = invasion && invasion.invasion_island_base
+		if (!island_base) return []
+		return ["BR VIII Corps", "ANZ ANZAC"]
+			.map((name) => rules.find_piece(AP, name))
+			.filter((p) => p >= 0 && game.pieces[p] === island_base)
+	}
+
+	function get_gallipoli_flip_options(game, rules, p) {
+		let info = data.pieces[p]
+		if (!info || info.piece_class !== "LCU") return []
+
+		let full_options = []
+		let reduced_options = []
+		let group = Engine.game_utils.get_nation_group(info.nation)
+
+		for (let i = 1; i < data.pieces.length; i++) {
+			if (!rules.is_in_reserve(game, i)) continue
+			let replacement = data.pieces[i]
+			if (replacement.piece_class !== "SCU") continue
+			if (Engine.game_utils.get_nation_group(replacement.nation) !== group) continue
+			if (Engine.events.is_turkish_replacement_blocked && Engine.events.is_turkish_replacement_blocked(game, i)) continue
+
+			if (Engine.game_utils.is_piece_reduced(game, i)) reduced_options.push(i)
+			else full_options.push(i)
+		}
+
+		const sort_by_type = (a, b) => {
+			let type_a = data.pieces[a].type
+			let type_b = data.pieces[b].type
+			if (type_a === info.type && type_b !== info.type) return -1
+			if (type_a !== info.type && type_b === info.type) return 1
+			return 0
+		}
+
+		full_options.sort(sort_by_type)
+		reduced_options.sort(sort_by_type)
+		return full_options.length > 0 ? full_options : reduced_options
+	}
+
+	function can_gallipoli_lcu_flip_now(game, rules, p) {
+		if (!rules.is_lcu(p)) return false
+		if (!Engine.game_utils.is_piece_reduced(game, p)) return false
+		if (!get_gallipoli_invasion_lcus(game, rules).includes(p)) return false
+		return get_gallipoli_flip_options(game, rules, p).length > 0
+	}
+
+	function can_gallipoli_scu_sr_to_reserve(game, rules, p) {
+		let info = data.pieces[p]
+		if (!info || info.faction !== AP || !rules.is_scu(p)) return false
+		if (game.pieces[p] <= 0 || rules.is_in_reserve(game, p)) return false
+		if (!rules.can_sr_piece(game, p, AP)) return false
+
+		let pending_lcus = get_gallipoli_invasion_lcus(game, rules).filter((lcu) => Engine.game_utils.is_piece_reduced(game, lcu))
+		if (pending_lcus.length === 0) return false
+
+		let original_space = game.pieces[p]
+		game.pieces[p] = rules.get_reserve_box(AP)
+		let can_enable = pending_lcus.some((lcu) => get_gallipoli_flip_options(game, rules, lcu).includes(p))
+		game.pieces[p] = original_space
+		return can_enable
+	}
+
+	function finish_gallipoli_invasion(game, rules) {
+		let invasion = get_active_event_data(game)
+		if (invasion) delete invasion.flip_lcu_if_scu
+		if (invasion) delete invasion.invasion_island_base
+		rules.goto_end_event()
 	}
 
 	function get_verdun_piece_cost(p) {
@@ -316,6 +407,12 @@ module.exports = function (Engine) {
 			return true
 		}
 		return false
+	}
+
+	function get_valid_event_port(event) {
+		if (!event || !Number.isInteger(event.event_port)) return -1
+		if (event.event_port <= 0 || !data.spaces[event.event_port]) return -1
+		return event.event_port
 	}
 
 	// === EVENT: RUSSO-BRITISH ASSAULT (ID 1) ===
@@ -821,7 +918,7 @@ module.exports = function (Engine) {
 			let event = use_event(game, "project_alexandria")
 			rules.push_undo()
 			if (!game.beachheads) game.beachheads = []
-			game.beachheads.push(s)
+			set_add(game.beachheads, s)
 			Engine.neutral.on_beachhead_placed(game, s, AP)
 			rules.log(`Beachhead placed at ${data.spaces[s].name}.`)
 			event.event_port = s
@@ -832,28 +929,31 @@ module.exports = function (Engine) {
 	states.event_project_alexandria_sr = {
 		prompt(ctx) {
 			let { game, res, rules } = ctx
-			let data_event = rules.get_event_data()
+			let data_event = rules.get_event_data() || {}
 			let event = use_event(game, "project_alexandria")
 			let count = data_event.count || 0
 			let max_count = 3 // Up to 3 SR points for SCUs
-
+			let event_port = get_valid_event_port(event)
+			let port_name = event_port > 0 ? data.spaces[event_port].name : "滩头"
 			res.prompt(
-				`亚历山大计划：选择至多3支英国/印度/澳新步兵师从预备军战略调整至位于 ${data.spaces[event.event_port].name} 的滩头 (${count}/${max_count})。`
+				`亚历山大计划：选择至多3支英国/印度/澳新步兵师战略调整至位于 ${port_name} 的滩头 (${count}/3)。`
 			)
 
-			for (let p = 1; p < data.pieces.length; p++) {
-				let piece = data.pieces[p]
-				if (!piece || !piece.faction) continue
-				if (
-					piece.faction === AP &&
-					(piece.nation === "br" || piece.nation === "in" || piece.nation === "anz") &&
-					piece.piece_class === "SCU" &&
-					(get_piece_badge(p) === "infantry" || get_piece_badge(p) === "blue") &&
-					rules.is_in_reserve(game, p)
-				) {
-					let cost = rules.get_sr_cost(p)
-					if (count + cost <= max_count) {
-						res.piece(p)
+			if (event_port > 0) {
+				for (let p = 1; p < data.pieces.length; p++) {
+					let piece = data.pieces[p]
+					if (!piece || !piece.faction) continue
+					if (
+						piece.faction === AP &&
+						(piece.nation === "br" || piece.nation === "in" || piece.nation === "anz") &&
+						piece.piece_class === "SCU" &&
+						(get_piece_badge(p) === "infantry" || get_piece_badge(p) === "blue") &&
+						rules.can_sr_piece(game, p, AP)
+					) {
+						let cost = rules.get_sr_cost(p)
+						if (count + cost <= max_count && game.pieces[p] !== event_port) {
+							res.piece(p)
+						}
 					}
 				}
 			}
@@ -862,12 +962,21 @@ module.exports = function (Engine) {
 		piece(ctx) {
 			let { game, rules, arg: p } = ctx
 			let event = use_event(game, "project_alexandria")
+			let event_port = get_valid_event_port(event)
+			if (event_port <= 0) {
+				rules.log("亚历山大计划：滩头未初始化，结束事件。")
+				rules.goto_end_operations()
+				return
+			}
 			rules.push_undo()
 			let data_event = rules.get_event_data()
 			let cost = rules.get_sr_cost(p)
 			data_event.count = (data_event.count || 0) + cost
 
-			game.pieces[p] = event.event_port
+			if (!game.sr_moved) game.sr_moved = []
+			rules.set_add(game.sr_moved, p)
+
+			game.pieces[p] = event_port
 			rules.log(`${rules.piece_name(p)} Strategic Redeployed to Beachhead (Cost: ${cost}).`)
 
 			if ((data_event.count || 0) >= 3) {
@@ -1220,7 +1329,7 @@ module.exports = function (Engine) {
 			rules.reinforce(game, unit, AP, s)
 
 			if (unit === "GR National Defense" && data.spaces[s].name === "Salonika") {
-				game.control[s] = AP
+				rules.set_control(game, s, AP)
 				game.events["salonika_is_port"] = true
 				rules.log("Salonika is now an AP port.")
 			}
@@ -1242,9 +1351,9 @@ module.exports = function (Engine) {
 
 	states.event_kitcheners_invasion_choice = {
 		prompt(ctx) {
-			let { game, res } = ctx
+			let { game, res, rules } = ctx
 			res.prompt("基钦纳入侵：选择一种打法")
-			if (!game.events["unrestricted_submarine_warfare"]) {
+			if (can_start_invasion_event(game, rules)) {
 				res.action("invasion", "发起入侵 (海上入侵+入侵+增援)")
 			}
 			res.action("reinforcement", "仅增援 (替代入侵)")
@@ -1257,6 +1366,7 @@ module.exports = function (Engine) {
 				event.beachheads_to_place = 1
 				event.reinf_to_place = ["BR IX Corps", "BR DIV #2", "BR DIV #3"]
 				event.direct_to_beachhead = true
+				event.allow_beachhead_reserve_box = false
 			}
 			game.state = "event_invasion_place_beachhead"
 		},
@@ -1273,10 +1383,10 @@ module.exports = function (Engine) {
 
 	states.event_gallipoli_invasion_choice = {
 		prompt(ctx) {
-			let { game, res } = ctx
+			let { game, res, rules } = ctx
 			res.prompt("加利波里入侵：选择一种打法")
-			if (!game.events["unrestricted_submarine_warfare"]) {
-				res.action("invasion", "发起入侵 (海上入侵+入侵)")
+			if (can_start_invasion_event(game, rules)) {
+				res.action("invasion", "进行入侵集结")
 			}
 			res.action("reinforcement", "仅增援 (替代入侵)")
 		},
@@ -1285,11 +1395,12 @@ module.exports = function (Engine) {
 			rules.push_undo()
 			let event = get_active_event_data(game)
 			if (event) {
-				event.beachheads_to_place = 2
 				event.reinf_to_place = ["BR VIII Corps", "ANZ ANZAC", "FR DIV #1", "FR DIV #2", "BR DIV #1"]
 				event.flip_lcu_if_scu = true
 			}
-			game.state = "event_invasion_place_beachhead"
+			game.unplaced_beachheads = (game.unplaced_beachheads || 0) + 2
+			rules.log("加利波里入侵：获得 2 个未放置滩头标记。")
+			game.state = "event_invasion_place_units_island"
 		},
 		reinforcement(ctx) {
 			let { game, rules } = ctx
@@ -1306,10 +1417,10 @@ module.exports = function (Engine) {
 
 	states.event_salonika_invasion_choice = {
 		prompt(ctx) {
-			let { game, res } = ctx
+			let { game, res, rules } = ctx
 			res.prompt("萨洛尼卡入侵：选择一种打法")
-			if (!game.events["unrestricted_submarine_warfare"]) {
-				res.action("invasion", "发起入侵 (海上入侵+入侵)")
+			if (can_start_invasion_event(game, rules)) {
+				res.action("invasion", "进行入侵集结")
 			}
 			res.action("reinforcement", "仅增援 (替代入侵)")
 		},
@@ -1318,11 +1429,12 @@ module.exports = function (Engine) {
 			rules.push_undo()
 			let event = get_active_event_data(game)
 			if (event) {
-				event.beachheads_to_place = 1
 				event.reinf_to_place = ["BR XVI Corps", "BR XII Corps", "FR DIV #1", "FR DIV #2"]
 				event.allow_sr_to_island = 3
 			}
-			game.state = "event_invasion_place_beachhead"
+			game.unplaced_beachheads = (game.unplaced_beachheads || 0) + 1
+			rules.log("萨洛尼卡入侵：获得 1 个未放置滩头标记。")
+			game.state = "event_invasion_place_units_island"
 		},
 		reinforcement(ctx) {
 			let { game, rules } = ctx
@@ -1348,7 +1460,9 @@ module.exports = function (Engine) {
 			}
 			res.prompt(`海上入侵：放置一个滩头标记（剩余 ${b} 个）。`)
 
-			res.space(rules.get_reserve_box(AP))
+			if (!event || event.allow_beachhead_reserve_box !== false) {
+				res.space(rules.get_reserve_box(AP))
+			}
 
 			for (let s = 1; s < data.spaces.length; s++) {
 				if (data.spaces[s].beach_for) {
@@ -1371,19 +1485,18 @@ module.exports = function (Engine) {
 		space(ctx) {
 			let { game, rules, arg: s } = ctx
 			let event = get_active_event_data(game)
+			let can_place_in_reserve = !event || event.allow_beachhead_reserve_box !== false
 			rules.push_undo()
 			if (s !== rules.get_reserve_box(AP)) {
 				if (!game.beachheads) game.beachheads = []
 				rules.set_add(game.beachheads, s)
 				rules.log(`Beachhead placed at ${data.spaces[s].name}.`)
-
-				// Rule 19.2.1: Placing a Beachhead marker in Athens triggers Greek entry as CP ally
-				if (Engine.neutral.is_greece_neutral(game) && Engine.neutral.is_athens_space(s)) {
-					Engine.neutral.trigger_greece_entry(game, s, AP, "在雅典放置滩头", (msg) => rules.log(msg))
-				}
-			} else {
+				Engine.neutral.on_beachhead_placed(game, s, AP)
+			} else if (can_place_in_reserve) {
 				rules.log("Beachhead placed in Reserve Box.")
 				game.unplaced_beachheads = (game.unplaced_beachheads || 0) + 1
+			} else {
+				return
 			}
 			let b = (event && event.beachheads_to_place) || 0
 			b--
@@ -1455,10 +1568,16 @@ module.exports = function (Engine) {
 				return
 			}
 			let unit = units[0]
-			res.prompt(`海上入侵：将 ${unit} 放置在任何协约国控制的岛屿基地。`)
+			let island_base = invasion && invasion.invasion_island_base
+			if (island_base) {
+				res.prompt(`海上入侵：将 ${unit} 放置在 ${data.spaces[island_base].name}。`)
+			} else {
+				res.prompt(`海上入侵：为本次入侵选择一个协约国控制的岛屿基地，并将 ${unit} 放置于其上。`)
+			}
+			let spaces = island_base ? [island_base] : get_available_invasion_island_bases(game, rules)
 			let has_space = false
-			for (let s = 1; s < data.spaces.length; s++) {
-				if (data.spaces[s].island_base && rules.is_controlled_by(game, s, AP) && get_capacity(game, s) > 0) {
+			for (let s of spaces) {
+				if (get_capacity(game, s) > 0) {
 					res.space(s)
 					has_space = true
 				}
@@ -1475,6 +1594,7 @@ module.exports = function (Engine) {
 			} else if (((invasion && invasion.allow_sr_to_island) || 0) > 0) {
 				game.state = "event_salonika_invasion_sr"
 			} else {
+				if (invasion) delete invasion.invasion_island_base
 				rules.goto_end_event()
 			}
 		},
@@ -1484,16 +1604,21 @@ module.exports = function (Engine) {
 			let invasion = get_active_event_data(game)
 			let { units, source } = get_reinforcement_units(game)
 			if (!units || units.length === 0) return
+			if (invasion && !invasion.invasion_island_base) {
+				invasion.invasion_island_base = s
+			}
+			let island_base = invasion && invasion.invasion_island_base
+			if (island_base && s !== island_base) return
 			let unit = units.shift()
 
 			if (unit === "BR VIII Corps" || unit === "ANZ ANZAC" || unit === "BR XII Corps") {
-				rules.reinforce(game, unit, AP, s)
+				rules.reinforce(game, unit, AP, island_base || s)
 				let p = rules.find_piece(AP, unit)
 				if (p >= 0 && !rules.set_has(game.reduced, p)) {
 					rules.set_add(game.reduced, p)
 				}
 			} else {
-				rules.reinforce(game, unit, AP, s)
+				rules.reinforce(game, unit, AP, island_base || s)
 			}
 
 			if (units.length === 0) {
@@ -1503,6 +1628,7 @@ module.exports = function (Engine) {
 				} else if (((invasion && invasion.allow_sr_to_island) || 0) > 0) {
 					game.state = "event_salonika_invasion_sr"
 				} else {
+					if (invasion) delete invasion.invasion_island_base
 					rules.goto_end_event()
 				}
 			}
@@ -1512,21 +1638,54 @@ module.exports = function (Engine) {
 	states.event_gallipoli_invasion_flip = {
 		prompt(ctx) {
 			let { game, res, rules } = ctx
-			res.prompt("加利波里入侵：你可以选择一个 SCU 将其翻转为 LCU 状态（如果存在的话）。")
-			let pieces = rules.get_pieces_in_reserve(AP)
-			let has_lcu = pieces.some((p) => rules.is_lcu(p))
-			if (has_lcu) {
-				// This is a placeholder for actual flip logic if needed
+			let invasion = get_active_event_data(game)
+			let island_base = invasion && invasion.invasion_island_base
+			if (!island_base) {
+				res.prompt("加利波里入侵：未确定岛屿基地。")
 				res.action("done")
-			} else {
-				res.action("done")
+				return
 			}
+
+			let flip_candidates = get_gallipoli_invasion_lcus(game, rules).filter((p) => can_gallipoli_lcu_flip_now(game, rules, p))
+			let sr_candidates = []
+			for (let p = 1; p < data.pieces.length; p++) {
+				if (can_gallipoli_scu_sr_to_reserve(game, rules, p)) {
+					sr_candidates.push(p)
+				}
+			}
+
+			if (flip_candidates.length > 0 || sr_candidates.length > 0) {
+				res.prompt(`加利波里入侵：你可以翻正 ${data.spaces[island_base].name} 上的减员军团，或先将对应 SCU 战略调整回预备军。`)
+				for (let p of flip_candidates) res.piece(p)
+				for (let p of sr_candidates) res.piece(p)
+			} else {
+				res.prompt("加利波里入侵：当前没有可翻正的军团，也没有可转回预备军的对应 SCU。")
+			}
+			res.action("done")
+		},
+		piece(ctx) {
+			let { game, rules, arg: p } = ctx
+			if (can_gallipoli_lcu_flip_now(game, rules, p)) {
+				rules.push_undo()
+				rules.set_delete(game.reduced, p)
+				rules.log(`${data.pieces[p].name} 翻回满编。`)
+				if (!get_gallipoli_invasion_lcus(game, rules).some((lcu) => can_gallipoli_lcu_flip_now(game, rules, lcu))) {
+					finish_gallipoli_invasion(game, rules)
+				}
+				return
+			}
+
+			if (!can_gallipoli_scu_sr_to_reserve(game, rules, p)) return
+
+			rules.push_undo()
+			if (!game.sr_moved) game.sr_moved = []
+			rules.set_add(game.sr_moved, p)
+			game.pieces[p] = rules.get_reserve_box(AP)
+			rules.log(`${data.pieces[p].name} 战略调整回预备军格。`)
 		},
 		done(ctx) {
 			let { game, rules } = ctx
-			let invasion = get_active_event_data(game)
-			if (invasion) delete invasion.flip_lcu_if_scu
-			rules.goto_end_event()
+			finish_gallipoli_invasion(game, rules)
 		}
 	}
 
@@ -1535,24 +1694,39 @@ module.exports = function (Engine) {
 			let { game, res, rules } = ctx
 			let invasion = get_active_event_data(game)
 			let sr_count = (invasion && invasion.allow_sr_to_island) || 0
-			res.prompt(`萨洛尼卡入侵：你可以将最多 ${sr_count} 个单位战略调整至岛屿基地。`)
+			let island_base = invasion && invasion.invasion_island_base
+			if (!island_base) {
+				res.prompt("萨洛尼卡入侵：未确定岛屿基地。")
+				res.action("done")
+				return
+			}
+			res.prompt(`萨洛尼卡入侵：你可以将最多 ${sr_count} 个英国/印度/澳新 SCU 战略调整至 ${data.spaces[island_base].name}。`)
 			for (let p = 0; p < data.pieces.length; p++) {
-				if (data.pieces[p].faction === AP && rules.is_scu(p) && game.pieces[p] > 0) {
-					res.piece(p)
-				}
+				let info = data.pieces[p]
+				if (!info || info.faction !== AP || !rules.is_scu(p)) continue
+				if (!["br", "in", "anz"].includes(info.nation)) continue
+				if (!rules.can_sr_piece(game, p, AP)) continue
+				if (game.pieces[p] <= 0 || rules.is_in_reserve(game, p) || game.pieces[p] === island_base) continue
+				res.piece(p)
 			}
 			res.action("done")
 		},
 		piece(ctx) {
 			let { game, rules, arg: p } = ctx
 			let invasion = get_active_event_data(game)
+			let island_base = invasion && invasion.invasion_island_base
+			if (!island_base) return
 			rules.push_undo()
-			game.pieces[p] = LEMNOS // Example island base
+			if (!game.sr_moved) game.sr_moved = []
+			rules.set_add(game.sr_moved, p)
+			game.pieces[p] = island_base
+			rules.log(`${data.pieces[p].name} Strategic Redeployed to ${data.spaces[island_base].name}.`)
 			let sr_count = (invasion && invasion.allow_sr_to_island) || 0
 			sr_count--
 			if (invasion) invasion.allow_sr_to_island = sr_count
 			if (sr_count <= 0) {
 				if (invasion) delete invasion.allow_sr_to_island
+				if (invasion) delete invasion.invasion_island_base
 				rules.goto_end_event()
 			}
 		},
@@ -1560,6 +1734,7 @@ module.exports = function (Engine) {
 			let { game, rules } = ctx
 			let invasion = get_active_event_data(game)
 			if (invasion) delete invasion.allow_sr_to_island
+			if (invasion) delete invasion.invasion_island_base
 			rules.goto_end_event()
 		}
 	}
@@ -2048,8 +2223,8 @@ module.exports = function (Engine) {
 		prompt(ctx) {
 			let { game, res, rules } = ctx
 			if (check_liberate_suez_ops(game, (msg) => res.log(msg))) {
+				delete game.liberate_suez_op_required
 				game.liberate_suez_egypt_attack_activation_valid = true
-				// 这里需要决定下一步去哪，通常是回到正常的 OP 流程
 				if (game.activated.move.length > 0) {
 					game.state = "choose_move_space"
 				} else {
@@ -2115,25 +2290,190 @@ module.exports = function (Engine) {
 
 	// === EVENT: ENVER-FALKENHAYN MEETING (ID 84) ===
 
+	function with_enver_falkenhayn_sr_overlay(game, event, fn) {
+		let previous = game.sr_moved
+		game.sr_moved = Array.isArray(event && event.moved) ? [...event.moved] : []
+		try {
+			return fn()
+		} finally {
+			if (previous === undefined) delete game.sr_moved
+			else game.sr_moved = previous
+		}
+	}
+
+	function is_enver_falkenhayn_piece(p) {
+		let info = data.pieces[p]
+		return !!(info && info.faction === CP && (info.nation === "tu" || info.nation === "tua"))
+	}
+
+	function is_enver_falkenhayn_turkish_lcu_to_galicia(p, s) {
+		let info = data.pieces[p]
+		return !!(info && info.nation === "tu" && info.piece_class === "LCU" && s === GALICIA)
+	}
+
+	function get_enver_falkenhayn_destinations_no_overlay(game, rules, p) {
+		return rules
+			.get_sr_destinations(game, p, CP)
+			.filter((s) => s > 0 && s !== game.pieces[p] && Engine.map.is_balkans(s))
+	}
+
+	function has_enver_falkenhayn_galicia_candidate_no_overlay(game, rules, remaining_points) {
+		for (let p = 1; p < data.pieces.length; p++) {
+			let info = data.pieces[p]
+			if (!info || info.nation !== "tu" || info.piece_class !== "LCU") continue
+			if (!rules.can_sr_piece(game, p, CP)) continue
+			let cost = rules.get_sr_cost(p)
+			if (cost > remaining_points) continue
+			if (get_enver_falkenhayn_destinations_no_overlay(game, rules, p).includes(GALICIA)) return true
+		}
+		return false
+	}
+
+	function can_enver_falkenhayn_move_no_overlay(game, rules, event, p, s) {
+		let cost = rules.get_sr_cost(p)
+		let remaining_points = event.sr_points - cost
+		if (remaining_points < 0) return false
+		if (event.galicia_lcu_moved || is_enver_falkenhayn_turkish_lcu_to_galicia(p, s)) return true
+
+		let previous_space = game.pieces[p]
+		game.pieces[p] = s
+		set_add(game.sr_moved, p)
+		let can_finish = has_enver_falkenhayn_galicia_candidate_no_overlay(game, rules, remaining_points)
+		set_delete(game.sr_moved, p)
+		game.pieces[p] = previous_space
+		return can_finish
+	}
+
+	function get_enver_falkenhayn_legal_destinations(game, rules, event, p) {
+		if (!event || !is_enver_falkenhayn_piece(p)) return []
+		return with_enver_falkenhayn_sr_overlay(game, event, () => {
+			if (!rules.can_sr_piece(game, p, CP)) return []
+			let cost = rules.get_sr_cost(p)
+			if (cost > event.sr_points) return []
+			return get_enver_falkenhayn_destinations_no_overlay(game, rules, p).filter((s) =>
+				can_enver_falkenhayn_move_no_overlay(game, rules, event, p, s)
+			)
+		})
+	}
+
+	function get_enver_falkenhayn_legal_pieces(game, rules, event) {
+		let pieces = []
+		for (let p = 1; p < data.pieces.length; p++) {
+			if (get_enver_falkenhayn_legal_destinations(game, rules, event, p).length > 0) pieces.push(p)
+		}
+		return pieces
+	}
+
+	function has_enver_falkenhayn_galicia_candidate(game, rules, event, remaining_points) {
+		return with_enver_falkenhayn_sr_overlay(game, event, () =>
+			has_enver_falkenhayn_galicia_candidate_no_overlay(game, rules, remaining_points)
+		)
+	}
+
+	function clear_enver_falkenhayn_sr_state(game) {
+		let event = get_active_event_data(game)
+		if (event) {
+			delete event.sr_points
+			delete event.galicia_lcu_moved
+			delete event.moved
+		}
+		delete game.sr_piece
+	}
+
 	states.event_enver_falkenhayn_sr = {
 		prompt(ctx) {
 			let { game, res, rules } = ctx
 			let event = get_active_event_data(game)
-			let sr_points = event && typeof event.sr_points === "number" ? event.sr_points : game.sr_points || 0
+			let sr_points = event && typeof event.sr_points === "number" ? event.sr_points : 0
 			if (sr_points <= 0) {
+				clear_enver_falkenhayn_sr_state(game)
 				rules.goto_end_event()
 				return
 			}
-			res.prompt(
-				`恩维尔-法金汉会晤：使用最多 ${sr_points} 点战略调整点数将土耳其/土耳其-阿拉伯部队调整至巴尔干。`
-			)
-			res.action("done")
+
+			let legal_pieces = get_enver_falkenhayn_legal_pieces(game, rules, event)
+			let mandatory_done = !!event.galicia_lcu_moved
+			let mandatory_text = mandatory_done ? "已满足“1个土耳其LCU进入加利西亚”要求。" : "仍必须至少有1个土耳其LCU进入加利西亚。"
+
+			if (game.sr_piece !== undefined && game.sr_piece !== null) {
+				let p = game.sr_piece
+				let destinations = get_enver_falkenhayn_legal_destinations(game, rules, event, p)
+				res.who(p)
+				res.where(game.pieces[p])
+				res.prompt(
+					`恩维尔-法金汉会晤：为 ${rules.piece_name(p)} 选择巴尔干目的地（剩余 ${sr_points} 点，${mandatory_text}）`
+				)
+				for (let s of destinations) res.space(s)
+				res.action("cancel")
+				return
+			}
+
+			if (legal_pieces.length === 0 && !mandatory_done) {
+				res.prompt(`恩维尔-法金汉会晤：当前不存在满足要求的合法战略调整。`)
+				res.action("done")
+				return
+			}
+
+			res.prompt(`恩维尔-法金汉会晤：选择土耳其/土耳其-阿拉伯单位进行战略调整（剩余 ${sr_points} 点，${mandatory_text}）`)
+			for (let p of legal_pieces) res.piece(p)
+
+			if (
+				mandatory_done ||
+				!has_enver_falkenhayn_galicia_candidate(game, rules, event, sr_points)
+			) {
+				res.action("done")
+			}
+		},
+		piece(ctx) {
+			let { game, arg: p } = ctx
+			game.sr_piece = p
+		},
+		space(ctx) {
+			let { game, rules, arg: s } = ctx
+			let event = get_active_event_data(game)
+			let p = game.sr_piece
+			if (!event || p === undefined || p === null) return
+
+			let legal_destinations = get_enver_falkenhayn_legal_destinations(game, rules, event, p)
+			if (!legal_destinations.includes(s)) return
+
+			let cost = rules.get_sr_cost(p)
+			rules.push_undo()
+			game.pieces[p] = s
+			event.sr_points -= cost
+			if (!Array.isArray(event.moved)) event.moved = []
+			set_add(event.moved, p)
+			if (is_enver_falkenhayn_turkish_lcu_to_galicia(p, s)) {
+				event.galicia_lcu_moved = true
+			}
+
+			if (Engine.neutral.is_greece_neutral(game) && Engine.neutral.is_athens_space(s)) {
+				Engine.neutral.trigger_greece_entry(game, s, CP, "战略调整进入雅典", (msg) => rules.log(msg))
+			}
+
+			rules.log(`${rules.piece_name(p)} SR 到 ${rules.space_name(s)}（恩维尔-法金汉会晤，耗费 ${cost} 点）`)
+			game.sr_piece = null
+
+			if (event.sr_points <= 0 || get_enver_falkenhayn_legal_pieces(game, rules, event).length === 0) {
+				clear_enver_falkenhayn_sr_state(game)
+				rules.goto_end_event()
+			}
+		},
+		cancel(ctx) {
+			let { game } = ctx
+			game.sr_piece = null
 		},
 		done(ctx) {
 			let { game, rules } = ctx
 			let event = get_active_event_data(game)
-			if (event) delete event.sr_points
-			delete game.sr_points
+			if (
+				event &&
+				!event.galicia_lcu_moved &&
+				has_enver_falkenhayn_galicia_candidate(game, rules, event, event.sr_points || 0)
+			) {
+				return
+			}
+			clear_enver_falkenhayn_sr_state(game)
 			rules.goto_end_event()
 		}
 	}

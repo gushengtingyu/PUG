@@ -39,7 +39,8 @@ module.exports = function (Engine) {
 		is_anatolia,
 		is_gallipoli,
 		is_besieged,
-		can_trace_supply_to_source
+		can_trace_supply_to_source,
+		has_allied_control_of_balfour_spaces
 	} = Engine.map
 	const { update_jihad_level } = Engine
 	// === Constants for Space IDs ===
@@ -185,12 +186,21 @@ module.exports = function (Engine) {
 		if (ctx && typeof ctx.start_event === "function") {
 			return ctx.start_event(key, data)
 		}
-		if (!game.event_ctx || game.event_ctx.key !== key) {
-			game.event_ctx = { key, data: {} }
+		if (!game.event_ctx || typeof game.event_ctx !== "object" || Array.isArray(game.event_ctx)) {
+			game.event_ctx = {}
 		}
-		if (!game.event_ctx.data) game.event_ctx.data = {}
-		if (data) {
-			game.event_ctx.data = Object.assign(game.event_ctx.data, data)
+		if (game.event_ctx.key === key) {
+			if (!game.event_ctx.data || typeof game.event_ctx.data !== "object" || Array.isArray(game.event_ctx.data)) {
+				game.event_ctx.data = {}
+			}
+			if (data && typeof data === "object" && !Array.isArray(data)) {
+				Object.assign(game.event_ctx.data, data)
+			}
+			return game.event_ctx.data
+		}
+		game.event_ctx = { key, data: {} }
+		if (data && typeof data === "object" && !Array.isArray(data)) {
+			Object.assign(game.event_ctx.data, data)
 		}
 		return game.event_ctx.data
 	}
@@ -790,9 +800,8 @@ module.exports = function (Engine) {
 				if (game.ui_tokens) {
 					game.ui_tokens["Cyprus Allowed"] = "MCYPBR.png"
 				}
-				// 塞浦路斯转为协约国控制
-				game.control[CYPRUS] = "ap"
-				for (let s of CYPRUS_BEACHHEADS) game.control[s] = "ap"
+				Engine.set_control(game, CYPRUS, "ap")
+				for (let s of CYPRUS_BEACHHEADS) Engine.set_control(game, s, "ap")
 
 				log(game, "埃及政变: 塞浦路斯成为协约国岛屿基地", ctx)
 			}
@@ -914,10 +923,8 @@ module.exports = function (Engine) {
 				return game.events["egyptian_coup"] && get_season(game) !== "Winter"
 			},
 			handler: function (game, ctx) {
-				if (ctx && typeof ctx.start_event === "function") {
-					ctx.start_event("project_alexandria")
-				}
-				game.events["project_alexandria"] = true
+				let event = ctx && typeof ctx.start_event === "function" ? ctx.start_event("project_alexandria") : {}
+				game.events["project_alexandria"] = event
 				game.active = AP
 				game.state = "event_project_alexandria_place_beachhead"
 			},
@@ -1057,10 +1064,7 @@ module.exports = function (Engine) {
 		20: {
 			name: "ARMORED CARS CC",
 			name_cn: "装甲车",
-			effect_cn: "一次协约国对或者在非山区、非沼泽地区的攻击/防御+1drm",
-			handler: function (game) {
-				game.events["armored_cars"] = game.turn
-			}
+			effect_cn: "一次协约国对或者在非山区、非沼泽地区的攻击/防御+1drm"
 		},
 		21: {
 			name: "NO PRISONERS CC",
@@ -1076,8 +1080,8 @@ module.exports = function (Engine) {
 			name_cn: "基钦纳入侵",
 			effect_cn:
 				"(只能在【丘吉尔胜出】后打出，不能在冬季回合打出。可以当作英国增援打出以代替入侵)。——海上入侵——。获得一个滩头标记，立即将其放置在一个滩头处。。入侵:英国第9军团、2个英国步兵师 至任何滩头标记地区。。增援:1个英国精锐步兵师，1个英国骑兵师至预备军格。",
-			can_play: function (game) {
-				return game.events["churchill_prevails"] && get_season(game) !== "Winter"
+			can_play: function () {
+				return true
 			},
 			handler: function (game, ctx) {
 				start_event_data(game, ctx, "kitcheners_invasion")
@@ -1140,7 +1144,7 @@ module.exports = function (Engine) {
 			effect_cn:
 				"(只能在塞尔维亚崩溃后打出)。增援:6个塞尔维亚步兵师、1个塞尔维亚骑兵师至利姆诺斯岛屿基地、协约国控制的萨洛尼卡或者预备军格。。增援:塞尔维亚第1集团军、第2集团军、第3集团军至预备军格。",
 			can_play: function (game) {
-				return game.events["serbian_collapse"];
+				return Engine.collapse.has_serbia_collapsed(game);
 			},
 			handler: function (game, ctx) {
 				game.events["the_serbs_return"] = game.turn
@@ -1282,8 +1286,8 @@ module.exports = function (Engine) {
 			name_cn: "加利波里入侵",
 			effect_cn:
 				"(只能在【丘吉尔胜出】后打出，不能在冬季回合打出。可以当作英国增援打出以代替入侵)。——海上入侵——。入侵:(英国第8军团)、(澳新军团)、2个法国步兵师、1个英国步兵师 至岛屿基地。。若预备军格有参与入侵的LCU所对应的SCU单位，则可以立即将本次增援的受损的LCU翻至满员面。(可以立即从地图上战略调整SCU至预备军格来达成该条件)。获得两个滩头标记。",
-			can_play: function (game) {
-				return !(!game.events["churchill_prevails"] || get_season(game) === "Winter");
+			can_play: function () {
+				return true
 			},
 			handler: function (game, ctx) {
 				start_event_data(game, ctx, "gallipoli_invasion")
@@ -1297,7 +1301,7 @@ module.exports = function (Engine) {
 		31: {
 			name: "RUSSIAN WINTER OFFENSIVE",
 			name_cn: "俄国冬季攻势",
-			effect_cn: "(只能在冬季打出)。(黄色事件)。当作事件打出时，正常使用此牌记录的OP点数。。本轮中适用以下效果:。从山地地区发起的或者向山地地区进行的俄国部队进攻无视恶劣天气修正。。所有俄国进攻+1drm。所有土耳其高加索地区的要塞火力值暂时视为0。如果俄国部队在战斗后得以挺进上述要塞地区，则可以**立即摧毁要塞，无视围攻规则。**",
+			effect_cn: "(只能在冬季打出)。(黄色事件)。当作事件打出时，正常使用此牌记录的OP点数。本轮中适用以下效果:。从山地地区发起的或者向山地地区进行的俄国部队进攻无视恶劣天气修正。。所有俄国进攻+1drm。所有土耳其高加索地区的要塞火力值暂时视为0。如果俄国部队在战斗后得以挺进上述要塞地区，则可以**立即摧毁要塞，无视围攻规则。**",
 			can_play: function (game) {
 				return get_season(game) === "Winter"
 			},
@@ -1339,8 +1343,8 @@ module.exports = function (Engine) {
 			name_cn: "萨洛尼卡入侵",
 			effect_cn:
 				"(只能在【丘吉尔胜出】后打出，不能在冬季回合打出)可以当作英国增援打出以代替入侵)。——海上入侵——。入侵:英国第16军团、(英国第12军团)、2个法国步兵师 至 岛屿基地。增援:法国东方集团军-1至预备军格。。可以将地图上最多三支英国/印度/澳新SCU战略调整至岛屿基地。。获得1个滩头标记。",
-			can_play: function (game) {
-				return !(!game.events["churchill_prevails"] || get_season(game) === "Winter");
+			can_play: function () {
+				return true
 			},
 			handler: function (game, ctx) {
 				start_event_data(game, ctx, "salonika_invasion")
@@ -1446,6 +1450,7 @@ module.exports = function (Engine) {
 			name: "BALFOUR DECLARATION",
 			name_cn: "贝尔福宣言",
 			effect_cn: "(只有在协约国控制耶路撒冷、雅法、海法或者纳布卢斯时才能打出)。-1VP。",
+			can_play: has_allied_control_of_balfour_spaces,
 			handler: function (game) {
 				game.vp -= 1
 				game.events["balfour_declaration"] = true
@@ -1763,10 +1768,7 @@ module.exports = function (Engine) {
 		60: {
 			name: "GERMAN HIGH COMMAND CC",
 			name_cn: "德国最高司令部",
-			effect_cn: "一次同盟国部队攻击/防御+1drm。",
-			handler: function (game) {
-				game.events["german_high_command"] = game.turn
-			}
+			effect_cn: "一次同盟国部队攻击/防御+1drm。"
 		},
 		61: {
 			name: "SANDSTORMS & MOSQUITOES CC",
@@ -1867,6 +1869,7 @@ module.exports = function (Engine) {
 
 				// 规则补充：至少2OP必须用于在埃及地区对协约国的战斗，这些战斗获得+1drm修正。
 				game.liberate_suez_op_required = true
+				game.liberate_suez_battle_required = true
 				game.liberate_suez_min_egypt_attack_ops = 2
 				game.liberate_suez_egypt_attacked_spaces = []
 				game.liberate_suez_egypt_battle_done = false
@@ -2348,7 +2351,6 @@ module.exports = function (Engine) {
 				return game.combined_war >= 32 && game.events["british_war_weariness"]
 			},
 			handler: function (game, ctx) {
-				game.vp -= 2
 				game.events["townshend_to_lemnos"] = true
 				shift_cp_auto_victory_marker(game, -1, ctx, "汤森德谈判")
 			}
@@ -2474,7 +2476,7 @@ module.exports = function (Engine) {
 				return game.events["pan_turkism"] && game.jihad >= 6
 			},
 			handler: function (game) {
-				reinforce(game, "TU Army of Islam HQ", CP)
+				reinforce(game, "TU Army Islam HQ", CP)
 				game.events["army_of_islam"] = true
 			}
 		},
@@ -2558,7 +2560,7 @@ module.exports = function (Engine) {
 			effect_cn: "完成亚达纳和阿勒颇附近的铁路修建(君士坦丁堡-大马士革的铁路完成连通)。。现在同盟国在限制地区内可以存在最多3支LCU。。+1VP",
 			handler: function (game, ctx) {
 				game.events.berlin_baghdad = 1
-				game.vp -= 1
+				game.vp += 1
 				log(game, "CP gains 1 VP.", ctx)
 			}
 		},

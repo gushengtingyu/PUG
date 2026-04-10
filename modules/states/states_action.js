@@ -114,6 +114,242 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
+	function can_use_rp_action(info) {
+		return !!(info.rp_a || info.rp_br || info.rp_ru || info.rp_ge || info.rp_tu || info.rp_in)
+	}
+
+	function can_play_event_cached(card) {
+		let revision = Number(game.cache_revision) || 0
+		if (!game.event_playability_cache || game.event_playability_cache.revision !== revision) {
+			game.event_playability_cache = { revision, by_card: {} }
+		}
+		if (!(card in game.event_playability_cache.by_card)) {
+			game.event_playability_cache.by_card[card] = can_play_event(game, card)
+		}
+		return game.event_playability_cache.by_card[card]
+	}
+
+	function append_card_actions(res, card, info, allow_sr, allow_rp) {
+		if (info.event && !info.cc && can_play_event_cached(card)) res.action("play_event", card)
+		if (info.ops) res.action("play_ops", card)
+		if (info.sr && allow_sr) res.action("play_sr", card)
+		if (can_use_rp_action(info) && allow_rp) res.action("play_rps", card)
+	}
+
+	function perform_event_action(card, trace_phase) {
+		let info = data.cards[card]
+		if (!can_play_event_cached(card)) {
+			log(`${card_name(card)} 不能作为事件打出`)
+			return
+		}
+		let t0 = DEBUG_ACTION_TRACE ? action_now() : 0
+		let entry = get_event_entry(card)
+		let use_ops_fallback = !!(entry && entry.use_ops)
+		log_card_action(card, "Event")
+		record_action(ACTION_EVENT, card)
+
+		if (info.remove) remove_card(card)
+		else discard_card(card)
+
+		if (info.ws) {
+			update_war_status(game.active, info.ws)
+		}
+
+		let done = play_event(game, card, {
+			log,
+			goto_end_event,
+			goto_end_operations,
+			start_ops_from_event,
+			start_event,
+			push_state,
+			clear_event_ctx,
+			card_name,
+			update_jihad_level: (g, amount) => update_jihad_level(g, amount)
+		})
+		if (!done) {
+			log("事件未实现。")
+			if (use_ops_fallback) {
+				start_ops_from_event(card)
+			} else {
+				goto_end_operations()
+			}
+		}
+		if (DEBUG_ACTION_TRACE) {
+			log_action_debug({
+				phase: trace_phase,
+				card,
+				use_ops_fallback: !done && use_ops_fallback,
+				elapsed_ms: action_now() - t0
+			})
+		}
+	}
+
+	function is_winter_turn() {
+		return Engine.game_utils.get_season(game) === "Winter"
+	}
+
+	function get_ap_beachheads() {
+		return Engine.map.get_beachhead_spaces(game, AP).filter((s) => Engine.map.is_beachhead_space(game, s))
+	}
+
+	function with_temporarily_removed_beachhead(beachhead, fn) {
+		let original = Array.isArray(game.beachheads) ? game.beachheads.slice() : []
+		if (game.beachheads) Engine.utils.set_delete(game.beachheads, beachhead)
+		let result = fn()
+		game.beachheads = original
+		return result
+	}
+
+	function is_piece_on_shore_or_beachhead(p) {
+		let s = game.pieces[p]
+		if (s <= 0 || !data.spaces[s]) return false
+		if (Engine.map.is_island_base(game, s)) return false
+		return true
+	}
+
+	function is_piece_supplied_solely_through_beachhead(p, beachhead) {
+		if (data.pieces[p].faction !== AP) return false
+		if (is_not_on_map(game, p) || is_in_reserve(game, p)) return false
+		if (!is_piece_on_shore_or_beachhead(p)) return false
+		let s = game.pieces[p]
+		if (!Engine.map.is_in_supply(game, s, AP, p)) return false
+		if (!Engine.map.can_trace_piece_supply_to_sources(game, p, beachhead)) return false
+		return !with_temporarily_removed_beachhead(beachhead, () => Engine.map.is_in_supply(game, s, AP, p))
+	}
+
+	function get_beachhead_withdrawal_units(beachhead) {
+		let result = []
+		for (let p = 0; p < game.pieces.length; p++) {
+			if (!data.pieces[p]) continue
+			if (is_piece_supplied_solely_through_beachhead(p, beachhead)) result.push(p)
+		}
+		return result
+	}
+
+	function get_beachhead_under_fire(beachhead) {
+		return get_beachhead_withdrawal_units(beachhead).some((p) => {
+			let s = game.pieces[p]
+			let info = data.spaces[s]
+			if (!info || !Array.isArray(info.connections)) return false
+			return info.connections.some((n) => Engine.map.contains_enemy_pieces(game, n, AP))
+		})
+	}
+
+	function can_remove_empty_beachhead(beachhead) {
+		if (active_faction() !== AP) return false
+		if (get_pieces_in_space(game, beachhead).length > 0) return false
+		let stranded = 0
+		let currently_supplied = []
+		for (let p = 0; p < game.pieces.length; p++) {
+			if (!data.pieces[p] || data.pieces[p].faction !== AP) continue
+			if (is_not_on_map(game, p) || is_in_reserve(game, p)) continue
+			let s = game.pieces[p]
+			if (s <= 0 || !data.spaces[s]) continue
+			if (Engine.map.is_in_supply(game, s, AP, p)) currently_supplied.push(p)
+		}
+		with_temporarily_removed_beachhead(beachhead, () => {
+			for (let p of currently_supplied) {
+				let s = game.pieces[p]
+				if (!Engine.map.is_in_supply(game, s, AP, p)) stranded++
+			}
+		})
+		return stranded === 0
+	}
+
+	function can_safe_withdraw_beachhead(beachhead) {
+		if (active_faction() !== AP) return false
+		if (is_winter_turn()) return false
+		let units = get_beachhead_withdrawal_units(beachhead)
+		if (units.length === 0) return false
+		return !get_beachhead_under_fire(beachhead)
+	}
+
+	function can_withdraw_under_fire(beachhead) {
+		if (active_faction() !== AP) return false
+		if (is_winter_turn()) return false
+		let units = get_beachhead_withdrawal_units(beachhead)
+		if (units.length === 0) return false
+		return get_beachhead_under_fire(beachhead)
+	}
+
+	function get_breakdown_candidates_for_lcu(lcu) {
+		let info = data.pieces[lcu]
+		let group = Engine.game_utils.get_nation_group(info.nation)
+		let pools = [
+			Engine.game_utils.get_pieces_in_reserve(game, AP),
+			Engine.game_utils.get_pieces_in_eliminated(game, AP),
+			Engine.game_utils.get_pieces_in_reinforcements(game, AP),
+			Engine.game_utils.get_pieces_in_removed(game, AP)
+		]
+		let result = []
+		for (let pool of pools) {
+			for (let p of pool) {
+				if (p === lcu || !data.pieces[p]) continue
+				if (data.pieces[p].piece_class !== "SCU") continue
+				if (Engine.game_utils.get_nation_group(data.pieces[p].nation) !== group) continue
+				if (!result.includes(p)) result.push(p)
+			}
+		}
+		return result
+	}
+
+	function break_down_lcu_for_withdrawal(lcu, island_base) {
+		let info = data.pieces[lcu]
+		let needed = Engine.game_utils.is_piece_reduced(game, lcu) ? 2 : 3
+		let candidates = get_breakdown_candidates_for_lcu(lcu)
+		let selected = []
+		let exact_nation = candidates.find((p) => data.pieces[p].nation === info.nation)
+		if (exact_nation !== undefined) selected.push(exact_nation)
+		for (let p of candidates) {
+			if (selected.length >= needed) break
+			if (selected.includes(p)) continue
+			selected.push(p)
+		}
+		game.pieces[lcu] = Engine.game_utils.get_lcu_reserve_box(AP)
+		Engine.utils.set_delete(game.reduced, lcu)
+		for (let scu of selected) {
+			game.pieces[scu] = island_base
+			Engine.utils.set_delete(game.reduced, scu)
+		}
+		log(`${piece_name(lcu)} 撤离后解编至 ${space_name(island_base)}。`)
+		if (selected.length < needed) {
+			log(`${piece_name(lcu)} 仅找到 ${selected.length}/${needed} 个可用 SCU 进行解编。`)
+		}
+	}
+
+	function finish_beachhead_withdrawal(beachhead, under_fire) {
+		let island_base = Engine.map.get_adjacent_island_base_for_beachhead(beachhead)
+		let units = get_beachhead_withdrawal_units(beachhead)
+		let original_scu_count = units.filter((p) => data.pieces[p].piece_class === "SCU").length
+		let original_lcu_count = units.filter((p) => data.pieces[p].piece_class === "LCU").length
+		for (let p of units) {
+			if (data.pieces[p].piece_class === "LCU" && under_fire) {
+				break_down_lcu_for_withdrawal(p, island_base)
+			} else {
+				game.pieces[p] = island_base
+				log(`${piece_name(p)} 撤回至 ${space_name(island_base)}。`)
+			}
+		}
+		if (under_fire) {
+			if (game.beachheads) Engine.utils.set_delete(game.beachheads, beachhead)
+			if (Engine.map.is_non_balkan_beachhead(beachhead)) {
+				update_jihad_level(game, 1)
+			}
+			let bonus = Engine.map.is_non_balkan_beachhead(beachhead)
+				? original_lcu_count + Math.floor(original_scu_count / 3)
+				: 0
+			if (bonus > 0) {
+				game.tu_rp_bonus = (game.tu_rp_bonus || 0) + bonus
+				log(`${space_name(beachhead)} 撤离：土耳其奖励 RP +${bonus}。`)
+			}
+		} else if (
+			Engine.map.is_non_balkan_beachhead(beachhead) &&
+			get_beachhead_withdrawal_units(beachhead).length === 0
+		) {
+			update_jihad_level(game, 1)
+		}
+	}
+
 	states.play_card = {
 		inactive: "play a card",
 		prompt(res) {
@@ -125,14 +361,15 @@ exports.register = function (states, Engine, context) {
 			let allow_rp = can_play_rp_card_this_round(active_faction())
 			for (let c of hand) {
 				let info = data.cards[c]
-				if (info.event && !info.cc) {
-					event_check_count += 1
-					if (can_play_event(game, c)) res.action("play_event", c)
+				if (info.event && !info.cc) event_check_count += 1
+				append_card_actions(res, c, info, allow_sr, allow_rp)
+			}
+			if (active_faction() === AP) {
+				for (let beachhead of get_ap_beachheads()) {
+					if (can_withdraw_under_fire(beachhead)) res.action("withdraw_under_fire", beachhead)
+					else if (can_safe_withdraw_beachhead(beachhead)) res.action("safe_withdraw", beachhead)
+					if (can_remove_empty_beachhead(beachhead)) res.action("remove_beachhead", beachhead)
 				}
-				if (info.ops) res.action("play_ops", c)
-				if (info.sr && allow_sr) res.action("play_sr", c)
-				if ((info.rp_a || info.rp_br || info.rp_ru || info.rp_ge || info.rp_tu || info.rp_in) && allow_rp)
-					res.action("play_rps", c)
 			}
 			res.action("single_op")
 			if (DEBUG_ACTION_TRACE) {
@@ -197,52 +434,44 @@ exports.register = function (states, Engine, context) {
 			goto_end_operations()
 		},
 		play_event(c) {
-			let info = data.cards[c]
-			if (!can_play_event(game, c)) {
-				log(`${card_name(c)} 不能作为事件打出`)
-				return
-			}
-			let t0 = DEBUG_ACTION_TRACE ? action_now() : 0
 			push_undo()
 			game.card = c
 			game.last_card = c
-			log_card_action(c, "Event")
-			record_action(ACTION_EVENT, c)
+			perform_event_action(c, "play_card.play_event")
+		},
+		withdraw_under_fire(beachhead) {
+			push_undo()
+			finish_beachhead_withdrawal(beachhead, true)
+		},
+		safe_withdraw(beachhead) {
+			push_undo()
+			finish_beachhead_withdrawal(beachhead, false)
+		},
+		remove_beachhead(beachhead) {
+			push_undo()
+			game.remove_beachhead_space = beachhead
+			game.state = "confirm_remove_beachhead"
+		}
+	}
 
-			if (info.remove) remove_card(c)
-			else discard_card(c)
-
-			if (info.ws) {
-				update_war_status(game.active, info.ws)
-			}
-
-			let done = play_event(game, c, {
-				log,
-				goto_end_event,
-				goto_end_operations,
-				start_ops_from_event,
-				start_event,
-				push_state,
-				card_name,
-				update_jihad_level: (g, amount) => update_jihad_level(g, amount)
-			})
-			if (!done) {
-				log("事件未实现。")
-				let entry = get_event_entry(c)
-				if (entry && entry.use_ops) {
-					start_ops_from_event(c)
-				} else {
-					goto_end_operations()
-				}
-			}
-			if (DEBUG_ACTION_TRACE) {
-				log_action_debug({
-					phase: "play_card.play_event",
-					card: c,
-					use_ops_fallback: !done && !!(get_event_entry(c) && get_event_entry(c).use_ops),
-					elapsed_ms: action_now() - t0
-				})
-			}
+	states.confirm_remove_beachhead = {
+		prompt(res) {
+			let s = game.remove_beachhead_space
+			res.where(s)
+			res.prompt(`是否移除 ${space_name(s)} 的滩头标记？`)
+			res.action("confirm")
+			res.action("cancel")
+		},
+		confirm() {
+			let s = game.remove_beachhead_space
+			if (game.beachheads) Engine.utils.set_delete(game.beachheads, s)
+			log(`移除空滩头：${space_name(s)}。`)
+			delete game.remove_beachhead_space
+			game.state = "play_card"
+		},
+		cancel() {
+			delete game.remove_beachhead_space
+			pop_undo()
 		}
 	}
 
@@ -253,11 +482,7 @@ exports.register = function (states, Engine, context) {
 			res.prompt(`打出 ${card_name(game.card)}`)
 			let allow_sr = can_play_sr_card_this_round(active_faction())
 			let allow_rp = can_play_rp_card_this_round(active_faction())
-			if (info.ops) res.action("play_ops", game.card)
-			if (info.sr && allow_sr) res.action("play_sr", game.card)
-			if ((info.rp_a || info.rp_br || info.rp_ru || info.rp_ge || info.rp_tu || info.rp_in) && allow_rp)
-				res.action("play_rps", game.card)
-			if (info.event && !info.cc && can_play_event(game, game.card)) res.action("play_event", game.card)
+			append_card_actions(res, game.card, info, allow_sr, allow_rp)
 			res.action("cancel")
 			if (DEBUG_ACTION_TRACE) {
 				log_action_debug({
@@ -300,49 +525,7 @@ exports.register = function (states, Engine, context) {
 		},
 		play_event(c) {
 			if (c === undefined) c = game.card
-			let info = data.cards[c]
-			if (!can_play_event(game, c)) {
-				log(`${card_name(c)} 不能作为事件打出`)
-				return
-			}
-			let t0 = DEBUG_ACTION_TRACE ? action_now() : 0
-			log_card_action(c, "Event")
-			record_action(ACTION_EVENT, c)
-
-			if (info.remove) remove_card(c)
-			else discard_card(c)
-
-			if (info.ws) {
-				update_war_status(game.active, info.ws)
-			}
-
-			let done = play_event(game, c, {
-				log,
-				goto_end_event,
-				goto_end_operations,
-				start_ops_from_event,
-				start_event,
-				push_state,
-				card_name,
-				update_jihad_level: (g, amount) => update_jihad_level(g, amount)
-			})
-			if (!done) {
-				log("事件未实现。")
-				let entry = get_event_entry(c)
-				if (entry && entry.use_ops) {
-					start_ops_from_event(c)
-				} else {
-					goto_end_operations()
-				}
-			}
-			if (DEBUG_ACTION_TRACE) {
-				log_action_debug({
-					phase: "card_action.play_event",
-					card: c,
-					use_ops_fallback: !done && !!(get_event_entry(c) && get_event_entry(c).use_ops),
-					elapsed_ms: action_now() - t0
-				})
-			}
+			perform_event_action(c, "card_action.play_event")
 		},
 		cancel() {
 			game.card = null
@@ -366,7 +549,7 @@ exports.register = function (states, Engine, context) {
 				}
 				res.action("back")
 			} else {
-				res.prompt(`战略调整：选择要调整的单位或堆叠 (剩余 SR 点数: ${game.sr}。LCU 耗费 4 点，SCU 耗费 1 点)`)
+				res.prompt(`战略调整：选择要调整的单位或堆叠 (剩余 SR 点数: ${game.sr}。)`)
 				let spaces = new Set()
 				for (let p = 0; p < game.pieces.length; p++) {
 					let from_reserve = is_in_reserve(game, p)
@@ -452,9 +635,9 @@ exports.register = function (states, Engine, context) {
 			// Move piece
 			game.pieces[p] = s
 
-			// 战略再部署进入雅典，触发希腊参战（规则 19.2.1）
+			// 战略调整进入雅典，触发希腊参战（规则 19.2.1）
 			if (Engine.neutral.is_greece_neutral(game) && Engine.neutral.is_athens_space(s)) {
-				Engine.neutral.trigger_greece_entry(game, s, active_faction(), "战略再部署进入雅典", (msg) => log(msg))
+				Engine.neutral.trigger_greece_entry(game, s, active_faction(), "战略调整进入雅典", (msg) => log(msg))
 			}
 
 			if (!game.sr_moved) game.sr_moved = []
@@ -505,6 +688,7 @@ exports.register = function (states, Engine, context) {
 
 		// 67: LIBERATE SUEZ - Clear flags
 		delete game.liberate_suez_op_required
+		delete game.liberate_suez_battle_required
 		delete game.liberate_suez_min_egypt_attack_ops
 		delete game.liberate_suez_egypt_attacked_spaces
 		delete game.liberate_suez_egypt_attack_activation_valid

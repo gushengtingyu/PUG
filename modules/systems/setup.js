@@ -7,21 +7,40 @@ module.exports = function (Engine) {
 	const { set_add } = Engine.utils
 	const { find_space, find_piece } = Engine.game_utils
 	const { COMMITMENT_LIMITED, REMOVED } = Engine.constants
+	const CYPRUS_BEACHHEAD_NAMES = ["To Adana", "To Beirut", "To Haifa", "To Jaffa"]
+	const piece_lookup = new Map()
+	const space_lookup = new Map()
+
+	for (let p = 0; p < data.pieces.length; p++) {
+		const piece = data.pieces[p]
+		if (!piece) continue
+		piece_lookup.set(`${piece.faction}:${piece.name}`, p)
+	}
+
+	for (let s = 1; s < data.spaces.length; s++) {
+		const space = data.spaces[s]
+		if (!space || space.name === undefined || space_lookup.has(space.name)) continue
+		space_lookup.set(space.name, s)
+	}
+
+	function get_space_id(name) {
+		if (space_lookup.has(name)) return space_lookup.get(name)
+		return find_space(name)
+	}
+
+	function get_piece_id(faction, name) {
+		const key = `${faction}:${name}`
+		if (piece_lookup.has(key)) return piece_lookup.get(key)
+		return find_piece(faction, name)
+	}
+
+	const CYPRUS = get_space_id("Cyprus")
+	const CYPRUS_BEACHHEADS = CYPRUS_BEACHHEAD_NAMES.map(get_space_id)
+	const AFGHANISTAN = get_space_id("Afghanistan")
 
 	function place_piece(game, faction, name, space_name, reduced = false) {
-		let p = find_piece(faction, name)
-		let s = find_space(space_name)
-
-		// If not found as a regular space, try finding as a reinforcement slot
-		if (s < 0) {
-			for (let i = 0; i < data.spaces.length; ++i) {
-				const slot = data.spaces[i]
-				if (slot && slot.type === "reinforcement" && slot.name === space_name) {
-					s = i
-					break
-				}
-			}
-		}
+		let p = get_piece_id(faction, name)
+		let s = get_space_id(space_name)
 
 		if (p < 0 && s >= 0) {
 			const slot = data.spaces[s]
@@ -48,7 +67,7 @@ module.exports = function (Engine) {
 	}
 
 	function place_trench(game, level, space_name) {
-		let s = find_space(space_name)
+		let s = get_space_id(space_name)
 		if (s >= 0) {
 			if (level === 2) {
 				set_add(game.trenches_2, s)
@@ -61,7 +80,7 @@ module.exports = function (Engine) {
 	}
 
 	function place_beachhead(game, space_name) {
-		let s = find_space(space_name)
+		let s = get_space_id(space_name)
 		if (s >= 0) {
 			set_add(game.beachheads, s)
 		} else {
@@ -72,14 +91,11 @@ module.exports = function (Engine) {
 	function setup_historical_scenario(game) {
 		game.scenario_max_turn = 17
 
-		// Initialize UI tokens
-		const CYPRUS = find_space("Cyprus")
-		const CYPRUS_BEACHHEADS = ["To Adana", "To Beirut", "To Haifa", "To Jaffa"].map(find_space)
 		game.ui_tokens = {}
 		game.ui_tokens["Cyprus Allowed"] = "MCYPNT.png"
-		game.control[CYPRUS] = "neutral" // Cyprus is neutral until Egyptian Coup
-		for (let s of CYPRUS_BEACHHEADS) game.control[s] = "neutral"
-		game.control[298] = "neutral" // Afghanistan is neutral until Afghan Alliance
+		Engine.set_control(game, CYPRUS, "neutral")
+		for (let s of CYPRUS_BEACHHEADS) Engine.set_control(game, s, "neutral")
+		Engine.set_control(game, AFGHANISTAN, "neutral")
 		game.ui_tokens["Persian_Neutrality"] = "MPERNEUT.PNG"
 		game.ui_tokens["C.Asia_Revolt"] = "MNCASRV.png"
 		game.ui_tokens["Afghan_Alliance"] = "MNAFGAL.PNG"
@@ -229,8 +245,6 @@ module.exports = function (Engine) {
 	}
 
 	function apply_limited_war_started_events(game) {
-		const CYPRUS = find_space("Cyprus")
-		const CYPRUS_BEACHHEADS = ["To Adana", "To Beirut", "To Haifa", "To Jaffa"].map(find_space)
 		const prior_event_flags = {
 			russo_british_assault: true,
 			secret_treaty: true,
@@ -246,8 +260,8 @@ module.exports = function (Engine) {
 		game.events["egyptian_coup"] = true
 		game.jihad -= 1
 		if (game.ui_tokens) game.ui_tokens["Cyprus Allowed"] = "MCYPBR.png"
-		game.control[CYPRUS] = "ap"
-		for (let s of CYPRUS_BEACHHEADS) game.control[s] = "ap"
+		Engine.set_control(game, CYPRUS, "ap")
+		for (let s of CYPRUS_BEACHHEADS) Engine.set_control(game, s, "ap")
 
 		game.events["royal_navy_blockade"] = true
 		game.tu_rp_limit = 25
@@ -267,7 +281,7 @@ module.exports = function (Engine) {
 		game.rp_ap.a += 1
 		game.rp_ap.ru += 1
 		if (game.ui_tokens) game.ui_tokens["BR RPs TO RU"] = "MKitch.png"
-		let kitchener_token = find_piece(undefined, "Kitch.token")
+		let kitchener_token = get_piece_id("system", "Kitch.token")
 		if (kitchener_token >= 0) game.pieces[kitchener_token] = REMOVED
 
 		game.events["liberate_suez"] = 2
@@ -287,6 +301,7 @@ module.exports = function (Engine) {
 		}
 
 		delete game.liberate_suez_op_required
+		delete game.liberate_suez_battle_required
 		delete game.liberate_suez_min_egypt_attack_ops
 		delete game.liberate_suez_egypt_attacked_spaces
 		delete game.liberate_suez_egypt_battle_done

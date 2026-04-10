@@ -5,6 +5,12 @@ module.exports = function (Engine) {
 	const { AP, CP } = Engine.constants
 	const ROMANIA_COLLAPSE_EVENT_KEY = "romania_collapse"
 	const COLLAPSE_SR_LIMIT = 2
+	const BELGRADE = Engine.game_utils.find_space("BELGRADE")
+	const SKOPJE = Engine.game_utils.find_space("Skopje")
+	const BUCHAREST = Engine.game_utils.find_space("BUCHAREST")
+	const PLOESTI = Engine.game_utils.find_space("Ploesti")
+	const CONSTANTA = Engine.game_utils.find_space("Constanta")
+	const SOFIA = Engine.game_utils.find_space("SOFIA")
 
 	const BULGARIA_ENTRY_PLAN = Object.freeze({
 		cp: Object.freeze({
@@ -163,8 +169,16 @@ module.exports = function (Engine) {
 		return COLLAPSE_SR_LIMIT
 	}
 
+	function has_serbia_collapsed(game) {
+		return !!(game && game.events && game.events["serbian_collapse"])
+	}
+
+	function has_romania_collapsed(game) {
+		return !!(game && game.events && game.events[ROMANIA_COLLAPSE_EVENT_KEY])
+	}
+
 	function is_romania_uncollapsed(game) {
-		return !!(game.events["romania"] && !game.events[ROMANIA_COLLAPSE_EVENT_KEY])
+		return !!(game && game.events && game.events["romania"] && !has_romania_collapsed(game))
 	}
 
 	function ensure_collapse_status(game) {
@@ -218,24 +232,21 @@ module.exports = function (Engine) {
 
 	function can_offer_serbian_collapse(game) {
 		// 19.4.5：只要贝尔格莱德已被 CP 控制，AP 每个战争状态阶段都可以选择宣布塞尔维亚崩溃。
-		if (game.events && game.events["serbian_collapse"]) return false
+		if (has_serbia_collapsed(game)) return false
 		if (!game.events["bulgaria"]) return false
-		let belgrade = find_space("BELGRADE")
-		return belgrade >= 0 && is_controlled_by(game, belgrade, CP)
+		return BELGRADE >= 0 && is_controlled_by(game, BELGRADE, CP)
 	}
 
 	function should_auto_serbian_collapse(game) {
 		// 19.4.5：自动崩溃需要同时满足“贝尔格莱德与斯科普里皆为 CP 控制”且“塞尔维亚境内无 SB LCU”。
-		if (game.events && game.events["serbian_collapse"]) return false
+		if (has_serbia_collapsed(game)) return false
 		if (!game.events["bulgaria"]) return false
 
-		let belgrade = find_space("BELGRADE")
-		let skopje = find_space("Skopje")
 		if (
-			belgrade < 0 ||
-			skopje < 0 ||
-			!is_controlled_by(game, belgrade, CP) ||
-			!is_controlled_by(game, skopje, CP)
+			BELGRADE < 0 ||
+			SKOPJE < 0 ||
+			!is_controlled_by(game, BELGRADE, CP) ||
+			!is_controlled_by(game, SKOPJE, CP)
 		) {
 			return false
 		}
@@ -245,25 +256,22 @@ module.exports = function (Engine) {
 
 	function can_offer_romanian_collapse(game) {
 		// 19.5.5：只要罗马尼亚已经参战且尚未崩溃，AP 就可以在战争状态阶段主动宣布其崩溃。
-		if (game.events && game.events[ROMANIA_COLLAPSE_EVENT_KEY]) return false
+		if (has_romania_collapsed(game)) return false
 		return !!game.events["romania"]
 	}
 
 	function should_auto_romanian_collapse(game) {
 		// 19.5.5：自动崩溃二选一——三座关键城市全失，或 RO LCU 全灭且罗马尼亚境内没有 RU LCU。
-		if (game.events && game.events[ROMANIA_COLLAPSE_EVENT_KEY]) return false
+		if (has_romania_collapsed(game)) return false
 		if (!game.events["romania"]) return false
 
-		let bucharest = find_space("BUCHAREST")
-		let ploesti = find_space("Ploesti")
-		let constanta = find_space("Constanta")
 		if (
-			bucharest >= 0 &&
-			is_controlled_by(game, bucharest, CP) &&
-			ploesti >= 0 &&
-			is_controlled_by(game, ploesti, CP) &&
-			constanta >= 0 &&
-			is_controlled_by(game, constanta, CP)
+			BUCHAREST >= 0 &&
+			is_controlled_by(game, BUCHAREST, CP) &&
+			PLOESTI >= 0 &&
+			is_controlled_by(game, PLOESTI, CP) &&
+			CONSTANTA >= 0 &&
+			is_controlled_by(game, CONSTANTA, CP)
 		) {
 			return true
 		}
@@ -273,14 +281,13 @@ module.exports = function (Engine) {
 
 	function can_piece_attack_after_serbian_collapse(game, p, target) {
 		if (!piece_counts_as_nation_for_rule(game, p, "sb")) return true
-		if (!game.events || !game.events["serbian_collapse"]) return true
+		if (!has_serbia_collapsed(game)) return true
 
 		let info = data.spaces[target]
 		if (!info) return false
 
 		// 19.4.6：塞军在贝尔格莱德收复前只能攻击塞尔维亚/希腊；一旦贝尔格莱德回到 AP 手中，限制扩展为整个巴尔干。
-		let belgrade = find_space("BELGRADE")
-		if (belgrade >= 0 && is_controlled_by(game, belgrade, AP)) {
+		if (BELGRADE >= 0 && is_controlled_by(game, BELGRADE, AP)) {
 			return is_balkans(target)
 		}
 
@@ -325,8 +332,7 @@ module.exports = function (Engine) {
 		if (game.events && game.events["bulgarian_collapse"]) return "none"
 		if (!game.events["bulgaria"]) return "none"
 
-		let sofia = find_space("SOFIA")
-		if (sofia >= 0 && is_controlled_by(game, sofia, AP)) {
+		if (SOFIA >= 0 && is_controlled_by(game, SOFIA, AP)) {
 			game.events["bulgarian_collapse"] = game.turn
 			log("保加利亚崩溃。")
 			game.vp -= 1
@@ -359,7 +365,7 @@ module.exports = function (Engine) {
 	}
 
 	function apply_serbian_collapse(game, log, options = {}) {
-		if (game.events && game.events["serbian_collapse"]) return "none"
+		if (has_serbia_collapsed(game)) return "none"
 		if (!game.events["bulgaria"]) return "none"
 		if (!options.force && !should_auto_serbian_collapse(game)) return "none"
 
@@ -440,7 +446,7 @@ module.exports = function (Engine) {
 	}
 
 	function apply_romanian_collapse(game, log, options = {}) {
-		if (game.events && game.events[ROMANIA_COLLAPSE_EVENT_KEY]) return "none"
+		if (has_romania_collapsed(game)) return "none"
 		if (!game.events["romania"]) return "none"
 		if (!options.force && !should_auto_romanian_collapse(game)) return "none"
 
@@ -458,7 +464,7 @@ module.exports = function (Engine) {
 		let ge_cav = find_piece_by_name(CP, "GE Schmettow")
 		if (ge_cav >= 0) eliminate_piece(game, ge_cav, log, true)
 
-		let choice_available = !!game.events["bulgaria"] && !game.events["serbian_collapse"]
+		let choice_available = !!game.events["bulgaria"] && !has_serbia_collapsed(game)
 		// 19.5.6：若保加利亚已参战且塞尔维亚尚未崩溃，则罗马尼亚崩溃后不是直接清空 AH 入场单位，
 		// 而是让 CP 从这些单位中选择 3 个移除。
 		for (let p = 0; p < data.pieces.length; p++) {
@@ -543,6 +549,8 @@ module.exports = function (Engine) {
 	exports.get_collapse_sr_limit = get_collapse_sr_limit
 	exports.is_bulgarian_entry_piece = is_bulgarian_entry_piece
 	exports.is_romanian_entry_piece = is_romanian_entry_piece
+	exports.has_serbia_collapsed = has_serbia_collapsed
+	exports.has_romania_collapsed = has_romania_collapsed
 	exports.is_romania_uncollapsed = is_romania_uncollapsed
 	exports.ensure_collapse_status = ensure_collapse_status
 	exports.accept_voluntary_collapse = accept_voluntary_collapse

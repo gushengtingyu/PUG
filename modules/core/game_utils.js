@@ -234,6 +234,12 @@ module.exports = function (Engine) {
 		return get_piece_nations_for_rule(game, p, purpose).includes(nation)
 	}
 
+	function pieces_count_as_any_nation_for_rule(game, pieces, nations, purpose = "default") {
+		if (!Array.isArray(pieces)) return false
+		let nation_list = Array.isArray(nations) ? nations : [nations]
+		return pieces.some((p) => nation_list.some((nation) => piece_counts_as_nation_for_rule(game, p, nation, purpose)))
+	}
+
 	function can_piece_be_activated(p) {
 		if (p < 0 || !data.pieces[p]) return false
 		return data.pieces[p].name !== "GE GeoProtect"
@@ -243,7 +249,7 @@ module.exports = function (Engine) {
 		return is_eliminated(game, p) || is_in_reserve(game, p) || is_removed(game, p) || is_reinforcement(game, p)
 	}
 	function get_piece_cf(game, p) {
-		if (p < 0) return 0
+		if (p < 0) return 0 
 		if (is_hq(p)) {
 			if (set_has(game.reduced, p)) return data.pieces[p].rlf || 0
 			return data.pieces[p].lf || 0
@@ -747,6 +753,9 @@ module.exports = function (Engine) {
 		const { map } = Engine
 		let lcu_info = data.pieces[lcu_id]
 		if (space !== null) {
+			if (map.is_galicia(space) && (lcu_info.nation === "tu" || lcu_info.nation === "tua")) {
+				return null
+			}
 			if (
 				map.is_central_asia(space) ||
 				map.is_afghanistan(space) ||
@@ -961,6 +970,7 @@ module.exports = function (Engine) {
 		get_piece_nations_for_rule,
 		get_piece_nation_groups_for_rule,
 		piece_counts_as_nation_for_rule,
+		pieces_count_as_any_nation_for_rule,
 		can_piece_be_activated,
 		get_piece_cf,
 		get_season,

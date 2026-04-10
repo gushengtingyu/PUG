@@ -460,7 +460,7 @@ module.exports = function (Engine) {
 			const { CP } = Engine.constants
 			for (let s = 1; s < data.spaces.length; s++) {
 				if (map.is_egypt(s)) {
-					if (res.game.control[s] === CP || map.get_pieces_in_space(res.game, s).length === 0) {
+					if (map.is_controlled_by(res.game, s, CP) || map.get_pieces_in_space(res.game, s).length === 0) {
 						res.space(s)
 						can_place = true
 					}

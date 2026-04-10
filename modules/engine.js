@@ -165,16 +165,15 @@ const Engine = {
 	},
 
 	set_control(game, s, faction) {
+		const is_neutral_vp_space = Engine.is_neutral_vp_space(s)
 		let previous_neutral_vp_owner =
-			Engine.neutral && Engine.neutral.is_neutral_vp_space && Engine.neutral.is_neutral_vp_space(s) && game.neutral_vp_partial_control
-				? game.neutral_vp_partial_control[s] || 0
-				: 0
+			is_neutral_vp_space && game.neutral_vp_partial_control ? game.neutral_vp_partial_control[s] || 0 : 0
 		let current_controller =
 			Engine.map && typeof Engine.map.get_space_controller === "function"
 				? Engine.map.get_space_controller(game, s)
 				: game.control[s] || (data.spaces[s] && data.spaces[s].faction)
 		if (current_controller === faction) {
-			if (Engine.neutral && Engine.neutral.is_neutral_vp_space && Engine.neutral.is_neutral_vp_space(s)) {
+			if (is_neutral_vp_space) {
 				Engine.sync_neutral_vp_state(game, s, previous_neutral_vp_owner)
 			}
 			return

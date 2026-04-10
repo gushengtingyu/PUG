@@ -8,6 +8,8 @@ module.exports = function (Engine) {
 	const {
 		is_besieged,
 		can_trace_supply_to_source,
+		can_trace_piece_supply_to_space,
+		can_trace_piece_supply_to_sources,
 		get_pieces_in_space,
 		is_base_supply_source,
 		get_supply_sources_from_data,
@@ -52,6 +54,25 @@ module.exports = function (Engine) {
 		is_irregular,
 		is_tribe
 	} = Engine.game_utils
+	const SOFIA = find_space("SOFIA")
+	const BELGRADE = find_space("BELGRADE")
+	const CONSTANTINOPLE = find_space("CONSTANTINOPLE")
+	const ODESSA = find_space("Odessa")
+	const TRABZON = find_space("Trabzon")
+	const LEMNOS = find_space("Lemnos")
+	const SALONIKA = find_space("Salonika")
+	const NIS = find_space("Nis")
+	const BAGHDAD = find_space("Baghdad")
+	const AQABA = find_space("Aqaba")
+	const JIDDAH = find_space("Jiddah")
+	const GALICIA_SPACE_IDS = []
+	for (let s = 1; s < data.spaces.length; s++) {
+		if (is_galicia(s)) GALICIA_SPACE_IDS.push(s)
+	}
+	const TURKEY_REPLACEMENT_AREAS = new Set(["anatolia", "syria_palestine", "mesopotamia"])
+	const AP_FALLBACK_REPLACEMENT_NATIONS = new Set(["fr", "ro", "sb", "pe", "arm", "geo", "it"])
+	const AP_SHARED_BRITISH_REPLACEMENT_NATIONS = new Set(["anz", "ar", "gr"])
+	const CP_GALICIA_SHARED_REPLACEMENT_NATIONS = new Set(["ah", "bu"])
 
 	function is_spers_rifles_unit(info) {
 		return !!(info && info.name && info.name.includes("SPers Rifles"))
@@ -67,6 +88,14 @@ module.exports = function (Engine) {
 
 	function is_dunsterforce_unit(info) {
 		return !!(info && info.name === "BR Dunsterforce")
+	}
+
+	function has_serbia_collapsed(game) {
+		return !!(Engine.collapse && Engine.collapse.has_serbia_collapsed && Engine.collapse.has_serbia_collapsed(game))
+	}
+
+	function has_romania_collapsed(game) {
+		return !!(Engine.collapse && Engine.collapse.has_romania_collapsed && Engine.collapse.has_romania_collapsed(game))
 	}
 
 	function can_rebuild_regular_unit_in_space(game, s, faction) {
@@ -226,85 +255,71 @@ module.exports = function (Engine) {
 		return false
 	}
 
+	function get_turkish_replacement_supply_sources(game, faction) {
+		let sources = []
+		for (let i = 1; i < data.spaces.length; i++) {
+			if (!is_base_supply_source(game, i, faction)) continue
+			if (!TURKEY_REPLACEMENT_AREAS.has(get_area(i))) continue
+			sources.push(i)
+		}
+		return sources
+	}
+
+	function get_galicia_replacement_supply_sources(game, faction) {
+		let sources = []
+		for (let s of GALICIA_SPACE_IDS) {
+			if (!is_controlled_by(game, s, faction) || is_besieged(game, s)) continue
+			sources.push(s)
+		}
+		return sources
+	}
+
+	function get_british_replacement_supply_sources(game) {
+		let sources = []
+		for (let i = 1; i < data.spaces.length; i++) {
+			if (is_base_supply_source(game, i, AP, "br", true)) sources.push(i)
+		}
+		return sources
+	}
+
 	function can_trace_supply_to_sofia(game, p) {
-		let sofia = find_space("SOFIA")
-		if (sofia < 0) return false
-		if (!is_controlled_by(game, sofia, CP)) return false
-		if (is_besieged(game, sofia)) return false
-		if (is_not_on_map(game, p)) return true
-		let s = game.pieces[p]
-		if (s <= 0) return false
-		return can_trace_supply_to_source(game, s, data.pieces[p].faction, sofia)
+		return can_trace_piece_supply_to_space(game, p, SOFIA, {
+			faction: CP,
+			require_unbesieged: true,
+			allow_off_map: true
+		})
 	}
 
 	function can_trace_supply_to_turkey(game, p) {
-		let s = game.pieces[p]
-		if (s <= 0) return false
-		let faction = data.pieces[p].faction
-		let sources = []
-		for (let i = 1; i < data.spaces.length; i++) {
-			if (is_base_supply_source(game, i, faction)) {
-				let area = get_area(i)
-				if (area === "anatolia" || area === "syria_palestine" || area === "mesopotamia") {
-					sources.push(i)
-				}
-			}
-		}
-		return can_trace_supply_to_source(game, s, faction, sources)
+		let info = data.pieces[p]
+		if (!info) return false
+		return can_trace_piece_supply_to_sources(game, p, get_turkish_replacement_supply_sources(game, info.faction), {
+			faction: info.faction
+		})
 	}
 
 	function can_trace_supply_to_galicia(game, p) {
-		let s = game.pieces[p]
 		let info = data.pieces[p]
-		let faction = info.faction
-		let nation = info.nation
-
-		// Rule 22.2.3: Rebuilding units tracing supply to Galicia
-		if (s <= 0) {
-			if (nation === "ge" || nation === "ah") {
-				// Rebuilt in Galicia, so always traces supply
-				return true
-			}
-			if (nation === "bu") {
-				// Trace from Sofia to Galicia
-				let sofia = find_space("SOFIA")
-				if (sofia >= 0 && is_controlled_by(game, sofia, CP)) {
-					for (let i = 1; i < data.spaces.length; i++) {
-						if (is_galicia(i) && is_controlled_by(game, i, faction) && !is_besieged(game, i)) {
-							if (can_trace_supply_to_source(game, sofia, faction, i)) return true
-						}
-					}
-				}
-				return false
+		if (!info) return false
+		if (is_not_on_map(game, p)) {
+			if (info.nation === "ge" || info.nation === "ah") return true
+			if (info.nation === "bu") {
+				if (SOFIA < 0 || !is_controlled_by(game, SOFIA, CP) || is_besieged(game, SOFIA)) return false
+				return can_trace_supply_to_source(game, SOFIA, info.faction, get_galicia_replacement_supply_sources(game, info.faction))
 			}
 			return false
 		}
-
-		for (let i = 1; i < data.spaces.length; i++) {
-			if (is_galicia(i) && is_controlled_by(game, i, faction) && !is_besieged(game, i)) {
-				if (can_trace_supply_to_source(game, s, faction, i)) return true
-			}
-		}
-		return false
+		return can_trace_piece_supply_to_sources(game, p, get_galicia_replacement_supply_sources(game, info.faction), {
+			faction: info.faction
+		})
 	}
 
 	function can_trace_supply_to_british_source(game, p) {
-		let s = game.pieces[p]
-		if (s <= 0) return false
-		let sources = []
-		for (let i = 1; i < data.spaces.length; i++) {
-			if (is_base_supply_source(game, i, AP, "br", true)) {
-				sources.push(i)
-			}
-		}
-		return can_trace_supply_to_source(game, s, AP, sources)
+		return can_trace_piece_supply_to_sources(game, p, get_british_replacement_supply_sources(game), { faction: AP })
 	}
 
 	function can_trace_supply_to_russian_source(game, p) {
-		let s = game.pieces[p]
-		if (s <= 0) return false
-		let sources = get_ru_supply_sources(game, true)
-		return can_trace_supply_to_source(game, s, AP, sources)
+		return can_trace_piece_supply_to_sources(game, p, get_ru_supply_sources(game, true), { faction: AP })
 	}
 
 	function is_capital_enemy_controlled(game, nation) {
@@ -325,19 +340,13 @@ module.exports = function (Engine) {
 
 	function can_convert_ge_to_tu_unlimited(game) {
 		if (game.no_ge_to_tu_rp_conversion) return false
-		// Rule 22.3.2: Once Bulgaria becomes a CP ally AND a supply line can be traced overland by rail from Constantinople to Galicia
 		if (!game.events || !game.events["bulgaria"]) return false
 
-		let constantinople = find_space("CONSTANTINOPLE")
-		if (constantinople < 0) return false
-		if (!is_controlled_by(game, constantinople, CP)) return false
+		if (CONSTANTINOPLE < 0) return false
+		if (!is_controlled_by(game, CONSTANTINOPLE, CP)) return false
 
-		// Trace rail supply to any Galicia space
-		for (let s = 1; s < data.spaces.length; s++) {
-			if (is_galicia(s) && is_controlled_by(game, s, CP)) {
-				// Use is_connected_by_rail from map.js
-				if (is_connected_by_rail(game, constantinople, CP, [s])) return true
-			}
+		for (let s of GALICIA_SPACE_IDS) {
+			if (is_controlled_by(game, s, CP) && is_connected_by_rail(game, CONSTANTINOPLE, CP, [s])) return true
 		}
 
 		return false
@@ -347,6 +356,27 @@ module.exports = function (Engine) {
 		if (game.no_ge_to_tu_rp_conversion) return false
 		if (can_convert_ge_to_tu_unlimited(game)) return true
 		return game.ge_to_tu_rp_used + cost <= 1
+	}
+
+	const REPLACEMENT_SUPPLY_REQUIREMENTS = {
+		ge: { any: ["sofia", "turkey"], require: "galicia" },
+		ah: { any: ["sofia", "turkey"], require: "galicia" },
+		tu: { any: ["sofia", "galicia"], require: "turkey" },
+		tua: { any: ["sofia", "galicia"], require: "turkey" },
+		bu: { any: ["galicia", "turkey"], require: "sofia" },
+		ru: { any: ["british"], require: "russian" },
+		br: { any: ["russian"], require: "british" },
+		in: { any: ["russian"], require: "british" },
+		anz: { any: ["russian"], require: "british" }
+	}
+
+	function can_trace_replacement_supply_group(game, p, key) {
+		if (key === "sofia") return can_trace_supply_to_sofia(game, p)
+		if (key === "galicia") return can_trace_supply_to_galicia(game, p)
+		if (key === "turkey") return can_trace_supply_to_turkey(game, p)
+		if (key === "british") return can_trace_supply_to_british_source(game, p)
+		if (key === "russian") return can_trace_supply_to_russian_source(game, p)
+		return false
 	}
 
 	function can_use_replacement_supply_as_nation(game, p, s, nation) {
@@ -362,33 +392,120 @@ module.exports = function (Engine) {
 			}
 		}
 
-		if (nation === "ge" || nation === "ah") {
-			if (can_trace_supply_to_sofia(game, p) || can_trace_supply_to_turkey(game, p)) {
-				if (!can_trace_supply_to_galicia(game, p)) return false
+		let requirement = REPLACEMENT_SUPPLY_REQUIREMENTS[nation]
+		if (requirement) {
+			let trace_cache = new Map()
+			let can_trace = (key) => {
+				if (!trace_cache.has(key)) trace_cache.set(key, can_trace_replacement_supply_group(game, p, key))
+				return trace_cache.get(key)
 			}
-		}
-		if (nation === "tu" || nation === "tua") {
-			if (can_trace_supply_to_sofia(game, p) || can_trace_supply_to_galicia(game, p)) {
-				if (!can_trace_supply_to_turkey(game, p)) return false
-			}
-		}
-		if (nation === "bu") {
-			if (can_trace_supply_to_galicia(game, p) || can_trace_supply_to_turkey(game, p)) {
-				if (!can_trace_supply_to_sofia(game, p)) return false
-			}
-		}
-		if (nation === "ru") {
-			if (can_trace_supply_to_british_source(game, p)) {
-				if (!can_trace_supply_to_russian_source(game, p)) return false
-			}
-		}
-		if (["br", "in", "anz"].includes(nation)) {
-			if (can_trace_supply_to_russian_source(game, p)) {
-				if (!can_trace_supply_to_british_source(game, p)) return false
+			if (requirement.any.some(can_trace) && !can_trace(requirement.require)) {
+				return false
 			}
 		}
 
 		return true
+	}
+
+	function create_replacement_payment_option(pool, options = {}) {
+		return {
+			pool,
+			can_use: options.can_use || (() => true),
+			on_spend: options.on_spend || (() => {})
+		}
+	}
+
+	function can_convert_br_to_ru(game, cost, rps) {
+		if (game.events && game.events["russian_revolution"] >= 1) return false
+		if (rps.br < cost) return false
+		if (game.events && game.events["asquith_coalition"]) return true
+		if (game.events && game.events["kitchener"] && !game.br_to_ru_rp_used) return true
+		return false
+	}
+
+	const AP_REPLACEMENT_PAYMENT_OPTIONS = {
+		br: [create_replacement_payment_option("br")],
+		ru: [
+			create_replacement_payment_option("ru"),
+			create_replacement_payment_option("br", {
+				can_use: ({ game, cost, rps }) => can_convert_br_to_ru(game, cost, rps),
+				on_spend: ({ game }) => {
+					if (!(game.events && game.events["asquith_coalition"]) && game.events && game.events["kitchener"]) {
+						game.br_to_ru_rp_used = true
+					}
+				}
+			})
+		],
+		in: [create_replacement_payment_option("in")]
+	}
+
+	const CP_REPLACEMENT_PAYMENT_OPTIONS = {
+		ge: [create_replacement_payment_option("ge")],
+		tu: [
+			create_replacement_payment_option("tu"),
+			create_replacement_payment_option("ge", {
+				can_use: ({ game, cost }) => can_use_ge_rp_for_tu(game, cost),
+				on_spend: ({ game, cost }) => {
+					if (!can_convert_ge_to_tu_unlimited(game)) game.ge_to_tu_rp_used += cost
+				}
+			})
+		],
+		tua: [
+			create_replacement_payment_option("tu"),
+			create_replacement_payment_option("ge", {
+				can_use: ({ game, cost }) => can_use_ge_rp_for_tu(game, cost),
+				on_spend: ({ game, cost }) => {
+					if (!can_convert_ge_to_tu_unlimited(game)) game.ge_to_tu_rp_used += cost
+				}
+			})
+		],
+		gr: [create_replacement_payment_option("a"), create_replacement_payment_option("ge")]
+	}
+
+	function get_replacement_payment_options(game, p, nation, faction) {
+		if (faction === AP) {
+			if (AP_REPLACEMENT_PAYMENT_OPTIONS[nation]) return AP_REPLACEMENT_PAYMENT_OPTIONS[nation]
+			if (AP_SHARED_BRITISH_REPLACEMENT_NATIONS.has(nation)) {
+				return [create_replacement_payment_option("br"), create_replacement_payment_option("a")]
+			}
+			if (AP_FALLBACK_REPLACEMENT_NATIONS.has(nation)) return [create_replacement_payment_option("a")]
+			return [create_replacement_payment_option("a")]
+		}
+
+		if (CP_REPLACEMENT_PAYMENT_OPTIONS[nation]) return CP_REPLACEMENT_PAYMENT_OPTIONS[nation]
+		if (CP_GALICIA_SHARED_REPLACEMENT_NATIONS.has(nation)) {
+			return [
+				create_replacement_payment_option("a"),
+				create_replacement_payment_option("ge", {
+					can_use: ({ game, p }) => can_trace_supply_to_galicia(game, p)
+				})
+			]
+		}
+		return [create_replacement_payment_option("a")]
+	}
+
+	function can_use_replacement_payment_option(option, context) {
+		let amount = context.rps[option.pool] || 0
+		if (amount < context.cost) return false
+		return option.can_use(context)
+	}
+
+	function can_afford_replacement_as_nation(game, p, nation, cost, rps, faction) {
+		let options = get_replacement_payment_options(game, p, nation, faction)
+		let context = { game, p, nation, cost, rps, faction }
+		return options.some((option) => can_use_replacement_payment_option(option, context))
+	}
+
+	function spend_replacement_as_nation(game, p, nation, cost, rps, faction) {
+		let options = get_replacement_payment_options(game, p, nation, faction)
+		let context = { game, p, nation, cost, rps, faction }
+		for (let option of options) {
+			if (!can_use_replacement_payment_option(option, context)) continue
+			rps[option.pool] -= cost
+			option.on_spend(context)
+			return true
+		}
+		return false
 	}
 
 	function is_replacement_nation_eligible(game, p, nation) {
@@ -403,164 +520,6 @@ module.exports = function (Engine) {
 			if (s > 0 && !can_use_replacement_supply_as_nation(game, p, s, nation)) return false
 		}
 		return true
-	}
-
-	function can_convert_br_to_ru(game, cost, rps) {
-		if (game.events && game.events["russian_revolution"] >= 1) return false
-		if (rps.br < cost) return false
-		if (game.events && game.events["asquith_coalition"]) return true
-		if (game.events && game.events["kitchener"] && !game.br_to_ru_rp_used) return true
-		return false
-	}
-
-	function can_afford_ap_replacement_as_nation(game, p, nation, cost, rps) {
-		if (nation === "br") return rps.br >= cost
-		if (nation === "ru") {
-			if (rps.ru >= cost) return true
-			if (can_convert_br_to_ru(game, cost, rps)) return true
-			return false
-		}
-		if (nation === "in") return rps.in >= cost
-		if (["anz", "ar", "gr"].includes(nation)) return rps.br >= cost || rps.a >= cost
-		if (["fr", "ro", "sb", "pe", "arm", "geo", "it"].includes(nation)) return rps.a >= cost
-		return rps.a >= cost
-	}
-
-	function can_afford_cp_replacement_as_nation(game, p, nation, cost, rps) {
-		if (nation === "ge") return rps.ge >= cost
-		if (nation === "tu" || nation === "tua") {
-			if (rps.tu >= cost) return true
-			if (rps.ge >= cost && can_use_ge_rp_for_tu(game, cost)) return true
-			return false
-		}
-		if (nation === "ah") {
-			if (rps.a >= cost) return true
-			if (rps.ge >= cost && can_trace_supply_to_galicia(game, p)) return true
-			return false
-		}
-		if (nation === "bu") {
-			if (rps.a >= cost) return true
-			if (rps.ge >= cost && can_trace_supply_to_galicia(game, p)) return true
-			return false
-		}
-		if (nation === "gr") return rps.a >= cost || rps.ge >= cost
-		return rps.a >= cost
-	}
-
-	function spend_ap_replacement_as_nation(game, nation, cost, rps) {
-		if (nation === "br") {
-			if (rps.br >= cost) {
-				rps.br -= cost
-				return true
-			}
-			return false
-		}
-		if (nation === "ru") {
-			if (rps.ru >= cost) {
-				rps.ru -= cost
-				return true
-			}
-			if (game.events && game.events["asquith_coalition"] && can_convert_br_to_ru(game, cost, rps)) {
-				rps.br -= cost
-				return true
-			}
-			if (game.events && game.events["kitchener"] && can_convert_br_to_ru(game, cost, rps)) {
-				rps.br -= cost
-				game.br_to_ru_rp_used = true
-				return true
-			}
-			return false
-		}
-		if (nation === "in") {
-			if (rps.in >= cost) {
-				rps.in -= cost
-				return true
-			}
-			return false
-		}
-		if (["anz", "ar", "gr"].includes(nation)) {
-			if (rps.br >= cost) {
-				rps.br -= cost
-				return true
-			}
-			if (rps.a >= cost) {
-				rps.a -= cost
-				return true
-			}
-			return false
-		}
-		if (["fr", "ro", "sb", "pe", "arm", "geo", "it"].includes(nation)) {
-			if (rps.a >= cost) {
-				rps.a -= cost
-				return true
-			}
-			return false
-		}
-		if (rps.a >= cost) {
-			rps.a -= cost
-			return true
-		}
-		return false
-	}
-
-	function spend_cp_replacement_as_nation(game, p, nation, cost, rps) {
-		if (nation === "ge") {
-			if (rps.ge >= cost) {
-				rps.ge -= cost
-				return true
-			}
-			return false
-		}
-		if (nation === "tu" || nation === "tua") {
-			if (rps.tu >= cost) {
-				rps.tu -= cost
-				return true
-			}
-			if (rps.ge >= cost && can_use_ge_rp_for_tu(game, cost)) {
-				rps.ge -= cost
-				if (!can_convert_ge_to_tu_unlimited(game)) game.ge_to_tu_rp_used += cost
-				return true
-			}
-			return false
-		}
-		if (nation === "ah") {
-			if (rps.a >= cost) {
-				rps.a -= cost
-				return true
-			}
-			if (rps.ge >= cost && can_trace_supply_to_galicia(game, p)) {
-				rps.ge -= cost
-				return true
-			}
-			return false
-		}
-		if (nation === "bu") {
-			if (rps.a >= cost) {
-				rps.a -= cost
-				return true
-			}
-			if (rps.ge >= cost && can_trace_supply_to_galicia(game, p)) {
-				rps.ge -= cost
-				return true
-			}
-			return false
-		}
-		if (nation === "gr") {
-			if (rps.a >= cost) {
-				rps.a -= cost
-				return true
-			}
-			if (rps.ge >= cost) {
-				rps.ge -= cost
-				return true
-			}
-			return false
-		}
-		if (rps.a >= cost) {
-			rps.a -= cost
-			return true
-		}
-		return false
 	}
 
 	function can_afford_replacement(game, p, cost) {
@@ -582,11 +541,7 @@ module.exports = function (Engine) {
 		let valid_nations = nations.filter((nation) => is_replacement_nation_eligible(game, p, nation))
 		if (valid_nations.length === 0) return false
 
-		if (faction === AP) {
-			return valid_nations.some((nation) => can_afford_ap_replacement_as_nation(game, p, nation, cost, rps))
-		} else {
-			return valid_nations.some((nation) => can_afford_cp_replacement_as_nation(game, p, nation, cost, rps))
-		}
+		return valid_nations.some((nation) => can_afford_replacement_as_nation(game, p, nation, cost, rps, faction))
 	}
 
 	function spend_replacement_points(game, p, cost) {
@@ -606,15 +561,8 @@ module.exports = function (Engine) {
 		}
 
 		let valid_nations = nations.filter((nation) => is_replacement_nation_eligible(game, p, nation))
-
-		if (faction === AP) {
-			for (let nation of valid_nations) {
-				if (spend_ap_replacement_as_nation(game, nation, cost, rps)) return
-			}
-		} else {
-			for (let nation of valid_nations) {
-				if (spend_cp_replacement_as_nation(game, p, nation, cost, rps)) return
-			}
+		for (let nation of valid_nations) {
+			if (spend_replacement_as_nation(game, p, nation, cost, rps, faction)) return
 		}
 	}
 
@@ -674,7 +622,7 @@ module.exports = function (Engine) {
 				// Rule 22.2.2: RU LCUs may be rebuilt only on AP-controlled RU Supply Sources (including Trabzon)
 				if (is_controlled_by(game, s, AP) && !is_besieged(game, s)) {
 					if (is_base_supply_source(game, s, AP, "ru")) can_rebuild = true
-					if (name === "Trabzon") can_rebuild = true
+					if (s === TRABZON) can_rebuild = true
 				}
 			} else if (nation === "br" || nation === "in" || nation === "anz") {
 				// Rule 22.2.2: BR, IN, and ANZ LCUs may be rebuilt only at AP-controlled BR Supply Sources or ports in E.Med, Aegean, or Persian Gulf.
@@ -697,8 +645,13 @@ module.exports = function (Engine) {
 					}
 				}
 			} else if (nation === "ro") {
-				// Rule 22.2.2: RO units in Bucharest prior to Romanian Collapse.
-				if (s === nation_capital && is_controlled_by(game, s, AP) && !game.events["romanian_collapse"])
+				// Rule 19.5.4 / 22.2.2: RO units may be rebuilt in Bucharest or Odessa prior to Romanian Collapse.
+				if (
+					(s === nation_capital || s === ODESSA) &&
+					is_controlled_by(game, s, AP) &&
+					!is_besieged(game, s) &&
+					!has_romania_collapsed(game)
+				)
 					can_rebuild = true
 			} else if (nation === "bu") {
 				// Rule 22.2.2: BU units may be rebuilt only in CP-controlled Sofia.
@@ -709,7 +662,7 @@ module.exports = function (Engine) {
 				if (info.name && info.name.includes("CND")) {
 					// Rule 13.3.2: 德国潜艇地中海猎袭期间，不能在特定港口增援/重建
 					if (!Engine.events.is_german_subs_blocked_port(game, s)) {
-						if (name === "Lemnos") can_rebuild = true
+						if (s === LEMNOS) can_rebuild = true
 						if (
 							is_aegean_east_med_port(s) &&
 							data.spaces[s].nation === "gr" &&
@@ -736,29 +689,21 @@ module.exports = function (Engine) {
 				// Rule 13.3.2: 德国潜艇地中海猎袭期间，不能在特定港口增援/重建
 				let blocked = Engine.events.is_german_subs_blocked_port(game, s)
 
-				if (game.events && game.events["serbian_collapse"]) {
+				if (has_serbia_collapsed(game)) {
 					if (game.events["the_serbs_return"]) {
-						let belgrade = find_space("BELGRADE")
-						if (is_controlled_by(game, belgrade, AP)) {
+						if (BELGRADE >= 0 && is_controlled_by(game, BELGRADE, AP)) {
 							// Rule 19.4.4: After Belgrade is recaptured, SB units may again be built in Belgrade and Nis.
 							if (
 								!blocked &&
-								(name === "Lemnos" ||
-									(name === "Salonika" && is_controlled_by(game, s, AP) && !is_besieged(game, s)))
+								(s === LEMNOS || (s === SALONIKA && is_controlled_by(game, s, AP) && !is_besieged(game, s)))
 							)
 								can_rebuild = true
-							if (
-								(name === "BELGRADE" || name === "Nis") &&
-								is_controlled_by(game, s, AP) &&
-								!is_besieged(game, s)
-							)
-								can_rebuild = true
+							if ((s === BELGRADE || s === NIS) && is_controlled_by(game, s, AP) && !is_besieged(game, s)) can_rebuild = true
 						} else {
 							// Rule 19.4.4: (only in AP-controlled Salonika or Lemnos, until Belgrade is recaptured)
 							if (
 								!blocked &&
-								(name === "Lemnos" ||
-									(name === "Salonika" && is_controlled_by(game, s, AP) && !is_besieged(game, s)))
+								(s === LEMNOS || (s === SALONIKA && is_controlled_by(game, s, AP) && !is_besieged(game, s)))
 							)
 								can_rebuild = true
 						}
@@ -771,16 +716,10 @@ module.exports = function (Engine) {
 					// 22.1.5: SB units may still be built at Lemnos or AP-controlled Salonika if Belgrade and Nis are enemy-controlled.
 					if (
 						!blocked &&
-						(name === "Lemnos" ||
-							(name === "Salonika" && is_controlled_by(game, s, AP) && !is_besieged(game, s)))
+						(s === LEMNOS || (s === SALONIKA && is_controlled_by(game, s, AP) && !is_besieged(game, s)))
 					)
 						can_rebuild = true
-					if (
-						(name === "BELGRADE" || name === "Nis") &&
-						is_controlled_by(game, s, AP) &&
-						!is_besieged(game, s)
-					)
-						can_rebuild = true
+					if ((s === BELGRADE || s === NIS) && is_controlled_by(game, s, AP) && !is_besieged(game, s)) can_rebuild = true
 				}
 			} else if (nation === "ar") {
 				// Rule 22.2.2: Arab Revolt Irregular Units in Hejaz (even if CP), Aqaba, or Jiddah (if AP).
@@ -798,12 +737,7 @@ module.exports = function (Engine) {
 					}
 				} else {
 					if (is_hejaz(s) && !is_besieged(game, s)) can_rebuild = true
-					if (
-						(name === "Aqaba" || name === "Jiddah") &&
-						is_controlled_by(game, s, AP) &&
-						!is_besieged(game, s)
-					)
-						can_rebuild = true
+					if ((s === AQABA || s === JIDDAH) && is_controlled_by(game, s, AP) && !is_besieged(game, s)) can_rebuild = true
 				}
 			} else if (nation === "geo" || nation === "arm") {
 				// Rule 22.2.2: GEO and ARM in any AP controlled space in Russia or Caucasia.
@@ -823,7 +757,7 @@ module.exports = function (Engine) {
 			if (
 				!can_rebuild &&
 				is_dunsterforce_unit(info) &&
-				name === "Baghdad" &&
+				s === BAGHDAD &&
 				is_controlled_by(game, s, AP) &&
 				can_rebuild_regular_unit_in_space(game, s, faction)
 			) {
@@ -847,17 +781,12 @@ module.exports = function (Engine) {
 		get_valid_rebuild_spaces,
 		can_rebuild_in_reserve_box,
 		get_tribe_key_space,
+		can_trace_supply_to_galicia,
+		can_trace_supply_to_turkey,
+		can_trace_supply_to_sofia,
+		can_trace_supply_to_british_source,
+		can_trace_supply_to_russian_source
 	})
-
-	exports.get_replacement_cost = get_replacement_cost
-	exports.can_afford_replacement = can_afford_replacement
-	exports.spend_replacement_points = spend_replacement_points
-	exports.can_rebuild_in_reserve_box = can_rebuild_in_reserve_box
-	exports.can_trace_supply_to_galicia = can_trace_supply_to_galicia
-	exports.can_trace_supply_to_turkey = can_trace_supply_to_turkey
-	exports.can_trace_supply_to_sofia = can_trace_supply_to_sofia
-	exports.can_trace_supply_to_british_source = can_trace_supply_to_british_source
-	exports.can_trace_supply_to_russian_source = can_trace_supply_to_russian_source
 
 	return exports
 }

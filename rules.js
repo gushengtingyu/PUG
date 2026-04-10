@@ -148,7 +148,12 @@ const {
 	can_choose_attack_with_piece: combat_can_choose_attack_with_piece
 } = combat
 
-const { setup_historical_scenario, setup_limited_war_scenario } = Engine.setup
+const {
+	create_game,
+	normalize_game,
+	setup_historical_scenario,
+	setup_limited_war_scenario
+} = Engine.setup
 const {
 	play_event,
 	can_play_event,
@@ -167,33 +172,24 @@ const event_states = Engine.event_states
 const jihad = Engine.jihad
 
 let states = {}
-// Merge MO states with context injection
-for (let s in mo.states) {
-	states[s] = Object.assign({}, mo.states[s])
-	for (let a in mo.states[s]) {
-		if (typeof mo.states[s][a] === "function") {
-			if (a === "prompt") {
-				states[s][a] = (res) => mo.states[s][a](res)
+function merge_engine_states(source_states) {
+	for (let state_name in source_states) {
+		const source_state = source_states[state_name]
+		const target_state = Object.assign({}, source_state)
+		for (let action_name in source_state) {
+			if (typeof source_state[action_name] !== "function") continue
+			if (action_name === "prompt") {
+				target_state[action_name] = (res) => source_state[action_name](res)
 			} else {
-				states[s][a] = (arg, current) => mo.states[s][a](game, log, arg, current)
+				target_state[action_name] = (arg, current) => source_state[action_name](game, log, arg, current)
 			}
 		}
+		states[state_name] = target_state
 	}
 }
 
-// Merge Jihad states with context injection
-for (let s in jihad.states) {
-	states[s] = Object.assign({}, jihad.states[s])
-	for (let a in jihad.states[s]) {
-		if (typeof jihad.states[s][a] === "function") {
-			if (a === "prompt") {
-				states[s][a] = (res) => jihad.states[s][a](res)
-			} else {
-				states[s][a] = (arg, current) => jihad.states[s][a](game, log, arg, current)
-			}
-		}
-	}
-}
+merge_engine_states(mo.states)
+merge_engine_states(jihad.states)
 
 function with_optional_game_arg(arg1, arg2, fn) {
 	if (arg1 && typeof arg1 === "object" && Array.isArray(arg1.pieces)) {
@@ -323,6 +319,7 @@ const event_rules = Object.freeze({
 		return set_control(game, arg1, arg2)
 	},
 	get_attackable_spaces,
+	can_sr_piece,
 	get_sr_cost,
 	get_reserve_box,
 	is_in_reserve,
@@ -556,12 +553,11 @@ function update_supply_if_missing() {
 	}
 }
 
-function normalize_game(state) {
-	return Engine.setup.normalize_game(state)
-}
-
-function create_game(seed, scenario, options) {
-	return Engine.setup.create_game(seed, scenario, options)
+function set_state_globals() {
+	activation_states.set_globals(game)
+	combat_states.set_globals(game)
+	turn_states.set_globals(game)
+	action_states.set_globals(game)
 }
 
 function normalize_action_arg(arg) {
@@ -591,10 +587,7 @@ exports.action = function (state, current, action, arg) {
 		}
 	}
 
-	activation_states.set_globals(game)
-	combat_states.set_globals(game)
-	turn_states.set_globals(game)
-	action_states.set_globals(game)
+	set_state_globals()
 	normalize_transient_state()
 	const state_handlers = states[game.state]
 	if (state_handlers && action in state_handlers) {
@@ -609,6 +602,7 @@ exports.action = function (state, current, action, arg) {
 	normalize_transient_state()
 	// 任意 action 都可能改变控制权、单位位置或围攻状态，标记补给缓存失效。
 	game.supply_dirty = true
+	game.cache_revision = (Number(game.cache_revision) || 0) + 1
 	return game
 }
 
@@ -893,10 +887,7 @@ exports.view = function (state, current) {
 		}
 	}
 
-	activation_states.set_globals(game)
-	combat_states.set_globals(game)
-	turn_states.set_globals(game)
-	action_states.set_globals(game)
+	set_state_globals()
 	normalize_transient_state()
 
 	for (let i = 0; i < 5; i++) {
@@ -937,10 +928,7 @@ exports.setup = function (seed, scenario, options) {
 	game.options.hand_size = game.options.seven_hand_size ? 7 : 8
 	set_up_standard_decks(false)
 
-	activation_states.set_globals(game)
-	combat_states.set_globals(game)
-	turn_states.set_globals(game)
-	action_states.set_globals(game)
+	set_state_globals()
 
 	goto_start_turn()
 	game.supply_dirty = true
@@ -1185,10 +1173,7 @@ function restore_rollback(index) {
 	game.rollback = save_rollback.slice(0, index + 1)
 	game.rollback_state = rollback_state.slice(0, index + 1)
 
-	activation_states.set_globals(game)
-	combat_states.set_globals(game)
-	turn_states.set_globals(game)
-	action_states.set_globals(game)
+	set_state_globals()
 }
 
 function goto_propose_rollback(rollback_index) {
@@ -1319,6 +1304,7 @@ function push_undo() {
 	if (!game.undo) game.undo = []
 	game.undo.push(copy)
 }
+Engine.push_undo = push_undo
 
 function pop_undo() {
 	if (game.undo && game.undo.length > 0) {
@@ -1661,6 +1647,9 @@ function refresh_attack_eligibility() {
 			if (Engine.neutral.is_greek_piece(p) && !Engine.neutral.can_attack_piece_for_faction(game, p, faction)) {
 				is_active_piece = false
 			}
+			if (game.events && game.events["apis"] === game.turn && data.pieces[p].nation === "sb") {
+				is_active_piece = false
+			}
 			if (is_active_piece && (is_lcu(p) || is_scu(p))) {
 				if (has_attack_targets(p, faction, enemy, enemy_space_flag)) {
 					set_add(game.eligible_attackers, p)
@@ -1754,19 +1743,32 @@ function normalize_transient_state() {
 }
 
 function start_event(key, data) {
-	if (game.event_ctx && game.event_ctx.key === key) {
-		if (data) {
-			game.event_ctx.data = Object.assign(game.event_ctx.data || {}, data)
+	if (!game.event_ctx || typeof game.event_ctx !== "object" || Array.isArray(game.event_ctx)) {
+		game.event_ctx = {}
+	}
+	if (game.event_ctx.key === key) {
+		if (!game.event_ctx.data || typeof game.event_ctx.data !== "object" || Array.isArray(game.event_ctx.data)) {
+			game.event_ctx.data = {}
+		}
+		if (data && typeof data === "object" && !Array.isArray(data)) {
+			Object.assign(game.event_ctx.data, data)
 		}
 		return game.event_ctx.data
 	}
-	game.event_ctx = { key, data: data || {} }
+	game.event_ctx = { key, data: {} }
+	if (data && typeof data === "object" && !Array.isArray(data)) {
+		Object.assign(game.event_ctx.data, data)
+	}
 	return game.event_ctx.data
 }
 
 function get_event_data() {
-	if (!game.event_ctx) return null
-	if (!game.event_ctx.data) game.event_ctx.data = {}
+	if (!game.event_ctx || typeof game.event_ctx !== "object" || Array.isArray(game.event_ctx)) {
+		game.event_ctx = {}
+	}
+	if (!game.event_ctx.data || typeof game.event_ctx.data !== "object" || Array.isArray(game.event_ctx.data)) {
+		game.event_ctx.data = {}
+	}
 	return game.event_ctx.data
 }
 
@@ -1969,10 +1971,7 @@ exports.active_faction = active_faction
 exports.get_activation_cost = get_activation_cost
 exports.set_game = function (g) {
 	game = normalize_game(g)
-	activation_states.set_globals(game)
-	combat_states.set_globals(game)
-	turn_states.set_globals(game)
-	action_states.set_globals(game)
+	set_state_globals()
 }
 exports.roles = [AP_ROLE, CP_ROLE]
 

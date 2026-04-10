@@ -2,10 +2,30 @@
 
 module.exports = function (Engine) {
 	const { data, game_utils } = Engine
-	const { is_regular, get_piece_nation, get_piece_faction, is_not_on_map, piece_counts_as_nation_for_rule } = game_utils
+	const {
+		is_regular,
+		get_piece_nation,
+		get_piece_faction,
+		is_not_on_map,
+		piece_counts_as_nation_for_rule,
+		pieces_count_as_any_nation_for_rule
+	} = game_utils
 	const exports = {}
 
 	const { roll_die } = Engine.utils
+	const {
+		is_balkans,
+		is_caucasus,
+		is_syria_palestine,
+		is_mesopotamia,
+		is_persia,
+		is_afghanistan,
+		is_central_asia,
+		is_india,
+		is_baluchistan,
+		get_pieces_in_space,
+		can_trace_supply_to_source
+	} = Engine.map
 
 	// MO Constants
 	const MO_NONE = "none"
@@ -36,6 +56,12 @@ module.exports = function (Engine) {
 	const RUSSIA = "ru"
 	const TURKEY = "tu"
 	const TURKEY_ARAB = "tua"
+	const MO_RULE = "mo"
+	const BRITISH_EMPIRE_NATIONS = [BRITAIN, "in", "anz"]
+	const TURKISH_MO_NATIONS = [TURKEY, TURKEY_ARAB]
+	const MO_VALID = "VALID"
+	const MO_NONE_STATUS = "NONE"
+	const MO_REROLL = "REROLL"
 	const EGYPT_SUPPLY_NAMES = [
 		"Port Said",
 		"Ismailia",
@@ -52,6 +78,7 @@ module.exports = function (Engine) {
 		"Bahariya Oasis",
 		"Khartoum"
 	]
+	let egypt_supply_spaces = null
 
 	function mo_name(mo) {
 		switch (mo) {
@@ -143,99 +170,143 @@ module.exports = function (Engine) {
 		if (!game || p === undefined || p === null || !data.pieces[p]) return false
 		const start = game.pieces[p]
 		if (!start || start <= 0) return false
-		const trace = Engine.map.can_trace_supply_to_source
-		if (typeof trace !== "function") return false
-		const egypt_spaces = find_spaces_by_name(EGYPT_SUPPLY_NAMES)
+		if (typeof can_trace_supply_to_source !== "function") return false
+		const egypt_spaces = get_egypt_supply_spaces()
 		if (egypt_spaces.length === 0) return false
-		return trace(game, start, AP, egypt_spaces)
+		return can_trace_supply_to_source(game, start, AP, egypt_spaces)
+	}
+
+	function get_egypt_supply_spaces() {
+		if (!egypt_supply_spaces) egypt_supply_spaces = find_spaces_by_name(EGYPT_SUPPLY_NAMES)
+		return egypt_supply_spaces
+	}
+
+	function has_piece_counting_as_any_nation(game, pieces, nations) {
+		return pieces_count_as_any_nation_for_rule(game, pieces, nations, MO_RULE)
+	}
+
+	function has_regular_piece_counting_as_any_nation(game, pieces, nations) {
+		if (!Array.isArray(pieces)) return false
+		const nation_list = Array.isArray(nations) ? nations : [nations]
+		return pieces.some(
+			(p) => is_regular(p) && nation_list.some((nation) => piece_counts_as_nation_for_rule(game, p, nation, MO_RULE))
+		)
+	}
+
+	function get_on_map_pieces_by_faction(game, faction) {
+		const pieces = []
+		for (let p = 0; p < game.pieces.length; p++) {
+			if (data.pieces[p] && data.pieces[p].faction === faction && !is_not_on_map(game, p)) {
+				pieces.push(p)
+			}
+		}
+		return pieces
+	}
+
+	function any_piece_is_in_area(game, pieces, area_check) {
+		return pieces.some((p) => {
+			const space = game.pieces[p]
+			if (space === undefined || space === null || space < 0) return false
+			return area_check(space)
+		})
+	}
+
+	function is_ap_eastern_mo_space(space) {
+		return (
+			is_mesopotamia(space) ||
+			is_persia(space) ||
+			is_afghanistan(space) ||
+			is_central_asia(space) ||
+			is_india(space) ||
+			is_baluchistan(space)
+		)
+	}
+
+	function can_british_piece_trace_supply_to_egypt(game, pieces) {
+		if (!Array.isArray(pieces)) return false
+		return pieces.some(
+			(p) => piece_counts_as_nation_for_rule(game, p, BRITAIN, MO_RULE) && can_trace_supply_by_land_to_egypt(game, p)
+		)
+	}
+
+	// Rules 5.2, 5.3, and 3.2.7:
+	// MO nationality checks must honor dual-nationality units, so all nationality checks
+	// route through piece_counts_as_nation_for_rule(..., "mo") instead of raw piece.nation.
+	// Rule 5.3:
+	// AP 具体攻势要求只看本次宣告的进攻是否命中规定国别/战区，
+	// 战区判定尽量复用 map.js 既有区域辅助函数，避免在 MO 中重复维护地区字符串。
+	function check_ap_mo_criteria(game, mo, ctx) {
+		const { space, pieces, has_attacking_nation } = ctx
+		switch (mo) {
+			case MO_RUSSIA:
+				return has_attacking_nation(RUSSIA)
+			case MO_BRITISH:
+				return has_attacking_nation(BRITISH_EMPIRE_NATIONS)
+			case MO_MESOPOTAMIA:
+				return is_ap_eastern_mo_space(space)
+			case MO_EGYPT:
+			case MO_BRITISH_EGYPT:
+				return is_syria_palestine(space) && can_british_piece_trace_supply_to_egypt(game, pieces)
+			case MO_BALKANS:
+				return is_balkans(space) && has_attacking_nation(BRITAIN)
+			case MO_BRITISH_MESOPOTAMIA:
+				return is_mesopotamia(space) && has_attacking_nation(BRITISH_EMPIRE_NATIONS)
+			case MO_RUSSIA_CAUCASUS:
+				return is_caucasus(space) && has_attacking_nation(RUSSIA)
+			default:
+				return false
+		}
+	}
+
+	function check_cp_mo_criteria(game, mo, ctx) {
+		const { space, has_attacking_nation, has_defending_nation } = ctx
+		switch (mo) {
+			case MO_RUSSIA:
+				if (is_russian_mo_ignored_for_cp(game)) return true
+				return has_defending_nation(RUSSIA)
+			case MO_BRITISH:
+				return has_defending_nation(BRITISH_EMPIRE_NATIONS)
+			case MO_TURKEY:
+				return has_attacking_nation(TURKISH_MO_NATIONS)
+			case MO_TURKEY_CAUCASUS:
+				return is_caucasus(space) && has_attacking_nation(TURKISH_MO_NATIONS)
+			case MO_TURKEY_EGYPT:
+				return is_syria_palestine(space) && has_attacking_nation(TURKISH_MO_NATIONS)
+			case MO_TURKEY_MESOPOTAMIA:
+				return is_mesopotamia(space) && has_attacking_nation(TURKISH_MO_NATIONS)
+			default:
+				return false
+		}
 	}
 
 	/**
 	 * Checks if Mandated Offensive criteria are met for a specific attack.
 	 * @param {object} game - Game state
 	 * @param {string} mo - Mandated Offensive type
-	 * @param {string} faction - AP or CP
-	 * @param {number} space - Space index
-	 * @param {number[]} pieces - Array of attacker piece IDs
-	 * @param {number[]} defender_pieces - Array of defender piece IDs
+	 * @param {object} ctx - Context object
+	 * @param {string} ctx.attacker - AP or CP
+	 * @param {number} ctx.space - Space index
+	 * @param {number[]} ctx.pieces - Array of attacker piece IDs
+	 * @param {number[]} ctx.defender_pieces - Array of defender piece IDs
 	 * @returns {boolean}
 	 */
-	function check_mo_criteria(game, mo, faction, space, pieces, defender_pieces) {
+	function check_mo_criteria(game, mo, ctx) {
+		const { attacker: faction, space, pieces, defender_pieces } = ctx
 		if (!mo || mo === MO_NONE) return true
 		if (space === undefined || space === null || space < 0) return false
 
-		// Rule 5.1.3: Attacks by Irregular Units and Tribes alone cannot fulfill an MO.
-		const has_regular_attacker = Array.isArray(pieces) && pieces.some(is_regular)
-		if (!has_regular_attacker) return false
+		// Rule 5.1.3: Irregulars/Tribes attacking alone never satisfy an MO.
+		if (!Array.isArray(pieces) || !pieces.some(is_regular)) return false
 
-		const area = Engine.map.get_area(space)
-
-		// Helper to check attacker nationality
-		const has_att_nation = (nation) => {
-			if (!Array.isArray(pieces)) return false
-			return pieces.some((p) => piece_counts_as_nation_for_rule(game, p, nation, "mo"))
+		const criteria_ctx = {
+			space,
+			pieces,
+			has_attacking_nation: (nations) => has_piece_counting_as_any_nation(game, pieces, nations),
+			has_defending_nation: (nations) => has_piece_counting_as_any_nation(game, defender_pieces, nations)
 		}
 
-		// Helper to check defender nationality
-		const has_def_nation = (nation) => {
-			if (!Array.isArray(defender_pieces)) return false
-			return defender_pieces.some((p) => piece_counts_as_nation_for_rule(game, p, nation, "mo"))
-		}
-
-		if (faction === AP) {
-			if (mo === MO_RUSSIA) return has_att_nation(RUSSIA)
-
-			if (mo === MO_BRITISH) return has_att_nation(BRITAIN) || has_att_nation("in") || has_att_nation("anz")
-
-			if (mo === MO_MESOPOTAMIA)
-				// AP Roll 6: Meso/Persia/East
-				return (
-					Engine.map.is_mesopotamia(space) ||
-					Engine.map.is_persia(space) ||
-					Engine.map.is_afghanistan(space) ||
-					Engine.map.is_central_asia(space) ||
-					Engine.map.is_india(space) ||
-					Engine.map.is_baluchistan(space)
-				)
-
-			if (mo === MO_EGYPT || mo === MO_BRITISH_EGYPT) {
-				if (!Array.isArray(pieces)) return false
-				return (
-					Engine.map.get_area(space) === "syria_palestine" &&
-					pieces.some((p) => piece_counts_as_nation_for_rule(game, p, BRITAIN, "mo") && can_trace_supply_by_land_to_egypt(game, p))
-				)
-			}
-
-			if (mo === MO_BALKANS)
-				// AP Roll 8
-				return area === "balkans" && has_att_nation(BRITAIN)
-
-			if (mo === MO_BRITISH_MESOPOTAMIA)
-				return (
-					(has_att_nation(BRITAIN) || has_att_nation("in") || has_att_nation("anz")) && area === "mesopotamia"
-				)
-
-			if (mo === MO_RUSSIA_CAUCASUS) return has_att_nation(RUSSIA) && area === "caucasus"
-		}
-
-		if (faction === CP) {
-			if (mo === MO_RUSSIA) {
-				if (is_russian_mo_ignored_for_cp(game)) return true
-				return has_def_nation(RUSSIA)
-			}
-
-			if (mo === MO_BRITISH) return has_def_nation(BRITAIN) || has_def_nation("in") || has_def_nation("anz")
-
-			if (mo === MO_TURKEY) return has_att_nation(TURKEY) || has_att_nation(TURKEY_ARAB)
-
-			if (mo === MO_TURKEY_CAUCASUS)
-				return (has_att_nation(TURKEY) || has_att_nation(TURKEY_ARAB)) && area === "caucasus"
-			if (mo === MO_TURKEY_EGYPT)
-				return (has_att_nation(TURKEY) || has_att_nation(TURKEY_ARAB)) && area === "syria_palestine"
-			if (mo === MO_TURKEY_MESOPOTAMIA)
-				return (has_att_nation(TURKEY) || has_att_nation(TURKEY_ARAB)) && area === "mesopotamia"
-		}
-
+		if (faction === AP) return check_ap_mo_criteria(game, mo, criteria_ctx)
+		if (faction === CP) return check_cp_mo_criteria(game, mo, criteria_ctx)
 		return false
 	}
 
@@ -245,99 +316,122 @@ module.exports = function (Engine) {
 	 * @returns {boolean}
 	 */
 	function check_british_participation(game, pieces) {
-		if (!Array.isArray(pieces)) return false
-		return pieces.some((p) => piece_counts_as_nation_for_rule(game, p, BRITAIN, "mo"))
+		return has_piece_counting_as_any_nation(game, pieces, BRITAIN)
+	}
+
+	function create_attack_context(game, overrides = {}) {
+		const attacker = overrides.attacker || game.attack.attacker || game.active
+		const space = overrides.space === undefined ? game.attack.space : overrides.space
+		const pieces = overrides.pieces || game.attack.pieces || []
+		const defender = overrides.defender || game.attack.defender || (attacker === AP ? CP : AP)
+		const defender_pieces =
+			overrides.defender_pieces || get_pieces_in_space(game, space).filter((p) => get_piece_faction(p) === defender)
+		return { attacker, space, pieces, defender_pieces }
+	}
+
+	function is_russo_british_assault_blocking_russian_mo(game) {
+		return (
+			game.event_ctx &&
+			game.event_ctx.key === "russo_british_assault" &&
+			(game.mo_ap === MO_RUSSIA || game.mo_ap === MO_RUSSIA_CAUCASUS)
+		)
+	}
+
+	function log_russo_british_assault_mo_block(game, pieces, log) {
+		const has_russian_attacker = Array.isArray(pieces) && pieces.some((p) => get_piece_nation(p) === RUSSIA)
+		if (has_russian_attacker && game.attack && !game.attack.russo_british_mo_block_logged) {
+			game.attack.russo_british_mo_block_logged = true
+			if (log) log("英俄突袭：不能完成俄国MO")
+		}
+	}
+
+	function handle_ap_mo_fulfillment(game, ctx, log) {
+		const { pieces } = ctx
+		if (is_russo_british_assault_blocking_russian_mo(game)) {
+			log_russo_british_assault_mo_block(game, pieces, log)
+			return
+		}
+
+		if (game.mo_ap === MO_BRITISH_NO_ATTACK) {
+			if (check_british_participation(game, pieces) && !game.british_mandate_violated) {
+				game.british_mandate_violated = true
+				if (log) log("AP violated British No Attack Mandate! (VP Penalty pending)")
+			}
+			return
+		}
+
+		if (game.mo_ap_fulfilled || !game.mo_ap) return
+		if (check_mo_criteria(game, game.mo_ap, ctx)) {
+			game.mo_ap_fulfilled = true
+			if (log) log("协约国强制进攻已完成。")
+		}
+	}
+
+	function try_fulfill_enver_mo(game, mo_key, fulfilled_key, ctx, log, step) {
+		if (game[fulfilled_key] || !game[mo_key] || !check_mo_criteria(game, game[mo_key], ctx)) return false
+		game[fulfilled_key] = true
+		if (log) log(`同盟国恩维尔攻势 #${step} (${mo_name(game[mo_key])}) 已完成。`)
+		return true
+	}
+
+	function handle_enver_mo_fulfillment(game, ctx, log) {
+		const fulfilled_1_now = try_fulfill_enver_mo(game, "mo_cp_1", "mo_cp_1_fulfilled", ctx, log, 1)
+		const can_fulfill_second_in_this_attack = !(fulfilled_1_now && game.mo_cp_1 === game.mo_cp_2)
+		if (can_fulfill_second_in_this_attack) {
+			try_fulfill_enver_mo(game, "mo_cp_2", "mo_cp_2_fulfilled", ctx, log, 2)
+		}
+		if (game.mo_cp_1_fulfilled && game.mo_cp_2_fulfilled) {
+			game.mo_cp_fulfilled = true
+			if (log) log("同盟国恩维尔攻势已全部完成。")
+		}
+	}
+
+	function handle_cp_mo_fulfillment(game, ctx, log) {
+		if (game.mo_cp_fulfilled) return
+		if (game.mo_cp === MO_ENVER) {
+			handle_enver_mo_fulfillment(game, ctx, log)
+			return
+		}
+		if (game.mo_cp && check_mo_criteria(game, game.mo_cp, ctx)) {
+			game.mo_cp_fulfilled = true
+			if (log) log("同盟国强制进攻已完成。")
+		}
 	}
 
 	/**
 	 * Checks if Mandated Offensive requirements were fulfilled by an attack.
 	 * @param {Object} game - Game state
-	 * @param {string} attacker - Attacking side
-	 * @param {number} space - Target space
-	 * @param {number[]} pieces - Attacking pieces
-	 * @param {number[]} defender_pieces - Defending pieces
+	 * @param {Object} ctx - Attack context
+	 * @param {string} ctx.attacker - Attacking side
+	 * @param {number} ctx.space - Target space
+	 * @param {number[]} ctx.pieces - Attacking pieces
+	 * @param {number[]} ctx.defender_pieces - Defending pieces
 	 * @param {Function} log - Logging function
 	 */
-	function check_mo_fulfillment_core(game, attacker, space, pieces, defender_pieces, log) {
-		if (attacker === AP) {
-			if (
-				game.event_ctx && game.event_ctx.key === "russo_british_assault" &&
-				(game.mo_ap === MO_RUSSIA || game.mo_ap === MO_RUSSIA_CAUCASUS)
-			) {
-				let has_russian_attacker = Array.isArray(pieces) && pieces.some((p) => get_piece_nation(p) === RUSSIA)
-				if (has_russian_attacker && game.attack && !game.attack.russo_british_mo_block_logged) {
-					game.attack.russo_british_mo_block_logged = true
-					if (log) log("英俄突袭：不能完成俄国MO")
-				}
-				return
-			}
-			if (game.mo_ap === MO_BRITISH_NO_ATTACK) {
-				if (check_british_participation(game, pieces)) {
-					if (!game.british_mandate_violated) {
-						game.british_mandate_violated = true
-						if (log) log("AP violated British No Attack Mandate! (VP Penalty pending)")
-					}
-				}
-				return
-			}
-			if (game.mo_ap_fulfilled) return
-			if (game.mo_ap && check_mo_criteria(game, game.mo_ap, AP, space, pieces, defender_pieces)) {
-				game.mo_ap_fulfilled = true
-				if (log) log(`协约国强制进攻 (${mo_name(game.mo_ap)}) 已完成。`)
-			}
+	function check_mo_fulfillment_core(game, ctx, log) {
+		if (ctx.attacker === AP) {
+			handle_ap_mo_fulfillment(game, ctx, log)
 			return
 		}
-
-		if (game.mo_cp_fulfilled) return
-		if (game.mo_cp === MO_ENVER) {
-			let fulfilled_1_now = false
-			if (
-				!game.mo_cp_1_fulfilled &&
-				game.mo_cp_1 &&
-				check_mo_criteria(game, game.mo_cp_1, CP, space, pieces, defender_pieces)
-			) {
-				game.mo_cp_1_fulfilled = true
-				fulfilled_1_now = true
-				if (log) log(`同盟国恩维尔攻势 #1 (${mo_name(game.mo_cp_1)}) 已完成。`)
-			}
-			let can_fulfill_second_in_this_attack = !(fulfilled_1_now && game.mo_cp_1 === game.mo_cp_2)
-			if (
-				can_fulfill_second_in_this_attack &&
-				!game.mo_cp_2_fulfilled &&
-				game.mo_cp_2 &&
-				check_mo_criteria(game, game.mo_cp_2, CP, space, pieces, defender_pieces)
-			) {
-				game.mo_cp_2_fulfilled = true
-				if (log) log(`同盟国恩维尔攻势 #2 (${mo_name(game.mo_cp_2)}) 已完成。`)
-			}
-			if (game.mo_cp_1_fulfilled && game.mo_cp_2_fulfilled) {
-				game.mo_cp_fulfilled = true
-				if (log) log("同盟国恩维尔攻势已全部完成。")
-			}
-			return
-		}
-
-		if (game.mo_cp && check_mo_criteria(game, game.mo_cp, CP, space, pieces, defender_pieces)) {
-			game.mo_cp_fulfilled = true
-			if (log) log(`同盟国强制进攻 (${mo_name(game.mo_cp)}) 已完成。`)
-		}
+		handle_cp_mo_fulfillment(game, ctx, log)
 	}
 
 	function check_mo_on_attack_declared(game, log) {
 		if (!game || !game.attack) return
-		let attacker = game.attack.attacker || game.active
-		let defender = game.attack.defender || (attacker === AP ? CP : AP)
-		let space = game.attack.space
-		let pieces = game.attack.pieces || []
-		let defender_pieces = Engine.map.get_pieces_in_space(game, space).filter(
-			(p) => get_piece_faction(p) === defender
-		)
-		check_mo_fulfillment_core(game, attacker, space, pieces, defender_pieces, log)
+		check_mo_fulfillment_core(game, create_attack_context(game), log)
 	}
 
 	function check_mo_fulfillment(game, result, log) {
 		if (!game || !game.attack || !result) return
-		check_mo_fulfillment_core(game, game.active, game.attack.space, result.attackers || [], result.defenders || [], log)
+		check_mo_fulfillment_core(
+			game,
+			create_attack_context(game, {
+				attacker: game.active,
+				pieces: result.attackers || [],
+				defender_pieces: result.defenders || []
+			}),
+			log
+		)
 	}
 
 	/**
@@ -473,60 +567,35 @@ module.exports = function (Engine) {
 
 	/**
 	 * Checks if an MO is valid based on Rule 5.1.2.
-	 * If the nation to be attacked has no units on the map, returns "NONE".
-	 * If the affected area contains no enemy units, returns "REROLL".
-	 * Otherwise returns "VALID".
+	 * - NONE: the mandated nationality has no qualifying units on map, or the acting side
+	 *   lacks the required attacking nationality after applying Rule 3.2.7 nationality logic.
+	 * - REROLL: the mandated theatre is empty at roll time.
+	 * - VALID: the MO remains live and failure can still incur the VP penalty from Rule 5.1.3.
 	 * @param {object} game
 	 * @param {string} faction - AP or CP
 	 * @param {string} mo
 	 * @returns {"VALID"|"NONE"|"REROLL"}
 	 */
 	function check_mo_validity(game, faction, mo) {
-		if (!mo || mo === MO_NONE) return "VALID"
+		if (!mo || mo === MO_NONE) return MO_VALID
 
-		const opponent = faction === AP ? CP : AP
-		const opponent_pieces = []
-		for (let p = 0; p < game.pieces.length; p++) {
-			if (data.pieces[p] && data.pieces[p].faction === opponent && !is_not_on_map(game, p)) {
-				opponent_pieces.push(p)
-			}
-		}
-
-		const attacker_pieces = []
-		for (let p = 0; p < game.pieces.length; p++) {
-			if (data.pieces[p] && data.pieces[p].faction === faction && !is_not_on_map(game, p)) {
-				attacker_pieces.push(p)
-			}
-		}
-
-		// Helper to check if any piece of a nation is on map
-		const nation_on_map = (nation) => {
-			return opponent_pieces.some((p) => data.pieces[p].nation === nation)
-		}
-
-		// Helper to check if any regular piece of a nation is on map for the attacker
-		const attacker_nation_on_map = (nation) => {
-			return attacker_pieces.some((p) => data.pieces[p].nation === nation && is_regular(p))
-		}
-
-		// Helper to check if any opponent piece is in an area
-		const opponent_in_area = (area_check) => {
-			return opponent_pieces.some((p) => {
-				const s = game.pieces[p]
-				if (s === undefined || s === null || s < 0) return false
-				return area_check(s)
-			})
-		}
+		const opponent_pieces = get_on_map_pieces_by_faction(game, faction === AP ? CP : AP)
+		const attacker_pieces = get_on_map_pieces_by_faction(game, faction)
+		const opponent_has_nation = (nations) => has_piece_counting_as_any_nation(game, opponent_pieces, nations)
+		const attacker_has_regular_nation = (nations) =>
+			has_regular_piece_counting_as_any_nation(game, attacker_pieces, nations)
+		const attacker_has_any_regular = () => attacker_pieces.some(is_regular)
+		const opponent_in_area = (area_check) => any_piece_is_in_area(game, opponent_pieces, area_check)
 
 		if (faction === AP) {
 			if (mo === MO_RUSSIA || mo === MO_RUSSIA_CAUCASUS) {
-				// RU MO: RU unit must be able to attack CP unit.
-				if (!attacker_nation_on_map(RUSSIA)) return "NONE"
-				if (opponent_pieces.length === 0) return "NONE"
+				// Rule 5.1.2 + 5.3.1: 若俄军不存在，或高加索没有可攻击对象，则 MO 取消/重掷。
+				if (!attacker_has_regular_nation(RUSSIA)) return MO_NONE_STATUS
+				if (opponent_pieces.length === 0) return MO_NONE_STATUS
 				if (mo === MO_RUSSIA_CAUCASUS) {
-					if (!opponent_in_area((s) => Engine.map.get_area(s) === "caucasus")) return "REROLL"
+					if (!opponent_in_area(is_caucasus)) return MO_REROLL
 				}
-				return "VALID"
+				return MO_VALID
 			}
 			if (
 				mo === MO_BRITISH ||
@@ -534,59 +603,53 @@ module.exports = function (Engine) {
 				mo === MO_BRITISH_MESOPOTAMIA ||
 				mo === MO_BRITISH_EGYPT
 			) {
-				if (!attacker_nation_on_map(BRITAIN) && !attacker_nation_on_map("in") && !attacker_nation_on_map("anz"))
-					return "NONE"
-				if (opponent_pieces.length === 0) return "NONE"
+				// Rule 5.3.2: 英帝国 MO 包含英军、印军与 ANZAC，且须按 3.2.7 处理双国籍单位。
+				if (!attacker_has_regular_nation(BRITISH_EMPIRE_NATIONS)) return MO_NONE_STATUS
+				if (opponent_pieces.length === 0) return MO_NONE_STATUS
 				if (mo === MO_BRITISH_MESOPOTAMIA) {
-					if (!opponent_in_area((s) => Engine.map.get_area(s) === "mesopotamia")) return "REROLL"
+					if (!opponent_in_area(is_mesopotamia)) return MO_REROLL
 				}
 				if (mo === MO_BRITISH_EGYPT) {
-					if (!opponent_in_area((s) => Engine.map.get_area(s) === "syria_palestine")) return "REROLL"
+					if (!opponent_in_area(is_syria_palestine)) return MO_REROLL
 				}
-				return "VALID"
+				return MO_VALID
 			}
 			if (mo === MO_MESOPOTAMIA) {
-				// AP Choice Roll 6: Meso/Persia/East. Any AP regular unit can attack.
-				if (!attacker_pieces.some(is_regular)) return "NONE"
-				if (opponent_pieces.length === 0) return "NONE"
-				const is_east = (s) =>
-					Engine.map.is_mesopotamia(s) ||
-					Engine.map.is_persia(s) ||
-					Engine.map.is_afghanistan(s) ||
-					Engine.map.is_central_asia(s) ||
-					Engine.map.is_india(s) ||
-					Engine.map.is_baluchistan(s)
-				if (!opponent_in_area(is_east)) return "REROLL"
-				return "VALID"
+				// Rule 5.3.3: 该结果要求在东部战区发动进攻，不限定 AP 攻击国别。
+				if (!attacker_has_any_regular()) return MO_NONE_STATUS
+				if (opponent_pieces.length === 0) return MO_NONE_STATUS
+				if (!opponent_in_area(is_ap_eastern_mo_space)) return MO_REROLL
+				return MO_VALID
 			}
 			if (mo === MO_BALKANS) {
-				// AP Choice Roll 8: British units in Balkans.
-				if (!attacker_nation_on_map(BRITAIN)) return "NONE"
-				if (opponent_pieces.length === 0) return "NONE"
-				if (!opponent_in_area((s) => Engine.map.is_balkans(s))) return "REROLL"
-				return "VALID"
+				// Rule 5.3.4: 巴尔干结果只允许英军完成，因此这里保持 BR 专属而非整组英帝国。
+				if (!attacker_has_regular_nation(BRITAIN)) return MO_NONE_STATUS
+				if (opponent_pieces.length === 0) return MO_NONE_STATUS
+				if (!opponent_in_area(is_balkans)) return MO_REROLL
+				return MO_VALID
 			}
 			if (mo === MO_EGYPT) {
-				// AP Choice Roll 10: British units in Egypt/Palestine.
-				if (!attacker_nation_on_map(BRITAIN)) return "NONE"
-				if (opponent_pieces.length === 0) return "NONE"
-				const is_syria_palestine = (s) => Engine.map.get_area(s) === "syria_palestine"
-				if (!opponent_in_area(is_syria_palestine)) return "REROLL"
-				return "VALID"
+				// Rule 5.3.5: 埃及结果看叙利亚/巴勒斯坦战区是否仍有可攻击对象。
+				if (!attacker_has_regular_nation(BRITAIN)) return MO_NONE_STATUS
+				if (opponent_pieces.length === 0) return MO_NONE_STATUS
+				if (!opponent_in_area(is_syria_palestine)) return MO_REROLL
+				return MO_VALID
 			}
 		}
 
 		if (faction === CP) {
 			if (mo === MO_RUSSIA) {
-				if (is_russian_mo_ignored_for_cp(game)) return "NONE"
-				if (!attacker_pieces.some(is_regular)) return "NONE" // CP must have units to attack
-				if (!nation_on_map(RUSSIA)) return "NONE"
-				return "VALID"
+				// Rule 5.4.1: 俄国革命到第 4 阶段后，同盟国对俄 MO 直接失效。
+				if (is_russian_mo_ignored_for_cp(game)) return MO_NONE_STATUS
+				if (!attacker_has_any_regular()) return MO_NONE_STATUS
+				if (!opponent_has_nation(RUSSIA)) return MO_NONE_STATUS
+				return MO_VALID
 			}
 			if (mo === MO_BRITISH) {
-				if (!attacker_pieces.some(is_regular)) return "NONE"
-				if (!nation_on_map(BRITAIN) && !nation_on_map("in") && !nation_on_map("anz")) return "NONE"
-				return "VALID"
+				// Rule 5.4.2: 同盟国只需攻击英帝国任一合格国别单位。
+				if (!attacker_has_any_regular()) return MO_NONE_STATUS
+				if (!opponent_has_nation(BRITISH_EMPIRE_NATIONS)) return MO_NONE_STATUS
+				return MO_VALID
 			}
 			if (
 				mo === MO_TURKEY ||
@@ -594,23 +657,23 @@ module.exports = function (Engine) {
 				mo === MO_TURKEY_EGYPT ||
 				mo === MO_TURKEY_MESOPOTAMIA
 			) {
-				// TU MO: TU/TU-A attack any AP unit.
-				if (!attacker_nation_on_map(TURKEY) && !attacker_nation_on_map(TURKEY_ARAB)) return "NONE"
-				if (opponent_pieces.length === 0) return "NONE"
+				// Rule 5.4.3: 土耳其 MO 允许土耳其本国或阿拉伯部队完成，并按抽到的战区细分。
+				if (!attacker_has_regular_nation(TURKISH_MO_NATIONS)) return MO_NONE_STATUS
+				if (opponent_pieces.length === 0) return MO_NONE_STATUS
 				if (mo === MO_TURKEY_CAUCASUS) {
-					if (!opponent_in_area((s) => Engine.map.get_area(s) === "caucasus")) return "REROLL"
+					if (!opponent_in_area(is_caucasus)) return MO_REROLL
 				}
 				if (mo === MO_TURKEY_EGYPT) {
-					if (!opponent_in_area((s) => Engine.map.get_area(s) === "syria_palestine")) return "REROLL"
+					if (!opponent_in_area(is_syria_palestine)) return MO_REROLL
 				}
 				if (mo === MO_TURKEY_MESOPOTAMIA) {
-					if (!opponent_in_area((s) => Engine.map.get_area(s) === "mesopotamia")) return "REROLL"
+					if (!opponent_in_area(is_mesopotamia)) return MO_REROLL
 				}
-				return "VALID"
+				return MO_VALID
 			}
 		}
 
-		return "VALID"
+		return MO_VALID
 	}
 
 	/**
@@ -621,7 +684,7 @@ module.exports = function (Engine) {
 		if (!game) return
 
 		if (game.mo_ap !== MO_NONE && !game.mo_ap_fulfilled) {
-			if (check_mo_validity(game, AP, game.mo_ap) !== "VALID") {
+			if (check_mo_validity(game, AP, game.mo_ap) !== MO_VALID) {
 				game.mo_ap_fulfilled = true
 			}
 		}
@@ -629,12 +692,12 @@ module.exports = function (Engine) {
 		if (game.mo_cp !== MO_NONE && !game.mo_cp_fulfilled) {
 			if (game.mo_cp === MO_ENVER) {
 				if (!game.mo_cp_1_fulfilled) {
-					if (check_mo_validity(game, CP, game.mo_cp_1) !== "VALID") {
+					if (check_mo_validity(game, CP, game.mo_cp_1) !== MO_VALID) {
 						game.mo_cp_1_fulfilled = true
 					}
 				}
 				if (!game.mo_cp_2_fulfilled) {
-					if (check_mo_validity(game, CP, game.mo_cp_2) !== "VALID") {
+					if (check_mo_validity(game, CP, game.mo_cp_2) !== MO_VALID) {
 						game.mo_cp_2_fulfilled = true
 					}
 				}
@@ -642,7 +705,7 @@ module.exports = function (Engine) {
 					game.mo_cp_fulfilled = true
 				}
 			} else {
-				if (check_mo_validity(game, CP, game.mo_cp) !== "VALID") {
+				if (check_mo_validity(game, CP, game.mo_cp) !== MO_VALID) {
 					game.mo_cp_fulfilled = true
 				}
 			}

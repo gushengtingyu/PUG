@@ -175,9 +175,10 @@ exports.register = function (states, Engine, context) {
 			log("CP failed Mandated Offensive: VP -1")
 		}
 
-		// Rule 21.3.2: Galicia Attrition for Turkish LCUs
 		let galicia = find_space("Galicia")
-		if (galicia >= 0) {
+		let enver_falkenhayn_active = !!game.events["enver_falkenhayn_summit_active"]
+		let russian_revolution_stage = game.events["russian_revolution"] || 0
+		if (enver_falkenhayn_active && russian_revolution_stage < 4 && galicia >= 0) {
 			let pieces = get_pieces_in_space(game, galicia)
 			for (let p of pieces) {
 				let info = data.pieces[p]
@@ -220,7 +221,7 @@ exports.register = function (states, Engine, context) {
 		if (game.oos_spaces && game.oos_spaces.length > 0) {
 			for (let s of game.oos_spaces) {
 				// Rule 14.3.3: Does not apply to neutral spaces or intact friendly forts
-				let faction = game.control[s]
+				let faction = Engine.map.get_space_controller(game, s)
 				if ((faction === AP || faction === CP) && !Engine.map.has_undestroyed_fort(game, s, faction)) {
 					let opponent = other_faction(faction)
 					log(`${data.spaces[s].name} becomes enemy-controlled due to attrition (OOS)`)
@@ -328,7 +329,7 @@ exports.register = function (states, Engine, context) {
 		}
 
 		let constantinople = find_space("CONSTANTINOPLE")
-		let blocked = constantinople >= 0 && game.control[constantinople] === AP
+		let blocked = constantinople >= 0 && Engine.map.is_controlled_by(game, constantinople, AP)
 		if (!game.events["russian_revolution"]) {
 			let timer =
 				typeof Engine.events.get_revolution_marker_turn === "function"
@@ -617,6 +618,20 @@ exports.register = function (states, Engine, context) {
 	function start_war_status_phase() {
 		game.state = "war_status_phase"
 		log_h1("战争状态阶段")
+
+		let galicia = find_space("Galicia")
+		let enver_falkenhayn_active = !!game.events["enver_falkenhayn_summit_active"]
+		let russian_revolution_stage = game.events["russian_revolution"] || 0
+		if (enver_falkenhayn_active && russian_revolution_stage < 4 && get_season(game) === "Summer" && galicia >= 0) {
+			let has_turkish_lcu_in_galicia = get_pieces_in_space(game, galicia).some((p) => {
+				let info = data.pieces[p]
+				return info && info.nation === "tu" && info.piece_class === "LCU"
+			})
+			if (has_turkish_lcu_in_galicia) {
+				game.vp += 1
+				log("Enver-Falkenhayn Summit: Turkish LCU in Galicia grants VP +1.")
+			}
+		}
 
 		if (game.blockade_vp_penalty_active && get_season(game) === "Winter") {
 			let total_war_cp = game.war_commitment_cp === COMMITMENT_TOTAL

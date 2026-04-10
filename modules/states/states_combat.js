@@ -133,7 +133,7 @@ exports.register = function (states, Engine, context) {
 				game.where = -1
 			}
 
-			if (game.liberate_suez_op_required && !game.liberate_suez_egypt_battle_done) {
+			if (game.liberate_suez_battle_required && !game.liberate_suez_egypt_battle_done) {
 				res.prompt("解放苏伊士：必须先在埃及地区完成至少一次战斗，然后才能结束进攻阶段。")
 			} else {
 				res.prompt("请选择攻击单位和目标")
@@ -236,7 +236,11 @@ exports.register = function (states, Engine, context) {
 		},
 		end_attack() {
 			refresh_attack_eligibility()
-			if (game.liberate_suez_op_required && !game.liberate_suez_egypt_battle_done && game.eligible_attackers.length > 0) {
+			if (
+				game.liberate_suez_battle_required &&
+				!game.liberate_suez_egypt_battle_done &&
+				game.eligible_attackers.length > 0
+			) {
 				log("解放苏伊士：你必须在埃及地区完成至少一次战斗，不能结束进攻阶段。")
 				game.state = "attack"
 				return
@@ -291,7 +295,11 @@ exports.register = function (states, Engine, context) {
 		},
 		pass() {
 			refresh_attack_eligibility()
-			if (game.liberate_suez_op_required && !game.liberate_suez_egypt_battle_done && game.eligible_attackers.length > 0) {
+			if (
+				game.liberate_suez_battle_required &&
+				!game.liberate_suez_egypt_battle_done &&
+				game.eligible_attackers.length > 0
+			) {
 				log("解放苏伊士：你必须在埃及地区完成至少一次战斗，不能跳过进攻。")
 				game.state = "attack"
 				return
@@ -325,7 +333,11 @@ exports.register = function (states, Engine, context) {
 		},
 		end_action() {
 			refresh_attack_eligibility()
-			if (game.liberate_suez_op_required && !game.liberate_suez_egypt_battle_done && game.eligible_attackers.length > 0) {
+			if (
+				game.liberate_suez_battle_required &&
+				!game.liberate_suez_egypt_battle_done &&
+				game.eligible_attackers.length > 0
+			) {
 				log("解放苏伊士：必须在埃及地区完成至少一次战斗，当前不能结束行动轮。")
 				game.state = "attack"
 				return
@@ -443,51 +455,6 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
-	const CC_VALIDATORS = {
-		[combat.CC_AP_NO_PRISONERS]: combat_cards.can_play_no_prisoners,
-		[combat.CC_AP_SHORE_BOMBARDMENT]: combat_cards.can_play_shore_bombardment,
-		[combat.CC_AP_ARMENIAN_DRUZHINY]: combat_cards.can_play_armenian_druzhiny,
-		[combat.CC_AP_PUGNACITY]: combat_cards.can_play_pugnacity,
-		[combat.CC_AP_GURKHAS]: combat_cards.can_play_gurkhas,
-		[combat.CC_AP_ARMORED_CARS]: combat_cards.can_play_armored_cars,
-		[combat.CC_AP_MAUDE]: combat_cards.can_play_maude,
-		[combat.CC_AP_ROYAL_FLYING_CORPS]: combat_cards.can_play_royal_flying_corps,
-		[combat.CC_AP_TANKS]: combat_cards.can_play_tanks,
-		[combat.CC_AP_WAR_WEARY_BALKANS]: combat_cards.can_play_war_weary_balkans,
-		[combat.CC_AP_MASSED_CAVALRY_CHARGE]: combat_cards.can_play_massed_cavalry_charge,
-		[combat.CC_AP_PUSH_TO_THE_BREAKING_POINT]: combat_cards.can_play_push_to_the_breaking_point,
-		[combat.CC_AP_HAVERSACK_RUSE]: combat_cards.can_play_haversack_ruse,
-		[combat.CC_AP_MARCH_AND_COUNTERMARCH]: combat_cards.can_play_march_and_countermarch,
-		[combat.CC_CP_JIHAD_OFFENSIVE]: combat_cards.can_play_jihad_offensive,
-		[combat.CC_CP_RESERVES_TO_FRONT]: combat_cards.can_play_reserves_to_front,
-		[combat.CC_CP_GERMAN_HIGH_COMMAND]: combat_cards.can_play_german_high_command,
-		[combat.CC_CP_SANDSTORMS]: combat_cards.can_play_sandstorms,
-		[combat.CC_CP_SAVE_TIFLIS]: combat_cards.can_play_save_tiflis,
-		[combat.CC_CP_SURPRISE]: combat_cards.can_play_surprise,
-		[combat.CC_CP_JAFAR_PASHA]: combat_cards.can_play_jafar_pasha,
-		[combat.CC_CP_FLIEGERABTEILUNG]: combat_cards.can_play_fliegerabteilung,
-		[combat.CC_CP_CATASTROPHIC_ATTACK]: combat_cards.can_play_catastrophic_attack,
-		[combat.CC_CP_I_ORDER_YOU_TO_DIE]: combat_cards.can_play_i_order_you_to_die,
-		[combat.CC_CP_WATER_SHORTAGE]: combat_cards.can_play_water_shortage,
-		[combat.CC_CP_PASHA_1]: combat_cards.can_play_pasha_1,
-		[combat.CC_CP_CZARS_ARMORIES]: combat_cards.can_play_czars_armories,
-		[combat.CC_CP_CONFUSED_ORDERS]: combat_cards.can_play_confused_orders,
-		[combat.CC_CP_ARMY_OF_ISLAM]: combat_cards.can_play_army_of_islam
-	}
-
-	const WINDOW_CC_ALLOWED = {
-		pre_weather_cc_attacker: new Set([combat.CC_CP_PASHA_1]),
-		pre_weather_cc_defender: new Set([]),
-		post_roll_cc_defender: new Set([
-			combat.CC_CP_WATER_SHORTAGE,
-			combat.CC_CP_CONFUSED_ORDERS,
-			combat.CC_CP_JAFAR_PASHA
-		]),
-		post_battle_cc_cp: new Set([combat.CC_CP_RESERVES_TO_FRONT]),
-		post_advance_cc_cp: new Set([combat.CC_CP_CZARS_ARMORIES]),
-		retreat_choice_cc_cp: new Set([combat.CC_CP_SAVE_TIFLIS])
-	}
-
 	const BATTLE_SUB_STATES = new Set([
 		"retreat",
 		"advance",
@@ -499,13 +466,15 @@ exports.register = function (states, Engine, context) {
 		"post_battle_cc_cp",
 		"post_advance_cc_cp",
 		"retreat_choice_cc_cp",
+		"maude_place_indian_division",
+		"maude_place_hq",
+		"army_of_islam_place_hq",
 		"confused_orders",
 		"declare_turkish_retreat"
 	])
 
 	function can_play_combat_card(c, target_game) {
-		let validator = CC_VALIDATORS[c]
-		return validator ? validator(target_game) : true
+		return combat_cards.can_play_combat_card(target_game, c)
 	}
 
 	function collect_playable_cc_options(target_game, faction, is_attacker) {
@@ -534,10 +503,7 @@ exports.register = function (states, Engine, context) {
 
 	function collect_window_cc_options(target_game, window_state, faction, is_attacker) {
 		let window_game = { ...target_game, state: window_state, active: faction }
-		let options = collect_playable_cc_options(window_game, faction, is_attacker)
-		let allow_set = WINDOW_CC_ALLOWED[window_state]
-		if (!allow_set) return options
-		return options.filter((c) => allow_set.has(c))
+		return collect_playable_cc_options(window_game, faction, is_attacker)
 	}
 
 	function has_window_cc_options(window_state, faction, is_attacker) {
@@ -551,6 +517,96 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
+	function get_reinforcement_space_options(helper) {
+		if (!helper || typeof helper.check !== "function") return []
+		let options = []
+		let enemy_faction = other_faction(helper.faction)
+		let enemy_spaces = []
+		for (let s = 1; s < data.spaces.length; s++) {
+			let pieces = get_pieces_in_space(game, s)
+			if (pieces.length > 0 && data.pieces[pieces[0]] && data.pieces[pieces[0]].faction === enemy_faction) {
+				enemy_spaces.push(s)
+			}
+		}
+
+		for (let s = 1; s < data.spaces.length; s++) {
+			if (!helper.check(game, s)) continue
+			if (Engine.game_utils.get_capacity(game, s) > 0) {
+				set_add(options, s)
+				continue
+			}
+
+			let neighbors = get_connected_spaces(game, s)
+			let candidates = neighbors.filter((ns) => Engine.game_utils.get_capacity(game, ns) > 0)
+			if (candidates.length === 0) continue
+
+			let max_min_dist = -1
+			let best_candidates = []
+			for (let ns of candidates) {
+				let min_enemy_dist = 999
+				for (let es of enemy_spaces) {
+					let distance = Engine.map.get_distance(ns, es)
+					if (distance < min_enemy_dist) min_enemy_dist = distance
+				}
+				if (min_enemy_dist > max_min_dist) {
+					max_min_dist = min_enemy_dist
+					best_candidates = [ns]
+				} else if (min_enemy_dist === max_min_dist) {
+					best_candidates.push(ns)
+				}
+			}
+
+			for (let ns of best_candidates) set_add(options, ns)
+		}
+
+		set_add(options, Engine.game_utils.get_reserve_box(helper.faction))
+		return options
+	}
+
+	function get_maude_attack_origin_spaces() {
+		let seen = new Set()
+		let spaces = []
+		for (let p of game.attack?.pieces || []) {
+			let s = game.pieces[p]
+			if (seen.has(s)) continue
+			seen.add(s)
+			spaces.push(s)
+		}
+		return spaces
+	}
+
+	function get_maude_hq_space_options() {
+		let options = []
+		for (let s of get_maude_attack_origin_spaces()) {
+			let pieces = get_pieces_in_space(game, s).filter(
+				(p) => Engine.game_utils.get_piece_effective_faction(game, p) === AP
+			)
+			let has_br = Engine.game_utils.pieces_count_as_any_nation_for_rule(game, pieces, "br")
+			let has_in = Engine.game_utils.pieces_count_as_any_nation_for_rule(game, pieces, "in")
+			if (has_br && has_in) options.push(s)
+		}
+		return options
+	}
+
+	function get_maude_reinforcement_space_options() {
+		let helper = Engine.reinf_helpers?.is_br
+		let options = get_reinforcement_space_options(helper)
+		if (get_maude_hq_space_options().length > 0) return options
+		let attack_spaces = new Set(get_maude_attack_origin_spaces())
+		return options.filter((s) => {
+			if (!attack_spaces.has(s)) return false
+			let pieces = get_pieces_in_space(game, s).filter(
+				(p) => Engine.game_utils.get_piece_effective_faction(game, p) === AP
+			)
+			return Engine.game_utils.pieces_count_as_any_nation_for_rule(game, pieces, "br")
+		})
+	}
+
+	function get_army_of_islam_space_options() {
+		if (typeof combat_cards.get_army_of_islam_space_options !== "function") return []
+		return combat_cards.get_army_of_islam_space_options(game)
+	}
+
 	function resume_retreat_choice_state() {
 		let resume_state = game.retreat_choice_resume_state || "retreat"
 		let prev_active = game.retreat_choice_prev_active || AP
@@ -558,6 +614,63 @@ exports.register = function (states, Engine, context) {
 		delete game.retreat_choice_prev_active
 		game.active = prev_active
 		game.state = resume_state
+	}
+
+	function resume_window_combat_card_state(return_state) {
+		switch (return_state) {
+			case "pre_weather_cc_attacker":
+				game.active = game.attack?.attacker || game.active
+				if (has_window_cc_options("pre_weather_cc_attacker", game.active, true)) {
+					enter_combat_card_state("pre_weather_cc_attacker")
+				} else {
+					finalize_pre_weather_attacker_cc_step()
+				}
+				return true
+			case "pre_weather_cc_defender":
+				game.active = game.attack?.defender || other_faction(game.active)
+				if (has_window_cc_options("pre_weather_cc_defender", game.active, false)) {
+					enter_combat_card_state("pre_weather_cc_defender")
+				} else {
+					finalize_pre_weather_defender_cc_step()
+				}
+				return true
+			case "post_roll_cc_defender":
+				game.active = CP
+				if (has_window_cc_options("post_roll_cc_defender", CP, false)) {
+					game.state = "post_roll_cc_defender"
+				} else {
+					game.post_roll_cc_done = true
+					game.active = game.attack?.attacker || AP
+					end_battle_sequence()
+				}
+				return true
+			case "post_battle_cc_cp":
+				game.active = CP
+				if (has_window_cc_options("post_battle_cc_cp", CP, false)) {
+					game.state = "post_battle_cc_cp"
+				} else {
+					continue_after_post_battle_cc()
+				}
+				return true
+			case "post_advance_cc_cp":
+				game.active = CP
+				if (has_window_cc_options("post_advance_cc_cp", CP, false)) {
+					game.state = "post_advance_cc_cp"
+				} else {
+					goto_attack()
+				}
+				return true
+			case "retreat_choice_cc_cp":
+				game.active = CP
+				if (has_window_cc_options("retreat_choice_cc_cp", CP, false)) {
+					game.state = "retreat_choice_cc_cp"
+				} else {
+					resume_retreat_choice_state()
+				}
+				return true
+			default:
+				return false
+		}
 	}
 
 	function register_combat_card_state(name, config) {
@@ -584,6 +697,61 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
+	// 统一战斗卡打出上下文，避免状态机里散落每张卡的来源处理与收尾逻辑。
+	function create_combat_card_play_context(game, c, info, faction, is_attacker, from_retained, return_state, mark_effected) {
+		function dispose_after_use(after_use) {
+			if (after_use === "remove") move_card_to_removed(c, faction)
+			else move_card_to_discard(c, faction)
+		}
+
+		return {
+			game,
+			card: c,
+			info,
+			faction,
+			is_attacker,
+			from_retained,
+			return_state,
+			log,
+			card_name: () => card_name(c),
+			mark_effected: () => mark_effected(c),
+			remove_card_from_hand() {
+				remove_card_from_hand(c, faction)
+			},
+			add_cc_retained(target_faction, after_use) {
+				add_cc_retained(target_faction, c, after_use)
+			},
+			take_retained_card() {
+				let after_use = get_cc_retained_after_use(faction, c)
+				remove_cc_retained(faction, c)
+				return after_use
+			},
+			dispose_after_use,
+			dispose_standard() {
+				if (from_retained) {
+					dispose_after_use(this.take_retained_card())
+				} else if (info.remove) {
+					remove_card(c)
+				} else {
+					discard_card(c)
+				}
+			},
+			apply_war_status() {
+				if (info.ws) {
+					update_war_status(faction, info.ws)
+				}
+			}
+		}
+	}
+
+	function resume_combat_card_flow(return_state, is_attacker) {
+		if (resume_window_combat_card_state(return_state)) {
+			return
+		}
+
+		enter_combat_card_state(is_attacker ? "play_cc_attacker" : "play_cc_defender")
+	}
+
 	function handle_play_cc(game, c, is_attacker) {
 		if (!game.combat_cards) game.combat_cards = { attacker: [], defender: [] }
 		if (!game.combat_cards_effected) game.combat_cards_effected = []
@@ -600,118 +768,24 @@ exports.register = function (states, Engine, context) {
 		const mark_effected = (card) => {
 			set_add(game.combat_cards_effected, card)
 		}
+		let spec = combat_cards.get_combat_card_spec(c)
+		let ctx = create_combat_card_play_context(game, c, info, faction, is_attacker, from_retained, return_state, mark_effected)
 
-		if (c === combat.CC_AP_PUGNACITY) {
-			game.events["pugnacity_tenacity_no_weather"] = true
-			mark_effected(c)
-		}
-		if (c === combat.CC_AP_ROYAL_FLYING_CORPS) {
-			game.events["royal_flying_corps_permanent"] = true
-			mark_effected(c)
-		}
-		if (c === combat.CC_CP_FLIEGERABTEILUNG) {
-			if (!game.events["fliegerabteilung"]) game.events["fliegerabteilung"] = game.turn
-			mark_effected(c)
-		}
-		if (c === combat.CC_AP_WAR_WEARY_BALKANS) {
-			game.events["war_weary_balkans"] = game.turn
-			mark_effected(c)
-		}
-		if (c === combat.CC_CP_JIHAD_OFFENSIVE) {
-			game.events["jihad_offensive"] = game.turn
-			mark_effected(c)
-		}
-		if (c === combat.CC_CP_RESERVES_TO_FRONT) {
-			if (from_retained) {
-				let after_use = get_cc_retained_after_use(faction, c)
-				remove_cc_retained(faction, c)
-				if (after_use === "remove") move_card_to_removed(c, faction)
-				else move_card_to_discard(c, faction)
-			} else {
-				if (info.remove) remove_card(c)
-				else discard_card(c)
-			}
-			if (info.ws) {
-				update_war_status(game.active, info.ws)
-			}
-			game.rp_cp.tu += 2
-			game.reserves_to_front_pieces = combat_cards.get_reserves_to_front_piece_pool(game)
-			log(`${card_name(c)}：`)
-			game.state = "event_reserves_to_front"
-			mark_effected(c)
-			return
-		}
-		if (c === combat.CC_CP_SAVE_TIFLIS) {
-			game.events["save_tiflis"] = game.turn
-			mark_effected(c)
-		}
-		if (c === combat.CC_CP_SANDSTORMS) {
-			game.events["sandstorms_mosquitoes"] = game.turn
-			mark_effected(c)
-		}
-		if (c === combat.CC_CP_JAFAR_PASHA) {
-			let after_use = null
-			if (from_retained) {
-				after_use = get_cc_retained_after_use(faction, c)
-				remove_cc_retained(faction, c)
-			} else {
-				remove_card_from_hand(c, faction)
-			}
-			game.cc_jafar_pasha = {
-				card: c,
-				faction: faction,
-				after_use: after_use,
-				post_roll: faction === CP
-			}
-			game.state = "choose_jafar_pasha"
-			return
-		}
-		if (c === combat.CC_CP_CZARS_ARMORIES) {
-			game.rp_cp.tu += 4
-			mark_effected(c)
-		}
-		if (c === combat.CC_AP_NO_PRISONERS && faction === AP && !from_retained) {
-			remove_card_from_hand(c, faction)
-			add_cc_retained(CP, c, "discard")
-			log("No Prisoners: Card given to CP, kept face-up for one use.")
-		} else if (from_retained) {
-			let after_use = get_cc_retained_after_use(faction, c)
-			remove_cc_retained(faction, c)
-			if (after_use === "remove") move_card_to_removed(c, faction)
-			else move_card_to_discard(c, faction)
-		} else {
-			if (info.remove) remove_card(c)
-			else discard_card(c)
-		}
-		if (info.ws) {
-			update_war_status(game.active, info.ws)
-		}
-
-		if (is_attacker && c === combat.CC_AP_MARCH_AND_COUNTERMARCH) {
-			game.march_and_countermarch = { remaining_moves: 2, piece: -1, space: game.attack.space }
-			mark_effected(c)
-			game.state = "march_and_countermarch_select"
+		if (spec?.on_play?.(ctx) === "stop") {
 			return
 		}
 
-		if (!is_attacker && c === combat.CC_CP_SURPRISE) {
-			game.surprise = { remaining: 2, space: game.attack.space }
-			mark_effected(c)
-			game.state = "surprise_sr"
+		if (!spec?.dispose?.(ctx)) {
+			ctx.dispose_standard()
+		}
+		ctx.apply_war_status()
+
+		let hook_result = spec?.on_play_after_disposition?.(game, ctx)
+		if (hook_result === "stop") {
 			return
 		}
 
-		if (
-			return_state === "post_roll_cc_defender" ||
-			return_state === "post_battle_cc_cp" ||
-			return_state === "post_advance_cc_cp" ||
-			return_state === "retreat_choice_cc_cp"
-		) {
-			game.state = return_state
-			return
-		}
-
-		enter_combat_card_state(is_attacker ? "play_cc_attacker" : "play_cc_defender")
+		resume_combat_card_flow(return_state, is_attacker)
 	}
 
 	register_combat_card_state("play_cc_attacker", {
@@ -745,6 +819,76 @@ exports.register = function (states, Engine, context) {
 		done: finalize_pre_weather_defender_cc_step,
 		allow_pass: true
 	})
+
+	states.maude_place_indian_division = {
+		inactive: "play combat cards",
+		prompt(res) {
+			res.prompt("莫德：放置印度第15步兵师")
+			show_attack_context(res)
+			for (let s of get_maude_reinforcement_space_options()) res.space(s)
+		},
+		space(s) {
+			push_undo()
+			Engine.events.reinforce(game, "IN 15th DIV", AP, s)
+			game.active = AP
+			game.state = "maude_place_hq"
+		}
+	}
+
+	states.maude_place_hq = {
+		inactive: "play combat cards",
+		prompt(res) {
+			res.prompt("莫德：将莫德HQ放置到包含英国与印度部队的攻击地块")
+			show_attack_context(res)
+			for (let s of get_maude_hq_space_options()) res.space(s)
+		},
+		space(s) {
+			push_undo()
+			let maude_hq = Engine.game_utils.find_piece_by_name(AP, "BR Maude HQ")
+			if (maude_hq >= 0) {
+				game.pieces[maude_hq] = s
+				log(`增援：BR Maude HQ 放置到 ${space_name(s)}`)
+			}
+			let return_state = game.maude_cc?.return_state || "play_cc_attacker"
+			let prev_active = game.maude_cc?.prev_active || AP
+			delete game.maude_cc
+			game.active = prev_active
+			resume_combat_card_flow(return_state, true)
+		}
+	}
+
+	states.army_of_islam_place_hq = {
+		inactive: "play combat cards",
+		prompt(res) {
+			res.prompt("伊斯兰军：将伊斯兰军HQ放置到已启动攻击的土耳其/土耳其-阿拉伯部队所在攻击地块")
+			show_attack_context(res)
+			for (let s of get_army_of_islam_space_options()) res.space(s)
+		},
+		space(s) {
+			push_undo()
+			let army_of_islam_hq = Engine.game_utils.find_piece_by_name(CP, "TU Army Islam HQ")
+			if (army_of_islam_hq >= 0) {
+				game.pieces[army_of_islam_hq] = s
+				log(`增援：TU Army Islam HQ 放置到 ${space_name(s)}`)
+			}
+			let return_state = game.army_of_islam_cc?.return_state || "play_cc_attacker"
+			let prev_active = game.army_of_islam_cc?.prev_active || CP
+			delete game.army_of_islam_cc
+			game.active = prev_active
+			resume_combat_card_flow(return_state, true)
+		}
+	}
+
+	function finalize_jafar_pasha_choice() {
+		if (game.cc_jafar_pasha && game.cc_jafar_pasha.after_use === "remove") {
+			move_card_to_removed(game.cc_jafar_pasha.card, game.cc_jafar_pasha.faction)
+		} else if (game.cc_jafar_pasha && game.cc_jafar_pasha.after_use === "discard") {
+			move_card_to_discard(game.cc_jafar_pasha.card, game.cc_jafar_pasha.faction)
+		} else if (game.cc_jafar_pasha) {
+			game.cc_jafar_pasha_post_battle = true
+		}
+		game.cc_jafar_pasha = null
+	}
 
 	states.march_and_countermarch_select = {
 		prompt(res) {
@@ -951,9 +1095,10 @@ exports.register = function (states, Engine, context) {
 
 	states.choose_jafar_pasha = {
 		prompt(res) {
+			let mode = game.cc_jafar_pasha?.mode
 			res.prompt("贾法尔帕夏：选择效果")
-			res.action("retreat")
-			res.action("reroll")
+			if (mode !== "reroll") res.action("retreat")
+			if (mode !== "retreat") res.action("reroll")
 		},
 		retreat() {
 			let attackers = game.attack ? game.attack.pieces || [] : []
@@ -966,28 +1111,12 @@ exports.register = function (states, Engine, context) {
 				1,
 				attackers.map((p) => game.pieces[p])
 			)
-			if (game.cc_jafar_pasha && game.cc_jafar_pasha.after_use === "remove") {
-				move_card_to_removed(game.cc_jafar_pasha.card, game.cc_jafar_pasha.faction)
-			} else if (game.cc_jafar_pasha && game.cc_jafar_pasha.after_use === "discard") {
-				move_card_to_discard(game.cc_jafar_pasha.card, game.cc_jafar_pasha.faction)
-			} else if (game.cc_jafar_pasha && game.cc_jafar_pasha.post_roll) {
-				game.cc_jafar_pasha_post_roll = true
-			}
-			game.cc_jafar_pasha = null
-			if (game.cc_jafar_pasha_post_roll) resolve_jafar_pasha_post_roll()
-			game.attack = null
-			game.active = other_faction(game.active)
-			game.state = "attack"
+			finalize_jafar_pasha_choice()
+			game.cc_jafar_pasha_retreat = true
+			resolve_battle_sequence()
 		},
 		reroll() {
-			if (game.cc_jafar_pasha && game.cc_jafar_pasha.after_use === "remove") {
-				move_card_to_removed(game.cc_jafar_pasha.card, game.cc_jafar_pasha.faction)
-			} else if (game.cc_jafar_pasha && game.cc_jafar_pasha.after_use === "discard") {
-				move_card_to_discard(game.cc_jafar_pasha.card, game.cc_jafar_pasha.faction)
-			} else if (game.cc_jafar_pasha && game.cc_jafar_pasha.post_roll) {
-				game.cc_jafar_pasha_post_roll = true
-			}
-			game.cc_jafar_pasha = null
+			finalize_jafar_pasha_choice()
 			game.cc_jafar_pasha_reroll = true
 			resolve_battle_sequence()
 		}
@@ -1078,7 +1207,7 @@ exports.register = function (states, Engine, context) {
 	function end_battle_sequence() {
 		let prev_state = game.state
 		combat.end_battle_sequence(game, log)
-		if (game.cc_jafar_pasha_post_roll) resolve_jafar_pasha_post_roll()
+		if (game.cc_jafar_pasha_post_battle) resolve_jafar_pasha_post_battle()
 
 		if (game.state === "post_roll_cc_defender" && !has_window_cc_options("post_roll_cc_defender", CP, false)) {
 			game.post_roll_cc_done = true
@@ -1135,7 +1264,7 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
-	function resolve_jafar_pasha_post_roll() {
+	function resolve_jafar_pasha_post_battle() {
 		let roll = roll_die(6, game)
 		if (roll <= 3) {
 			add_cc_retained(AP, combat.CC_CP_JAFAR_PASHA, "remove")
@@ -1144,7 +1273,7 @@ exports.register = function (states, Engine, context) {
 			move_card_to_discard(combat.CC_CP_JAFAR_PASHA, CP)
 			log(`贾法尔帕夏：掷骰${roll}，弃牌。`)
 		}
-		delete game.cc_jafar_pasha_post_roll
+		delete game.cc_jafar_pasha_post_battle
 	}
 
 	register_combat_card_state("post_roll_cc_defender", {
@@ -1677,7 +1806,9 @@ exports.register = function (states, Engine, context) {
 				for (let p of game.save_tiflis_pieces || []) {
 					res.piece(p)
 				}
-				res.action("done")
+				if ((game.save_tiflis_pieces || []).length === 0) {
+					res.action("done")
+				}
 			} else {
 				let piece = game.selected_piece
 				res.prompt(`正在撤退 ${data.pieces[piece].name} 到第比利斯`)
@@ -1686,8 +1817,8 @@ exports.register = function (states, Engine, context) {
 				const TIFLIS = 12
 				let current_dist = Engine.map.get_distance(game.pieces[piece], TIFLIS)
 				let valid = []
-				let connections = data.spaces[game.pieces[piece]].connections || []
-				for (let s of connections) {
+				let legal_retreats = combat.get_valid_retreat_spaces(game, piece, [], 1, true)
+				for (let s of legal_retreats) {
 					if (Engine.map.get_distance(s, TIFLIS) < current_dist) {
 						valid.push(s)
 					}
@@ -1721,8 +1852,9 @@ exports.register = function (states, Engine, context) {
 		cannot_retreat() {
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
-				log(`${data.pieces[p].name} cannot retreat towards Tiflis.`)
+				log(`${data.pieces[p].name} cannot retreat towards Tiflis and is eliminated.`)
 				game.save_tiflis_failed = true
+				Engine.game_utils.eliminate_piece(game, p, log)
 				set_delete(game.save_tiflis_pieces, p)
 				game.selected_piece = null
 			}
@@ -1730,15 +1862,11 @@ exports.register = function (states, Engine, context) {
 		done() {
 			delete game.save_tiflis_pieces
 			delete game.selected_piece
-			// Continue the battle sequence where we left off
-			game.active = other_faction(game.active)
-			game.state = "retreat" // Go back to normal retreat sequence
-
-			// If normal retreat sequence expects some data, we should set it
-			// But since we interrupted end_battle_sequence, we might need to resume it.
-			// Actually, end_battle_sequence was interrupted. Let's resume it.
-			// However, in this engine, resuming is often done by calling the function again.
-			// Let's call end_battle_sequence again.
+			
+			// Restore active faction to attacker (CP)
+			game.active = game.attack.attacker
+			
+			// Resume end_battle_sequence to handle losses and normal retreats
 			combat.end_battle_sequence(game, log)
 		}
 	}
@@ -1881,7 +2009,8 @@ exports.register = function (states, Engine, context) {
 					set_add(game.retreat_first_spaces, s)
 				}
 				let remaining = remaining_before_move - 1
-				let ends_retreat_here = remaining <= 0 || Engine.map.is_region(game, s)
+				let ends_retreat_here =
+					remaining <= 0 || Engine.map.is_region(game, s) || Engine.map.is_island_base(game, s)
 				if (ends_retreat_here) {
 					if (!Engine.map.is_controlled_by(game, s, game.active)) {
 						if (data.pieces[p].type === "regular") {

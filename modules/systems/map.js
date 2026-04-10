@@ -14,6 +14,7 @@ module.exports = function (Engine) {
 	} = constants
 	const { set_add, set_delete, set_has, other_faction } = utils
 	const {
+		find_space,
 		get_piece_effective_faction,
 		is_lcu,
 		is_scu,
@@ -21,12 +22,23 @@ module.exports = function (Engine) {
 		is_irregular,
 		is_hq,
 		is_in_reserve,
+		is_not_on_map,
 		get_piece_nations_for_rule,
 		get_piece_nation_groups_for_rule,
 		piece_counts_as_nation_for_rule,
+		pieces_count_as_any_nation_for_rule,
 		can_piece_be_activated
 	} =
 		game_utils
+	const AP_RESERVE_SPACE = find_space("AP Reserve")
+	const CP_RESERVE_SPACE = find_space("CP Reserve")
+	const BOSPHORUS_FORTS_SPACE = find_space("The Bosphorus Forts")
+	const SOFIA = find_space("SOFIA")
+	const JERUSALEM = find_space("Jerusalem")
+	const JAFFA = find_space("Jaffa")
+	const HAIFA = find_space("Haifa")
+	const NABLUS = find_space("Nablus")
+	const AFGHANISTAN_SPACE = find_space("Afghanistan")
 	const {
 		is_greece_neutral,
 		is_neutral_greece_supply_passable,
@@ -217,6 +229,26 @@ module.exports = function (Engine) {
 		return !!data.spaces[s].island_base
 	}
 
+	function is_potential_beachhead_space(s) {
+		return !!(s > 0 && data.spaces[s] && data.spaces[s].beach_for)
+	}
+
+	function get_adjacent_island_base_for_beachhead(s) {
+		if (!is_potential_beachhead_space(s)) return -1
+		return find_space(data.spaces[s].beach_for)
+	}
+
+	function can_ap_initiate_invasion_to_beachhead(game, from, target, faction) {
+		if (faction !== AP) return false
+		if (!is_potential_beachhead_space(target)) return false
+		if (is_beachhead_space(game, target)) return false
+		if ((game.unplaced_beachheads || 0) <= 0) return false
+		if (!is_island_base(game, from)) return false
+		if (get_adjacent_island_base_for_beachhead(target) !== from) return false
+		if (!game.move || game.move.spaces_moved > 0) return false
+		return true
+	}
+
 	function is_region(game, s) {
 		if (s === undefined) {
 			s = game
@@ -362,7 +394,7 @@ module.exports = function (Engine) {
 	}
 
 	function get_space_controller(game, s) {
-		if (game.control && (game.control[s] === AP || game.control[s] === CP)) {
+		if (game.control && (game.control[s] === AP || game.control[s] === CP || game.control[s] === "neutral")) {
 			return game.control[s]
 		}
 		return get_default_controller(game, s)
@@ -370,6 +402,15 @@ module.exports = function (Engine) {
 
 	function is_controlled_by(game, s, faction) {
 		return get_space_controller(game, s) === faction
+	}
+
+	function has_allied_control_of_balfour_spaces(game) {
+		return (
+			is_controlled_by(game, JERUSALEM, AP) ||
+			is_controlled_by(game, JAFFA, AP) ||
+			is_controlled_by(game, HAIFA, AP) ||
+			is_controlled_by(game, NABLUS, AP)
+		)
 	}
 
 	function has_undestroyed_fort(game, s, faction) {
@@ -492,9 +533,7 @@ module.exports = function (Engine) {
 	}
 
 	function get_bosphorus_forts_space_id() {
-		if (bosphorus_forts_space === null) {
-			bosphorus_forts_space = find_space_by_name("The Bosphorus Forts")
-		}
+		if (bosphorus_forts_space === null) bosphorus_forts_space = BOSPHORUS_FORTS_SPACE
 		return bosphorus_forts_space
 	}
 
@@ -886,6 +925,17 @@ module.exports = function (Engine) {
 		let area = get_area(s)
 		let restricted_area = get_restricted_area(s)
 		let space_info = data.spaces[s]
+		let piece_info = data.pieces[p]
+
+		if (
+			is_galicia(s) &&
+			piece_info &&
+			(piece_info.nation === "tu" || piece_info.nation === "tua") &&
+			game.pieces[p] !== s &&
+			!(game.event_ctx && game.event_ctx.key === "enver_falkenhayn_summit")
+		) {
+			return false
+		}
 
 		if (space_info && space_info.faction === "neutral") {
 			if (is_afghanistan(s)) {
@@ -1036,17 +1086,10 @@ function get_stack_yildirim_count(pieces) {
 	}
 
 	function has_br_ru_mix(game, pieces) {
-		let has_br = false
+		let has_br = pieces_count_as_any_nation_for_rule(game, pieces, ["br", "in", "anz"])
 		let ru_count = 0
 		let ru_limit = game.events && game.events["russian_revolution"] >= 4 ? 2 : 0
 		for (let p of pieces) {
-			if (
-				piece_counts_as_nation_for_rule(game, p, "br") ||
-				piece_counts_as_nation_for_rule(game, p, "in") ||
-				piece_counts_as_nation_for_rule(game, p, "anz")
-			) {
-				has_br = true
-			}
 			if (piece_counts_as_nation_for_rule(game, p, "ru")) {
 				ru_count++
 			}
@@ -1172,6 +1215,14 @@ function get_stack_yildirim_count(pieces) {
 		let greek_reason = get_greek_move_restriction_reason(game, p, target, faction)
 		if (greek_reason) return greek_reason
 		if (contains_enemy_pieces(game, target, faction)) return "目标有敌军"
+		let source = game.move.current
+		if (
+			is_potential_beachhead_space(target) &&
+			!is_beachhead_space(game, target) &&
+			!can_ap_initiate_invasion_to_beachhead(game, source, target, faction)
+		) {
+			return "滩头未建立"
+		}
 		if (!can_enter_region(game, p, target)) return "区域限制或LCU数量限制"
 		if (
 			data.spaces[target].terrain === "desert" &&
@@ -1244,6 +1295,14 @@ function get_stack_yildirim_count(pieces) {
 	function can_piece_move_to(game, p, target, faction) {
 		if (get_greek_move_restriction_reason(game, p, target, faction)) return false
 		if (contains_enemy_pieces(game, target, faction)) return false
+		let source = game.move.current
+		if (
+			is_potential_beachhead_space(target) &&
+			!is_beachhead_space(game, target) &&
+			!can_ap_initiate_invasion_to_beachhead(game, source, target, faction)
+		) {
+			return false
+		}
 
 		// Rule 19.2.3: CP units may not enter neutral Greece space with Greek units.
 		if (faction === CP && is_greece_neutral(game) && data.spaces[target].nation === "gr") {
@@ -1482,12 +1541,12 @@ function get_stack_yildirim_count(pieces) {
 		return has_same_nationality_supplied_unit_in_space(game, p, s)
 	}
 
-	function get_faction_reserve_name(faction) {
-		return faction === AP ? "AP Reserve" : "CP Reserve"
+	function get_faction_reserve_space_id(faction) {
+		return faction === AP ? AP_RESERVE_SPACE : CP_RESERVE_SPACE
 	}
 
-	function get_faction_reserve_space_id(faction) {
-		return find_space_by_name(get_faction_reserve_name(faction))
+	function is_sea_sr_port_space(game, s) {
+		return !!data.spaces[s] && (!!data.spaces[s].port || is_beachhead_space(game, s))
 	}
 
 	function is_sr_destination_blocked_by_events(game, source, dest, faction) {
@@ -1497,8 +1556,8 @@ function get_stack_yildirim_count(pieces) {
 			!!source_space &&
 			!!dest_space &&
 			source !== dest &&
-			!!source_space.port &&
-			!!dest_space.port
+			is_sea_sr_port_space(game, source) &&
+			is_sea_sr_port_space(game, dest)
 		if (!is_sea_sr) return false
 
 		if (faction === AP && game.events && game.events["german_subs"]) {
@@ -1507,8 +1566,8 @@ function get_stack_yildirim_count(pieces) {
 			}
 		}
 		if (game.events && game.events["royal_navy_blockade"] && faction === CP) {
-			let is_source_port = !!data.spaces[source].port
-			let is_dest_port = !!data.spaces[dest].port
+			let is_source_port = is_sea_sr_port_space(game, source)
+			let is_dest_port = is_sea_sr_port_space(game, dest)
 			if (is_source_port || is_dest_port) {
 				let source_black_caspian = is_black_sea_port(game, source) || is_caspian_sea_port(game, source)
 				let dest_black_caspian = is_black_sea_port(game, dest) || is_caspian_sea_port(game, dest)
@@ -1522,7 +1581,7 @@ function get_stack_yildirim_count(pieces) {
 
 	function has_sr_sea_port_route(game, p, source, dest, faction) {
 		let info = data.pieces[p]
-		if (!data.spaces[source].port || !data.spaces[dest].port) return false
+		if (!is_sea_sr_port_space(game, source) || !is_sea_sr_port_space(game, dest)) return false
 		if (info.piece_class === "LCU") return false
 		if (info.symbol === "H") return false
 		let source_caspian = is_caspian_sea_port(source)
@@ -1588,7 +1647,7 @@ function get_stack_yildirim_count(pieces) {
 			return can_sr_to_space(game, p, dest, faction)
 		}
 		if (is_sr_destination_blocked_by_events(game, source, dest, faction)) return false
-		if (game.control[dest] !== faction && !contains_friendly_pieces(game, dest, faction)) return false
+		if (!is_controlled_by(game, dest, faction) && !contains_friendly_pieces(game, dest, faction)) return false
 		let dest_status = get_supply_status(
 			game,
 			dest,
@@ -1734,9 +1793,9 @@ function get_stack_yildirim_count(pieces) {
 			}
 		}
 
-		if (info.piece_class !== "LCU" && info.symbol !== "H" && data.spaces[source].port) {
+		if (info.piece_class !== "LCU" && info.symbol !== "H" && is_sea_sr_port_space(game, source)) {
 			for (let s = 1; s < data.spaces.length; s++) {
-				if (!data.spaces[s] || !data.spaces[s].port) continue
+				if (!is_sea_sr_port_space(game, s)) continue
 				if (!has_sr_sea_port_route(game, p, source, s, faction)) continue
 				if (can_sr_to_non_reserve_space_with_context(
 					game,
@@ -1777,7 +1836,14 @@ function get_stack_yildirim_count(pieces) {
 
 		let nations = get_piece_nations_for_rule(game, p)
 		if (nations.length === 0) return false
-		if (!nations.some((nation) => nation !== "bu" || can_trace_supply_to_sofia(game, p))) return false
+		if (
+			!nations.some(
+				(nation) =>
+					nation !== "bu" || can_trace_piece_supply_to_space(game, p, SOFIA, { require_unbesieged: true })
+			)
+		) {
+			return false
+		}
 		if (is_reserve_space(s)) {
 			return info.piece_class !== "LCU"
 		}
@@ -1806,8 +1872,7 @@ function get_stack_yildirim_count(pieces) {
 
 		if (dest_reserve) {
 			if (info.piece_class === "LCU") return false
-			let reserve_name = get_faction_reserve_name(faction)
-			if (data.spaces[s].name !== reserve_name) return false
+			if (s !== get_faction_reserve_space_id(faction)) return false
 
 			let source_status = get_supply_status(game, source, faction, p, true)
 			if (!is_supply_status_in_supply(source_status)) return false
@@ -1827,7 +1892,7 @@ function get_stack_yildirim_count(pieces) {
 		let rail_only = info.piece_class === "LCU"
 		if (has_sr_path(game, p, source, s, faction, rail_only)) return true
 
-		let sea_sr = source !== s && !!data.spaces[source].port && !!data.spaces[s].port
+		let sea_sr = source !== s && is_sea_sr_port_space(game, source) && is_sea_sr_port_space(game, s)
 		if (!sea_sr) return false
 		if (is_sr_destination_blocked_by_events(game, source, s, faction)) return false
 		if (info.piece_class === "LCU") return false
@@ -1848,21 +1913,28 @@ function get_stack_yildirim_count(pieces) {
 		return pieces.some((p) => data.pieces[p].faction === faction)
 	}
 
-	function find_space_by_name(name) {
-		for (let s = 0; s < data.spaces.length; s++) {
-			if (data.spaces[s] && data.spaces[s].name === name) return s
-		}
-		return -1
+	function can_trace_piece_supply_to_space(game, p, destination, options = {}) {
+		let info = data.pieces[p]
+		if (!info || destination < 0 || !data.spaces[destination]) return false
+		let faction = options.faction || info.faction
+		if (options.require_controlled !== false && !is_controlled_by(game, destination, faction)) return false
+		if (options.require_unbesieged && is_besieged(game, destination)) return false
+		if (options.allow_off_map && Engine.game_utils.is_not_on_map(game, p)) return true
+		let s = game.pieces[p]
+		if (s <= 0 || !data.spaces[s]) return false
+		return can_trace_supply_to_source(game, s, faction, destination, options.supply_context || null)
 	}
 
-	function can_trace_supply_to_sofia(game, p) {
-		let sofia = find_space_by_name("SOFIA")
-		if (sofia < 0) return false
-		if (!is_controlled_by(game, sofia, CP)) return false
-		if (is_besieged(game, sofia)) return false
+	function can_trace_piece_supply_to_sources(game, p, sources, options = {}) {
+		let info = data.pieces[p]
+		if (!info) return false
+		let source_list = Array.isArray(sources) ? sources : [sources]
+		if (source_list.length === 0) return false
+		if (options.allow_off_map && Engine.game_utils.is_not_on_map(game, p)) return true
 		let s = game.pieces[p]
-		if (s <= 0) return false
-		return can_trace_supply_to_source(game, s, data.pieces[p].faction, sofia)
+		if (s <= 0 || !data.spaces[s]) return false
+		let faction = options.faction || info.faction
+		return can_trace_supply_to_source(game, s, faction, source_list, options.supply_context || null)
 	}
 
 	// --- SUPPLY ---
@@ -2006,6 +2078,10 @@ function get_stack_yildirim_count(pieces) {
 		return game.beachheads || []
 	}
 
+	function is_ap_supply_beachhead(game, s, faction) {
+		return faction === AP && is_beachhead_space(game, s)
+	}
+
 	function is_connected_by_rail(game, start, faction, sources, supply_context = null) {
 		let source_flag = build_space_flag_from_sources(sources || [])
 		let queue = [start]
@@ -2048,6 +2124,9 @@ function get_stack_yildirim_count(pieces) {
 		// Add all sources
 		for (let s of sources) {
 			let is_friendly = is_controlled_by(game, s, faction)
+			if (is_ap_supply_beachhead(game, s, faction)) {
+				is_friendly = true
+			}
 			// Rule 19.2.6: Salonika is an AP source even when neutral
 			if (faction === AP && data.spaces[s].name === "Salonika" && Engine.neutral.is_greece_neutral(game)) {
 				is_friendly = true
@@ -2077,6 +2156,9 @@ function get_stack_yildirim_count(pieces) {
 				// Partial Control (irregular units/tribes) does not.
 				// If enemy controlled and has no pieces, it's Full Control.
 				let is_friendly = is_controlled_by(game, next, faction)
+				if (is_ap_supply_beachhead(game, next, faction)) {
+					is_friendly = true
+				}
 				let is_besieged_enemy = is_besieged_with_context(game, next, context)
 				let has_friendly_pieces = context.friendly[faction][next] === 1
 				let is_disrupted_by_enemy = context.disrupted[faction][next] === 1
@@ -2322,8 +2404,9 @@ function get_stack_yildirim_count(pieces) {
 		if (start <= 0) return false
 		let ports = []
 		for (let s of get_supply_eligible_space_ids()) {
-			if (data.spaces[s].port && is_controlled_by(game, s, AP)) {
-				if (for_placement_or_sr && Engine.events.is_german_subs_blocked_port(game, s)) continue
+			if ((data.spaces[s].port && is_controlled_by(game, s, AP)) || is_beachhead_space(game, s)) {
+				if (for_placement_or_sr && data.spaces[s].port && Engine.events.is_german_subs_blocked_port(game, s))
+					continue
 				ports.push(s)
 			}
 		}
@@ -2602,13 +2685,7 @@ function get_stack_yildirim_count(pieces) {
 			if (
 				faction === CP &&
 				!(game.events && game.events["afghan_alliance"]) &&
-				can_trace_supply_to_source(
-					game,
-					space,
-					faction,
-					Engine.game_utils.find_space("Afghanistan"),
-					supply_context
-				)
+				can_trace_supply_to_source(game, space, faction, AFGHANISTAN_SPACE, supply_context)
 			) {
 				return cache_result("LIMITED")
 			}
@@ -2708,6 +2785,9 @@ function get_stack_yildirim_count(pieces) {
 			) {
 				return true
 			}
+		if (is_ap_supply_beachhead(game, start, faction)) {
+			return true
+		}
 			return is_controlled_by(game, start, faction)
 		}
 		let visited = new Set([start])
@@ -2726,6 +2806,9 @@ function get_stack_yildirim_count(pieces) {
 				if (is_neutral_supply_blocked(game, next, faction)) continue
 
 				let is_friendly = is_controlled_by(game, next, faction)
+				if (is_ap_supply_beachhead(game, next, faction)) {
+					is_friendly = true
+				}
 				let is_besieged_enemy = is_besieged_with_context(game, next, context)
 				let has_friendly_pieces = context.friendly[faction][next] === 1
 				let is_disrupted_by_enemy = context.disrupted[faction][next] === 1
@@ -3046,10 +3129,6 @@ function get_stack_yildirim_count(pieces) {
 		return costs.move
 	}
 
-	function is_not_on_map(game, p) {
-		return Engine.game_utils.is_not_on_map(game, p)
-	}
-
 	Object.assign(exports, {
 		get_pieces_in_space,
 		for_each_piece_in_space,
@@ -3086,6 +3165,7 @@ function get_stack_yildirim_count(pieces) {
 		get_default_controller,
 		get_space_controller,
 		is_controlled_by,
+		has_allied_control_of_balfour_spaces,
 		destroy_fort,
 		is_naval_access_space,
 		faction_controls_strait,
@@ -3105,6 +3185,9 @@ function get_stack_yildirim_count(pieces) {
 		is_scu,
 		is_tribe,
 		is_island_base,
+		is_potential_beachhead_space,
+		get_adjacent_island_base_for_beachhead,
+		can_ap_initiate_invasion_to_beachhead,
 		is_beachhead_space,
 		get_tribe_type,
 		is_region,
@@ -3144,6 +3227,8 @@ function get_stack_yildirim_count(pieces) {
 		is_besieged,
 		is_base_supply_source,
 		can_trace_supply_to_source,
+		can_trace_piece_supply_to_space,
+		can_trace_piece_supply_to_sources,
 		can_trace_supply_to_ap_port,
 		get_ru_supply_sources,
 		get_gr_supply_sources,
@@ -3154,7 +3239,6 @@ function get_stack_yildirim_count(pieces) {
 		get_ap_supply_split_projection,
 		get_beachhead_spaces,
 		get_supply_status,
-		is_not_on_map,
 		is_space_in_tribal_range,
 		check_rule_violations
 	})
