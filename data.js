@@ -15891,8 +15891,8 @@ var data = {
 	{
 		"id": 1181,
 		"name": "GR 17",
-		"x": 75,
-		"y": 2609,
+		"x": 70,
+		"y": 2603,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -15901,8 +15901,8 @@ var data = {
 	{
 		"id": 1182,
 		"name": "GR 18",
-		"x": 161,
-		"y": 2609,
+		"x": 157,
+		"y": 2603,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -15911,8 +15911,8 @@ var data = {
 	{
 		"id": 1183,
 		"name": "GR 19",
-		"x": 247,
-		"y": 2609,
+		"x": 243,
+		"y": 2603,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -15921,8 +15921,8 @@ var data = {
 	{
 		"id": 1184,
 		"name": "GR 20",
-		"x": 333,
-		"y": 2609,
+		"x": 330,
+		"y": 2603,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -15931,8 +15931,8 @@ var data = {
 	{
 		"id": 1185,
 		"name": "GR 21",
-		"x": 419,
-		"y": 2609,
+		"x": 417,
+		"y": 2603,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -15941,8 +15941,8 @@ var data = {
 	{
 		"id": 1186,
 		"name": "GR 22",
-		"x": 505,
-		"y": 2609,
+		"x": 503,
+		"y": 2603,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -15951,8 +15951,8 @@ var data = {
 	{
 		"id": 1187,
 		"name": "GR 23",
-		"x": 591,
-		"y": 2609,
+		"x": 590,
+		"y": 2603,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -15961,8 +15961,8 @@ var data = {
 	{
 		"id": 1188,
 		"name": "GR 24",
-		"x": 677,
-		"y": 2609,
+		"x": 676,
+		"y": 2603,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -15972,7 +15972,7 @@ var data = {
 		"id": 1189,
 		"name": "GR 25",
 		"x": 763,
-		"y": 2609,
+		"y": 2603,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -15982,7 +15982,7 @@ var data = {
 		"id": 1190,
 		"name": "GR 26",
 		"x": 849,
-		"y": 2609,
+		"y": 2603,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -15992,7 +15992,7 @@ var data = {
 		"id": 1191,
 		"name": "GR 27",
 		"x": 70,
-		"y": 2705,
+		"y": 2706,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -16573,6 +16573,456 @@ var data = {
 		"name": "SUB IN THE MED",
 		"x": 700,
 		"y": 1256,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1250,
+		"name": "box_cp_corps_assets_tu_lcu",
+		"x": 808,
+		"y": 1760,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1251,
+		"name": "box_cp_corps_assets_tua_lcu",
+		"x": 927,
+		"y": 1760,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1252,
+		"name": "box_cp_reserve_tu_scu",
+		"x": 1040,
+		"y": 1760,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1253,
+		"name": "box_cp_reserve_tua_scu",
+		"x": 1120,
+		"y": 1760,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1254,
+		"name": "box_cp_reserve_bu_scu",
+		"x": 1200,
+		"y": 1760,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1255,
+		"name": "box_cp_reserve_ge_scu",
+		"x": 1280,
+		"y": 1760,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1256,
+		"name": "box_cp_reserve_ah_scu",
+		"x": 1360,
+		"y": 1760,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1257,
+		"name": "box_ap_reserve_ru_scu",
+		"x": 815,
+		"y": 1995,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1258,
+		"name": "box_ap_reserve_br_scu",
+		"x": 815,
+		"y": 2060,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1259,
+		"name": "box_ap_reserve_in_scu",
+		"x": 910,
+		"y": 1995,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1260,
+		"name": "box_ap_reserve_anz_scu",
+		"x": 910,
+		"y": 2060,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1261,
+		"name": "box_ap_reserve_sb_scu",
+		"x": 1005,
+		"y": 1995,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1262,
+		"name": "box_ap_reserve_ro_scu",
+		"x": 1005,
+		"y": 2060,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1263,
+		"name": "box_ap_reserve_fr_scu",
+		"x": 1095,
+		"y": 1995,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1264,
+		"name": "box_ap_reserve_other_scu",
+		"x": 1095,
+		"y": 2060,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1265,
+		"name": "box_ap_corps_assets_ru_lcu",
+		"x": 1230,
+		"y": 2000,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1266,
+		"name": "box_ap_corps_assets_br_lcu",
+		"x": 1230,
+		"y": 2090,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1267,
+		"name": "box_ap_corps_assets_in_lcu",
+		"x": 1340,
+		"y": 2000,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1268,
+		"name": "box_ap_corps_assets_fr_lcu",
+		"x": 1340,
+		"y": 2090,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1269,
+		"name": "box_cp_eliminated_tu_lcu",
+		"x": 2155,
+		"y": 85,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1270,
+		"name": "box_cp_eliminated_tu_scu",
+		"x": 2155,
+		"y": 148,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1271,
+		"name": "box_cp_eliminated_tua_lcu",
+		"x": 2238,
+		"y": 85,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1272,
+		"name": "box_cp_eliminated_tua_scu",
+		"x": 2238,
+		"y": 148,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1273,
+		"name": "box_cp_eliminated_bu_lcu",
+		"x": 2320,
+		"y": 85,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1274,
+		"name": "box_cp_eliminated_bu_scu",
+		"x": 2320,
+		"y": 150,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1275,
+		"name": "box_cp_eliminated_ge_lcu",
+		"x": 2155,
+		"y": 212,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1276,
+		"name": "box_cp_eliminated_ge_scu",
+		"x": 2155,
+		"y": 275,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1277,
+		"name": "box_cp_eliminated_ah_lcu",
+		"x": 2238,
+		"y": 212,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1278,
+		"name": "box_cp_eliminated_ah_scu",
+		"x": 2238,
+		"y": 275,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1279,
+		"name": "box_cp_eliminated_tr",
+		"x": 2320,
+		"y": 245,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1280,
+		"name": "box_ap_eliminated_ru_lcu",
+		"x": 1548,
+		"y": 2615,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1281,
+		"name": "box_ap_eliminated_ru_scu",
+		"x": 1548,
+		"y": 2675,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1282,
+		"name": "box_ap_eliminated_br_lcu",
+		"x": 1624,
+		"y": 2615,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1283,
+		"name": "box_ap_eliminated_br_scu",
+		"x": 1624,
+		"y": 2675,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1284,
+		"name": "box_ap_eliminated_anz_lcu",
+		"x": 1699,
+		"y": 2615,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1285,
+		"name": "box_ap_eliminated_anz_scu",
+		"x": 1699,
+		"y": 2675,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1286,
+		"name": "box_ap_eliminated_in_lcu",
+		"x": 1780,
+		"y": 2615,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1287,
+		"name": "box_ap_eliminated_in_scu",
+		"x": 1780,
+		"y": 2675,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1288,
+		"name": "box_ap_eliminated_sb_lcu",
+		"x": 1855,
+		"y": 2615,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1289,
+		"name": "box_ap_eliminated_sb_scu",
+		"x": 1855,
+		"y": 2675,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1290,
+		"name": "box_ap_eliminated_fr_lcu",
+		"x": 1548,
+		"y": 2735,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1291,
+		"name": "box_ap_eliminated_fr_scu",
+		"x": 1624,
+		"y": 2735,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1292,
+		"name": "box_ap_eliminated_ro_lcu",
+		"x": 1699,
+		"y": 2735,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1293,
+		"name": "box_ap_eliminated_ro_scu",
+		"x": 1780,
+		"y": 2735,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1294,
+		"name": "box_ap_eliminated_other",
+		"x": 1855,
+		"y": 2735,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -25554,64 +26004,64 @@ var data = {
 	{
 		"id": 36,
 		"key": "GR 17",
-		"x": 75,
-		"y": 2609,
+		"x": 70,
+		"y": 2603,
 		"w": 75,
 		"h": 75
 	},
 	{
 		"id": 37,
 		"key": "GR 18",
-		"x": 161,
-		"y": 2609,
+		"x": 157,
+		"y": 2603,
 		"w": 75,
 		"h": 75
 	},
 	{
 		"id": 38,
 		"key": "GR 19",
-		"x": 247,
-		"y": 2609,
+		"x": 243,
+		"y": 2603,
 		"w": 75,
 		"h": 75
 	},
 	{
 		"id": 39,
 		"key": "GR 20",
-		"x": 333,
-		"y": 2609,
+		"x": 330,
+		"y": 2603,
 		"w": 75,
 		"h": 75
 	},
 	{
 		"id": 40,
 		"key": "GR 21",
-		"x": 419,
-		"y": 2609,
+		"x": 417,
+		"y": 2603,
 		"w": 75,
 		"h": 75
 	},
 	{
 		"id": 41,
 		"key": "GR 22",
-		"x": 505,
-		"y": 2609,
+		"x": 503,
+		"y": 2603,
 		"w": 75,
 		"h": 75
 	},
 	{
 		"id": 42,
 		"key": "GR 23",
-		"x": 591,
-		"y": 2609,
+		"x": 590,
+		"y": 2603,
 		"w": 75,
 		"h": 75
 	},
 	{
 		"id": 43,
 		"key": "GR 24",
-		"x": 677,
-		"y": 2609,
+		"x": 676,
+		"y": 2603,
 		"w": 75,
 		"h": 75
 	},
@@ -25619,7 +26069,7 @@ var data = {
 		"id": 44,
 		"key": "GR 25",
 		"x": 763,
-		"y": 2609,
+		"y": 2603,
 		"w": 75,
 		"h": 75
 	},
@@ -25627,7 +26077,7 @@ var data = {
 		"id": 45,
 		"key": "GR 26",
 		"x": 849,
-		"y": 2609,
+		"y": 2603,
 		"w": 75,
 		"h": 75
 	},
@@ -25635,7 +26085,7 @@ var data = {
 		"id": 46,
 		"key": "GR 27",
 		"x": 70,
-		"y": 2705,
+		"y": 2706,
 		"w": 75,
 		"h": 75
 	},
@@ -26102,6 +26552,366 @@ var data = {
 		"y": 1256,
 		"w": 75,
 		"h": 75
+	},
+	{
+		"id": 105,
+		"key": "box_cp_corps_assets_tu_lcu",
+		"x": 808,
+		"y": 1760,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 106,
+		"key": "box_cp_corps_assets_tua_lcu",
+		"x": 927,
+		"y": 1760,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 107,
+		"key": "box_cp_reserve_tu_scu",
+		"x": 1040,
+		"y": 1760,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 108,
+		"key": "box_cp_reserve_tua_scu",
+		"x": 1120,
+		"y": 1760,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 109,
+		"key": "box_cp_reserve_bu_scu",
+		"x": 1200,
+		"y": 1760,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 110,
+		"key": "box_cp_reserve_ge_scu",
+		"x": 1280,
+		"y": 1760,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 111,
+		"key": "box_cp_reserve_ah_scu",
+		"x": 1360,
+		"y": 1760,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 112,
+		"key": "box_ap_reserve_ru_scu",
+		"x": 815,
+		"y": 1995,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 113,
+		"key": "box_ap_reserve_br_scu",
+		"x": 815,
+		"y": 2060,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 114,
+		"key": "box_ap_reserve_in_scu",
+		"x": 910,
+		"y": 1995,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 115,
+		"key": "box_ap_reserve_anz_scu",
+		"x": 910,
+		"y": 2060,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 116,
+		"key": "box_ap_reserve_sb_scu",
+		"x": 1005,
+		"y": 1995,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 117,
+		"key": "box_ap_reserve_ro_scu",
+		"x": 1005,
+		"y": 2060,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 118,
+		"key": "box_ap_reserve_fr_scu",
+		"x": 1095,
+		"y": 1995,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 119,
+		"key": "box_ap_reserve_other_scu",
+		"x": 1095,
+		"y": 2060,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 120,
+		"key": "box_ap_corps_assets_ru_lcu",
+		"x": 1230,
+		"y": 2000,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 121,
+		"key": "box_ap_corps_assets_br_lcu",
+		"x": 1230,
+		"y": 2090,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 122,
+		"key": "box_ap_corps_assets_in_lcu",
+		"x": 1340,
+		"y": 2000,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 123,
+		"key": "box_ap_corps_assets_fr_lcu",
+		"x": 1340,
+		"y": 2090,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 124,
+		"key": "box_cp_eliminated_tu_lcu",
+		"x": 2155,
+		"y": 85,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 125,
+		"key": "box_cp_eliminated_tu_scu",
+		"x": 2155,
+		"y": 148,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 126,
+		"key": "box_cp_eliminated_tua_lcu",
+		"x": 2238,
+		"y": 85,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 127,
+		"key": "box_cp_eliminated_tua_scu",
+		"x": 2238,
+		"y": 148,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 128,
+		"key": "box_cp_eliminated_bu_lcu",
+		"x": 2320,
+		"y": 85,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 129,
+		"key": "box_cp_eliminated_bu_scu",
+		"x": 2320,
+		"y": 150,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 130,
+		"key": "box_cp_eliminated_ge_lcu",
+		"x": 2155,
+		"y": 212,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 131,
+		"key": "box_cp_eliminated_ge_scu",
+		"x": 2155,
+		"y": 275,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 132,
+		"key": "box_cp_eliminated_ah_lcu",
+		"x": 2238,
+		"y": 212,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 133,
+		"key": "box_cp_eliminated_ah_scu",
+		"x": 2238,
+		"y": 275,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 134,
+		"key": "box_cp_eliminated_tr",
+		"x": 2320,
+		"y": 245,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 135,
+		"key": "box_ap_eliminated_ru_lcu",
+		"x": 1548,
+		"y": 2615,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 136,
+		"key": "box_ap_eliminated_ru_scu",
+		"x": 1548,
+		"y": 2675,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 137,
+		"key": "box_ap_eliminated_br_lcu",
+		"x": 1624,
+		"y": 2615,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 138,
+		"key": "box_ap_eliminated_br_scu",
+		"x": 1624,
+		"y": 2675,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 139,
+		"key": "box_ap_eliminated_anz_lcu",
+		"x": 1699,
+		"y": 2615,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 140,
+		"key": "box_ap_eliminated_anz_scu",
+		"x": 1699,
+		"y": 2675,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 141,
+		"key": "box_ap_eliminated_in_lcu",
+		"x": 1780,
+		"y": 2615,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 142,
+		"key": "box_ap_eliminated_in_scu",
+		"x": 1780,
+		"y": 2675,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 143,
+		"key": "box_ap_eliminated_sb_lcu",
+		"x": 1855,
+		"y": 2615,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 144,
+		"key": "box_ap_eliminated_sb_scu",
+		"x": 1855,
+		"y": 2675,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 145,
+		"key": "box_ap_eliminated_fr_lcu",
+		"x": 1548,
+		"y": 2735,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 146,
+		"key": "box_ap_eliminated_fr_scu",
+		"x": 1624,
+		"y": 2735,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 147,
+		"key": "box_ap_eliminated_ro_lcu",
+		"x": 1699,
+		"y": 2735,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 148,
+		"key": "box_ap_eliminated_ro_scu",
+		"x": 1780,
+		"y": 2735,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 149,
+		"key": "box_ap_eliminated_other",
+		"x": 1855,
+		"y": 2735,
+		"w": 44,
+		"h": 44
 	}
 ]
 }
@@ -26713,7 +27523,52 @@ data.space_name = {
 	"Egypt Uprising": 1246,
 	"Sinai Railroad": 1247,
 	"neutral_SB_UI": 1248,
-	"SUB IN THE MED": 1249
+	"SUB IN THE MED": 1249,
+	"box_cp_corps_assets_tu_lcu": 1250,
+	"box_cp_corps_assets_tua_lcu": 1251,
+	"box_cp_reserve_tu_scu": 1252,
+	"box_cp_reserve_tua_scu": 1253,
+	"box_cp_reserve_bu_scu": 1254,
+	"box_cp_reserve_ge_scu": 1255,
+	"box_cp_reserve_ah_scu": 1256,
+	"box_ap_reserve_ru_scu": 1257,
+	"box_ap_reserve_br_scu": 1258,
+	"box_ap_reserve_in_scu": 1259,
+	"box_ap_reserve_anz_scu": 1260,
+	"box_ap_reserve_sb_scu": 1261,
+	"box_ap_reserve_ro_scu": 1262,
+	"box_ap_reserve_fr_scu": 1263,
+	"box_ap_reserve_other_scu": 1264,
+	"box_ap_corps_assets_ru_lcu": 1265,
+	"box_ap_corps_assets_br_lcu": 1266,
+	"box_ap_corps_assets_in_lcu": 1267,
+	"box_ap_corps_assets_fr_lcu": 1268,
+	"box_cp_eliminated_tu_lcu": 1269,
+	"box_cp_eliminated_tu_scu": 1270,
+	"box_cp_eliminated_tua_lcu": 1271,
+	"box_cp_eliminated_tua_scu": 1272,
+	"box_cp_eliminated_bu_lcu": 1273,
+	"box_cp_eliminated_bu_scu": 1274,
+	"box_cp_eliminated_ge_lcu": 1275,
+	"box_cp_eliminated_ge_scu": 1276,
+	"box_cp_eliminated_ah_lcu": 1277,
+	"box_cp_eliminated_ah_scu": 1278,
+	"box_cp_eliminated_tr": 1279,
+	"box_ap_eliminated_ru_lcu": 1280,
+	"box_ap_eliminated_ru_scu": 1281,
+	"box_ap_eliminated_br_lcu": 1282,
+	"box_ap_eliminated_br_scu": 1283,
+	"box_ap_eliminated_anz_lcu": 1284,
+	"box_ap_eliminated_anz_scu": 1285,
+	"box_ap_eliminated_in_lcu": 1286,
+	"box_ap_eliminated_in_scu": 1287,
+	"box_ap_eliminated_sb_lcu": 1288,
+	"box_ap_eliminated_sb_scu": 1289,
+	"box_ap_eliminated_fr_lcu": 1290,
+	"box_ap_eliminated_fr_scu": 1291,
+	"box_ap_eliminated_ro_lcu": 1292,
+	"box_ap_eliminated_ro_scu": 1293,
+	"box_ap_eliminated_other": 1294
 }
 
 if (typeof module === 'object') {

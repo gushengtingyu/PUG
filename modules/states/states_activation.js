@@ -19,6 +19,8 @@ exports.register = function (states, Engine, context) {
 
 	const {
 		log,
+		logi,
+		log_br,
 		push_undo,
 		active_faction,
 		contains_friendly,
@@ -34,6 +36,7 @@ exports.register = function (states, Engine, context) {
 		is_scu,
 		is_lcu,
 		is_tribe,
+		is_hq,
 		get_region,
 		is_rail_connected_to_supply,
 		get_piece_mf,
@@ -54,6 +57,7 @@ exports.register = function (states, Engine, context) {
 		goto_end_event,
 		find_space,
 		piece_name,
+		piece_list,
 		has_unmoved_pieces_in_space,
 		get_movement_cost,
 		has_undestroyed_fort,
@@ -127,7 +131,7 @@ exports.register = function (states, Engine, context) {
 		log(title)
 		for (let s of spaces) {
 			let cost = map_get(game.activation_cost, s, 1)
-			log(">" + space_name(s) + (cost > 1 ? ` (${cost} OPS)` : ""))
+			logi(space_name(s) + (cost > 1 ? ` (${cost} OPS)` : ""))
 		}
 	}
 
@@ -137,6 +141,33 @@ exports.register = function (states, Engine, context) {
 
 		log_activation_group("MOVE", move_spaces)
 		log_activation_group("ATTACK", attack_spaces)
+	}
+
+	function can_temporarily_end_current_move_in_overstacked_space(space_id, stopping_pieces = null) {
+		let pieces = stopping_pieces ?? game.move?.pieces
+		if (!Array.isArray(pieces) || pieces.length === 0) return false
+		// 当前地块虽然超堆叠，但后续仍可继续移动已激活友军。
+		return Engine.map.can_temporarily_end_move_in_space(game, space_id, active_faction(), pieces, {
+			stopping_pieces_already_in_space: true,
+			excluded_future_movers: pieces
+		})
+	}
+
+	function get_current_move_end_block_reason(space_id, stopping_pieces = null) {
+		let reason = get_move_end_space_block_reason(game, space_id, active_faction())
+		if (reason === "堆叠超限" && can_temporarily_end_current_move_in_overstacked_space(space_id, stopping_pieces)) {
+			return null
+		}
+		return reason
+	}
+
+	function get_unresolved_move_activation_violations() {
+		let violations = []
+		for (let s of game.activated.move || []) {
+			let reason = get_move_end_space_block_reason(game, s, active_faction())
+			if (reason) violations.push({ space: s, reason })
+		}
+		return violations
 	}
 
 	// === ACTIVATION HELPER ===
@@ -351,7 +382,15 @@ exports.register = function (states, Engine, context) {
 			set_add(game.activated.attack, s)
 			if (!game.activation_cost) game.activation_cost = {}
 			map_set(game.activation_cost, s, cost)
-			if (!russo_british_mode && game.ops === 0) states.activate_spaces.done()
+
+			if (russo_british_mode) {
+				let required_count = Math.min(2, get_russo_british_legal_attack_spaces().length)
+				if (game.activated.attack.length >= required_count) {
+					states.activate_spaces.done()
+				}
+			} else if (game.ops === 0) {
+				states.activate_spaces.done()
+			}
 		},
 		deactivate(s) {
 			if (game.liberate_suez_op_required && set_has(game.activated.attack, s) && Engine.map.is_egypt(s)) {
@@ -446,6 +485,8 @@ exports.register = function (states, Engine, context) {
 					return
 				}
 				push_undo()
+				log_br()
+				log("Moved from " + space_name(s))
 				game.where = s
 				game.move = {
 					initial: s,
@@ -460,6 +501,8 @@ exports.register = function (states, Engine, context) {
 		piece(p) {
 			let s = game.pieces[p]
 			push_undo()
+			log_br()
+			log("Moved from " + space_name(s))
 			game.where = s
 			game.move = {
 				initial: s,
@@ -471,6 +514,14 @@ exports.register = function (states, Engine, context) {
 			game.state = "choose_pieces_to_move"
 		},
 		done() {
+			// 与 POG 一样，移动阶段整体结束时仍必须没有未解消的超堆叠。
+			let violations = get_unresolved_move_activation_violations()
+			if (violations.length > 0) {
+				for (let { space, reason } of violations) {
+					log(`不能结束移动阶段：${space_name(space)} 仍不合法（${reason}）`)
+				}
+				return
+			}
 			game.where = -1
 			game.activated.move = []
 
@@ -601,7 +652,7 @@ exports.register = function (states, Engine, context) {
 	states.entrench_roll = {
 		prompt(res) {
 			res.prompt("掷骰尝试挖壕。")
-			res.action("roll", "掷骰")
+			res.action("roll")
 		},
 		roll() {
 			let s = game.where
@@ -856,6 +907,14 @@ exports.register = function (states, Engine, context) {
 				log_activation_debug(`[调试] piece ${p} (${info.name}) is not SCU`)
 				return false
 			}
+			if (is_hq(p)) {
+				log_activation_debug(`[调试] piece ${p} (${info.name}) is HQ`)
+				return false
+			}
+			if (is_tribe(p)) {
+				log_activation_debug(`[调试] piece ${p} (${info.name}) is Tribe`)
+				return false
+			}
 			if (game_utils.get_piece_effective_faction(game, p) !== active_faction()) {
 				log_activation_debug(`[调试] piece ${p} (${info.name}) faction mismatch`)
 				return false
@@ -1085,8 +1144,9 @@ exports.register = function (states, Engine, context) {
 
 	states.move_stack = {
 		prompt(res) {
+			let exhausted_stopping_pieces = game.move.pieces.filter((p) => get_piece_mf(p) <= game.move.spaces_moved)
 			if (prune_exhausted_move_stack(game, log)) {
-				end_move_stack()
+				end_move_stack(exhausted_stopping_pieces)
 				if (
 					game.state !== "move_stack" &&
 					states[game.state] &&
@@ -1100,9 +1160,11 @@ exports.register = function (states, Engine, context) {
 			res.where(s)
 			res.who(game.move.pieces)
 
-			let current_block_reason = get_move_end_space_block_reason(game, s, active_faction())
+			let current_block_reason = get_current_move_end_block_reason(s)
 			if (current_block_reason) {
 				res.prompt(`移动 ${space_name(s)} 处的堆叠 (无法结束移动: ${current_block_reason})`)
+			} else if (get_move_end_space_block_reason(game, s, active_faction()) === "堆叠超限") {
+				res.prompt(`移动 ${space_name(s)} 处的堆叠 (临时超堆叠，需后续移出单位)`)
 			} else {
 				res.prompt(`移动 ${space_name(s)} 处的堆叠`)
 			}
@@ -1133,8 +1195,9 @@ exports.register = function (states, Engine, context) {
 			game.where = s
 			move_stack_to_space(s)
 			if (!game.move) return
+			let exhausted_stopping_pieces = game.move.pieces.filter((p) => get_piece_mf(p) <= game.move.spaces_moved)
 			if (prune_exhausted_move_stack(game, log)) {
-				end_move_stack()
+				end_move_stack(exhausted_stopping_pieces)
 			}
 		},
 		piece(p) {
@@ -1147,7 +1210,7 @@ exports.register = function (states, Engine, context) {
 			}
 			set_delete(game.move.pieces, p)
 			set_add(game.moved, p)
-			log(`${piece_name(p)} stops moving in ${space_name(s)}`)
+			log_piece_move([p], s)
 			if (game.move.pieces.length === 0) {
 				end_move_stack()
 			}
@@ -1227,7 +1290,6 @@ exports.register = function (states, Engine, context) {
 				Engine.neutral.on_beachhead_placed(game, target, active_faction())
 				log(`Beachhead placed at ${space_name(target)}.`)
 			}
-			log("Moved to " + space_name(target))
 			if (resolve_cp_enter_empty_beachhead_by_movement(from_space, target, pieces_moving)) {
 				return
 			}
@@ -1281,14 +1343,24 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
-	function end_move_stack() {
+	function log_piece_move(pieces, destination) {
+		if (pieces.length > 0) {
+			logi(piece_list(pieces) + " -> " + space_name(destination))
+		}
+	}
+
+	function end_move_stack(stopping_pieces = null) {
 		let current_space = game.move.current
-		let reason = get_move_end_space_block_reason(game, current_space, active_faction())
+		// 这里保留 PUG“每次结束当前堆叠移动都做校验”的结构，
+		// 但对“可由后续已激活单位解消的临时超堆叠”放行。
+		let reason = get_current_move_end_block_reason(current_space, stopping_pieces)
 		if (reason) {
 			log(`不能结束移动：${space_name(current_space)} 不合法（${reason}）`)
 			set_next_state("move_stack")
 			return
 		}
+		
+		log_piece_move(game.move.pieces, current_space)
 
 		for (let p of game.move.pieces) {
 			set_add(game.moved, p)

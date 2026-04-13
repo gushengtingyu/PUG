@@ -4,7 +4,13 @@ module.exports = function (Engine) {
 	const { data } = Engine
 	const { AP, CP, RESERVE } = Engine.constants
 	const { set_add, set_delete } = Engine.utils
-	const { find_space, get_capacity, get_piece_badge } = Engine.game_utils
+	const {
+		find_piece,
+		find_space,
+		get_capacity,
+		get_piece_badge,
+		get_reserve_box_for_piece
+	} = Engine.game_utils
 
 	const states = {}
 
@@ -28,6 +34,8 @@ module.exports = function (Engine) {
 	const GALLIPOLI = find_space("Gallipoli")
 	const BOSPHORUS_FORTS = find_space("The Bosphorus Forts")
 	const MECCA = find_space("Mecca")
+	const LAMIA = find_space("Lamia")
+	const ATHENS = find_space("ATHENS")
 
 	/**
 	 * 检查地块是否为丘吉尔胜出事件的合法增援地块
@@ -88,6 +96,105 @@ module.exports = function (Engine) {
 		return { units, source }
 	}
 
+	function is_reinforcement_placement_spec(value) {
+		return !!(
+			value &&
+			typeof value === "object" &&
+			!Array.isArray(value) &&
+			("mode" in value || "type" in value || "reserve" in value || "reserve_box" in value)
+		)
+	}
+
+	function normalize_reinforcement_placement(value) {
+		let spec = {
+			mode: "either",
+			reserve_box: null
+		}
+
+		if (typeof value === "string") {
+			spec.mode = value
+		} else if (is_reinforcement_placement_spec(value)) {
+			spec.mode = value.mode || value.type || "either"
+			spec.reserve_box = value.reserve_box || value.reserve || null
+		}
+
+		if (!["map", "reserve", "either"].includes(spec.mode)) {
+			spec.mode = "either"
+		}
+
+		return spec
+	}
+
+	function get_reinforcement_placement(source, unit_name) {
+		if (!source || source.reinf_placement === undefined) {
+			return normalize_reinforcement_placement()
+		}
+
+		let value = source.reinf_placement
+
+		if (Array.isArray(value)) {
+			return normalize_reinforcement_placement(value[0])
+		}
+
+		if (is_reinforcement_placement_spec(value)) {
+			return normalize_reinforcement_placement(value)
+		}
+
+		if (value && typeof value === "object") {
+			return normalize_reinforcement_placement(value[unit_name])
+		}
+
+		return normalize_reinforcement_placement(value)
+	}
+
+	function get_reinforcement_reserve_space(faction, unit_name, placement) {
+		let reserve = placement && placement.reserve_box
+
+		if (typeof reserve === "number" && reserve > 0) {
+			return reserve
+		}
+
+		if (typeof reserve === "string" && reserve !== "auto") {
+			let reserve_name = reserve.toLowerCase()
+			if (reserve_name === "scu") return Engine.game_utils.get_scu_reserve_box(faction)
+			if (reserve_name === "lcu") return Engine.game_utils.get_lcu_reserve_box(faction)
+
+			let reserve_space = find_space(reserve)
+			if (reserve_space >= 0) return reserve_space
+		}
+
+		let piece = find_piece(faction, unit_name)
+		if (piece >= 0) return get_reserve_box_for_piece(piece)
+
+		return Engine.game_utils.get_reserve_box(faction)
+	}
+
+	function consume_reinforcement_placement(source, unit_name) {
+		if (!source || source.reinf_placement === undefined) return
+
+		if (Array.isArray(source.reinf_placement)) {
+			source.reinf_placement.shift()
+			if (source.reinf_placement.length === 0) delete source.reinf_placement
+			return
+		}
+
+		if (is_reinforcement_placement_spec(source.reinf_placement)) return
+
+		if (source.reinf_placement && typeof source.reinf_placement === "object") {
+			delete source.reinf_placement[unit_name]
+			if (Object.keys(source.reinf_placement).length === 0) delete source.reinf_placement
+		}
+	}
+
+	function start_caucasian_army_reforms_reinforcements(game) {
+		let data_event = get_active_event_data(game)
+		if (!data_event) return
+		data_event.reinf_to_place = ["TU 1 Caucasian", "TU 2 Caucasian"]
+		data_event.reinf_placement = "map"
+		data_event.reinf_logic = "is_caucasian_army_reforms_rein"
+		game.state = "event_place_reinforcements"
+	}
+
 	function get_active_event_data(game) {
 		if (game && game.event_ctx && game.event_ctx.data) return game.event_ctx.data
 		return null
@@ -104,11 +211,21 @@ module.exports = function (Engine) {
 		return result
 	}
 
+	function is_ap_invasion_event_used_this_turn(game) {
+		return !!(game && game.events && game.events["ap_invasion_event"] === game.turn)
+	}
+
+	function mark_ap_invasion_event_used_this_turn(game) {
+		if (!game.events) game.events = {}
+		game.events["ap_invasion_event"] = game.turn
+	}
+
 	function can_start_invasion_event(game, rules) {
 		return (
 			game.events["churchill_prevails"] &&
 			rules.get_season(game) !== "Winter" &&
-			!game.events["unrestricted_submarine_warfare"]
+			!game.events["unrestricted_submarine_warfare"] &&
+			!is_ap_invasion_event_used_this_turn(game)
 		)
 	}
 
@@ -416,6 +533,51 @@ module.exports = function (Engine) {
 	}
 
 	// === EVENT: RUSSO-BRITISH ASSAULT (ID 1) ===
+
+	states.event_greece_counter = {
+		prompt(ctx) {
+			let { view, res } = ctx
+			res.prompt("协约国打出【希腊】，是否打出【康斯坦丁国王】反制？")
+			res.action("play_event", 71)
+			res.action("pass")
+		},
+		play_event(ctx) {
+			let { game, rules } = ctx
+			let c = 71
+			game.hand_cp.splice(game.hand_cp.indexOf(c), 1)
+			if (!game.removed) game.removed = []
+			game.removed.push(c) // CONSTANTINE is an asterisk card, removed after play
+			rules.log("同盟国打出【康斯坦丁国王】反制【希腊】！")
+			game.events["greece_event_played"] = true
+			
+			const { neutral } = Engine
+			if (neutral.is_greece_neutral(game) && neutral.check_constantine_entry_conditions(game)) {
+				neutral.trigger_greece_entry(game, null, AP, "康斯坦丁国王事件", (msg) => rules.log(msg))
+			} else {
+				let salonika = Engine.game_utils.find_space("Salonika")
+				if (salonika >= 0 && typeof Engine.set_control === "function") {
+					Engine.set_control(game, salonika, CP)
+				}
+				Engine.events.reinforce(game, "GR Inf #1", CP)
+				Engine.events.reinforce(game, "GR Inf #2", CP)
+				Engine.events.reinforce(game, "GR Inf #3", CP)
+				Engine.events.reinforce(game, "GR Cav #1", CP)
+				game.vp += 1
+				rules.log("同盟国控制塞萨洛尼基，获得 1 VP及希腊增援。")
+			}
+			game.active = AP
+			Engine.events.finish_event(ctx)
+		},
+		pass(ctx) {
+			let { game, rules } = ctx
+			rules.log("同盟国放弃反制。")
+			const { neutral } = Engine
+			neutral.trigger_greece_entry(game, null, CP, "希腊事件", (msg) => rules.log(msg))
+			game.events["greece_event_played"] = true
+			game.active = AP
+			Engine.events.finish_event(ctx)
+		}
+	}
 
 	states.event_russo_british_assault_fao_fort = {
 		prompt(ctx) {
@@ -877,7 +1039,7 @@ module.exports = function (Engine) {
 				)
 			} else {
 				res.prompt(`俄国势力范围：没有合法位置可以放置增援单位。`)
-				res.action("done", "完成放置")
+				res.action("done")
 			}
 		},
 		space(ctx) {
@@ -1064,8 +1226,8 @@ module.exports = function (Engine) {
 		prompt(ctx) {
 			let { res } = ctx
 			res.prompt("皇家海军驶入马尔马拉海。是否选择炮击君士坦丁堡？")
-			res.action("bombard", "炮击")
-			res.action("skip", "跳过")
+			res.action("bombard")
+			res.action("skip")
 		},
 		bombard(ctx) {
 			let { game, rules } = ctx
@@ -1128,8 +1290,8 @@ module.exports = function (Engine) {
 		prompt(ctx) {
 			let { res } = ctx
 			res.prompt("丘吉尔胜出：是否继续炮击博斯普鲁斯海峡要塞？")
-			res.action("bombard", "炮击")
-			res.action("skip", "跳过")
+			res.action("bombard")
+			res.action("skip")
 		},
 		bombard(ctx) {
 			let { game, rules } = ctx
@@ -1182,7 +1344,8 @@ module.exports = function (Engine) {
 			if (!units || units.length === 0) return
 			rules.push_undo() // 保存每个单位放置前的状态
 			let unit = units.shift()
-			let p = rules.reinforce(game, unit, AP, s)
+			rules.reinforce(game, unit, AP, s)
+			let p = rules.find_piece(AP, unit)
 			if (!game.arab_revolt_pieces) game.arab_revolt_pieces = []
 			rules.set_add(game.arab_revolt_pieces, p)
 		},
@@ -1222,7 +1385,7 @@ module.exports = function (Engine) {
 			let targets = rules.get_attackable_spaces(game.selected_pieces)
 			if (targets.length === 0 && (!game.attack || game.attack.space === -1)) {
 				res.prompt("阿拉伯起义：没有可攻击的目标。事件结束。")
-				res.action("done", "完成事件")
+				res.action("done")
 			} else {
 				for (let t of targets) {
 					if (!game.attack || t !== game.attack.space) {
@@ -1272,7 +1435,7 @@ module.exports = function (Engine) {
 		prompt(ctx) {
 			let { res } = ctx
 			res.prompt("阿拉伯起义：战斗结束。")
-			res.action("done", "完成事件")
+			res.action("done")
 		},
 		done(ctx) {
 			let { rules } = ctx
@@ -1354,13 +1517,14 @@ module.exports = function (Engine) {
 			let { game, res, rules } = ctx
 			res.prompt("基钦纳入侵：选择一种打法")
 			if (can_start_invasion_event(game, rules)) {
-				res.action("invasion", "发起入侵 (海上入侵+入侵+增援)")
+				res.action("invasion")
 			}
-			res.action("reinforcement", "仅增援 (替代入侵)")
+			res.action("reinforcement")
 		},
 		invasion(ctx) {
 			let { game, rules } = ctx
 			rules.push_undo()
+			mark_ap_invasion_event_used_this_turn(game)
 			let event = get_active_event_data(game)
 			if (event) {
 				event.beachheads_to_place = 1
@@ -1386,13 +1550,14 @@ module.exports = function (Engine) {
 			let { game, res, rules } = ctx
 			res.prompt("加利波里入侵：选择一种打法")
 			if (can_start_invasion_event(game, rules)) {
-				res.action("invasion", "进行入侵集结")
+				res.action("invasion")
 			}
-			res.action("reinforcement", "仅增援 (替代入侵)")
+			res.action("reinforcement")
 		},
 		invasion(ctx) {
 			let { game, rules } = ctx
 			rules.push_undo()
+			mark_ap_invasion_event_used_this_turn(game)
 			let event = get_active_event_data(game)
 			if (event) {
 				event.reinf_to_place = ["BR VIII Corps", "ANZ ANZAC", "FR DIV #1", "FR DIV #2", "BR DIV #1"]
@@ -1420,13 +1585,14 @@ module.exports = function (Engine) {
 			let { game, res, rules } = ctx
 			res.prompt("萨洛尼卡入侵：选择一种打法")
 			if (can_start_invasion_event(game, rules)) {
-				res.action("invasion", "进行入侵集结")
+				res.action("invasion")
 			}
-			res.action("reinforcement", "仅增援 (替代入侵)")
+			res.action("reinforcement")
 		},
 		invasion(ctx) {
 			let { game, rules } = ctx
 			rules.push_undo()
+			mark_ap_invasion_event_used_this_turn(game)
 			let event = get_active_event_data(game)
 			if (event) {
 				event.reinf_to_place = ["BR XVI Corps", "BR XII Corps", "FR DIV #1", "FR DIV #2"]
@@ -1530,7 +1696,7 @@ module.exports = function (Engine) {
 				}
 			}
 			if (!has_space) {
-				res.action("done", "无法放置（跳过）")
+				res.action("done")
 			}
 		},
 		done(ctx) {
@@ -1583,7 +1749,7 @@ module.exports = function (Engine) {
 				}
 			}
 			if (!has_space) {
-				res.action("done", "无法放置（跳过）")
+				res.action("done")
 			}
 		},
 		done(ctx) {
@@ -1744,12 +1910,13 @@ module.exports = function (Engine) {
 	states.event_grand_duke_to_tiflis_select_port = {
 		prompt(ctx) {
 			let { res, rules, game } = ctx
-			res.prompt("大公前往第比利斯：选择一个里海港口放置增援。")
+			res.prompt("尼古拉大公抵达第比利斯 ：选择一个里海港口放置增援。")
 			for (let s of [BAKU, find_space("Derbent"), PETROVSK]) {
 				let pieces = rules.get_pieces_in_space(game, s)
-				let cap = get_capacity(game, s)
-				// Need room for 2 SCUs (RU DIV #14, RU Cavalry #8) and 1 HQ (Baratov HQ, doesn't count)
-				if (cap >= 2) {
+				// CP units will retreat, so we only count AP units already there that count toward stacking.
+				let ap_stack_count = rules.get_stack_count(pieces.filter((p) => data.pieces[p].faction === AP))
+				// Need room for 2 SCUs (RU DIV #14, RU Cavalry #8). Baratov HQ doesn't count.
+				if (ap_stack_count <= 1) {
 					res.space(s)
 				}
 			}
@@ -1786,7 +1953,7 @@ module.exports = function (Engine) {
 		prompt(ctx) {
 			let { game, res, rules } = ctx
 			let event = use_event(game, "grand_duke_to_tiflis")
-			res.prompt("大公前往第比利斯：可选操作，将 1 个俄国骑兵师战略调整至 " + data.spaces[event.event_port].name)
+			res.prompt("尼古拉大公抵达第比利斯 ：可选操作，将 1 个俄国骑兵师战略调整至 " + data.spaces[event.event_port].name)
 			if (get_capacity(game, event.event_port) > 0) {
 				for (let p = 0; p < game.pieces.length; p++) {
 					let info = data.pieces[p]
@@ -1818,7 +1985,7 @@ module.exports = function (Engine) {
 			let { game, res, rules } = ctx
 			let event = use_event(game, "grand_duke_to_tiflis")
 			if (!event.placed_ru_police) {
-				res.prompt("大公前往第比利斯：将俄国/波斯北路军宪兵队放置在阿塞拜疆的空置地区。")
+				res.prompt("尼古拉大公抵达第比利斯 ：将俄国北波斯军警队放置在阿塞拜疆的空置地区。")
 				for (let s = 1; s < data.spaces.length; s++) {
 					if (rules.is_azerbaijan(s) && rules.get_pieces_in_space(game, s).length === 0) {
 						res.space(s)
@@ -1826,7 +1993,7 @@ module.exports = function (Engine) {
 				}
 			} else {
 				let count = event.br_cordons_to_place || 3
-				res.prompt(`大公前往第比利斯：还需在波斯任何地区放置 ${count} 个英国波斯警戒线。`)
+				res.prompt(`尼古拉大公抵达第比利斯 ：在任意波斯大区内放置${count} 个英国波斯宪兵师。`)
 				for (let s = 1; s < data.spaces.length; s++) {
 					if (rules.is_persia(s) && get_capacity(game, s) > 0) {
 						res.space(s)
@@ -1872,14 +2039,14 @@ module.exports = function (Engine) {
 					let info = data.pieces[p]
 					if (info.faction !== CP) continue
 					if (info.nation !== "tu" && info.nation !== "tua") continue
-					if (info.badge === "dot") continue
+					if (info.symbol === "dot") continue
 					if (info.notreplaceable) continue
-					if (rules.any_capital_occupied_or_besieged(game, info.nation)) continue
+					if (rules.is_capital_restricted(game, info.nation)) continue
 
 					let cost = rules.get_replacement_cost(game, p)
 					if (cost > 0 && cost <= remaining && rules.can_afford_replacement(game, p, cost)) {
 						if (rules.is_eliminated(game, p)) {
-							if (info.badge === "triangle") continue
+							if (info.symbol === "triangle") continue
 							let valid_spaces = rules.get_valid_rebuild_spaces(game, p, CP)
 							if (valid_spaces.length > 0) {
 								res.piece(p)
@@ -1984,7 +2151,7 @@ module.exports = function (Engine) {
 			if (is_elim_or_removed_exception && (!game.attack || !game.attack.space)) return
 
 			rules.push_undo()
-			rules.spend_replacement_points(game, p, cost)
+			rules.spend_replacement_points(game, p, cost, true)
 			if (!game.reserves_to_front_spent) game.reserves_to_front_spent = 0
 			game.reserves_to_front_spent += cost
 
@@ -2008,6 +2175,7 @@ module.exports = function (Engine) {
 			if (leftover > 0) {
 				game.rp_cp.tu -= leftover
 			}
+			Engine.combat.refresh_post_battle_defender_retreat(game)
 			delete game.reserves_to_front_spent
 			delete game.reserves_to_front_pieces
 			game.state = "post_battle_cc_cp" // Return to CC window
@@ -2020,7 +2188,7 @@ module.exports = function (Engine) {
 		prompt(ctx) {
 			let { res } = ctx
 			res.prompt("戈本号：炮击巴统（Batum）。")
-			res.action("bombard", "炮击")
+			res.action("bombard")
 		},
 		bombard(ctx) {
 			let { game, rules } = ctx
@@ -2057,7 +2225,7 @@ module.exports = function (Engine) {
 				msg += "炮击失败。"
 			}
 			res.prompt(msg)
-			res.action("done", "操作完成")
+			res.action("done")
 		},
 		done(ctx) {
 			let { game, rules } = ctx
@@ -2519,7 +2687,7 @@ module.exports = function (Engine) {
 			let logic_key = (event && event.reinf_logic) || "is_br"
 			let helper = Engine.reinf_helpers[logic_key]
 
-			let { units } = get_reinforcement_units(game)
+			let { units, source } = get_reinforcement_units(game)
 
 			if (!units || units.length === 0) {
 				rules.goto_end_event()
@@ -2528,7 +2696,27 @@ module.exports = function (Engine) {
 
 			let unit = units[0]
 			let desc = helper ? helper.desc : "指定地点"
-			res.prompt(`增援：将 ${unit} 放置在 ${desc}。`)
+			let faction = helper ? helper.faction : game.active || AP
+			let placement = get_reinforcement_placement(source, unit)
+			let reserve_space = get_reinforcement_reserve_space(faction, unit, placement)
+			let reserve_name = data.spaces[reserve_space] ? data.spaces[reserve_space].name : "预备军格"
+			let target_desc = desc
+			if (placement.mode === "reserve") {
+				target_desc = reserve_name
+			} else if (placement.mode === "either") {
+				target_desc = `${desc} 或 ${reserve_name}`
+			}
+			res.prompt(`增援：将 ${unit} 放置在 ${target_desc}。`)
+
+			let allow_map = placement.mode !== "reserve"
+			let allow_reserve = placement.mode !== "map"
+			let seen_spaces = new Set()
+
+			function add_space_option(s) {
+				if (s <= 0 || seen_spaces.has(s)) return
+				seen_spaces.add(s)
+				res.space(s)
+			}
 
 			if (helper && helper.check) {
 				let enemy_faction = rules.other_faction(helper.faction)
@@ -2546,10 +2734,17 @@ module.exports = function (Engine) {
 
 				for (let s = 1; s < data.spaces.length; s++) {
 					if (helper.check(game, s)) {
+						if (Engine.map.is_reserve_space(s)) {
+							if (allow_reserve && s === reserve_space) add_space_option(s)
+							continue
+						}
+
+						if (!allow_map) continue
+
 						// Stacking limit check (Rule 7.7.2)
 						let pieces = rules.get_pieces_in_space(game, s)
 						if (get_capacity(game, s) > 0) {
-							res.space(s)
+							add_space_option(s)
 						} else {
 							// Rule 7.7.2: if full, adjacent placement allowed
 							let neighbors = rules.get_connected_spaces(game, s)
@@ -2576,7 +2771,7 @@ module.exports = function (Engine) {
 								}
 
 								for (let bc of best_candidates) {
-									res.space(bc)
+									add_space_option(bc)
 								}
 							}
 						}
@@ -2584,8 +2779,7 @@ module.exports = function (Engine) {
 				}
 			}
 
-			let faction = helper ? helper.faction : game.active || AP
-			res.space(rules.get_reserve_box(faction))
+			if (allow_reserve) add_space_option(reserve_space)
 		},
 		space(ctx) {
 			let { game, rules, arg: s } = ctx
@@ -2602,12 +2796,20 @@ module.exports = function (Engine) {
 			let logic_key = (event && event.reinf_logic) || "is_br"
 			let helper = Engine.reinf_helpers[logic_key]
 			let faction = helper ? helper.faction : game.active || AP
+			consume_reinforcement_placement(source, unit_name)
 
 			rules.reinforce(game, unit_name, faction, s)
 
 			if (units.length === 0) {
+				let next_state = source && source.reinf_next_state
 				if (source) delete source.reinf_to_place
+				if (source) delete source.reinf_placement
+				if (source) delete source.reinf_next_state
 				if (event) delete event.reinf_logic
+				if (next_state) {
+					game.state = next_state
+					return
+				}
 				rules.goto_end_event()
 			}
 		}
@@ -2730,7 +2932,7 @@ module.exports = function (Engine) {
 		} else {
 			let options = 0
 			for (let name of selectable_units) {
-				let p = Engine.game_utils.find_piece_by_name(CP, name)
+				let p = Engine.game_utils.find_piece(CP, name)
 				if (p >= 0 && !rules.set_has(removed, p)) {
 					if (!rules.is_removed(game, p)) {
 						res.piece(p)
@@ -2836,8 +3038,8 @@ module.exports = function (Engine) {
 	function prompt_voluntary_collapse_offer(ctx, nation_key, nation_name) {
 		let { res } = ctx
 		res.prompt(`${nation_name}符合自愿崩溃条件：AP 玩家可选择令其崩溃`)
-		res.action("accept", `执行${nation_name}崩溃`)
-		res.action("decline", "暂不崩溃")
+		res.action("accept")
+		res.action("decline")
 	}
 
 	function resolve_voluntary_collapse_decline(ctx, nation_key, nation_name) {
@@ -2931,8 +3133,8 @@ module.exports = function (Engine) {
 	states.event_rupel_move_greek_units = {
 		prompt(ctx) {
 			let { game, res, rules } = ctx
-			let data = get_active_event_data(game)
-			if (!data || !data.greek_units || data.current_unit_index >= data.greek_units.length) {
+			let event = get_active_event_data(game)
+			if (!event || !Array.isArray(event.greek_units) || event.greek_units.length === 0) {
 				let event72 = Engine.events.get_event_by_id(72)
 				if (event72 && typeof event72.advance_cp_units === "function") {
 					event72.advance_cp_units(game, ctx)
@@ -2941,30 +3143,30 @@ module.exports = function (Engine) {
 				return
 			}
 
-			let unit = data.greek_units[data.current_unit_index]
-			res.prompt(`鲁贝尔堡的背叛：为希腊部队 ${rules.piece_name(unit)} 选择移动目的地`)
-			res.space(131) // Lamia
-			res.space(149) // Athens
+			res.prompt("鲁贝尔堡的背叛：选择所有希腊部队（希腊国防军除外）的移动目的地")
+			res.space(LAMIA)
+			res.space(ATHENS)
 		},
 		space(ctx) {
-			let { game, res, rules, arg: s } = ctx
-			let data = get_active_event_data(game)
+			let { game, rules, arg: s } = ctx
+			let event = get_active_event_data(game)
+			if (!event || !Array.isArray(event.greek_units)) return
 
-			if (s !== 131 && s !== 149) return
+			let destinations = Array.isArray(event.destinations) ? event.destinations : [LAMIA, ATHENS]
+			if (!destinations.includes(s)) return
 
-			let unit = data.greek_units[data.current_unit_index]
 			rules.push_undo()
-			game.pieces[unit] = s
-			res.log(`鲁贝尔堡的背叛：希腊部队 ${rules.piece_name(unit)} 移动至 ${rules.space_name(s)}。`)
-
-			data.current_unit_index++
-			if (data.current_unit_index >= data.greek_units.length) {
-				let event72 = Engine.events.get_event_by_id(72)
-				if (event72 && typeof event72.advance_cp_units === "function") {
-					event72.advance_cp_units(game, ctx)
-				}
-				rules.goto_end_event()
+			for (let p of event.greek_units) {
+				rules.move_piece(game, p, s)
 			}
+
+			rules.log(`鲁贝尔堡的背叛：所有希腊部队（希腊国防军除外）移动至 ${rules.space_name(s)}。`)
+
+			let event72 = Engine.events.get_event_by_id(72)
+			if (event72 && typeof event72.advance_cp_units === "function") {
+				event72.advance_cp_units(game, ctx)
+			}
+			rules.goto_end_event()
 		}
 	}
 
@@ -2980,7 +3182,7 @@ module.exports = function (Engine) {
 					can_attack = true
 				}
 			}
-			if (!can_attack) res.action("done", "无法攻击")
+			if (!can_attack) res.action("done")
 		},
 		space(ctx) {
 			let { game, rules, arg: s } = ctx
@@ -3000,14 +3202,14 @@ module.exports = function (Engine) {
 		prompt(ctx) {
 			let { res } = ctx
 			res.prompt("戈尔利采-塔尔诺夫攻势：选择一项")
-			res.action("vp", "+2 VP")
-			res.action("remove_ru_lcu", "暂时移除一个俄国LCU")
+			res.action("lose_vp")
+			res.action("remove_ru_lcu")
 		},
-		vp(ctx) {
+		lose_vp(ctx) {
 			let { game, rules } = ctx
 			rules.push_undo()
-			game.vp += 2
-			rules.log("AP 选择了 +2 VP。")
+			game.vp -= 2
+			rules.log("AP 失去 2 VP。")
 			rules.goto_end_event()
 		},
 		remove_ru_lcu(ctx) {
@@ -3030,15 +3232,32 @@ module.exports = function (Engine) {
 					}
 				}
 			}
-			if (!found) res.action("done", "无合法单位")
+			if (!found) res.action("done")
 		},
 		piece(ctx) {
 			let { game, rules, arg: p } = ctx
 			rules.push_undo()
-			rules.eliminate_piece(p, true)
+			// Manually move the piece to the "Removed" box and reset state
+			const info = data.pieces[p]
+			game.pieces[p] = rules.get_removed_box(info.faction)
+			
+			// Reset unit state like eliminate_piece does
+			set_delete(game.moved, p)
+			set_delete(game.attacked, p)
+			if (game.sr_moved) set_delete(game.sr_moved, p)
+			if (game.oos) set_delete(game.oos, p)
+			if (game.entrenching) set_delete(game.entrenching, p)
+			if (game.activated) {
+				if (Array.isArray(game.activated.move)) set_delete(game.activated.move, p)
+				if (Array.isArray(game.activated.attack)) set_delete(game.activated.attack, p)
+			}
+			if (game.attack && Array.isArray(game.attack.pieces)) set_delete(game.attack.pieces, p)
+			if (game.move && Array.isArray(game.move.pieces)) set_delete(game.move.pieces, p)
+			set_delete(game.reduced, p)
+
 			if (!game.delayed_reinforcements) game.delayed_reinforcements = []
 			game.delayed_reinforcements.push({ turn: game.turn + 4, piece: p, space: rules.get_reserve_box(AP) })
-			rules.log(`${data.pieces[p].name} 将在 ${game.turn + 4} 回合返回预备军格。`)
+			rules.log(`${data.pieces[p].name} 被移除并派往东线，将在 ${game.turn + 4} 回合返回预备军格。`)
 			rules.goto_end_event()
 		},
 		done(ctx) {
@@ -3053,9 +3272,9 @@ module.exports = function (Engine) {
 			let partial = create_verdun_plan(game, 2, 1)
 			let full = create_verdun_plan(game, 4, 0)
 			res.prompt("凡尔登战役：选择一项")
-			res.action("vp", "+2 VP")
-			if (partial) res.action("negate_one", "移除至少2个师当量，使同盟国仅获得 +1 VP")
-			if (full) res.action("negate_all", "移除至少4个师当量，使同盟国不获得 VP")
+			res.action("vp")
+			if (partial) res.action("negate_one")
+			if (full) res.action("negate_all")
 		},
 		vp(ctx) {
 			let { game, rules } = ctx
@@ -3091,7 +3310,7 @@ module.exports = function (Engine) {
 				`凡尔登战役：选择要移除的单位（${target_label}；当前 ${plan.count}/${plan.target} 师当量，BR ${plan.br_count}/${plan.br_min}，BR/ANZ ${plan.br_anz_count}/${plan.br_anz_min}，精锐/特种 ${plan.elite_count}/${plan.elite_min}）`
 			)
 			for (let p of get_verdun_selectable_pieces(plan)) res.piece(p)
-			if (is_verdun_plan_satisfied(plan)) res.action("done", "完成移除")
+			if (is_verdun_plan_satisfied(plan)) res.action("done")
 		},
 		piece(ctx) {
 			let { game, rules, arg: p } = ctx
@@ -3128,7 +3347,7 @@ module.exports = function (Engine) {
 					found = true
 				}
 			}
-			if (!found) res.action("done", "无合法单位")
+			if (!found) res.action("done")
 		},
 		piece(ctx) {
 			let { game, rules, arg: p } = ctx
@@ -3185,8 +3404,8 @@ module.exports = function (Engine) {
 		prompt(ctx) {
 			let { res } = ctx
 			res.prompt("罗伯逊：协约国必须选择一项")
-			res.action("vp", "+1 VP")
-			res.action("remove", "将最多3个英国/印度/澳新师移除游戏")
+			res.action("vp")
+			res.action("remove")
 		},
 		vp(ctx) {
 			let { game, rules } = ctx
@@ -3241,8 +3460,8 @@ module.exports = function (Engine) {
 		prompt(ctx) {
 			let { res } = ctx
 			res.prompt("皇帝攻势：协约国必须选择一项")
-			res.action("vp", "+1 VP")
-			res.action("remove", "将最多3个英国/印度/澳新师移除游戏")
+			res.action("vp")
+			res.action("remove")
 		},
 		vp(ctx) {
 			let { game, rules } = ctx
@@ -3309,7 +3528,7 @@ module.exports = function (Engine) {
 					}
 				}
 			}
-			if (!found && count < 4) res.action("done", "无足够合法单位，强制结束")
+			if (!found && count < 4) res.action("done")
 		},
 		piece(ctx) {
 			let { game, rules, arg: p } = ctx
@@ -3318,9 +3537,7 @@ module.exports = function (Engine) {
 			data_event.count = (data_event.count || 0) + 1
 			rules.eliminate_piece(p, true)
 			if (data_event.count >= 4) {
-				rules.reinforce(game, "TU 1 Caucasian", CP)
-				rules.reinforce(game, "TU 2 Caucasian", CP)
-				rules.goto_end_event()
+				start_caucasian_army_reforms_reinforcements(game)
 			}
 		},
 		done(ctx) {
@@ -3328,8 +3545,8 @@ module.exports = function (Engine) {
 			rules.push_undo()
 			let data_event = rules.get_event_data()
 			if ((data_event.count || 0) >= 4 || !this.has_more(ctx)) {
-				rules.reinforce(game, "TU 1 Caucasian", CP)
-				rules.reinforce(game, "TU 2 Caucasian", CP)
+				start_caucasian_army_reforms_reinforcements(game)
+				return
 			}
 			rules.goto_end_event()
 		},

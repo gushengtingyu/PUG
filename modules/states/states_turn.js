@@ -35,6 +35,7 @@ exports.register = function (states, Engine, context) {
 		get_connected_spaces,
 		is_controlled_by,
 		is_gallipoli,
+		reinforce,
 		push_undo,
 		pop_undo,
 		roll_die,
@@ -438,6 +439,20 @@ exports.register = function (states, Engine, context) {
 		game.kitchener_conversion_used = false
 		game.entered_regions_this_turn = []
 		game.rein_record = { ru: 0, br: 0, in_anz: 0, tu: 0 }
+		
+		// Handle delayed reinforcements
+		if (game.delayed_reinforcements && Array.isArray(game.delayed_reinforcements)) {
+			let remaining = []
+			for (let r of game.delayed_reinforcements) {
+				if (r.turn <= game.turn) {
+					log(`Delayed Reinforcement Arrives: ${data.pieces[r.piece].name}`)
+					reinforce(game, data.pieces[r.piece].name, data.pieces[r.piece].faction, r.space)
+				} else {
+					remaining.push(r)
+				}
+			}
+			game.delayed_reinforcements = remaining
+		}
 
 		// Rule: Churchill Prevails recurring RU RP
 		if (game.events["bosphorus_destroyed"] && !game.events["german_subs"]) {
@@ -786,7 +801,9 @@ exports.register = function (states, Engine, context) {
 				let recovered_tu_rp = Math.min(recoverable_room, unused_tu_rp)
 				if (recovered_tu_rp > 0) {
 					game.tu_rp_limit = max_tu_rp + recovered_tu_rp
-					log(`皇家海军封锁：未使用土耳其 RP ${unused_tu_rp}，最大补给限度回升至 ${game.tu_rp_limit}。`)
+					if (game && Array.isArray(game.log)) {
+						log(`皇家海军封锁：未使用土耳其 RP ${unused_tu_rp}，最大补给限度回升至 ${game.tu_rp_limit}。`)
+					}
 				}
 			}
 		}

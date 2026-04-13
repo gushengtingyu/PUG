@@ -363,7 +363,7 @@ module.exports = function (Engine) {
 		if (game.mo_ap_fulfilled || !game.mo_ap) return
 		if (check_mo_criteria(game, game.mo_ap, ctx)) {
 			game.mo_ap_fulfilled = true
-			if (log) log("协约国强制进攻已完成。")
+			if (log) log("**协约国强制进攻已完成。**")
 		}
 	}
 
@@ -394,7 +394,7 @@ module.exports = function (Engine) {
 		}
 		if (game.mo_cp && check_mo_criteria(game, game.mo_cp, ctx)) {
 			game.mo_cp_fulfilled = true
-			if (log) log("同盟国强制进攻已完成。")
+			if (log) log("**同盟国强制进攻已完成。**")
 		}
 	}
 

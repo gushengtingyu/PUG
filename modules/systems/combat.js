@@ -426,8 +426,9 @@ module.exports = function (Engine) {
 
 		for (let s of spaces_to_roll) {
 			const roll = roll_die(6, game)
-			log(`恶劣天气 (${data.spaces[s].name}): 掷骰=${roll}, 轮次=${round}`)
+			let status_msg = `恶劣天气 (${data.spaces[s].name}): 掷骰=${roll}, 轮次=${round}`
 			if (roll >= round) {
+				let reduced_units = []
 				// 仅翻转该地区中参与进攻的正规部队
 				for (let p of regular_attackers) {
 					if (game.pieces[p] === s && !is_piece_reduced(game, p)) {
@@ -436,9 +437,16 @@ module.exports = function (Engine) {
 						} else {
 							Engine.game_utils.reduce_piece(game, p)
 						}
-						log(`恶劣天气: ${format_piece_for_battle_log(game, p)} 被减损。`)
+						reduced_units.push(format_piece_for_battle_log(game, p))
 					}
 				}
+				if (reduced_units.length > 0) {
+					log(`${status_msg} -> ${reduced_units.join(", ")} 被减损。`)
+				} else {
+					log(status_msg)
+				}
+			} else {
+				log(status_msg)
 			}
 		}
 	}
@@ -447,7 +455,7 @@ module.exports = function (Engine) {
 	 * 获取火力结算结果 (Losses)
 	 * @param {string} table_type - 火力表类型 ("lcu" 或 "scu")
 	 * @param {number} cf - 参与战斗的战斗力总值 (Combat Factor)
-	 * @param {number} shifts - 纵队偏移量 (Column Shifts)
+	 * @param {number} shifts - 火力列偏移量 (Column Shifts)
 	 * @param {number} die - 最终掷骰值 (1-6)
 	 * @returns {number} 返回导致的伤害量 (Losses)
 	 */
@@ -647,9 +655,24 @@ module.exports = function (Engine) {
 		return has_trench(game, s) > 0
 	}
 
+	function is_cp_attacking_beachhead(game, target_space, attackers = null) {
+		if (!(target_space > 0 && Engine.map.is_beachhead_space(game, target_space))) return false
+		if (Array.isArray(attackers) && attackers.length > 0) {
+			return attackers.every((p) => get_piece_effective_faction(game, p) === CP)
+		}
+		if (game.attack && game.attack.attacker) return game.attack.attacker === CP
+		return game.active === CP
+	}
+
+	function get_combat_target_terrain(game, target_space, attackers = null) {
+		if (is_cp_attacking_beachhead(game, target_space, attackers)) return "clear"
+		return data.spaces[target_space]?.terrain
+	}
+
 	function is_river_defense(game) {
 		if (!game.attack || !game.attack.pieces || game.attack.pieces.length === 0) return false
 		let target = game.attack.space
+		if (is_cp_attacking_beachhead(game, target, game.attack.pieces)) return false
 		for (let p of game.attack.pieces) {
 			let from = game.pieces[p]
 			let type = get_connection_type(from, target)
@@ -725,7 +748,7 @@ module.exports = function (Engine) {
 			let s = game.pieces[p]
 			let is_lcu_p = is_lcu(p)
 
-			let adj = get_piece_connected_spaces_for_rule(game, s, p)
+			let adj = get_piece_connected_spaces_for_rule(game, s, p, "attack")
 			let targets = []
 			for (let t of adj) {
 				if (enemy_in_space[t] === 0 && !has_undestroyed_fort(game, t, enemy)) {
@@ -770,7 +793,7 @@ module.exports = function (Engine) {
 		if (game.events && game.events["apis"] === game.turn && data.pieces[p].nation === "sb") return false
 		if (Engine.map.is_afghanistan(s) && !(game.events && game.events["afghan_alliance"])) return false
 		let enemy = other_faction(faction)
-		let adj = get_piece_connected_spaces_for_rule(game, s, p)
+		let adj = get_piece_connected_spaces_for_rule(game, s, p, "attack")
 		let enemy_in_space = new Uint8Array(data.spaces.length)
 		for (let q = 0; q < game.pieces.length; q++) {
 			let sq = game.pieces[q]
@@ -1217,21 +1240,23 @@ module.exports = function (Engine) {
 		let attacker_shifts = 0
 		let defender_shifts = 0
 
-		let terrain = data.spaces[game.attack.space].terrain
+		let terrain = get_combat_target_terrain(game, game.attack.space, attackers)
 		if (terrain === "mountain" || terrain === "swamp") attacker_shifts--
 
 		let target_is_desert = terrain === "desert"
 		let attacker_from_desert = attackers.some((p) => data.spaces[game.pieces[p]]?.terrain === "desert")
 		if (target_is_desert || attacker_from_desert) attacker_shifts--
 
-		let all_crossing = true
-		for (let p of attackers) {
-			let from = game.pieces[p]
-			let type = get_connection_type(from, game.attack.space)
-			let crossing = get_crossing_type(from, game.attack.space)
-			if (type !== "river" && type !== "strait" && !crossing) {
-				all_crossing = false
-				break
+		let all_crossing = !is_cp_attacking_beachhead(game, game.attack.space, attackers)
+		if (all_crossing) {
+			for (let p of attackers) {
+				let from = game.pieces[p]
+				let type = get_connection_type(from, game.attack.space)
+				let crossing = get_crossing_type(from, game.attack.space)
+				if (type !== "river" && type !== "strait" && !crossing) {
+					all_crossing = false
+					break
+				}
 			}
 		}
 		if (all_crossing) attacker_shifts--
@@ -1793,10 +1818,13 @@ module.exports = function (Engine) {
 		let attacker_has_full_strength_unit = game.attack.pieces.some(
 			(p) => !is_piece_reduced(game, p) && !is_not_on_map(game, p) && !is_eliminated(game, p)
 		)
-		if (!attacker_has_full_strength_unit) {
+		let attacker_blocks_retreat = !attacker_has_full_strength_unit
+		if (attacker_blocks_retreat) {
 			result.retreat_needed = false
-			if (log_fn && result.attacker_losses >= result.defender_losses)
+			if (log_fn && result.attacker_losses >= result.defender_losses && !result.no_full_strength_retreat_logged) {
+				result.no_full_strength_retreat_logged = true
 				log_fn("Attacker has no full-strength units, defenders do not retreat.")
+			}
 		}
 
 		if (can_offer_post_battle_cc) {
@@ -1897,6 +1925,7 @@ module.exports = function (Engine) {
 			let adj = get_piece_connected_spaces_for_rule(game, from_space, piece)
 			let valid = []
 			for (let next of adj) {
+				if (Engine.map.is_beachhead_space(game, from_space) && !is_island_base(game, next)) continue
 				if (contains_enemy_pieces(game, next, faction)) continue
 				if (local_avoided.includes(next)) continue
 				if (Engine.map.is_potential_beachhead_space(next) && !Engine.map.is_beachhead_space(game, next)) continue
@@ -2124,7 +2153,7 @@ module.exports = function (Engine) {
 					}
 					if (log_fn)
 						log_fn(
-							`${besieging_faction === AP ? "Allies" : "Central Powers"} capture ${data.spaces[s].name}.`
+							`${besieging_faction === AP ? "AP" : "CP"} capture ${data.spaces[s].name}.`
 						)
 
 					// VP Adjustment - Engine.set_control already handles VP, so we only do it if set_control_fn is NOT provided
@@ -2417,7 +2446,7 @@ module.exports = function (Engine) {
 
 		let attackers = game.attack.pieces
 		let target_space = game.attack.space
-		let target_terrain = data.spaces[target_space].terrain
+		let target_terrain = get_combat_target_terrain(game, target_space, attackers)
 		let defender_faction = other_faction(game.active)
 		let trench_level_at_target = has_trench(game, target_space)
 		let is_river_def = is_river_defense(game)
@@ -2470,7 +2499,7 @@ module.exports = function (Engine) {
 
 		let attackers = game.attack.pieces
 		let target_space = game.attack.space
-		let target_terrain = data.spaces[target_space].terrain
+		let target_terrain = get_combat_target_terrain(game, target_space, attackers)
 		// Mark attackers as having attacked in this action round
 		for (let p of attackers) {
 			set_add(game.attacked, p)
@@ -2484,7 +2513,7 @@ module.exports = function (Engine) {
 		)
 
 		// 0. Strait Crossing Check (Moved early to avoid logging dice rolls if cancelled)
-		let all_crossing_strait = true
+		let all_crossing_strait = !is_cp_attacking_beachhead(game, target_space, attackers)
 		let strait_violation = false
 
 		for (let p of attackers) {
@@ -2496,17 +2525,19 @@ module.exports = function (Engine) {
 			let strait_num = get_connection_strait(from, to)
 			let crossing_type = get_crossing_type(from, to)
 
-			if (strait_num !== undefined && strait_num !== null && strait_num !== 0) {
-				// Check control logic using map.js helper
-				let faction = data.pieces[p].faction
-				if (!faction_controls_strait(game, strait_num, faction)) {
-					strait_violation = true
-					log(
-						`Strait Control Violation! ${faction.toUpperCase()} does not control required straits for Strait #${strait_num}.`
-					)
+			if (!is_cp_attacking_beachhead(game, target_space, attackers)) {
+				if (strait_num !== undefined && strait_num !== null && strait_num !== 0) {
+					// Check control logic using map.js helper
+					let faction = data.pieces[p].faction
+					if (!faction_controls_strait(game, strait_num, faction)) {
+						strait_violation = true
+						log(
+							`Strait Control Violation! ${faction.toUpperCase()} does not control required straits for Strait #${strait_num}.`
+						)
+					}
+				} else if (type !== "strait" && type !== "river" && !crossing_type) {
+					all_crossing_strait = false
 				}
-			} else if (type !== "strait" && type !== "river" && !crossing_type) {
-				all_crossing_strait = false
 			}
 		}
 
@@ -2668,6 +2699,21 @@ module.exports = function (Engine) {
 			if (bulls_eye_drm) {
 				att_drm += bulls_eye_drm
 				log_detail(log, "Bull's Eye Directive: +1 DRM vs RU")
+			}
+			if (game.events && game.events["arab_desertion"]) {
+				if (attackers.some((p) => data.pieces[p].nation === "tua")) {
+					att_drm -= 1
+					log_detail(log, "Arab Desertion: -1 DRM for TUA units")
+				}
+			}
+		}
+
+		if (game.active === AP) {
+			if (game.events && game.events["arab_desertion"]) {
+				if (defenders.some((p) => data.pieces[p].nation === "tua")) {
+					def_drm -= 1
+					log_detail(log, "Arab Desertion: -1 DRM for TUA units")
+				}
 			}
 		}
 
@@ -3425,6 +3471,93 @@ module.exports = function (Engine) {
 		}
 	}
 
+	function refresh_post_battle_defender_retreat(game) {
+		let result = game.battle_result
+		if (!result || !game.attack || !(game.attack.space > 0)) return
+
+		let defender_faction = game.attack.defender
+		if (defender_faction === undefined || defender_faction === null) {
+			defender_faction = other_faction(game.attack.attacker ?? game.active)
+		}
+		if (defender_faction !== CP) return
+
+		let target_space = game.attack.space
+		let defenders_in_space = get_pieces_in_space(game, target_space).filter(
+			(p) =>
+				get_piece_faction(p) === defender_faction &&
+				!is_not_on_map(game, p) &&
+				!is_eliminated(game, p) &&
+				!(Array.isArray(game.retreated) && set_has(game.retreated, p))
+		)
+		let attacker_has_full_strength_unit = (game.attack.pieces || []).some(
+			(p) => !is_piece_reduced(game, p) && !is_not_on_map(game, p) && !is_eliminated(game, p)
+		)
+		let attacker_won = result.defender_losses > result.attacker_losses
+		let can_defender_retreat = attacker_won && attacker_has_full_strength_unit && !is_region(target_space)
+
+		if (result.turkish_retreat) {
+			let mandatory = []
+			let optional = []
+
+			if (can_defender_retreat) {
+				result.retreat_needed = defenders_in_space.length > 0
+				result.retreating_faction = defender_faction
+				result.retreating_units = defenders_in_space.slice()
+				result.retreat_distance = 1
+				mandatory = defenders_in_space.slice()
+				result.turkish_retreat_defender_retreats = false
+			} else {
+				mandatory = defenders_in_space.filter(
+					(p) => (get_piece_nation(p) === "tu" || get_piece_nation(p) === "tua") && get_piece_class(p) === "SCU"
+				)
+				optional = defenders_in_space.filter((p) => !mandatory.includes(p))
+				result.turkish_retreat_defender_retreats = true
+			}
+
+			result.turkish_retreat_units = mandatory
+			result.turkish_retreat_optional_units = optional
+			result.retreat_can_cancel = false
+
+			if (mandatory.length > 0 || optional.length > 0) {
+				game.turkish_retreat_pending = true
+				game.turkish_retreat_space = target_space
+				game.turkish_retreat_mandatory = mandatory
+				game.turkish_retreat_optional = optional
+			} else {
+				clear_turkish_retreat_state(game)
+			}
+			return
+		}
+
+		if (!can_defender_retreat) return
+
+		result.retreat_needed = defenders_in_space.length > 0
+		result.retreating_faction = defender_faction
+		result.retreating_units = defenders_in_space.slice()
+		result.retreat_can_cancel = false
+
+		if (defenders_in_space.length === 0) return
+
+		let target_terrain = data.spaces[target_space].terrain
+		let trench = has_trench(game, target_space)
+		if (
+			(target_terrain === FOREST ||
+				target_terrain === "desert" ||
+				target_terrain === SWAMP ||
+				target_terrain === MOUNTAIN ||
+				trench > 0) &&
+			count_steps(game, defenders_in_space) > 1
+		) {
+			result.retreat_can_cancel = true
+		}
+
+		if (is_turn_event(game, "war_weary_balkans")) {
+			if (defenders_in_space.some((p) => get_piece_nation(p) === "bu")) {
+				result.retreat_can_cancel = false
+			}
+		}
+	}
+
 	Object.assign(exports, {
 		get_piece_name: piece_name,
 		get_space_name: space_name,
@@ -3447,6 +3580,7 @@ module.exports = function (Engine) {
 		check_can_flank,
 		resolve_battle,
 		resolve_second_fire,
+		refresh_post_battle_defender_retreat,
 		retreat_units,
 		get_piece_cf,
 		get_piece_lf,

@@ -322,17 +322,19 @@ module.exports = function (Engine) {
 		return can_trace_piece_supply_to_sources(game, p, get_ru_supply_sources(game, true), { faction: AP })
 	}
 
-	function is_capital_enemy_controlled(game, nation) {
+	function is_capital_restricted(game, nation) {
 		// Rule 22.1.5: SB and GR units are not affected by this restriction.
 		if (nation === "sb" || nation === "gr") return false
 
-		// Rule 22.1.5: British/Russian capitals are off-map, thus never enemy-controlled.
+		// Rule 22.1.5: British/Russian capitals are off-map, thus never enemy-controlled or besieged.
 		if (["ru", "br", "in", "anz"].includes(nation)) return false
 
 		let capital = find_capital(nation)
 		if (capital >= 0) {
 			let owner_faction = data.spaces[capital].faction === "ap" ? AP : CP
-			return is_controlled_by(game, capital, other_faction(owner_faction))
+			let enemy = other_faction(owner_faction)
+			// Rule 22.1.5: currently enemy-controlled or besieged
+			return is_controlled_by(game, capital, enemy) || is_besieged(game, capital)
 		}
 
 		return false
@@ -508,13 +510,19 @@ module.exports = function (Engine) {
 		return false
 	}
 
-	function is_replacement_nation_eligible(game, p, nation) {
+	function is_replacement_nation_eligible(game, p, nation, force = false) {
 		let info = data.pieces[p]
 		if (!info) return false
-		if (game.events && game.events["turkish_war_weariness"] && (nation === "tu" || nation === "tua") && info.symbol === "triangle") {
+		if (!force && game.events && game.events["turkish_war_weariness"] && (nation === "tu" || nation === "tua") && info.symbol === "triangle") {
 			return false
 		}
-		if (is_capital_enemy_controlled(game, nation) && nation !== "sb" && nation !== "gr") return false
+		if (nation === "sb" && has_serbia_collapsed(game) && (!game.events || !game.events["the_serbs_return"])) {
+			return false
+		}
+		if (game.events && game.events["arab_desertion"] && nation === "tua") {
+			return false
+		}
+		if (is_capital_restricted(game, nation)) return false
 		if (!is_not_on_map(game, p)) {
 			let s = game.pieces[p]
 			if (s > 0 && !can_use_replacement_supply_as_nation(game, p, s, nation)) return false
@@ -544,7 +552,7 @@ module.exports = function (Engine) {
 		return valid_nations.some((nation) => can_afford_replacement_as_nation(game, p, nation, cost, rps, faction))
 	}
 
-	function spend_replacement_points(game, p, cost) {
+	function spend_replacement_points(game, p, cost, force = false) {
 		let info = data.pieces[p]
 		let faction = info.faction
 		let rps = faction === AP ? game.rp_ap : game.rp_cp
@@ -560,7 +568,7 @@ module.exports = function (Engine) {
 			return
 		}
 
-		let valid_nations = nations.filter((nation) => is_replacement_nation_eligible(game, p, nation))
+		let valid_nations = nations.filter((nation) => is_replacement_nation_eligible(game, p, nation, force))
 		for (let nation of valid_nations) {
 			if (spend_replacement_as_nation(game, p, nation, cost, rps, faction)) return
 		}
@@ -785,7 +793,9 @@ module.exports = function (Engine) {
 		can_trace_supply_to_turkey,
 		can_trace_supply_to_sofia,
 		can_trace_supply_to_british_source,
-		can_trace_supply_to_russian_source
+		can_trace_supply_to_russian_source,
+		is_capital_restricted,
+		is_replacement_nation_eligible
 	})
 
 	return exports

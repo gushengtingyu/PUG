@@ -95,13 +95,15 @@ function init_layout() {
 				const h = Number(u?.h)
 				const ww = Number.isNaN(w) || w <= 0 ? 75 : w
 				const hh = Number.isNaN(h) || h <= 0 ? 75 : h
+				// ui.csv 沿用本项目既有语义：x/y 直接作为 layout 记录值写入。
+				// 普通 UI 标记的最终显示方式由各自渲染函数决定，不能在这里统一改成中心点语义。
 				layout[key] = [x, y, ww, hh]
 			}
 		}
 	}
 }
 
-// 立即初始化 layout，以便后续的 top-level 循环（如 build_space）能够使用。
+// 立即初始化 layout，以便后续的 top-level 循环能够使用。
 init_layout()
 
 const DEBUG_SPACES = false
@@ -3880,7 +3882,11 @@ function update_record_marker(stacks, type, value, min, max, remove = false) {
 	}
 
 	// 添加到新堆栈
-	stacks[value].push(existing_marker)
+	if (stacks[value]) {
+		stacks[value].push(existing_marker)
+	} else {
+		console.warn(`Stack for value ${value} is not defined for type ${type}.`)
+	}
 }
 
 /**
@@ -3988,7 +3994,8 @@ function update_system_markers() {
 	}
 
 	const show_max_tu_rp = typeof view.max_tu_rp === "number" && view.max_tu_rp >= 0 && view.max_tu_rp <= 40
-	update_general_record("max_tu_rp", view.max_tu_rp, !show_max_tu_rp)
+	const max_tu_rp_value = show_max_tu_rp ? Math.floor(view.max_tu_rp) : 0
+	update_general_record("max_tu_rp", max_tu_rp_value, !show_max_tu_rp)
 
 	// 回合轨道
 	update_turn_record("game_turn", view.turn)
@@ -4203,6 +4210,19 @@ const UI_ACTIONS = [
 	["choose_mesopotamia", "选择美索不达米亚"],
 	["choose_egypt", "选择埃及"],
 	["choose_russia", "选择俄国"],
+	["lose_vp", "失去 VP"],
+	["negate_one", "部分移除 (2 师)"],
+	["negate_all", "全部移除 (4 师)"],
+	["remove_ru_lcu", "移除俄国 LCU"],
+	["invasion", "两栖登陆"],
+	["reinforcement", "增援"],
+	["accept", "接受"],
+	["decline", "拒绝"],
+	["remove", "移除单位"],
+	["move", "移动"],
+	["move_unit", "移动单位"],
+	["cannot_retreat", "无法撤退"],
+	["re-activate", "重新激活"],
 	["combine", "组合"],
 	["entrench", "掘壕"],
 	["select_lcu", "选择 LCU"],
@@ -4608,6 +4628,59 @@ function compute_group_centers(rec, count, opts = {}) {
 	return result
 }
 
+function normalize_box_anchor_token(value) {
+	return String(value || "")
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "_")
+		.replace(/^_+|_+$/g, "")
+}
+
+function find_box_anchor_point(space, group, piece_class = null) {
+	if (!space || !space.name || !group) {
+		return null
+	}
+	// BOX 专用锚点使用 ui.csv 中的 box_* 项。
+	// 这些锚点的 x/y 由制图时按“算子中心点”录入，所以这里必须转成 layout_center(rec)。
+	// 注意：这只是 BOX 内堆叠的局部规则，不代表整个 ui.csv 都是中心点语义。
+	const base = ["box", normalize_box_anchor_token(space.name), normalize_box_anchor_token(group)].join("_")
+	const keys = []
+	if (piece_class) {
+		keys.push(`${base}_${normalize_box_anchor_token(piece_class)}`)
+	}
+	keys.push(base)
+	for (const key of keys) {
+		const rec = layout[key]
+		if (rec) {
+			return layout_center(rec)
+		}
+	}
+	return null
+}
+
+function apply_box_anchor_overrides(default_centers, order, space) {
+	const centers = default_centers.slice()
+	for (let i = 0; i < order.length; ++i) {
+		const anchor = find_box_anchor_point(space, order[i])
+		if (anchor) {
+			centers[i] = anchor
+		}
+	}
+	return centers
+}
+
+function get_stack_piece_class(stack) {
+	if (!Array.isArray(stack)) {
+		return null
+	}
+	for (const el of stack) {
+		if (el && typeof el.piece === "number") {
+			return pieces[el.piece]?.piece_class || null
+		}
+	}
+	return null
+}
+
 /**
  * 获取消灭盒中单位所属的分组。
  * @param {Object} piece - 单位对象。
@@ -4719,16 +4792,21 @@ function get_reserve_box_centers(rec, order, space, space_id) {
 	const is_cp_box = space_id === CP_RESERVE_BOX || space_id === CP_CORPS_ASSETS_BOX
 	const is_custom_reserve = !is_ap_box && !is_cp_box && (space.type === "Reserve Box" || space.map === "Reserve Box")
 	if (is_custom_reserve) {
-		return [[...(rec ? layout_center(rec) : [0, 0])]]
+		return [find_box_anchor_point(space, order[0]) || [...(rec ? layout_center(rec) : [0, 0])]]
 	}
-	return compute_group_centers(rec, order.length, {
-		min_stride_x: 56,
-		min_stride_y: 72,
-		max_stride_x: 78,
-		max_stride_y: 92,
-		margin_x: 18,
-		margin_y: 24
-	})
+	// 常规 Reserve/Corps Assets 先按原算法自动分组，再按 box_* 锚点做局部覆盖。
+	return apply_box_anchor_overrides(
+		compute_group_centers(rec, order.length, {
+			min_stride_x: 56,
+			min_stride_y: 72,
+			max_stride_x: 78,
+			max_stride_y: 92,
+			margin_x: 18,
+			margin_y: 24
+		}),
+		order,
+		space
+	)
 }
 
 function layout_reserve_box_group({ space_id, space, group, center }) {
@@ -4736,7 +4814,8 @@ function layout_reserve_box_group({ space_id, space, group, center }) {
 	if (!stack || stack.length === 0) {
 		return
 	}
-	const [x, y] = center
+	const piece_class = get_stack_piece_class(stack)
+	const [x, y] = find_box_anchor_point(space, group, piece_class) || center
 	stack.x = x
 	stack.y = y
 	stack.side = space_id === AP_RESERVE_BOX || space_id === AP_CORPS_ASSETS_BOX ? AP : CP
@@ -4784,25 +4863,30 @@ function update_eliminated_box(space_id, piece_ids) {
 			const bucket = piece.piece_class === "LCU" ? space.stacks[group].lcus : space.stacks[group].scus
 			unshift_stack(bucket, element)
 		},
-		get_centers: (rec, order) =>
-			compute_group_centers(rec, order.length, {
-				min_stride_x: 52,
-				min_stride_y: 90,
-				max_stride_x: 76,
-				max_stride_y: 120,
-				margin_x: 18,
-				margin_y: 20
-			}),
+		get_centers: (rec, order, space) =>
+			apply_box_anchor_overrides(
+				compute_group_centers(rec, order.length, {
+					min_stride_x: 52,
+					min_stride_y: 90,
+					max_stride_x: 76,
+					max_stride_y: 120,
+					margin_x: 18,
+					margin_y: 20
+				}),
+				order,
+				space
+			),
 		layout_group: ({ space_id, space, group, center }) => {
 			const is_removed_box = is_permanently_eliminated_box_space_id(space_id)
 			const side = get_eliminated_box_side(space_id)
-			const [gx, gy] = center
+			// Eliminated 允许更细的 box_*_lcu / box_*_scu 锚点。
+			// 若未提供分类锚点，则回退到该国家组中心点上下分行的旧布局逻辑。
+			const [gx, gy] = find_box_anchor_point(space, group) || center
 			const class_row_offset = 22
 			const lcu_stack = space.stacks[group].lcus
 			const scu_stack = space.stacks[group].scus
 			if (lcu_stack.length > 0) {
-				const x = gx
-				const y = gy - class_row_offset
+				const [x, y] = find_box_anchor_point(space, group, "lcu") || [gx, gy - class_row_offset]
 				lcu_stack.x = x
 				lcu_stack.y = y
 				lcu_stack.side = side
@@ -4814,8 +4898,7 @@ function update_eliminated_box(space_id, piece_ids) {
 				layout_stack(lcu_stack, x, y)
 			}
 			if (scu_stack.length > 0) {
-				const x = gx
-				const y = gy + class_row_offset
+				const [x, y] = find_box_anchor_point(space, group, "scu") || [gx, gy + class_row_offset]
 				scu_stack.x = x
 				scu_stack.y = y
 				scu_stack.side = side

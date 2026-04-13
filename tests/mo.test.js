@@ -6,7 +6,7 @@ function createGame() {
 }
 
 function findPiece(faction, name) {
-	const piece = Engine.game_utils.find_piece_by_name(faction, name)
+	const piece = Engine.game_utils.find_piece(faction, name)
 	if (piece < 0) throw new Error(`找不到单位: ${name}`)
 	return piece
 }

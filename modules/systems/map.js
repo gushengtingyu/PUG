@@ -39,6 +39,8 @@ module.exports = function (Engine) {
 	const HAIFA = find_space("Haifa")
 	const NABLUS = find_space("Nablus")
 	const AFGHANISTAN_SPACE = find_space("Afghanistan")
+	const FAO = find_space("Fao")
+	const BASRA = find_space("Basra")
 	const {
 		is_greece_neutral,
 		is_neutral_greece_supply_passable,
@@ -656,7 +658,17 @@ module.exports = function (Engine) {
 		}
 
 		if (faction) {
-			conns = conns.filter((next) => !is_strait_connection(s, next) || can_use_strait(game, s, next, faction))
+			conns = conns.filter((next) => {
+				if (!is_strait_connection(s, next)) return true
+				if (
+					mode === "attack" &&
+					((is_beachhead_space(game, s) && !is_island_base(game, next)) ||
+						(is_beachhead_space(game, next) && !is_island_base(game, s)))
+				) {
+					return true
+				}
+				return can_use_strait(game, s, next, faction)
+			})
 		}
 
 		if (
@@ -1102,6 +1114,40 @@ function get_stack_yildirim_count(pieces) {
 		return get_stack_composition_reason(game, pieces) === null
 	}
 
+	function can_temporarily_end_move_in_space(
+		game,
+		target,
+		faction,
+		stopping_pieces,
+		{ stopping_pieces_already_in_space = false, excluded_future_movers = [] } = {}
+	) {
+		if (!Array.isArray(stopping_pieces) || stopping_pieces.length === 0) return false
+		if (!Array.isArray(game.activated?.move) || !game.activated.move.includes(target)) return false
+		if (is_unlimited_stack_space(game, target)) return false
+
+		// 允许移动过程中临时超堆叠，只要这个地块仍在本次移动激活列表里，
+		// 后续还能把足够数量的友军继续移走，最终在移动阶段结束前恢复合法。
+		let non_stacking_reason = stopping_pieces_already_in_space
+			? get_move_end_space_block_reason(game, target, faction, { ignore_stacking: true })
+			: get_stack_end_block_reason(game, target, stopping_pieces, { ignore_stacking: true })
+		if (non_stacking_reason) return false
+
+		let friendly = get_pieces_in_space(game, target).filter((p) => get_piece_effective_faction(game, p) === faction)
+		let total = stopping_pieces_already_in_space ? friendly : [...stopping_pieces, ...friendly]
+		let excess = get_stack_count(total) - 3
+		if (excess <= 0) return false
+
+		let excluded = new Set(excluded_future_movers)
+		let future_movable = friendly.filter(
+			(p) =>
+				!excluded.has(p) &&
+				can_move_piece_by_faction(game, p, faction) &&
+				!set_has(game.moved, p) &&
+				get_piece_mf(p) > 0
+		)
+		return get_stack_count(future_movable) >= excess
+	}
+
 	function can_stack_end_in_space(game, target, pieces) {
 		if (!pieces || pieces.length === 0) return false
 		if (pieces.some((p) => p < 0 || !data.pieces[p])) return false
@@ -1132,7 +1178,7 @@ function get_stack_yildirim_count(pieces) {
 		return count <= 3
 	}
 
-	function get_move_end_space_block_reason(game, s, faction) {
+	function get_move_end_space_block_reason(game, s, faction, options = {}) {
 		let friendly = get_pieces_in_space(game, s).filter((p) => get_piece_effective_faction(game, p) === faction)
 		if (friendly.length === 0) return null
 
@@ -1144,7 +1190,7 @@ function get_stack_yildirim_count(pieces) {
 		let composition_reason = get_stack_composition_reason(game, friendly)
 		if (composition_reason) return composition_reason
 
-		if (is_unlimited_stack_space(game, s) === false) {
+		if (!options.ignore_stacking && is_unlimited_stack_space(game, s) === false) {
 			let count = get_stack_count(friendly)
 			if (count > 3) return "堆叠超限"
 		}
@@ -1156,7 +1202,7 @@ function get_stack_yildirim_count(pieces) {
 		return null
 	}
 
-	function get_stack_end_block_reason(game, target, pieces) {
+	function get_stack_end_block_reason(game, target, pieces, options = {}) {
 		if (!pieces || pieces.length === 0) return "无移动单位"
 		if (!Engine.neutral.can_end_move_in_neutral_greece(game, pieces[0], target, data.pieces[pieces[0]].faction))
 			return "中立希腊移动限制"
@@ -1181,7 +1227,7 @@ function get_stack_yildirim_count(pieces) {
 		if (is_unlimited_stack_space(game, target)) return null
 
 		let count = get_stack_count(total)
-		if (count > 3) return "堆叠超限"
+		if (!options.ignore_stacking && count > 3) return "堆叠超限"
 		return null
 	}
 
@@ -1289,7 +1335,12 @@ function get_stack_yildirim_count(pieces) {
 		for (let p of game.move.pieces) {
 			if (!can_piece_move_to(game, p, target, faction)) return false
 		}
-		return !(is_last_move_for_stack(game, target, faction) && !can_stack_end_in_space(game, target, game.move.pieces));
+		if (!is_last_move_for_stack(game, target, faction)) return true
+		if (can_stack_end_in_space(game, target, game.move.pieces)) return true
+		// PUG 原先在这里直接拒绝“最后一步会超堆叠”的停留。
+		// 这里改为向 POG 靠拢：若该地块后续仍有已激活且可移动的友军能离开，
+		// 则允许把当前堆叠暂时停在这里，最终合法性由移动阶段结束前统一保证。
+		return can_temporarily_end_move_in_space(game, target, faction, game.move.pieces)
 	}
 
 	function can_piece_move_to(game, p, target, faction) {
@@ -2268,6 +2319,8 @@ function get_stack_yildirim_count(pieces) {
 			if (!nation || nation === "ru" || nation === "ro" || nation === "sb") {
 				if (["Odessa", "TIFLIS", "Central Asia", "Petrovsk"].includes(name)) return true
 				if (name === "Trabzon" && game.vps && game.vps[s] === "ru") return true
+				// Rule 14.2.2: BATUM (so long as the fortress is not destroyed)
+				if (name === "Batum" && !set_has(game.forts.destroyed, s)) return true
 				// Black Sea and Caspian Sea ports are always supply sources for RU (14.1.4)
 				if (is_black_sea_port(game, s) || is_caspian_sea_port(game, s)) {
 					if (is_controlled_by(game, s, AP)) return true
@@ -2289,7 +2342,7 @@ function get_stack_yildirim_count(pieces) {
 				// Rule 13.3.2: German Subs in the Med blocks ports from providing supply ONLY for Reinforcement/SR
 				if (for_placement_or_sr && Engine.events.is_german_subs_blocked_port(game, s)) return false
 
-				if (is_mediterranean_port(s) || is_persian_gulf_port(s)) {
+				if (is_mediterranean_port(s) || is_persian_gulf_port(game, s)) {
 					return true
 				}
 			}
@@ -2300,7 +2353,11 @@ function get_stack_yildirim_count(pieces) {
 			// Special: Greece (14.2.6)
 			if (info.nation === "gr") {
 				if (Engine.neutral.is_greece_neutral(game) || Engine.neutral.is_greek_controlled_by_faction(game, AP)) {
-					if (info.name === "Salonika") return true
+					if (info.name === "Salonika") {
+						// Rule 13.3.2: German Subs in the Med blocks ports from providing supply ONLY for Reinforcement/SR
+						if (for_placement_or_sr && Engine.events.is_german_subs_blocked_port(game, s)) return false
+						return true
+					}
 					if (nation === "gr") return true
 				}
 			}
@@ -2313,10 +2370,14 @@ function get_stack_yildirim_count(pieces) {
 		return is_aegean_east_med_port(s)
 	}
 
-	function is_persian_gulf_port(s) {
+	function is_persian_gulf_port(game, s) {
 		if (!data.spaces[s] || !data.spaces[s].port) return false
 		let name = data.spaces[s].name
-		return ["Fao", "Abadan", "Kuwait", "Bahrain"].includes(name)
+		if (["Fao", "Abadan", "Kuwait", "Bahrain"].includes(name)) return true
+		if (s === BASRA) {
+			return is_controlled_by(game, FAO, AP)
+		}
+		return false
 	}
 
 	function get_supply_sources_from_data(game, faction, for_placement_or_sr = false) {
@@ -2638,6 +2699,8 @@ function get_stack_yildirim_count(pieces) {
 				if (is_india(space) || data.spaces[space].name === "INDIA") return cache_result("FULL")
 			} else if (name.startsWith("CAsia Uprising")) {
 				if (is_central_asia(space) || data.spaces[space].name === "Central Asia") return cache_result("FULL")
+			} else if (name === "Arab faisal Revolt" || name.startsWith("Arab Revolt #")) {
+				if (is_hejaz(space) || is_syria_palestine(space)) return cache_result("FULL")
 			}
 
 			// National "Home" supply rules
@@ -3202,6 +3265,7 @@ function get_stack_yildirim_count(pieces) {
 		get_stack_count,
 		is_stack_counted_piece,
 		can_move_stack_composition,
+		can_temporarily_end_move_in_space,
 		can_stack_end_in_space,
 		get_stack_end_block_reason,
 		get_move_end_space_block_reason,

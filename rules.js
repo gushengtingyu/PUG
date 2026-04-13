@@ -44,6 +44,7 @@ const {
 } = Engine.constants
 const {
 	piece_name: raw_piece_name,
+	piece_list,
 	space_name,
 	find_space,
 	find_capital,
@@ -68,6 +69,7 @@ const {
 	get_pieces_in_removed,
 	get_pieces_in_reinforcements,
 	is_turn_event,
+	is_hq,
 	add_rps: utils_add_rps,
 	place_trench,
 	remove_trench,
@@ -112,8 +114,13 @@ const {
 
 set_debug_log(log)
 
-const { get_replacement_cost, can_afford_replacement, get_valid_rebuild_spaces, spend_replacement_points } =
-	Engine.replacement
+const {
+	get_replacement_cost,
+	can_afford_replacement,
+	get_valid_rebuild_spaces,
+	spend_replacement_points,
+	is_capital_restricted
+} = Engine.replacement
 
 const {
 	get_piece_mf,
@@ -319,9 +326,13 @@ const event_rules = Object.freeze({
 		return set_control(game, arg1, arg2)
 	},
 	get_attackable_spaces,
+	get_stack_count,
 	can_sr_piece,
 	get_sr_cost,
 	get_reserve_box,
+	get_removed_box,
+	get_eliminated_box,
+	get_permanently_eliminated_box,
 	is_in_reserve,
 	is_island_base(arg1, arg2) {
 		return with_optional_game_arg(arg1, arg2, is_island_base)
@@ -356,6 +367,7 @@ const event_rules = Object.freeze({
 	},
 	get_replacement_cost,
 	can_afford_replacement,
+	is_capital_restricted,
 	get_valid_rebuild_spaces,
 	spend_replacement_points,
 	is_eliminated,
@@ -467,9 +479,9 @@ function roll_die() {
 function faction_name(faction) {
 	switch (faction) {
 		case AP:
-			return AP_ROLE
+			return "AP"
 		case CP:
-			return CP_ROLE
+			return "CP"
 		default:
 			return faction
 	}
@@ -1338,6 +1350,12 @@ function log(msg) {
 	if (game && Array.isArray(game.log)) game.log.push(text)
 	else console.log(text)
 }
+function logi(msg) {
+	log(">" + msg)
+}
+function logii(msg) {
+	log(">>" + msg)
+}
 function log_br() {
 	if (game && Array.isArray(game.log)) {
 		if (game.log.length === 0 || game.log[game.log.length - 1] !== "") game.log.push("")
@@ -2004,7 +2022,11 @@ exports.is_in_reserve = is_in_reserve
 exports.can_sr_piece = can_sr_piece
 exports.can_sr_to_space = can_sr_to_space
 exports.get_attackable_spaces = get_attackable_spaces
+exports.get_stack_count = get_stack_count
 exports.get_reserve_box = get_reserve_box
+exports.get_removed_box = get_removed_box
+exports.get_eliminated_box = get_eliminated_box
+exports.get_permanently_eliminated_box = get_permanently_eliminated_box
 exports.get_sr_cost = get_sr_cost
 exports.is_in_supply = is_in_supply
 exports.is_rail_connected_to_supply = is_rail_connected_to_supply
@@ -2060,6 +2082,8 @@ exports.CP = CP
 
 activation_states.register(states, Engine, {
 	log,
+	logi,
+	log_br,
 	push_undo,
 	active_faction,
 	contains_friendly,
@@ -2075,6 +2099,7 @@ activation_states.register(states, Engine, {
 	is_scu,
 	is_lcu,
 	is_tribe,
+	is_hq,
 	get_region,
 	get_restricted_area,
 	is_rail_connected_to_supply,
@@ -2096,6 +2121,7 @@ activation_states.register(states, Engine, {
 	goto_end_event,
 	find_space,
 	piece_name,
+	piece_list,
 	has_unmoved_pieces_in_space,
 	get_movement_cost,
 	has_undestroyed_fort,
@@ -2215,6 +2241,7 @@ turn_funcs = turn_states.register(states, Engine, {
 	MO_AP_CHOICE_5,
 	MO_BRITISH_NO_ATTACK,
 	MO_ENVER,
+	reinforce,
 	roll_die,
 	get_season,
 	COMMITMENT_MOBILIZATION,

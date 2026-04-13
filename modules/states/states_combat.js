@@ -844,7 +844,7 @@ exports.register = function (states, Engine, context) {
 		},
 		space(s) {
 			push_undo()
-			let maude_hq = Engine.game_utils.find_piece_by_name(AP, "BR Maude HQ")
+			let maude_hq = Engine.game_utils.find_piece(AP, "BR Maude HQ")
 			if (maude_hq >= 0) {
 				game.pieces[maude_hq] = s
 				log(`增援：BR Maude HQ 放置到 ${space_name(s)}`)
@@ -866,7 +866,7 @@ exports.register = function (states, Engine, context) {
 		},
 		space(s) {
 			push_undo()
-			let army_of_islam_hq = Engine.game_utils.find_piece_by_name(CP, "TU Army Islam HQ")
+			let army_of_islam_hq = Engine.game_utils.find_piece(CP, "TU Army Islam HQ")
 			if (army_of_islam_hq >= 0) {
 				game.pieces[army_of_islam_hq] = s
 				log(`增援：TU Army Islam HQ 放置到 ${space_name(s)}`)
@@ -1189,8 +1189,8 @@ exports.register = function (states, Engine, context) {
 	states.choose_flank_attack = {
 		prompt(res) {
 			res.prompt("你是否要尝试侧翼进攻？")
-			res.action("flank", "尝试侧翼进攻")
-			res.action("no_flank", "不尝试侧翼进攻")
+			res.action("flank")
+			res.action("no_flank")
 		},
 		flank() {
 			push_undo()
@@ -1429,6 +1429,7 @@ exports.register = function (states, Engine, context) {
 			log(`${format_piece_log(p, true)} 因本行动轮先前已退却，在当前战斗造成损失后被摧毁。`)
 			eliminate_piece(p)
 			set_delete(game.retreated, p)
+			mark_reserves_to_front_damage(p)
 		},
 		done() {
 			game.state = "apply_defender_losses"

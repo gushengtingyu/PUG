@@ -50,7 +50,7 @@ module.exports = function (Engine) {
 			])
 		}),
 		cp: Object.freeze({
-			ge_units: Object.freeze(["GE IX Army", "GE Falkenhayn HQ", "GE Hvy Arty"]),
+			ge_units: Object.freeze(["GE IX Army", "GE Falkenhayn HQ", "GE Hvy Arty", "GE Schmettow"]),
 			ah_units: Object.freeze(["Combined BU/AH Div", "AH DIV #1", "AH DIV #2", "AH DIV #3"])
 		})
 	})
@@ -64,8 +64,7 @@ module.exports = function (Engine) {
 		"GE Alpenkorps",
 		...BULGARIA_ENTRY_PLAN.cp.ge_division_pool,
 		...BULGARIA_ENTRY_PLAN.cp.ge_support,
-		"GE IV R Corps",
-		"GE Schmettow"
+		"GE IV R Corps"
 	])
 	const ROMANIAN_ENTRY_UNIT_NAMES = new Set([
 		...ROMANIA_ENTRY_PLAN.ap.ro_units,
@@ -80,9 +79,8 @@ module.exports = function (Engine) {
 		romania: ROMANIA_ENTRY_PLAN.cp.ah_units
 	})
 	const {
-		find_space,
 		eliminate_piece,
-		find_piece_by_name,
+		find_piece,
 		is_not_on_map,
 		is_in_reserve,
 		is_lcu,
@@ -265,18 +263,18 @@ module.exports = function (Engine) {
 		if (has_romania_collapsed(game)) return false
 		if (!game.events["romania"]) return false
 
-		if (
+		let cond_a = (
 			BUCHAREST >= 0 &&
 			is_controlled_by(game, BUCHAREST, CP) &&
 			PLOESTI >= 0 &&
 			is_controlled_by(game, PLOESTI, CP) &&
 			CONSTANTA >= 0 &&
 			is_controlled_by(game, CONSTANTA, CP)
-		) {
-			return true
-		}
+		)
 
-		return are_all_ro_lcus_eliminated(game) && !has_ru_lcu_in_romania(game)
+		let cond_b = are_all_ro_lcus_eliminated(game)
+
+		return (cond_a || cond_b) && !has_ru_lcu_in_romania(game)
 	}
 
 	function can_piece_attack_after_serbian_collapse(game, p, target) {
@@ -335,8 +333,6 @@ module.exports = function (Engine) {
 		if (SOFIA >= 0 && is_controlled_by(game, SOFIA, AP)) {
 			game.events["bulgarian_collapse"] = game.turn
 			log("保加利亚崩溃。")
-			game.vp -= 1
-			log("CP 失去 1 VP。")
 
 			for (let p = 0; p < data.pieces.length; p++) {
 				if (get_piece_nation(p) === "bu") {
@@ -344,7 +340,7 @@ module.exports = function (Engine) {
 				}
 			}
 
-			let gebu_xi = find_piece_by_name(CP, "German 11th Army")
+			let gebu_xi = find_piece(CP, "German 11th Army")
 			if (gebu_xi >= 0 && !is_not_on_map(game, gebu_xi)) {
 				let s = game.pieces[gebu_xi]
 				eliminate_piece(game, gebu_xi, log, true)
@@ -377,6 +373,8 @@ module.exports = function (Engine) {
 		let no_br_lcu = true
 		for (let s = 1; s < data.spaces.length; s++) {
 			if (data.spaces[s] && (data.spaces[s].nation === "sb" || data.spaces[s].nation === "gr")) {
+				if (Engine.map.is_beachhead_space(game, s)) continue
+				if (data.spaces[s].name === "Lemnos" || data.spaces[s].name === "LEMNOS") continue
 				let pieces = get_pieces_in_space(game, s)
 				for (let p of pieces) {
 					if (get_piece_nation(p) === "br" && is_lcu(p)) {
@@ -461,7 +459,7 @@ module.exports = function (Engine) {
 			}
 		}
 
-		let ge_cav = find_piece_by_name(CP, "GE Schmettow")
+		let ge_cav = find_piece(CP, "GE Schmettow")
 		if (ge_cav >= 0) eliminate_piece(game, ge_cav, log, true)
 
 		let choice_available = !!game.events["bulgaria"] && !has_serbia_collapsed(game)

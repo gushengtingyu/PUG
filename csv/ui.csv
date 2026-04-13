@@ -34,17 +34,17 @@ id,key,x,y,w,h
 33,GR 14,590,2505,75,75
 34,GR 15,677,2505,75,75
 35,GR 16,764,2505,75,75
-36,GR 17,75,2609,75,75
-37,GR 18,161,2609,75,75
-38,GR 19,247,2609,75,75
-39,GR 20,333,2609,75,75
-40,GR 21,419,2609,75,75
-41,GR 22,505,2609,75,75
-42,GR 23,591,2609,75,75
-43,GR 24,677,2609,75,75
-44,GR 25,763,2609,75,75
-45,GR 26,849,2609,75,75
-46,GR 27,70,2705,75,75
+36,GR 17,70,2603,75,75
+37,GR 18,157,2603,75,75
+38,GR 19,243,2603,75,75
+39,GR 20,330,2603,75,75
+40,GR 21,417,2603,75,75
+41,GR 22,503,2603,75,75
+42,GR 23,590,2603,75,75
+43,GR 24,676,2603,75,75
+44,GR 25,763,2603,75,75
+45,GR 26,849,2603,75,75
+46,GR 27,70,2706,75,75
 47,GR 28,157,2705,75,75
 48,GR 29,243,2705,75,75
 49,GR 30,330,2705,75,75
@@ -103,3 +103,48 @@ id,key,x,y,w,h
 102,Sinai Railroad,1792,2131,75,75
 103,neutral_SB_UI,80,325,200,160
 104,SUB IN THE MED,700,1256,75,75
+105,box_cp_corps_assets_tu_lcu,808,1760,44,44
+106,box_cp_corps_assets_tua_lcu,927,1760,44,44
+107,box_cp_reserve_tu_scu,1040,1760,44,44
+108,box_cp_reserve_tua_scu,1120,1760,44,44
+109,box_cp_reserve_bu_scu,1200,1760,44,44
+110,box_cp_reserve_ge_scu,1280,1760,44,44
+111,box_cp_reserve_ah_scu,1360,1760,44,44
+112,box_ap_reserve_ru_scu,815,1995,44,44
+113,box_ap_reserve_br_scu,815,2060,44,44
+114,box_ap_reserve_in_scu,910,1995,44,44
+115,box_ap_reserve_anz_scu,910,2060,44,44
+116,box_ap_reserve_sb_scu,1005,1995,44,44
+117,box_ap_reserve_ro_scu,1005,2060,44,44
+118,box_ap_reserve_fr_scu,1095,1995,44,44
+119,box_ap_reserve_other_scu,1095,2060,44,44
+120,box_ap_corps_assets_ru_lcu,1230,2000,44,44
+121,box_ap_corps_assets_br_lcu,1230,2090,44,44
+122,box_ap_corps_assets_in_lcu,1340,2000,44,44
+123,box_ap_corps_assets_fr_lcu,1340,2090,44,44
+124,box_cp_eliminated_tu_lcu,2155,85,44,44
+125,box_cp_eliminated_tu_scu,2155,148,44,44
+126,box_cp_eliminated_tua_lcu,2238,85,44,44
+127,box_cp_eliminated_tua_scu,2238,148,44,44
+128,box_cp_eliminated_bu_lcu,2320,85,44,44
+129,box_cp_eliminated_bu_scu,2320,150,44,44
+130,box_cp_eliminated_ge_lcu,2155,212,44,44
+131,box_cp_eliminated_ge_scu,2155,275,44,44
+132,box_cp_eliminated_ah_lcu,2238,212,44,44
+133,box_cp_eliminated_ah_scu,2238,275,44,44
+134,box_cp_eliminated_tr,2320,245,44,44
+135,box_ap_eliminated_ru_lcu,1548,2615,44,44
+136,box_ap_eliminated_ru_scu,1548,2675,44,44
+137,box_ap_eliminated_br_lcu,1624,2615,44,44
+138,box_ap_eliminated_br_scu,1624,2675,44,44
+139,box_ap_eliminated_anz_lcu,1699,2615,44,44
+140,box_ap_eliminated_anz_scu,1699,2675,44,44
+141,box_ap_eliminated_in_lcu,1780,2615,44,44
+142,box_ap_eliminated_in_scu,1780,2675,44,44
+143,box_ap_eliminated_sb_lcu,1855,2615,44,44
+144,box_ap_eliminated_sb_scu,1855,2675,44,44
+145,box_ap_eliminated_fr_lcu,1548,2735,44,44
+146,box_ap_eliminated_fr_scu,1624,2735,44,44
+147,box_ap_eliminated_ro_lcu,1699,2735,44,44
+148,box_ap_eliminated_ro_scu,1780,2735,44,44
+149,box_ap_eliminated_other,1855,2735,44,44

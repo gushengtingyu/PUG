@@ -514,6 +514,87 @@ describe("土耳其撤退与战斗系统回归测试 (精简版)", () => {
 		expect(game.reduced).toContain(cpTuScu)
 	})
 
+	test("前线预备役可在 Koprukoy 战后重建后重新获得山地取消撤退资格", () => {
+		let apPiece = findPieceId((p) => p.faction === AP && p.type !== "hq" && p.piece_class === "LCU")
+		let cpTuLcu = findPieceId((p) => p.faction === CP && p.nation === "tu" && p.piece_class === "LCU" && p.type !== "hq")
+		let cpTuScu = findPieceId(
+			(p) =>
+				p.faction === CP &&
+				(p.nation === "tu" || p.nation === "tua") &&
+				p.piece_class === "SCU" &&
+				p.type !== "hq"
+		)
+		let koprukoy = data.spaces.findIndex((s) => s && s.name === "Koprukoy")
+		let fromSpace = data.spaces[koprukoy].connections[0]
+		let game = {
+			pieces: new Array(data.pieces.length).fill(ELIMINATED),
+			reduced: [cpTuScu],
+			retreated: [],
+			control: [],
+			events: {},
+			turn: 1,
+			active: AP,
+			state: "battle",
+			hand_ap: [],
+			hand_cp: [59],
+			discard_ap: [],
+			discard_cp: [],
+			removed_ap: [],
+			removed_cp: [],
+			cc_retained: { ap: [], cp: [] },
+			cc_retained_after_use: { ap: {}, cp: {} },
+			combat_cards: { attacker: [], defender: [] },
+			rp_cp: { tu: 0, a: 0, ge: 0 },
+			attack: {
+				space: koprukoy,
+				pieces: [apPiece],
+				attacker: AP,
+				defender: CP,
+				from: [fromSpace],
+				initial_defenders: [cpTuLcu],
+				reserves_to_front_damaged_pieces: [cpTuLcu, cpTuScu],
+				attacker_losses: 2,
+				attacker_losses_absorbed: 2,
+				defender_losses: 5,
+				defender_losses_absorbed: 5
+			},
+			battle_result: {
+				cancelled: false,
+				attacker_losses: 2,
+				defender_losses: 5,
+				retreat_needed: true,
+				retreating_faction: CP,
+				retreating_units: [cpTuScu],
+				retreat_can_cancel: false,
+				retreat_distance: 2,
+				no_advance: false,
+				turkish_retreat: false,
+				turkish_retreat_units: [],
+				turkish_retreat_optional_units: [],
+				attackers: [apPiece],
+				defenders: [cpTuLcu]
+			}
+		}
+		game.pieces[apPiece] = fromSpace
+		game.pieces[cpTuLcu] = ELIMINATED
+		game.pieces[cpTuScu] = koprukoy
+		game.post_roll_cc_done = true
+
+		Engine.combat.end_battle_sequence(game, () => { })
+		expect(game.state).toBe("post_battle_cc_cp")
+		expect(game.battle_result.retreat_can_cancel).toBe(false)
+
+		rules.action(game, "Central Powers", "play_cc", 59)
+		rules.action(game, "Central Powers", "piece", cpTuLcu)
+		rules.action(game, "Central Powers", "done")
+
+		expect(game.battle_result.retreat_can_cancel).toBe(true)
+		expect(game.battle_result.retreating_units).toEqual(expect.arrayContaining([cpTuLcu, cpTuScu]))
+
+		rules.action(game, "Central Powers", "done")
+		expect(game.state).toBe("retreat_cancel")
+	})
+
 	test("日志简洁化验证", () => {
 		let { game } = createMinimalBattleGame()
 		let logs = []
@@ -551,5 +632,49 @@ describe("土耳其撤退与战斗系统回归测试 (精简版)", () => {
 		game.attack.attacker = AP
 		game.attack.defender = CP
 		expect(Engine.combat_cards.can_play_sandstorms(game)).toBe(true)
+	})
+
+	test("前线预备役窗口往返后不重复记录无满编攻击方日志", () => {
+		let { game, apPiece, cpTuScu } = createMinimalBattleGame()
+		let logs = []
+		game.post_roll_cc_done = true
+		game.reduced = [apPiece, cpTuScu]
+		game.hand_cp = [59]
+		game.attack.reserves_to_front_damaged_pieces = [cpTuScu]
+		game.battle_result = createBattleResult(apPiece, cpTuScu, {
+			attacker_losses: 1,
+			defender_losses: 0,
+			retreat_needed: true,
+			retreating_units: [cpTuScu],
+			no_advance: false,
+			turkish_retreat: false
+		})
+
+		Engine.combat.end_battle_sequence(game, (msg) => logs.push(msg))
+		expect(game.state).toBe("post_battle_cc_cp")
+		rules.action(game, "Central Powers", "done")
+
+		let repeated = logs.filter((msg) => msg === "Attacker has no full-strength units, defenders do not retreat.")
+		expect(repeated).toHaveLength(1)
+	})
+
+	test("三角符号单位战斗消灭后进入消灭盒而非永久消除盒", () => {
+		let triangleTuScu = findPieceId((p) => p.name === "TU Cavalry #4")
+		let { targetSpace } = findBattleSpaces()
+		let logs = []
+		let game = {
+			pieces: new Array(data.pieces.length).fill(ELIMINATED),
+			reduced: [],
+			moved: [],
+			attacked: [],
+			events: {}
+		}
+		game.pieces[triangleTuScu] = targetSpace
+
+		Engine.game_utils.eliminate_piece(game, triangleTuScu, (msg) => logs.push(msg))
+
+		expect(game.pieces[triangleTuScu]).toBe(Engine.game_utils.get_eliminated_box(CP))
+		expect(logs.some((msg) => typeof msg === "string" && msg.includes("Permanently Eliminated"))).toBe(false)
+		expect(logs.some((msg) => typeof msg === "string" && msg.includes("Removed"))).toBe(false)
 	})
 })

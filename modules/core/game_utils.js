@@ -56,13 +56,17 @@ module.exports = function (Engine) {
 		return -1
 	}
 
-	function find_piece_by_name(faction, name) {
-		return find_piece(faction, name)
-	}
-
 	function piece_name(p) {
 		if (!data.pieces[p]) return "Unknown Unit (" + p + ")"
 		return data.pieces[p].name.replace(/ /g, "\u00A0")
+	}
+
+	function piece_list(pieces) {
+		if (pieces.length === 0) return "no units"
+		let list = pieces.map(piece_name)
+		if (list.length <= 2) return list.join(" and ")
+		let last = list.pop()
+		return list.join(", ") + ", and " + last
 	}
 
 	function space_name(s) {
@@ -479,28 +483,27 @@ module.exports = function (Engine) {
 				} else {
 					// Rule 307: If no replacement SCU, LCU is permanently eliminated
 					is_lcu_pe = true
-					if (log) log(`LCU ${data.pieces[p].name} 被摧毁，由于没有可用的 SCU 替换：永久移除。`)
+					if (log) log(`LCU ${data.pieces[p].name} 被摧毁，由于没有可用的 SCU 替换：永久消除（PE）。`)
 				}
 			} else {
 				// Rule 12.6.5: If unsupplied LCU is eliminated, it is permanently removed
 				is_lcu_pe = true
-				if (log) log(`未补给的 LCU ${data.pieces[p].name} 被摧毁：永久移除。`)
+				if (log) log(`未补给的 LCU ${data.pieces[p].name} 被摧毁：永久消除（PE）。`)
 			}
 		}
 
-		if (permanent || is_lcu_pe || info.badge === "dot" || info.badge === "triangle") {
-			if (is_lcu_pe || (info.piece_class === "LCU" && permanent)) {
-				game.pieces[p] = get_permanently_eliminated_box(info.faction)
-				if (log) log(`LCU ${data.pieces[p].name} 被永久消除 (Permanently Eliminated)。`)
-			} else {
-				game.pieces[p] = get_removed_box(info.faction)
-				if (log) log(`单位 ${data.pieces[p].name} 从游戏中永久移除 (Removed)。`)
+		let is_permanently_eliminated = permanent || is_lcu_pe || info.symbol === "dot"
+
+		if (is_permanently_eliminated) {
+			game.pieces[p] = get_permanently_eliminated_box(info.faction)
+			if (log) {
+				let label = info.piece_class === "LCU" ? "LCU" : "单位"
+				log(`${label} ${data.pieces[p].name} 被永久消除 (Permanently Eliminated)。`)
 			}
 		} else if (is_tribe(p)) {
 			game.pieces[p] = get_eliminated_box(info.faction)
-			if (log) log(`${piece_name(p)} 被移除并送往被击败单位盒子。`)
 		} else {
-			game.pieces[p] = get_eliminated_box(data.pieces[p].faction)
+			game.pieces[p] = get_eliminated_box(info.faction)
 		}
 
 		// Reset unit state when eliminated
@@ -533,8 +536,12 @@ module.exports = function (Engine) {
 		if (info.rp_br && !block_br_rp) rps.br += info.rp_br
 		if (info.rp_ru) {
 			// Rule 978: No longer record RU RP after Russian Revolution Phase 1
-			if (!(game.events["russian_revolution"] >= 1)) {
+			// Gorlice-Tarnow event blocks RU RP for the turn
+			const block_ru_rp = game.events && game.events["gorlice_tarnow"] === game.turn
+			if (!(game.events["russian_revolution"] >= 1) && !block_ru_rp) {
 				rps.ru += info.rp_ru
+			} else if (block_ru_rp && log) {
+				log("戈尔利采-塔尔诺夫攻势：本回合无法记录俄国补员点数。")
 			}
 		}
 		if (info.rp_ge) rps.ge += info.rp_ge
@@ -776,7 +783,7 @@ module.exports = function (Engine) {
 		// Filter out invalid SCUs (Rule 9.7.2)
 		scu_ids = scu_ids.filter((p) => {
 			let s = data.pieces[p]
-			if (s.type === "irregular") return false
+			if (is_hq(p) || is_tribe(p) || s.type === "irregular") return false
 			let badge = s.badge ? s.badge.toLowerCase() : ""
 			if (badge === "yellow") return false // Special SCUs
 			return true
@@ -853,8 +860,10 @@ module.exports = function (Engine) {
 		let scu_ids = pieces.filter(
 			(p) => {
 				if (!is_scu(p)) return false
+				if (is_hq(p) || is_tribe(p)) return false
 				if (get_piece_effective_faction(game, p) !== faction) return false
 				if (set_has(game.moved, p)) return false
+				if (game.events && game.events["arab_desertion"] && data.pieces[p].nation === "tua") return false
 				let status = supply.get_supply_status(game, s, faction, p)
 				return status !== "OOS" && status !== "LIMITED"
 			}
@@ -935,10 +944,10 @@ module.exports = function (Engine) {
 		find_space,
 		find_capital,
 		find_piece,
-		find_piece_by_name,
 		is_eliminated,
 		is_in_reserve,
 		piece_name,
+		piece_list,
 		space_name,
 		get_space_nation,
 		get_space_faction,

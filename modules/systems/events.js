@@ -37,6 +37,7 @@ module.exports = function (Engine) {
 		is_balkans,
 		get_region,
 		is_anatolia,
+		is_caucasus,
 		is_gallipoli,
 		is_besieged,
 		can_trace_supply_to_source,
@@ -55,6 +56,9 @@ module.exports = function (Engine) {
 	const AQABA = find_space("Aqaba")
 	const JIDDAH = find_space("Jiddah")
 	const CYPRUS = find_space("Cyprus")
+	const DOIRAN = find_space("Doiran")
+	const LAMIA = find_space("Lamia")
+	const ATHENS = find_space("ATHENS")
 	const CYPRUS_BEACHHEADS = ["To Adana", "To Beirut", "To Haifa", "To Jaffa"].map(find_space)
 
 	const WARM_WATER_PORTS = [
@@ -436,6 +440,11 @@ module.exports = function (Engine) {
 				return false
 			}
 		},
+		is_caucasian_army_reforms_rein: {
+			faction: CP,
+			desc: "安纳托利亚、高加索或加利波里的同盟国控制地区",
+			check: (game, s) => check_reinforcement_space(game, s, CP, (space, s) => is_anatolia(s) || is_caucasus(s) || is_gallipoli(s))
+		},
 		is_secret_treaty_rein: {
 			faction: AP,
 			desc: "任何波斯大区",
@@ -539,6 +548,19 @@ module.exports = function (Engine) {
 
 	function is_persia_open(game) {
 		return !!(game.events && (game.events.secret_treaty || game.events.persian_push))
+	}
+
+	function is_ap_invasion_event_used_this_turn(game) {
+		return !!(game && game.events && game.events["ap_invasion_event"] === game.turn)
+	}
+
+	function can_play_project_alexandria(game) {
+		return (
+			game.events["egyptian_coup"] &&
+			get_season(game) !== "Winter" &&
+			!game.events["unrestricted_submarine_warfare"] &&
+			!is_ap_invasion_event_used_this_turn(game)
+		)
 	}
 
 	/**
@@ -776,7 +798,7 @@ module.exports = function (Engine) {
 				game.active = AP
 				let units = ["ANZ Elite DIV", "ANZ Cavalry #1"]
 				event.reinf_to_place = units
-
+				event.reinf_placement = "map"
 				event.reinf_logic = "is_br"
 
 				// ANZ Cavalry #1 enters reduced strength
@@ -891,6 +913,7 @@ module.exports = function (Engine) {
 				game.active = AP
 				let units = ["RU IV Caucasian", "RU Elite DIV #4", "RU DIV #13", "RU Cavalry #7"]
 				event.reinf_to_place = units
+				event.reinf_placement = "map"
 				event.reinf_logic = "is_ru_rein"
 				game.state = "event_place_reinforcements"
 			},
@@ -920,11 +943,12 @@ module.exports = function (Engine) {
 			effect_cn:
 				"(只能在【埃及政变】后打出，不能在冬季打出)海上入侵：获得一个滩头标志，立刻将其放置在塞浦路斯旁的滩头地区。随后战略调整至多3支英国/印度/澳新步兵师至滩头标志。",
 			can_play: function (game) {
-				return game.events["egyptian_coup"] && get_season(game) !== "Winter"
+				return can_play_project_alexandria(game)
 			},
 			handler: function (game, ctx) {
 				let event = ctx && typeof ctx.start_event === "function" ? ctx.start_event("project_alexandria") : {}
 				game.events["project_alexandria"] = event
+				game.events["ap_invasion_event"] = game.turn
 				game.active = AP
 				game.state = "event_project_alexandria_place_beachhead"
 			},
@@ -1053,7 +1077,7 @@ module.exports = function (Engine) {
 				game.active = AP
 				let units = ["ANZ Cavalry #2", "ANZ Imp Camel"]
 				event.reinf_to_place = units
-
+				event.reinf_placement = "map"
 				game.events["xinai"] = game.turn + 4
 				log(game, "西奈铁路将在第" + (game.turn + 4) + "回合完成")
 				event.reinf_logic = "is_br"
@@ -1104,7 +1128,11 @@ module.exports = function (Engine) {
 				if (!game.events["secret_treaty"] && !game.events["persian_push"]) return false
 				let has_port = false
 				for (let s of [BAKU, find_space("Derbent"), PETROVSK]) {
-					if (get_pieces_in_space(game, s).filter((p) => data.pieces[p].faction === AP).length === 0) {
+					let pieces = get_pieces_in_space(game, s)
+					// CP units will retreat, so we only count AP units already there that count toward stacking.
+					let ap_stack_count = Engine.map.get_stack_count(pieces.filter((p) => data.pieces[p].faction === AP))
+					// Need room for 2 SCUs (RU DIV #14, RU Cavalry #8). Baratov HQ doesn't count.
+					if (ap_stack_count <= 1) {
 						has_port = true
 						break
 					}
@@ -1163,7 +1191,18 @@ module.exports = function (Engine) {
 					"SB Cavalry"
 				]
 				event.reinf_to_place = units
-
+				event.reinf_placement = {
+					"SB 1 Army": "reserve",
+					"SB 2 Army": "reserve",
+					"SB 3 Army": "reserve",
+					"SB DIV #1": "either",
+					"SB DIV #2": "either",
+					"SB DIV #3": "either",
+					"SB DIV #4": "either",
+					"SB DIV #5": "either",
+					"SB DIV #6": "either",
+					"SB Cavalry": "either"
+				}
 				event.reinf_logic = "is_serb_return_rein"
 				game.state = "event_place_reinforcements"
 			},
@@ -1184,6 +1223,7 @@ module.exports = function (Engine) {
 				let units = ["RU V Caucasian", "RU Black Sea", "RU Elite DIV #1"]
 				event.reinf_to_place = units
 				game.events["black_sea_marines_active"] = true
+				event.reinf_placement = "map"
 				event.reinf_logic = "is_ru_rein"
 				game.state = "event_place_reinforcements"
 			},
@@ -1202,6 +1242,11 @@ module.exports = function (Engine) {
 				game.active = AP
 				let units = ["IN Tigris Corps", "IN 2nd Corps", "IN DIV #7"]
 				event.reinf_to_place = units
+				event.reinf_placement = {
+					"IN Tigris Corps": "map",
+					"IN 2nd Corps": "reserve",
+					"IN DIV #7": "either"
+				}
 				event.reinf_logic = "is_br"
 				game.state = "event_place_reinforcements"
 			},
@@ -1220,6 +1265,7 @@ module.exports = function (Engine) {
 				game.active = AP
 				let units = ["BR Elite DIV #4", "BR Elite DIV #5", "BR Elite DIV #6"]
 				event.reinf_to_place = units
+				event.reinf_placement = "map"
 				event.reinf_logic = "is_br"
 				game.state = "event_place_reinforcements"
 			},
@@ -1239,6 +1285,7 @@ module.exports = function (Engine) {
 				let units = ["BR Maude HQ", "IN 15th DIV"]
 				event.reinf_to_place = units
 				game.events["maude"] = true
+				event.reinf_placement = "map"
 				event.reinf_logic = "is_br"
 				game.state = "event_place_reinforcements"
 			},
@@ -1327,16 +1374,21 @@ module.exports = function (Engine) {
 			name: "ASQUITH/LLOYD GEORGE COALITION",
 			name_cn: "阿斯奎斯-劳合乔治联合政府",
 			effect_cn:
-				"增援:1个英国骑兵师。获得2点英国补员点数。在本场游戏剩余的时间内，可以在补员阶段将任何数量的英国补员点数转化为俄国补员点数。。在剩余的游戏时间内协约国MO掷骰+2drm。",
-			handler: function (game) {
-				game.mo_ap_modifier += 2
-				reinforce(game, "BR Cavalry #2", AP)
+				"增援:1个英国骑兵师。获得2点英国补员点数。在本场游戏剩余的时间内，可以在补员阶段将任何数量的英国补员点数转化为俄国补员点数。。在剩余的游戏时间内协约国MO掷骰+1drm。",
+			handler: function (game, ctx) {
+				game.mo_ap_modifier += 1
 				game.rp_ap.br += 2
 				game.events["asquith_coalition"] = true
+				let event = start_event_data(game, ctx, "asquith_coalition")
+				game.active = AP
+				event.reinf_to_place = ["BR Cavalry #2"]
+				event.reinf_logic = "is_br"
+				game.state = "event_place_reinforcements"
 
 				if (!game.ui_tokens) game.ui_tokens = {}
 				game.ui_tokens["BR RPs TO RU"] = "MLG.png"
-			}
+			},
+			defer_end: true
 		},
 		34: {
 			name: "SALONIKA INVASION",
@@ -1367,6 +1419,10 @@ module.exports = function (Engine) {
 				let event = start_event_data(game, ctx, "british_reinf_35")
 				game.active = AP
 				event.reinf_to_place = ["BR Dunsterforce", "BR/PE SPers Rifles"]
+				event.reinf_placement = {
+					"BR Dunsterforce": "map",
+					"BR/PE SPers Rifles": "map"
+				}
 				event.reinf_logic = "is_brf_35_rein"
 				game.state = "event_place_reinforcements"
 			},
@@ -1383,8 +1439,9 @@ module.exports = function (Engine) {
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "indian_reinf")
 				game.active = AP
-				let units = ["IN Cavalry #4", "IN Cavalry #5"]
+				let units = ["IN 17th DIV", "IN 18th DIV", "IN Cavalry #4", "IN Cavalry #5"]
 				event.reinf_to_place = units
+				event.reinf_placement = "map"
 				event.reinf_logic = "is_br"
 				game.state = "event_place_reinforcements"
 			},
@@ -1403,6 +1460,7 @@ module.exports = function (Engine) {
 				game.active = AP
 				let units = ["RU DIV #16", "RU DIV #17", "RU DIV #18"]
 				event.reinf_to_place = units
+				event.reinf_placement = "map"
 				event.reinf_logic = "is_ru_rein"
 				game.state = "event_place_reinforcements"
 			},
@@ -1479,6 +1537,7 @@ module.exports = function (Engine) {
 				let event = start_event_data(game, ctx, "russian_reinf_43")
 				game.active = AP
 				event.reinf_to_place = ["RU Elite DIV #5", "RU Elite DIV #6"]
+				event.reinf_placement = "map"
 				event.reinf_logic = "is_ru_rein"
 				game.state = "event_place_reinforcements"
 			},
@@ -1527,9 +1586,21 @@ module.exports = function (Engine) {
 			},
 			handler: function (game, ctx) {
 				const { neutral } = Engine
+				// 如果 CP 手中有“康斯坦丁国王”(ID: 71) 且满足打出条件，则进入打断状态，询问 CP 是否打出以反制。
+				let has_constantine = game.hand_cp.includes(71)
+ 				if (has_constantine) {
+ 					game.state = "event_greece_counter"
+ 					game.active = CP
+					Engine.log(game, "协约国打出【希腊】事件，等待同盟国响应...")
+					return "interactive"
+				}
+				
 				neutral.trigger_greece_entry(game, null, CP, "希腊事件", (msg) => log(game, msg, ctx))
 				game.events["greece_event_played"] = true
-			}
+				if (ctx && typeof ctx.goto_end_event === "function") ctx.goto_end_event()
+				else if (ctx && typeof ctx.goto_end_operations === "function") ctx.goto_end_operations()
+			},
+			defer_end: true
 		},
 		46: {
 			name: "ARAB DESERTION",
@@ -1556,6 +1627,7 @@ module.exports = function (Engine) {
 				game.active = AP
 				let units = ["IN 3rd Corps", "IN Elite DIV #3", "IN Cavalry #6"]
 				event.reinf_to_place = units
+				event.reinf_placement = "map"
 				event.reinf_logic = "is_br"
 				game.state = "event_place_reinforcements"
 			},
@@ -1640,6 +1712,12 @@ module.exports = function (Engine) {
 				let event = start_event_data(game, ctx, "desperey")
 				game.active = AP
 				event.reinf_to_place = ["FR Army Orient 2", "FR DIV #5", "FR DIV #6", "FR D'Esperey HQ"]
+				event.reinf_placement = {
+					"FR Army Orient 2": "reserve",
+					"FR DIV #5": "map",
+					"FR DIV #6": "map",
+					"FR D'Esperey HQ": "map"
+				}
 				event.reinf_logic = "is_allied_solidarity_rein"
 				game.state = "event_place_reinforcements"
 				game.events["desperey"] = true
@@ -1659,16 +1737,32 @@ module.exports = function (Engine) {
 				let event = start_event_data(game, ctx, "allenby")
 				game.active = AP
 				let units = [
-					"BR 20th Corps",
-					"BR 21th Corps",
-					"BR Infantry #1",
-					"BR Infantry #2",
-					"ANZ Cavalry",
-					"BR Cavalry"
+					"BR XX Corps",
+					"BR XXI Corps",
+					"BR DIV #5",
+					"BR DIV #6",
+					"ANZ Cavalry #3",
+					"BR Cavalry #3",
+					"BR Allenby HQ"
 				]
 				event.reinf_to_place = units
+				event.reinf_placement = {
+					"BR XX Corps": "reserve",
+					"BR XXI Corps": "reserve",
+					"BR DIV #5": "map",
+					"BR DIV #6": "map",
+					"ANZ Cavalry #3": "map",
+					"BR Cavalry #3": "map",
+					"BR Allenby HQ": "map"
+				}
 				event.reinf_logic = "is_br"
 				game.state = "event_place_reinforcements"
+				if (is_controlled_by(game, AQABA, AP)) {
+					reinforce(game, "BR ANA Arab", AP, AQABA)
+				} else {
+					let arab = find_piece(AP, "BR ANA Arab")
+					if (arab >= 0) game.pieces[arab] = AP_REMOVED
+				}
 				game.events["allenby"] = true
 			},
 			defer_end: true
@@ -1684,8 +1778,13 @@ module.exports = function (Engine) {
 				game.mo_ap_modifier += 2
 				let event = start_event_data(game, ctx, "lloyd_george_takes_command")
 				game.active = AP
-				let units = ["ANZ Desert Corps", "BR Infantry", "BR Cavalry"]
+				let units = ["ANZ Desert Corps", "BR DIV #7", "BR Cavalry #4"]
 				event.reinf_to_place = units
+				event.reinf_placement = {
+					"ANZ Desert Corps": "reserve",
+					"BR DIV #7": "map",
+					"BR Cavalry #4": "map"
+				}
 				event.reinf_logic = "is_br"
 				game.state = "event_place_reinforcements"
 				game.events["lloyd_george_takes_command"] = true
@@ -1887,7 +1986,7 @@ module.exports = function (Engine) {
 				game.active = CP
 				let units = ["TU Elite DIV #9", "TU Elite DIV #10", "TU Cavalry #5"]
 				event.reinf_to_place = units
-
+				event.reinf_placement = "map"
 				game.rp_cp.tu += 1
 				game.events["pan_turkism"] = true
 				event.reinf_logic = "is_tu"
@@ -1968,7 +2067,7 @@ module.exports = function (Engine) {
 			name: "TREACHERY AT FORT RUPEL",
 			name_cn: "鲁贝尔堡的背叛",
 			effect_cn:
-				"(只有在希腊仍保持中立，协约国部队占据萨洛尼卡时才能打出)所有希腊部队(希腊国防军除外)移动至拉米亚或者雅典(协约国玩家选择)，所有与多里安相邻的同盟国部队向前挺进一格，清除挺进位置的战壕并破坏要塞。打出该卡不会侵犯希腊的中立。",
+				"(只有在希腊仍保持中立，协约国部队占据萨洛尼卡时才能打出)所有希腊部队(希腊国防军除外)移动至拉米亚或者雅典(同盟国玩家选择其一)，随后所有与多里安相邻的同盟国部队进入多里安并接收当地阵地。打出该卡不会侵犯希腊的中立。",
 			can_play: function (game) {
 				const { neutral } = Engine
 				if (game.events["constantine"]) return false
@@ -1984,41 +2083,33 @@ module.exports = function (Engine) {
 			handler: function (game, ctx) {
 				const { neutral } = Engine
 
-				// Identify Greek units to move (except CND)
 				let greek_units_to_move = []
-				for (let p = 0; p < game.pieces.length; p++) {
+				for (let p = 1; p < game.pieces.length; p++) {
 					if (neutral.is_greek_piece(p) && !neutral.is_greek_cnd(p) && !Engine.game_utils.is_not_on_map(game, p)) {
 						greek_units_to_move.push(p)
 					}
 				}
 
-				if (greek_units_to_move.length > 0) {
-					let event = start_event_data(game, ctx, "rupel")
-					event.greek_units = greek_units_to_move
-					event.current_unit_index = 0
-					game.active = AP // AP player chooses destination
-					game.state = "event_rupel_move_greek_units"
-				} else {
-					// No Greek units to move, proceed to CP advance
-					events_by_id[72].advance_cp_units(game)
-				}
-
-				let salonika = find_space("Salonika")
-				if (salonika >= 0) {
-					// CP controls Salonika
-					if (typeof Engine.set_control === "function") {
-						Engine.set_control(game, salonika, CP)
-					}
-				}
-
 				game.events["rupel"] = true
-			},
-			advance_cp_units: function (game) {
-				const { map } = Engine
-				let doiran = find_space("Doiran")
-				if (doiran < 0) return
 
-				let adjacents = data.spaces[doiran].connections || []
+				if (greek_units_to_move.length > 0) {
+					start_event_data(game, ctx, "rupel", {
+						greek_units: greek_units_to_move,
+						destinations: [LAMIA, ATHENS]
+					})
+					game.active = CP
+					game.state = "event_rupel_move_greek_units"
+					return
+				}
+
+				events_by_id[72].advance_cp_units(game, ctx)
+				finish_event(ctx)
+			},
+			advance_cp_units: function (game, ctx) {
+				const { map } = Engine
+				if (DOIRAN < 0) return
+
+				let adjacents = data.spaces[DOIRAN].connections || []
 				let cp_units_to_advance = []
 
 				for (let adj of adjacents) {
@@ -2031,22 +2122,24 @@ module.exports = function (Engine) {
 				}
 
 				if (cp_units_to_advance.length > 0) {
-					log(game, "同盟国部队从多里安相邻地区挺进。")
 					for (let entry of cp_units_to_advance) {
-						game.pieces[entry.piece] = doiran
+						game.pieces[entry.piece] = DOIRAN
 					}
-					// Clear trenches and destroy fort in Doiran
-					if (game.trenches) Engine.utils.set_delete(game.trenches, doiran)
-					if (game.trenches_2) Engine.utils.set_delete(game.trenches_2, doiran)
-					if (typeof map.destroy_fort === "function") {
-						map.destroy_fort(game, doiran)
+					if (typeof Engine.set_control === "function") {
+						Engine.set_control(game, DOIRAN, CP)
+					}
+					if (data.spaces[DOIRAN].fort && typeof map.destroy_fort === "function") {
+						map.destroy_fort(game, DOIRAN)
+					} else if (data.spaces[DOIRAN].fort && game.forts && game.forts.destroyed) {
+						Engine.utils.set_add(game.forts.destroyed, DOIRAN)
 					} else {
-						// Fallback if destroy_fort not available
-						if (game.forts) Engine.utils.set_delete(game.forts, doiran)
+						log(game, "鲁贝尔堡的背叛：同盟国部队挺进多里安并接收当地阵地。", ctx)
+						return
 					}
-					log(game, `同盟国部队挺进多里安，清除战壕并破坏要塞。`)
+					log(game, "鲁贝尔堡的背叛：同盟国部队挺进多里安并破坏当地要塞。", ctx)
 				}
-			}
+			},
+			defer_end: true
 		},
 		73: {
 			name: "TURKISH REINFORCEMENTS",
@@ -2059,7 +2152,7 @@ module.exports = function (Engine) {
 				game.active = CP
 				let units = ["TU-A DIV #13", "TU-A DIV #14", "TU-A DIV #15", "TU-A DIV #16"]
 				event.reinf_to_place = units
-
+				event.reinf_placement = "map"
 				let reduced = !!game.events["arab_revolt"]
 				if (reduced) {
 					for (let unit of units) {
@@ -2185,7 +2278,7 @@ module.exports = function (Engine) {
 				game.active = CP
 				let units = ["TU DIV #13", "TU DIV #14", "TU DIV #15", "TU DIV #16", "TU DIV #17", "TU Cavalry #6"]
 				event.reinf_to_place = units
-
+				event.reinf_placement = "map"
 				event.reinf_logic = "is_tu"
 				game.state = "event_place_reinforcements"
 			},
@@ -2210,6 +2303,15 @@ module.exports = function (Engine) {
 					"TU-A DIV #11"
 				]
 				event.reinf_to_place = units
+				event.reinf_placement = {
+					"TU XIV Corps": "reserve",
+					"TU XV Corps": "reserve",
+					"TU XVI Corps": "reserve",
+					"TU XVII Corps": "reserve",
+					"TU-A XVIII Corps": "reserve",
+					"TU DIV #18": "map",
+					"TU-A DIV #11": "map"
+				}
 
 				event.reinf_logic = "is_tu"
 				game.state = "event_place_reinforcements"
@@ -2269,9 +2371,9 @@ module.exports = function (Engine) {
 			name: "GORLICE-TARNOW",
 			name_cn: "戈尔利采-塔尔诺夫攻势",
 			effect_cn:
-				"协约国玩家需要选择:。A: +2VP。B: 将一个地图上的俄国LCU暂时移除游戏(派往东线)，4个回合后重新放置在预备军格。。阻止继续记录本回合的俄国补员点数。",
+				"协约国玩家需要选择:。A: 失去2VP。B: 将一个地图上的俄国LCU暂时移除游戏(派往东线)，4个回合后重新放置在预备军格。阻止继续记录本回合的俄国补员点数。",
 			handler: function (game) {
-				game.events["gorlice_tarnow"] = true
+				game.events["gorlice_tarnow"] = game.turn
 				game.active = AP
 				game.state = "event_gorlice_tarnow_choice"
 			},
@@ -2374,18 +2476,22 @@ module.exports = function (Engine) {
 			effect_cn:
 				"增援:4个土耳其-阿拉伯步兵师。在叙利亚/巴勒斯坦地区或者西奈地区增加1处战壕。。如果在【阿拉伯起义】后打出，则这些部队以受损面进入。",
 			handler: function (game, ctx) {
+				let event = start_event_data(game, ctx, "turkish_reinf_92")
+				game.active = CP
+				event.reinf_to_place = ["TU-A Infantry #1", "TU-A Infantry #2", "TU-A Infantry #3", "TU-A Infantry #4"]
+				event.reinf_placement = "map"
+				event.reinf_logic = "is_tua"
+				event.reinf_next_state = "event_turkish_reinf_92_trench"
 				let reduced = !!game.events["arab_revolt"]
-				for (let unit of ["TU-A Infantry #1", "TU-A Infantry #2", "TU-A Infantry #3", "TU-A Infantry #4"]) {
-					reinforce(game, unit, CP)
+				for (let unit of event.reinf_to_place) {
 					let p = find_piece(CP, unit)
 					if (p >= 0 && reduced && data.pieces[p].piece_class === "SCU" && !set_has(game.reduced, p)) {
 						set_add(game.reduced, p)
 					}
 				}
 
-				game.active = CP
-				start_event_data(game, ctx, "turkish_reinf_92").trenches_to_place = 1
-				game.state = "event_turkish_reinf_92_trench"
+				event.trenches_to_place = 1
+				game.state = "event_place_reinforcements"
 			},
 			defer_end: true
 		},
@@ -2490,7 +2596,7 @@ module.exports = function (Engine) {
 				game.active = CP
 				let units = ["GE Yildrim #1", "GE Yildrim #2", "GE Yildrim #3"]
 				event.reinf_to_place = units
-
+				event.reinf_placement = "map"
 				event.reinf_logic = "is_yildrim_rein"
 				game.state = "event_place_reinforcements"
 				game.events["yildrim"] = true
@@ -2584,8 +2690,14 @@ module.exports = function (Engine) {
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "turkish_reinf_106")
 				game.active = CP
-				let units = ["TU-A Left Wing", "TU-A Infantry #1", "TU 20th Corps", "TU 22nd Corps"]
+				let units = ["TU-A Left Wing Gp", "TU-A DIV #17", "TU XX Corps", "TU XXII Corps"]
 				event.reinf_to_place = units
+				event.reinf_placement = {
+					"TU-A Left Wing Gp": "map",
+					"TU-A DIV #17": "map",
+					"TU XX Corps": "reserve",
+					"TU XXII Corps": "reserve"
+				}
 
 				event.reinf_logic = "is_tu"
 				game.state = "event_place_reinforcements"
@@ -2616,6 +2728,7 @@ module.exports = function (Engine) {
 			handler: function (game) {
 				game.vp -= 1
 				game.events["unrestricted_submarine_warfare"] = true
+				game.unplaced_beachheads = 0
 			}
 		},
 		109: {

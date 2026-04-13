@@ -189,7 +189,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function get_ap_beachheads() {
-		return Engine.map.get_beachhead_spaces(game, AP).filter((s) => Engine.map.is_beachhead_space(game, s))
+		return Engine.map.get_beachhead_spaces(game, AP)
 	}
 
 	function with_temporarily_removed_beachhead(beachhead, fn) {
@@ -256,20 +256,12 @@ exports.register = function (states, Engine, context) {
 		return stranded === 0
 	}
 
-	function can_safe_withdraw_beachhead(beachhead) {
+	function get_beachhead_withdrawal_mode(beachhead) {
 		if (active_faction() !== AP) return false
 		if (is_winter_turn()) return false
 		let units = get_beachhead_withdrawal_units(beachhead)
-		if (units.length === 0) return false
-		return !get_beachhead_under_fire(beachhead)
-	}
-
-	function can_withdraw_under_fire(beachhead) {
-		if (active_faction() !== AP) return false
-		if (is_winter_turn()) return false
-		let units = get_beachhead_withdrawal_units(beachhead)
-		if (units.length === 0) return false
-		return get_beachhead_under_fire(beachhead)
+		if (units.length === 0) return null
+		return get_beachhead_under_fire(beachhead) ? "under_fire" : "safe"
 	}
 
 	function get_breakdown_candidates_for_lcu(lcu) {
@@ -366,8 +358,9 @@ exports.register = function (states, Engine, context) {
 			}
 			if (active_faction() === AP) {
 				for (let beachhead of get_ap_beachheads()) {
-					if (can_withdraw_under_fire(beachhead)) res.action("withdraw_under_fire", beachhead)
-					else if (can_safe_withdraw_beachhead(beachhead)) res.action("safe_withdraw", beachhead)
+					let withdrawal_mode = get_beachhead_withdrawal_mode(beachhead)
+					if (withdrawal_mode === "under_fire") res.action("withdraw_under_fire", beachhead)
+					else if (withdrawal_mode === "safe") res.action("safe_withdraw", beachhead)
 					if (can_remove_empty_beachhead(beachhead)) res.action("remove_beachhead", beachhead)
 				}
 			}
