@@ -771,6 +771,7 @@ exports.view = function (state, current) {
 			hidden_reinforcement_markers: hidden_reinforcement_markers,
 			control: game.control,
 			ru_control_markers: game.ru_control_markers || [],
+			persian_uprising_markers: game.persian_uprising_markers || [],
 			reduced: game.reduced,
 			forts: game.forts,
 			beachheads: game.beachheads,
@@ -868,14 +869,14 @@ exports.view = function (state, current) {
 			return
 		}
 
-		if (current === "Observer" || (game.active !== current && faction_name(game.active) !== current)) {
+		if (current === "Observer" || short_faction(game.active) !== short_faction(current)) {
 			if (game.state === "review_supply_warnings") {
 				states[game.state].prompt(next)
 			} else {
 				let inactive = states[game.state].inactive
 				if (typeof inactive === "function") inactive()
 				else if (typeof inactive === "string") next.prompt(`等待 ${faction_name(game.active)}   ${inactive}`)
-				else next.prompt(`等待 ${faction_name(game.active)}行动`)
+				else next.prompt(`等待 ${faction_name(game.active)} 行动`)
 			}
 		} else {
 			states[game.state].prompt(next)
@@ -1042,7 +1043,7 @@ states.acknowledge_mo_results = {
 		if (game.mo_cp === MO_ENVER) {
 			cp_mo = `${cp_mo} [攻势#1: ${mo_name(game.mo_cp_1)}, 攻势#2: ${mo_name(game.mo_cp_2)}]`
 		}
-		res.prompt(`强制进攻: AP=${ap_mo} , CP=${cp_mo}.`)
+		res.prompt(`强制进攻: AP = ${ap_mo} , CP= ${cp_mo}.`)
 		res.action("next")
 	},
 	next() {
@@ -1106,6 +1107,33 @@ function start_attack_sequence() {
 
 // Helpers
 
+const HISTORY_SNAPSHOT_OMIT_KEYS = new Set([
+	"undo",
+	"rollback",
+	"rollback_state",
+	"supply_query_cache",
+	"event_playability_cache",
+	"supply_projection",
+	"supply_projection_ap_split",
+	"oos",
+	"oos_spaces",
+	"disrupted_supply"
+])
+
+function copy_history_snapshot(source) {
+	let copy = {}
+	for (let key in source) {
+		if (!Object.prototype.hasOwnProperty.call(source, key)) continue
+		if (key === "log") {
+			copy.log = Array.isArray(source.log) ? source.log.length : source.log
+			continue
+		}
+		if (HISTORY_SNAPSHOT_OMIT_KEYS.has(key)) continue
+		copy[key] = object_copy(source[key])
+	}
+	return copy
+}
+
 function save_rollback_point() {
 	if (game.options.no_supply_warnings) return
 
@@ -1116,11 +1144,7 @@ function save_rollback_point() {
 	const cp_action_count = Array.isArray(game.cp_actions) ? game.cp_actions.filter(Boolean).length : 0
 	const is_turn_start = ap_action_count === 0 && cp_action_count === 0
 
-	let copy = object_copy(game)
-	delete copy.undo
-	delete copy.rollback
-	delete copy.rollback_state
-	if (Array.isArray(copy.log)) copy.log = copy.log.length
+	let copy = copy_history_snapshot(game)
 
 	let action_index = copy.action_round || 1
 	game.rollback.push({
@@ -1198,7 +1222,7 @@ function goto_propose_rollback(rollback_index) {
 }
 
 states.review_rollback_proposal = {
-	inactive: "review rollback proposal",
+	inactive: "审查回滚提议",
 	prompt(res) {
 		const rollback = game.rollback[game.rollback_proposal.index]
 		const label = rollback.turn_start
@@ -1225,7 +1249,7 @@ states.review_rollback_proposal = {
 }
 
 states.confirm_rollback = {
-	inactive: "confirm rollback",
+	inactive: "确认回滚",
 	prompt(res) {
 		res.prompt(game.rollback_confirmation.msg)
 		res.action("next")
@@ -1258,9 +1282,9 @@ function goto_flag_supply_warnings() {
 }
 
 states.flag_supply_warnings = {
-	inactive: "flag supply warnings",
+	inactive: "标记补给警告",
 	prompt(res) {
-		res.prompt("标记补给线可能受威胁的地区格。")
+		res.prompt("标记补给线可能受威胁的地块。")
 		for (let s = 1; s < data.spaces.length; ++s) {
 			res.space(s)
 		}
@@ -1308,11 +1332,7 @@ states.review_supply_warnings = {
 }
 
 function push_undo() {
-	let copy = object_copy(game)
-	delete copy.undo
-	copy.log = game.log.length
-	delete copy.rollback
-	delete copy.rollback_state
+	let copy = copy_history_snapshot(game)
 	if (!game.undo) game.undo = []
 	game.undo.push(copy)
 }
@@ -1692,6 +1712,7 @@ function refresh_attack_eligibility() {
 function create_noop_result() {
 	return {
 		game,
+		_is_noop: true,
 		prompt() {
 			return this
 		},

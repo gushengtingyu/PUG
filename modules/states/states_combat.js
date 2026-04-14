@@ -119,6 +119,7 @@ exports.register = function (states, Engine, context) {
 
 	states.attack = {
 		prompt(res) {
+			if (res && res._is_noop) return
 			refresh_attack_eligibility()
 			if (game.eligible_attackers.length === 0) {
 				res.prompt("操作完成.")
@@ -139,6 +140,16 @@ exports.register = function (states, Engine, context) {
 				res.prompt("请选择攻击单位和目标")
 			}
 			let selected_pieces = game.attack.pieces || []
+			let prompt_attackable_cache = new Map()
+			function get_cached_attackable_spaces(pieces) {
+				if (!Array.isArray(pieces) || pieces.length === 0) return []
+				let key =
+					pieces.length === 1 ? `p:${pieces[0]}` : `g:${pieces.slice().sort((a, b) => a - b).join(",")}`
+				if (!prompt_attackable_cache.has(key)) {
+					prompt_attackable_cache.set(key, get_legal_attackable_spaces(pieces))
+				}
+				return prompt_attackable_cache.get(key)
+			}
 			if (selected_pieces.length > 0) {
 				let selected_spaces = [...new Set(selected_pieces.map((p) => game.pieces[p]).filter((s) => s > 0))]
 				if (game.attack.space !== -1) {
@@ -159,14 +170,14 @@ exports.register = function (states, Engine, context) {
 					res.action("select_all")
 				}
 			} else {
-				let selected_targets = get_attackable_spaces(selected_pieces)
+				let selected_targets = get_cached_attackable_spaces(selected_pieces)
 
 				for (let p of game.eligible_attackers) {
 					if (set_has(selected_pieces, p)) {
 						res.piece(p)
 						continue
 					}
-					if (get_attackable_spaces([...selected_pieces, p]).length > 0) {
+					if (get_cached_attackable_spaces([...selected_pieces, p]).length > 0) {
 						res.piece(p)
 					}
 				}
@@ -313,7 +324,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	states.confirm_event = {
-		inactive: "confirm event",
+		inactive: "确认事件",
 		prompt(res) {
 			let c = game.card !== null ? game.card : game.last_card
 			let info = data.cards[c]
@@ -326,7 +337,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	states.end_operations = {
-		inactive: "end operations",
+		inactive: "结束行动",
 		prompt(res) {
 			res.prompt("操作完成.")
 			res.action("end_action")
@@ -675,7 +686,7 @@ exports.register = function (states, Engine, context) {
 
 	function register_combat_card_state(name, config) {
 		states[name] = {
-			inactive: "play combat cards",
+			inactive: "打出战斗卡",
 			prompt(res) {
 				res.prompt(config.prompt)
 				show_attack_context(res)
@@ -821,7 +832,7 @@ exports.register = function (states, Engine, context) {
 	})
 
 	states.maude_place_indian_division = {
-		inactive: "play combat cards",
+		inactive: "打出战斗卡",
 		prompt(res) {
 			res.prompt("莫德：放置印度第15步兵师")
 			show_attack_context(res)
@@ -836,7 +847,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	states.maude_place_hq = {
-		inactive: "play combat cards",
+		inactive: "打出战斗卡",
 		prompt(res) {
 			res.prompt("莫德：将莫德HQ放置到包含英国与印度部队的攻击地块")
 			show_attack_context(res)
@@ -858,7 +869,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	states.army_of_islam_place_hq = {
-		inactive: "play combat cards",
+		inactive: "打出战斗卡",
 		prompt(res) {
 			res.prompt("伊斯兰军：将伊斯兰军HQ放置到已启动攻击的土耳其/土耳其-阿拉伯部队所在攻击地块")
 			show_attack_context(res)
@@ -2094,7 +2105,7 @@ exports.register = function (states, Engine, context) {
 			}
 
 			if (snapshot.mandatory.length > 0) {
-				res.prompt("土耳其撤退：必须选择一个 SCU 进行撤退")
+				res.prompt("土耳其撤退：必须选择部队进行撤退")
 				for (let p of snapshot.mandatory) res.piece(p)
 				// PUG Rule 617: Turkish SCUs MUST retreat. If only mandatory units remain, skip is not allowed.
 				return

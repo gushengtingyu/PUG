@@ -19,6 +19,14 @@ function findSpace(name) {
 	return space
 }
 
+function clearSpace(game, space) {
+	for (let p = 0; p < game.pieces.length; p++) {
+		if (game.pieces[p] === space) {
+			game.pieces[p] = ELIMINATED
+		}
+	}
+}
+
 function findTemporaryOverstackScenario(game, faction = AP) {
 	let groupedPieces = new Map()
 	for (let p = 0; p < Engine.data.pieces.length; p++) {
@@ -356,6 +364,70 @@ describe("运行时烟雾测试", () => {
 		expect(game.state).not.toBe("event_rupel_move_greek_units")
 	})
 
+	test("德国的波斯密谋会完整放置起义军与三个起义标记，并让波斯起义军在中立波斯继续活动", () => {
+		let game = setupGame(202604132, "Historical")
+		let event = Engine.events.get_event_by_id(78)
+		let baghdad = findSpace("Baghdad")
+		let insurgents = findPiece(CP, "PE Uprising")
+
+		Engine.set_control(game, baghdad, CP)
+		game.active = CP
+		game.state = "play_card"
+		game.hand_ap = []
+		game.hand_cp = [78]
+		game.events = game.events || {}
+		delete game.events["persian_push"]
+		delete game.events["secret_treaty"]
+
+		expect(event.can_play(game)).toBe(true)
+
+		rules.action(game, "Central Powers", "play_event", 78)
+		expect(game.state).toBe("event_german_intrigues_persia_unit")
+		expect(game.events["german_intrigue_persia"]).toBe(true)
+
+		let unitView = rules.view(game, CP)
+		let candidateUnitSpaces = unitView.actions.space || []
+		let unitSpace =
+			candidateUnitSpaces.find((s) =>
+				(Engine.data.spaces[s].connections || []).some((next) => Engine.data.spaces[next]?.area === "persia")
+			) || candidateUnitSpaces[0]
+
+		expect(unitSpace).toBeGreaterThan(0)
+
+		rules.action(game, "Central Powers", "space", unitSpace)
+		expect(game.pieces[insurgents]).toBe(unitSpace)
+		expect(game.state).toBe("event_german_intrigues_persia_markers")
+
+		let placedMarkers = []
+		for (let i = 0; i < 3; i++) {
+			let markerView = rules.view(game, CP)
+			let markerSpace = (markerView.actions.space || [])[0]
+			expect(markerSpace).toBeGreaterThan(0)
+			placedMarkers.push(markerSpace)
+			rules.action(game, "Central Powers", "space", markerSpace)
+		}
+
+		expect(game.persian_uprising_markers).toEqual(placedMarkers)
+		expect(game.state).toBe("confirm_event")
+
+		let finalView = rules.view(game, CP)
+		expect(finalView.persian_uprising_markers).toEqual(placedMarkers)
+		expect(Engine.map.is_disrupted_by_enemy(game, placedMarkers[0], AP)).toBe(true)
+
+		let adjacentPersia = (Engine.data.spaces[unitSpace].connections || []).find(
+			(next) => next > 0 && Engine.data.spaces[next] && Engine.data.spaces[next].area === "persia"
+		)
+		expect(adjacentPersia).toBeGreaterThan(0)
+		game.move = {
+			initial: unitSpace,
+			current: unitSpace,
+			spaces_moved: 0,
+			pieces: [insurgents],
+			touched_spaces: [unitSpace]
+		}
+		expect(Engine.map.can_piece_move_to(game, insurgents, adjacentPersia, CP)).toBe(true)
+	})
+
 	test("俄军替换点可按事件规则改用英军 RP 支付", () => {
 		let game = setupGame(20260414, "Historical")
 		let piece = findPiece(AP, "RU DIV #13")
@@ -689,7 +761,7 @@ describe("运行时烟雾测试", () => {
 		expect(game.state).not.toBe("event_place_reinforcements")
 	})
 
-	test("加利波里入侵在不满足正式入侵条件时仍可作为增援事件打出", () => {
+	test("加里波利入侵在不满足正式入侵条件时仍可作为增援事件打出", () => {
 		let game = setupGame(2026041901, "Historical")
 		let event = Engine.events.get_event_by_id(30)
 
@@ -710,6 +782,83 @@ describe("运行时烟雾测试", () => {
 		expect(view.actions.reinforcement).toBeTruthy()
 	})
 
+	test("入侵事件当增援打出时会进入正常增援放置状态", () => {
+		let game = setupGame(202604190101, "Historical")
+
+		game.active = AP
+		game.state = "event_gallipoli_invasion_choice"
+		game.event_ctx = {
+			key: "gallipoli_invasion",
+			data: {}
+		}
+
+		rules.action(game, "Allied Powers", "reinforcement")
+
+		let view = rules.view(game, game.active)
+		expect(game.state).toBe("event_place_reinforcements")
+		expect(game.event_ctx.data.reinf_to_place).toEqual([
+			"BR VIII Corps",
+			"ANZ ANZAC",
+			"FR DIV #1",
+			"FR DIV #2",
+			"BR DIV #1"
+		])
+		expect(view.prompt).toContain("加里波利入侵（增援）")
+		expect(view.actions.space.length).toBeGreaterThan(0)
+	})
+
+	test("普通英国增援不能放置到萨洛尼卡", () => {
+		let game = setupGame(202604190102, "Historical")
+		let salonika = findSpace("Salonika")
+
+		game.control[salonika] = AP
+
+		expect(Engine.reinf_helpers.is_br.check(game, salonika)).toBe(false)
+	})
+
+	test("萨洛尼卡入侵会先让法国东方集团军进入标准增援放置交互", () => {
+		let game = setupGame(202604190103, "Historical")
+		let event = Engine.events.get_event_by_id(34)
+		let corpsAssets = findSpace("AP Corps Assets")
+
+		event.handler(game)
+
+		let view = rules.view(game, game.active)
+		expect(game.state).toBe("event_place_reinforcements")
+		expect(view.prompt).toContain("萨洛尼卡入侵")
+		expect(view.actions.space).toContain(corpsAssets)
+
+		rules.action(game, "Allied Powers", "space", corpsAssets)
+
+		expect(game.state).toBe("event_salonika_invasion_choice")
+	})
+
+	test("基钦纳入侵从开局预备增援到当作增援打出都会走交互流程", () => {
+		let game = setupGame(202604190104, "Historical")
+		let event = Engine.events.get_event_by_id(22)
+		let reserveBox = Engine.game_utils.get_reserve_box(AP)
+
+		event.handler(game)
+
+		let firstView = rules.view(game, game.active)
+		expect(game.state).toBe("event_place_reinforcements")
+		expect(firstView.prompt).toContain("基钦纳入侵")
+		expect(firstView.actions.space).toContain(reserveBox)
+
+		rules.action(game, "Allied Powers", "space", reserveBox)
+		expect(game.state).toBe("event_place_reinforcements")
+
+		rules.action(game, "Allied Powers", "space", reserveBox)
+		expect(game.state).toBe("event_kitcheners_invasion_choice")
+
+		rules.action(game, "Allied Powers", "reinforcement")
+
+		let reinforcementView = rules.view(game, game.active)
+		expect(game.state).toBe("event_place_reinforcements")
+		expect(reinforcementView.prompt).toContain("基钦纳入侵（增援）")
+		expect(reinforcementView.actions.space.length).toBeGreaterThan(0)
+	})
+
 	test("同一回合打出过一次正式入侵后，后续入侵牌只能作为增援处理", () => {
 		let game = setupGame(20260419011, "Historical")
 
@@ -727,7 +876,7 @@ describe("运行时烟雾测试", () => {
 		expect(view.actions.reinforcement).toBeTruthy()
 	})
 
-	test("加利波里与萨洛尼卡入侵会先获得未放置滩头并转入岛屿基地集结", () => {
+	test("加里波利与萨洛尼卡入侵会先获得未放置滩头并转入岛屿基地集结", () => {
 		let gallipoli = setupGame(2026041902, "Historical")
 		let salonika = setupGame(2026041903, "Historical")
 
@@ -762,6 +911,40 @@ describe("运行时烟雾测试", () => {
 		expect(salonika.unplaced_beachheads).toBe(1)
 		expect(salonika.state).toBe("event_invasion_place_units_island")
 		expect(salonika.event_ctx.data.reinf_to_place).toEqual(["BR XVI Corps", "BR XII Corps", "FR DIV #1", "FR DIV #2"])
+
+		let salonikaView = rules.view(salonika, salonika.active)
+		expect(salonikaView.prompt).toContain("萨洛尼卡入侵：")
+	})
+
+	test("海上入侵放置滩头时不会再把预备军格当作合法位置", () => {
+		let game = setupGame(20260419031, "Historical")
+		let reserveBox = Engine.game_utils.get_reserve_box(AP)
+		let lemnosBeachheads = Engine.data.spaces
+			.map((space, id) => ({ space, id }))
+			.filter(({ space, id }) => id > 0 && space && space.beach_for === "Lemnos")
+			.map(({ id }) => id)
+
+		expect(lemnosBeachheads.length).toBeGreaterThanOrEqual(3)
+
+		let [existingBeachhead, cpControlledBeachhead, legalBeachhead] = lemnosBeachheads
+		game.active = AP
+		game.state = "event_invasion_place_beachhead"
+		game.beachheads = [existingBeachhead]
+		game.control[cpControlledBeachhead] = CP
+		game.event_ctx = {
+			key: "test_invasion",
+			data: {
+				beachheads_to_place: 1
+			}
+		}
+
+		let view = rules.view(game, game.active)
+		let spaces = view.actions.space
+
+		expect(spaces).toContain(legalBeachhead)
+		expect(spaces).not.toContain(reserveBox)
+		expect(spaces).not.toContain(existingBeachhead)
+		expect(spaces).not.toContain(cpControlledBeachhead)
 	})
 
 	test("亚历山大计划会受到每回合一次入侵限制与无限制潜艇战封锁", () => {
@@ -779,6 +962,23 @@ describe("运行时烟雾测试", () => {
 		expect(event.can_play(blockedBySubs)).toBe(false)
 	})
 
+	test("亚历山大计划在塞浦路斯没有合法滩头时不能打出", () => {
+		let game = setupGame(202604190121, "Historical")
+		let event = Engine.events.get_event_by_id(12)
+		let cyprusBeachheads = Engine.data.spaces
+			.map((space, id) => ({ space, id }))
+			.filter(({ space, id }) => id > 0 && space && space.beach_for === "Cyprus")
+			.map(({ id }) => id)
+
+		game.events["egyptian_coup"] = true
+		for (let s of cyprusBeachheads) {
+			game.control[s] = CP
+		}
+
+		expect(cyprusBeachheads.length).toBeGreaterThan(0)
+		expect(event.can_play(game)).toBe(false)
+	})
+
 	test("无限制潜艇战会清空预备军格中的未放置滩头标记", () => {
 		let game = setupGame(20260419014, "Historical")
 		let event = Engine.events.get_event_by_id(108)
@@ -793,7 +993,7 @@ describe("运行时烟雾测试", () => {
 		expect(game.unplaced_beachheads).toBe(0)
 	})
 
-	test("加利波里入侵可用预备军中的对应 SCU 将减员军团翻正", () => {
+	test("加里波利入侵可用预备军中的对应 SCU 将减员军团翻正", () => {
 		let game = setupGame(2026041904, "Historical")
 		let lemnos = findSpace("Lemnos")
 		let reserveBox = Engine.game_utils.get_reserve_box(AP)
@@ -813,12 +1013,18 @@ describe("运行时烟雾测试", () => {
 		game.pieces[scu] = reserveBox
 		game.reduced = [lcu]
 
-		rules.action(game, "Allied Powers", "piece", lcu)
+		let initialView = rules.view(game, game.active)
+		expect(initialView.actions.piece).toContain(scu)
+		expect(initialView.actions.piece).not.toContain(lcu)
+
+		rules.action(game, "Allied Powers", "piece", scu)
 
 		expect(Engine.game_utils.is_piece_reduced(game, lcu)).toBe(false)
+		let completeView = rules.view(game, game.active)
+		expect(completeView.prompt).toBe("加里波利入侵：完成。")
 	})
 
-	test("加利波里入侵可先将地图上的对应 SCU 战略调整回预备军再翻正", () => {
+	test("加里波利入侵可先将地图上的对应 SCU 战略调整回预备军再翻正", () => {
 		let game = setupGame(2026041905, "Historical")
 		let lemnos = findSpace("Lemnos")
 		let alexandria = findSpace("Alexandria")
@@ -854,10 +1060,9 @@ describe("运行时烟雾测试", () => {
 
 		expect(game.pieces[scu]).toBe(reserveBox)
 		expect(game.sr_moved).toContain(scu)
-
-		rules.action(game, "Allied Powers", "piece", lcu)
-
 		expect(Engine.game_utils.is_piece_reduced(game, lcu)).toBe(false)
+		let completeView = rules.view(game, game.active)
+		expect(completeView.prompt).toBe("加里波利入侵：完成。")
 	})
 
 	test("滩头在补给与海上战略调整判定中按港口处理", () => {
@@ -975,6 +1180,30 @@ describe("运行时烟雾测试", () => {
 
 		expect(beachhead).toBeGreaterThan(0)
 
+		game.pieces[piece] = lemnos
+		game.move = {
+			initial: lemnos,
+			current: lemnos,
+			spaces_moved: 0,
+			pieces: [piece],
+			touched_spaces: [lemnos]
+		}
+
+		expect(Engine.map.can_piece_move_to(game, piece, beachhead, AP)).toBe(false)
+	})
+
+	test("同盟国控制的潜在滩头空间不能被用来建立新滩头", () => {
+		let game = setupGame(2026042301, "Historical")
+		let lemnos = findSpace("Lemnos")
+		let beachhead = Engine.data.spaces.findIndex(
+			(space) => space && space.beach_for === "Lemnos" && space.connections.includes(lemnos)
+		)
+		let piece = findPiece(AP, "BR DIV #3")
+
+		expect(beachhead).toBeGreaterThan(0)
+
+		game.control[beachhead] = CP
+		game.unplaced_beachheads = 1
 		game.pieces[piece] = lemnos
 		game.move = {
 			initial: lemnos,
@@ -1240,4 +1469,92 @@ describe("运行时烟雾测试", () => {
 		expect(Engine.map.is_beachhead_space(game, beachhead)).toBe(true)
 		expect(game.remove_beachhead_space).toBeUndefined()
 	})
+
+	test("尼古拉大公事件只提供 map 定义且满足 AP 堆叠限制的里海港口", () => {
+		let game = setupGame(202604281, "Historical")
+		let event = Engine.events.get_event_by_id(23)
+		let baku = findSpace("Baku")
+		let enzeli = findSpace("Enzeli")
+		let centralAsia = findSpace("Central Asia")
+		let derbent = findSpace("Derbent")
+		let petrovsk = findSpace("Petrovsk")
+		let ardebil = findSpace("Ardebil")
+		let shiraz = findSpace("Shiraz")
+		let bushire = findSpace("Bushire")
+		let meshed = findSpace("Meshed")
+		let blockers = [
+			findPiece(AP, "RU Cavalry #1"),
+			findPiece(AP, "RU Cavalry #2"),
+			findPiece(AP, "RU Cavalry #3"),
+			findPiece(AP, "RU Cavalry #4"),
+			findPiece(AP, "RU Cavalry #5")
+		]
+
+		game.events["secret_treaty"] = true
+		for (let space of [baku, enzeli, centralAsia, ardebil, shiraz, bushire, meshed]) {
+			clearSpace(game, space)
+		}
+
+		game.pieces[blockers[0]] = baku
+		game.pieces[blockers[1]] = baku
+		game.pieces[blockers[2]] = centralAsia
+		game.pieces[blockers[3]] = centralAsia
+		game.pieces[blockers[4]] = enzeli
+
+		expect(event.can_play(game)).toBe(true)
+
+		event.handler(game)
+		let view = rules.view(game, game.active)
+
+		expect(view.actions.space).toEqual([enzeli])
+		expect(view.actions.space).not.toContain(derbent)
+		expect(view.actions.space).not.toContain(petrovsk)
+	})
+
+	test("尼古拉大公事件中的 CP 后撤允许先退 1 格再决定是否继续后撤", () => {
+		let game = setupGame(202604282, "Historical")
+		let event = Engine.events.get_event_by_id(23)
+		let enzeli = findSpace("Enzeli")
+		let astara = findSpace("Astara")
+		let ardebil = findSpace("Ardebil")
+		let menjil = findSpace("Menjil")
+		let cpDiv = findPiece(CP, "TU DIV #1")
+		let apScout = findPiece(AP, "RU Cavalry #1")
+
+		game.events["secret_treaty"] = true
+		for (let space of [enzeli, astara, ardebil, menjil]) {
+			clearSpace(game, space)
+		}
+		game.pieces[apScout] = enzeli
+		game.pieces[cpDiv] = enzeli
+		game.control[astara] = CP
+		game.control[ardebil] = CP
+		game.control[menjil] = CP
+
+		event.handler(game)
+		rules.action(game, "Allied Powers", "space", enzeli)
+
+		expect(game.state).toBe("event_grand_duke_to_tiflis_cp_retreat")
+		expect(game.active).toBe(CP)
+
+		rules.action(game, "Central Powers", "piece", cpDiv)
+
+		let firstRetreatView = rules.view(game, game.active)
+		expect(firstRetreatView.actions.space).toContain(astara)
+
+		rules.action(game, "Central Powers", "space", astara)
+
+		let secondRetreatView = rules.view(game, game.active)
+		expect(game.pieces[cpDiv]).toBe(astara)
+		expect(secondRetreatView.actions.finish_piece).toBeTruthy()
+		expect(secondRetreatView.actions.space).toContain(ardebil)
+		expect(secondRetreatView.actions.space).not.toContain(enzeli)
+
+		rules.action(game, "Central Powers", "finish_piece")
+
+		expect(game.pieces[cpDiv]).toBe(astara)
+		expect(game.state).toBe("event_grand_duke_to_tiflis_sr")
+		expect(game.active).toBe(AP)
+	})
+
 })

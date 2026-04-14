@@ -80,7 +80,7 @@ id,key,x,y,w,h
 79,Turn 15,3973,2710,75,75
 80,Turn 16,4111,2710,75,75
 81,Turn 17,4248,2710,75,75
-82,neutral_gr_UI,179,915,200,160
+82,neutral_gr_UI,150,958,200,160
 83,neutral_bu_UI,530,414,200,160
 84,neutral_ro_UI,694,127,200,160
 85,LCU_limit_AP1,2681,1916,75,75
@@ -118,10 +118,10 @@ id,key,x,y,w,h
 117,box_ap_reserve_ro_scu,1005,2060,44,44
 118,box_ap_reserve_fr_scu,1095,1995,44,44
 119,box_ap_reserve_other_scu,1095,2060,44,44
-120,box_ap_corps_assets_ru_lcu,1230,2000,44,44
-121,box_ap_corps_assets_br_lcu,1230,2090,44,44
-122,box_ap_corps_assets_in_lcu,1340,2000,44,44
-123,box_ap_corps_assets_fr_lcu,1340,2090,44,44
+120,box_ap_corps_assets_ru_lcu,1220,2000,44,44
+121,box_ap_corps_assets_br_lcu,1220,2085,44,44
+122,box_ap_corps_assets_in_lcu,1285,2000,44,44
+123,box_ap_corps_assets_fr_lcu,1285,2085,44,44
 124,box_cp_eliminated_tu_lcu,2155,85,44,44
 125,box_cp_eliminated_tu_scu,2155,148,44,44
 126,box_cp_eliminated_tua_lcu,2238,85,44,44
@@ -148,3 +148,4 @@ id,key,x,y,w,h
 147,box_ap_eliminated_ro_lcu,1699,2735,44,44
 148,box_ap_eliminated_ro_scu,1780,2735,44,44
 149,box_ap_eliminated_other,1855,2735,44,44
+150,box_ap_corps_assets_anz_lcu,1350,2000,44,44

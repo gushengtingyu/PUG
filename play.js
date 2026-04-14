@@ -1919,6 +1919,25 @@ function destroy_fort_destroyed_marker(s) {
 	})
 }
 
+function build_persian_uprising_marker(s) {
+	const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
+	return build_marker(
+		list,
+		(m) => {
+			return m.type === "persian_uprising"
+		},
+		{ type: "persian_uprising", space: s },
+		marker_info.persian_uprising
+	)
+}
+
+function destroy_persian_uprising_marker(s) {
+	const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
+	destroy_marker(list, (m) => {
+		return m.type === "persian_uprising"
+	})
+}
+
 /**
  * 构建空间的战壕标记。
  * @param {number} s - 空间 ID。
@@ -2010,6 +2029,7 @@ const UI_FRAME_STATE_FIELDS = [
 	{ key: "trenches", diff: "space_set", build: () => to_id_set(view?.trenches) },
 	{ key: "trenches_2", diff: "space_set", build: () => to_id_set(view?.trenches_2) },
 	{ key: "forts_destroyed", diff: "space_set", build: () => to_id_set(view?.forts?.destroyed) },
+	{ key: "persian_uprising_markers", diff: "space_set", build: () => to_id_set(view?.persian_uprising_markers) },
 	{ key: "oos_spaces", diff: "space_set", build: () => to_id_set(view?.oos_spaces) },
 	{ key: "entrenching", diff: "piece_set", build: () => to_id_set(view?.entrenching) },
 	{ key: "moved", diff: "piece_set", build: () => to_id_set(view?.moved) },
@@ -4365,9 +4385,9 @@ function has_space_special_marker(space, state, s) {
 		has_id(state.trenches, s) ||
 		has_id(state.beachheads, s) ||
 		has_id(state.forts_destroyed, s) ||
+		has_id(state.persian_uprising_markers, s) ||
 		has_id(state.activated_move_spaces, s) ||
-		has_id(state.activated_attack_spaces, s) ||
-		has_id(state.oos_spaces, s)
+		has_id(state.activated_attack_spaces, s)
 	)
 }
 
@@ -4477,6 +4497,12 @@ function render_space_markers(space, state, s, stack_parts) {
 		destroy_fort_destroyed_marker(s)
 	}
 
+	if (has_id(state.persian_uprising_markers, s)) {
+		stack_parts.bottom_markers.push(build_persian_uprising_marker(s))
+	} else {
+		destroy_persian_uprising_marker(s)
+	}
+
 	if (view.activated) {
 		const marker_list = get_space_marker_list(s)
 		if (has_id(state.activated_move_spaces, s)) {
@@ -4498,7 +4524,7 @@ function render_space_markers(space, state, s, stack_parts) {
 		destroy_activation_markers(s)
 	}
 
-	if (has_id(state.oos_spaces, s) || stack_parts.has_oos_unit) {
+	if (stack_parts.has_oos_unit) {
 		stack_parts.top_markers.push(build_oos_marker(s))
 	} else {
 		destroy_oos_marker(s)
@@ -5455,7 +5481,9 @@ function get_piece_click_dispatch(p) {
 	if (!view.actions) {
 		return null
 	}
+	// "card" action refers to playing a card from hand, should not be matched for piece clicking!
 	for (let action in view.actions) {
+		if (action === "card" || action === "play_cc") continue
 		const action_noun = get_action_noun(action, p)
 		if (action_noun !== undefined) {
 			return { action, noun: action_noun, source: action }

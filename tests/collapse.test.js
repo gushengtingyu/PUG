@@ -70,6 +70,21 @@ function createStateRules(game) {
 	}
 }
 
+function createEventPlacementRules(game) {
+	return {
+		...createStateRules(game),
+		other_faction: (faction) => Engine.map.other_faction(faction),
+		get_pieces_in_space: (targetGame, space) => Engine.map.get_pieces_in_space(targetGame, space),
+		get_connected_spaces: (targetGame, space) => Engine.map.get_connected_spaces(targetGame, space),
+		reinforce(targetGame, name, faction, space) {
+			return Engine.events.reinforce(targetGame, name, faction, space)
+		},
+		goto_end_event() {
+			game.state = "end_event"
+		}
+	}
+}
+
 function getPiecesAction(res) {
 	return res.get_action("piece") || []
 }
@@ -99,6 +114,136 @@ describe("崩溃规则", () => {
 		expect(game.events.bulgarian_collapse).toBe(6)
 		expect(isRemoved(game, german11th)).toBe(true)
 		expect(game.pieces[replacement]).toBe(sofia)
+	})
+
+	test("保加利亚参战先只提供未驻有协约国单位的保加利亚地块", () => {
+		const game = createGame()
+		game.events.bulgaria = true
+		placePiece(game, AP, "BR DIV #1", "SOFIA")
+
+		game.state = "event_place_reinforcements"
+		game.active = CP
+		game.event_ctx = {
+			data: {
+				reinf_logic: "is_bulgarian_entry_rein",
+				reinf_to_place: ["BU 1 Army"]
+			}
+		}
+		const res = Engine.create_result(game)
+		eventStates.event_place_reinforcements.prompt({
+			game,
+			res,
+			rules: createEventPlacementRules(game)
+		})
+
+		expect(getSpacesAction(res)).toContain(findSpace("Plevna"))
+		expect(getSpacesAction(res)).toContain(findSpace("Burgas"))
+		expect(getSpacesAction(res)).not.toContain(findSpace("SOFIA"))
+		expect(getSpacesAction(res)).not.toContain(findSpace("BELGRADE"))
+	})
+
+	test("保加利亚参战第二段只提供未驻有同盟国单位的塞尔维亚地块", () => {
+		const game = createGame()
+		game.events.bulgaria = true
+		game.state = "event_place_reinforcements"
+		game.active = AP
+		game.event_ctx = {
+			data: {
+				reinf_logic: "is_serbian_entry_rein",
+				reinf_to_place: ["SB 1 Army"]
+			}
+		}
+		placePiece(game, CP, "GE DIV #1", "BELGRADE")
+
+		const res = Engine.create_result(game)
+		eventStates.event_place_reinforcements.prompt({
+			game,
+			res,
+			rules: createEventPlacementRules(game)
+		})
+
+		expect(game.active).toBe(AP)
+		expect(game.event_ctx.data.reinf_logic).toBe("is_serbian_entry_rein")
+		expect(getSpacesAction(res)).toContain(findSpace("Nis"))
+		expect(getSpacesAction(res)).toContain(findSpace("Skopje"))
+		expect(getSpacesAction(res)).not.toContain(findSpace("BELGRADE"))
+		expect(getSpacesAction(res)).not.toContain(findSpace("SOFIA"))
+	})
+
+	test("罗马尼亚参战只提供未驻有同盟国单位的罗马尼亚地块", () => {
+		const game = createGame()
+		placePiece(game, CP, "GE DIV #1", "BUCHAREST")
+
+		Engine.events.events_by_id[29].handler(game, {})
+
+		expect(game.state).toBe("event_place_reinforcements")
+		expect(game.active).toBe(AP)
+		expect(game.event_ctx.data.reinf_logic).toBe("is_romanian_entry_rein")
+
+		const res = Engine.create_result(game)
+		eventStates.event_place_reinforcements.prompt({
+			game,
+			res,
+			rules: createEventPlacementRules(game)
+		})
+
+		expect(getSpacesAction(res)).toContain(findSpace("Craiova"))
+		expect(getSpacesAction(res)).toContain(findSpace("Ploesti"))
+		expect(getSpacesAction(res)).not.toContain(findSpace("BUCHAREST"))
+		expect(getSpacesAction(res)).not.toContain(findSpace("BELGRADE"))
+	})
+
+	test("保加利亚参战后 BU 单位可将任意 CP 补给源视为补给源", () => {
+		const game = createGame()
+		game.events.bulgaria = true
+
+		expect(Engine.map.is_base_supply_source(game, findSpace("SOFIA"), CP, "bu")).toBe(true)
+		expect(Engine.map.is_base_supply_source(game, findSpace("CONSTANTINOPLE"), CP, "bu")).toBe(true)
+		expect(Engine.map.is_base_supply_source(game, findSpace("Galicia"), CP, "bu")).toBe(true)
+	})
+
+	test("保加利亚参战后塞军占据的塞尔维亚地块不会被判定为断补地块", () => {
+		const game = createGame()
+		const belgrade = findSpace("BELGRADE")
+		const sbArmy = placePiece(game, AP, "SB 1 Army", "BELGRADE")
+
+		game.events.bulgaria = true
+		setControl(game, "BELGRADE", AP)
+
+		Engine.map.check_supply(game)
+
+		expect(game.oos).not.toContain(sbArmy)
+		expect(game.oos_spaces).not.toContain(belgrade)
+	})
+
+	test("希腊事件在未被康斯坦丁反制时会让希腊加入协约国", () => {
+		const game = createGame()
+
+		game.hand_cp = []
+		Engine.events.events_by_id[45].handler(game, {
+			goto_end_event() {
+				game.state = "end_event"
+			}
+		})
+
+		expect(game.events.greece).toBe(AP)
+		expect(Engine.neutral.is_greece_neutral(game)).toBe(false)
+	})
+
+	test("康斯坦丁未触发希腊入盟时只夺取萨洛尼卡而不会生成旧 POG 希腊单位", () => {
+		const game = createGame()
+		const rules = createStateRules(game)
+		const salonika = findSpace("Salonika")
+		const vpBefore = game.vp
+
+		game.hand_cp = [71]
+		setControl(game, "BELGRADE", AP)
+
+		eventStates.event_greece_counter.play_event({ game, rules })
+
+		expect(game.events.greece).toBeUndefined()
+		expect(game.control[salonika]).toBe(CP)
+		expect(game.vp).toBe(vpBefore + 1)
 	})
 
 	test("塞尔维亚自愿崩溃在罗马尼亚未崩溃时进入 AH 选择步骤，并保留 2 个免费 SR 上限", () => {

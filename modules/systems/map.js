@@ -89,6 +89,9 @@ module.exports = function (Engine) {
 	function is_disrupted_by_enemy(game, s, faction) {
 		if (faction === undefined) faction = game.active
 		let enemy = other_faction(faction)
+		if (enemy === CP && Array.isArray(game.persian_uprising_markers) && game.persian_uprising_markers.includes(s)) {
+			return true
+		}
 		let found = false
 		for_each_piece_in_space(game, s, (p) => {
 			if (get_piece_effective_faction(game, p) === enemy) {
@@ -240,13 +243,24 @@ module.exports = function (Engine) {
 		return find_space(data.spaces[s].beach_for)
 	}
 
-	function can_ap_initiate_invasion_to_beachhead(game, from, target, faction) {
-		if (faction !== AP) return false
+	function can_ap_place_beachhead_marker(game, target, required_island_base = -1) {
 		if (!is_potential_beachhead_space(target)) return false
 		if (is_beachhead_space(game, target)) return false
+		if (contains_enemy_pieces(game, target, AP)) return false
+		if (is_controlled_by(game, target, CP)) return false
+		let island_base = get_adjacent_island_base_for_beachhead(target)
+		if (island_base <= 0 || !is_island_base(game, island_base)) return false
+		if (!is_controlled_by(game, island_base, AP)) return false
+		if (required_island_base > 0 && island_base !== required_island_base) return false
+		return true
+	}
+
+	function can_ap_initiate_invasion_to_beachhead(game, from, target, faction) {
+		if (faction !== AP) return false
 		if ((game.unplaced_beachheads || 0) <= 0) return false
 		if (!is_island_base(game, from)) return false
-		if (get_adjacent_island_base_for_beachhead(target) !== from) return false
+		if (!is_controlled_by(game, from, AP)) return false
+		if (!can_ap_place_beachhead_marker(game, target, from)) return false
 		if (!game.move || game.move.spaces_moved > 0) return false
 		return true
 	}
@@ -388,6 +402,7 @@ module.exports = function (Engine) {
 		if (info.nation === "bu" && game.events && game.events["bulgaria"]) return CP
 		if (info.nation === "sb" && game.events && game.events["bulgaria"]) return AP
 		if (info.nation === "ro" && game.events && game.events["romania"]) return AP
+		if (info.nation === "afghanistan" && game.events && game.events["afghan_alliance"]) return CP
 		if (info.nation === "gr") {
 			if (Engine.neutral.is_greek_controlled_by_faction(game, AP)) return AP
 			if (Engine.neutral.is_greek_controlled_by_faction(game, CP)) return CP
@@ -980,7 +995,7 @@ module.exports = function (Engine) {
 						if (!game.events || !game.events["bulgaria"]) return false
 					} else if (nation === "pe") {
 						// Rule 19.6.1: Persian Neutrality.
-						if (!events.is_persia_open(game)) return false
+						if (!events.is_persia_open(game) && data.pieces[p].nation !== "pe") return false
 					} else {
 						return false
 					}
@@ -996,7 +1011,7 @@ module.exports = function (Engine) {
 
 		// Rule 19.6.1: Persian Neutrality / Secret Treaty.
 		if (area === "persia" && !is_afghanistan(s)) {
-			if (!events.is_persia_open(game)) return false
+			if (!events.is_persia_open(game) && data.pieces[p].nation !== "pe") return false
 		}
 
 		if (is_lcu(p)) {
@@ -2044,6 +2059,11 @@ function get_stack_yildirim_count(pieces) {
 				disrupted[opp][s] = 1
 			}
 		}
+		if (Array.isArray(game.persian_uprising_markers)) {
+			for (let s of game.persian_uprising_markers) {
+				if (s > 0 && s < space_count) disrupted[AP][s] = 1
+			}
+		}
 
 		return {
 			friendly,
@@ -2288,10 +2308,9 @@ function get_stack_yildirim_count(pieces) {
 		let region = info.region
 
 		if (faction === CP) {
-			// ... (保持 CP 逻辑不变)
 			if (nation) {
-				if (nation === "bu" && name !== "SOFIA") {
-					return !!(name === "SOFIA" && game.events && game.events["bulgaria"]);
+				if (nation === "bu" && name === "SOFIA") {
+					return !!(game.events && game.events["bulgaria"])
 				}
 			}
 
@@ -2606,6 +2625,18 @@ function get_stack_yildirim_count(pieces) {
 				let status = "OOS"
 				if (supply_info.full.has(s)) status = "FULL"
 				else if (supply_info.disrupted.has(s)) status = "DISRUPTED"
+				if (
+					status === "OOS" &&
+					faction === AP &&
+					info.nation === "sb" &&
+					!Engine.collapse.has_serbia_collapsed(game)
+				) {
+					let has_serbian_unit = get_pieces_in_space(game, s).some((p) => {
+						let piece = data.pieces[p]
+						return piece && piece.faction === AP && piece.nation === "sb"
+					})
+					if (has_serbian_unit) status = "FULL"
+				}
 				if (status === "OOS") {
 					// Rule 15.4.6 Exception: Trench markers in an intact Fort space do not suffer attrition.
 					let has_fort = has_undestroyed_fort(game, s, faction)
@@ -3115,8 +3146,8 @@ function get_stack_yildirim_count(pieces) {
 		return cost
 	}
 
-	function get_activation_cost_pair(game, s) {
-		let pieces = get_pieces_in_space(game, s)
+	function get_activation_cost_pair(game, s, pieces_in_space = null) {
+		let pieces = Array.isArray(pieces_in_space) ? pieces_in_space : get_pieces_in_space(game, s)
 		if (pieces.length === 0) return { move: 0, attack: 0 }
 
 		let faction = game.active
@@ -3250,6 +3281,7 @@ function get_stack_yildirim_count(pieces) {
 		is_island_base,
 		is_potential_beachhead_space,
 		get_adjacent_island_base_for_beachhead,
+		can_ap_place_beachhead_marker,
 		can_ap_initiate_invasion_to_beachhead,
 		is_beachhead_space,
 		get_tribe_type,

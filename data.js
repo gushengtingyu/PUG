@@ -16351,8 +16351,8 @@ var data = {
 	{
 		"id": 1227,
 		"name": "neutral_gr_UI",
-		"x": 179,
-		"y": 915,
+		"x": 150,
+		"y": 958,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -16731,7 +16731,7 @@ var data = {
 	{
 		"id": 1265,
 		"name": "box_ap_corps_assets_ru_lcu",
-		"x": 1230,
+		"x": 1220,
 		"y": 2000,
 		"type": "ui",
 		"connections": [],
@@ -16741,8 +16741,8 @@ var data = {
 	{
 		"id": 1266,
 		"name": "box_ap_corps_assets_br_lcu",
-		"x": 1230,
-		"y": 2090,
+		"x": 1220,
+		"y": 2085,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -16751,7 +16751,7 @@ var data = {
 	{
 		"id": 1267,
 		"name": "box_ap_corps_assets_in_lcu",
-		"x": 1340,
+		"x": 1285,
 		"y": 2000,
 		"type": "ui",
 		"connections": [],
@@ -16761,8 +16761,8 @@ var data = {
 	{
 		"id": 1268,
 		"name": "box_ap_corps_assets_fr_lcu",
-		"x": 1340,
-		"y": 2090,
+		"x": 1285,
+		"y": 2085,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -17023,6 +17023,16 @@ var data = {
 		"name": "box_ap_eliminated_other",
 		"x": 1855,
 		"y": 2735,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1295,
+		"name": "box_ap_corps_assets_anz_lcu",
+		"x": 1350,
+		"y": 2000,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -24680,7 +24690,7 @@ var data = {
 		"rp_br": 2,
 		"rp_ru": 3,
 		"rp_in": 2,
-		"name": "加利波里入侵",
+		"name": "加里波利入侵",
 		"event": "GALLIPOLI INVASION"
 	},
 	{
@@ -26372,8 +26382,8 @@ var data = {
 	{
 		"id": 82,
 		"key": "neutral_gr_UI",
-		"x": 179,
-		"y": 915,
+		"x": 150,
+		"y": 958,
 		"w": 200,
 		"h": 160
 	},
@@ -26676,7 +26686,7 @@ var data = {
 	{
 		"id": 120,
 		"key": "box_ap_corps_assets_ru_lcu",
-		"x": 1230,
+		"x": 1220,
 		"y": 2000,
 		"w": 44,
 		"h": 44
@@ -26684,15 +26694,15 @@ var data = {
 	{
 		"id": 121,
 		"key": "box_ap_corps_assets_br_lcu",
-		"x": 1230,
-		"y": 2090,
+		"x": 1220,
+		"y": 2085,
 		"w": 44,
 		"h": 44
 	},
 	{
 		"id": 122,
 		"key": "box_ap_corps_assets_in_lcu",
-		"x": 1340,
+		"x": 1285,
 		"y": 2000,
 		"w": 44,
 		"h": 44
@@ -26700,8 +26710,8 @@ var data = {
 	{
 		"id": 123,
 		"key": "box_ap_corps_assets_fr_lcu",
-		"x": 1340,
-		"y": 2090,
+		"x": 1285,
+		"y": 2085,
 		"w": 44,
 		"h": 44
 	},
@@ -26910,6 +26920,14 @@ var data = {
 		"key": "box_ap_eliminated_other",
 		"x": 1855,
 		"y": 2735,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 150,
+		"key": "box_ap_corps_assets_anz_lcu",
+		"x": 1350,
+		"y": 2000,
 		"w": 44,
 		"h": 44
 	}
@@ -27568,7 +27586,8 @@ data.space_name = {
 	"box_ap_eliminated_fr_scu": 1291,
 	"box_ap_eliminated_ro_lcu": 1292,
 	"box_ap_eliminated_ro_scu": 1293,
-	"box_ap_eliminated_other": 1294
+	"box_ap_eliminated_other": 1294,
+	"box_ap_corps_assets_anz_lcu": 1295
 }
 
 if (typeof module === 'object') {

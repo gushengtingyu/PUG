@@ -176,7 +176,7 @@ module.exports = function (Engine) {
 		let s = game.pieces[p]
 		let pe_box = get_permanently_eliminated_box(data.pieces[p].faction)
 		// If PE box is same as removed box, we don't want recursion
-		if (pe_box === get_removed_box(data.pieces[p].faction)) return false 
+		if (pe_box === get_removed_box(data.pieces[p].faction)) return false
 		return s === pe_box
 	}
 
@@ -253,7 +253,7 @@ module.exports = function (Engine) {
 		return is_eliminated(game, p) || is_in_reserve(game, p) || is_removed(game, p) || is_reinforcement(game, p)
 	}
 	function get_piece_cf(game, p) {
-		if (p < 0) return 0 
+		if (p < 0) return 0
 		if (is_hq(p)) {
 			if (set_has(game.reduced, p)) return data.pieces[p].rlf || 0
 			return data.pieces[p].lf || 0
