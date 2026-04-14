@@ -1261,7 +1261,7 @@ module.exports = function (Engine) {
 			},
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "let_the_french_bleed")
-				game.vp -= 1
+				game.vp += 1
 				game.active = AP
 				let units = ["BR Elite DIV #4", "BR Elite DIV #5", "BR Elite DIV #6"]
 				event.reinf_to_place = units
@@ -1618,7 +1618,7 @@ module.exports = function (Engine) {
 			name: "INDIAN REINFORCEMENTS",
 			add_rein_record: "in_anz",
 			name_cn: "印度增援",
-			effect_cn: "增援:印度第3军团。增援:1个精锐步兵师，1个骑兵师",
+			effect_cn: "增援:印度第3军团。增援:1个精锐步兵师，1个骑兵师至预备军格",
 			can_play: function () {
 				return true
 			},
@@ -1627,7 +1627,11 @@ module.exports = function (Engine) {
 				game.active = AP
 				let units = ["IN 3rd Corps", "IN Elite DIV #3", "IN Cavalry #6"]
 				event.reinf_to_place = units
-				event.reinf_placement = "map"
+				event.reinf_placement = {
+					"IN 3rd Corps": "map",
+					"IN Elite DIV #3": "reserve",
+					"IN Cavalry #6": "reserve"
+				}
 				event.reinf_logic = "is_br"
 				game.state = "event_place_reinforcements"
 			},

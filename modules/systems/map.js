@@ -2668,6 +2668,8 @@ function get_stack_yildirim_count(pieces) {
 
 			// Rule 16.1.5: HQs are never out of supply
 			if (is_hq(p)) return cache_result("FULL")
+			// Tribes are never out of supply
+			if (is_tribe(p)) return cache_result("FULL")
 
 			// Event-spawned rebels/uprisings
 			if (name.startsWith("Egypt Rebel")) {
