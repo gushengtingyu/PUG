@@ -257,6 +257,16 @@ module.exports = function (Engine) {
 		return false
 	}
 
+	function has_enemy_units_in_space(game, s, faction) {
+		let enemy = Engine.map.other_faction(faction)
+		let pieces = get_pieces_in_space(game, s)
+		for (let p of pieces) {
+			let info = data.pieces[p]
+			if (info && info.faction === enemy) return true
+		}
+		return false
+	}
+
 	Engine.reinf_helpers = {
 		is_br: {
 			faction: AP,
@@ -264,6 +274,7 @@ module.exports = function (Engine) {
 			check: function (game, s) {
 				let space = data.spaces[s]
 				if (!space) return false
+				if (s === SALONIKA) return false
 
 				// 1. 英国补给源 (根据 7.7.5, 即使被敌方控制也可以放置)
 				if (Engine.map.is_base_supply_source(game, s, AP, "br", true)) {
@@ -275,8 +286,9 @@ module.exports = function (Engine) {
 					// Rule 13.3.2: 德国潜艇地中海猎袭期间，不能在特定港口增援
 					if (is_german_subs_blocked_port(game, s)) return false
 
-					// 排除 阿卡巴、吉达、黑海港口、里海港口
+					// 排除 阿卡巴、吉达、萨洛尼卡、黑海港口、里海港口
 					if (s === AQABA || s === JIDDAH) return false
+					if (s === SALONIKA) return false
 					if (Engine.map.is_black_sea_port(game, s) || Engine.map.is_caspian_sea_port(game, s)) return false
 
 					let besieged = is_besieged(game, s)
@@ -394,9 +406,31 @@ module.exports = function (Engine) {
 					return is_port || is_beachhead || is_lemnos || is_salonika
 				})
 		},
+		is_ap_invasion_rein: {
+			faction: AP,
+			desc: (game, unit_name) => {
+				let p = find_piece(AP, unit_name)
+				let info = p >= 0 ? data.pieces[p] : null
+				if (!info) return "该单位的正常协约国增援位置"
+				if (["fr", "it"].includes(info.nation)) return "任何协约国控制的东地中海或爱琴海港口"
+				return "任何英国补给源或协约国控制的港口"
+			},
+			check: (game, s) => {
+				let units = get_pending_reinf_units(game)
+				if (!units || units.length === 0) return false
+				let unit_name = units[0]
+				let p = find_piece(AP, unit_name)
+				let info = p >= 0 ? data.pieces[p] : null
+				if (!info) return false
+				if (["fr", "it"].includes(info.nation)) {
+					return Engine.reinf_helpers.is_frit.check(game, s)
+				}
+				return Engine.reinf_helpers.is_br.check(game, s)
+			}
+		},
 		is_serb_return_rein: {
 			faction: AP,
-			desc: "利姆诺斯 (Lemnos)、协约国控制的萨洛尼卡 (Salonika) 或协约国预备军格 (集团军仅限预备军格)",
+			desc: "利姆诺斯 (Lemnos)、协约国控制的萨洛尼卡 (Salonika) 或协约国预备军格",
 			check: function (game, s) {
 				let units = get_pending_reinf_units(game)
 				if (!units || units.length === 0) return false
@@ -404,7 +438,7 @@ module.exports = function (Engine) {
 				let is_army = unit_name.includes("Army")
 
 				if (is_army) {
-					// 集团军只能放协约国预备军格 (AP Corps Assets)
+					// LCU只能放协约国预备军格 (AP Corps Assets)
 					return s === get_lcu_reserve_box(AP)
 				} else {
 					// 师和骑兵可以放萨洛尼卡(需协约国控制)或利姆诺斯或预备军格
@@ -419,6 +453,36 @@ module.exports = function (Engine) {
 					}
 				}
 				return false
+			}
+		},
+		is_bulgarian_entry_rein: {
+			faction: CP,
+			desc: "任何未驻有协约国单位的保加利亚地块",
+			check: function (game, s) {
+				let space = data.spaces[s]
+				if (!space || space.nation !== "bu") return false
+				if (!game.events || !game.events["bulgaria"]) return false
+				return !has_enemy_units_in_space(game, s, CP)
+			}
+		},
+		is_serbian_entry_rein: {
+			faction: AP,
+			desc: "任何未驻有同盟国单位的塞尔维亚地块",
+			check: function (game, s) {
+				let space = data.spaces[s]
+				if (!space || space.nation !== "sb") return false
+				if (!game.events || !game.events["bulgaria"]) return false
+				return !has_enemy_units_in_space(game, s, AP)
+			}
+		},
+		is_romanian_entry_rein: {
+			faction: AP,
+			desc: "任何未驻有同盟国单位的罗马尼亚地块",
+			check: function (game, s) {
+				let space = data.spaces[s]
+				if (!space || space.nation !== "ro") return false
+				if (!game.events || !game.events["romania"]) return false
+				return !has_enemy_units_in_space(game, s, AP)
 			}
 		},
 		is_yildrim_rein: {
@@ -442,7 +506,7 @@ module.exports = function (Engine) {
 		},
 		is_caucasian_army_reforms_rein: {
 			faction: CP,
-			desc: "安纳托利亚、高加索或加利波里的同盟国控制地区",
+			desc: "安纳托利亚、高加索或加里波利的同盟国控制地区",
 			check: (game, s) => check_reinforcement_space(game, s, CP, (space, s) => is_anatolia(s) || is_caucasus(s) || is_gallipoli(s))
 		},
 		is_secret_treaty_rein: {
@@ -550,8 +614,37 @@ module.exports = function (Engine) {
 		return !!(game.events && (game.events.secret_treaty || game.events.persian_push))
 	}
 
+	function is_neutral_persia_space(s) {
+		let info = data.spaces[s]
+		return !!(info && info.area === "persia" && info.faction === "neutral")
+	}
+
+	function has_enemy_unit_in_space(game, s, faction) {
+		let enemy = Engine.map.other_faction(faction)
+		let pieces = get_pieces_in_space(game, s)
+		return pieces.some((p) => {
+			let info = data.pieces[p]
+			return info && info.faction === enemy
+		})
+	}
+
+	function get_german_intrigues_unit_spaces(game) {
+		let options = []
+		for (let s = 1; s < data.spaces.length; s++) {
+			if (!is_neutral_persia_space(s)) continue
+			if (has_enemy_unit_in_space(game, s, CP)) continue
+			let pieces = get_pieces_in_space(game, s)
+			if (pieces.length === 0 || is_controlled_by(game, s, CP)) options.push(s)
+		}
+		return options
+	}
+
 	function is_ap_invasion_event_used_this_turn(game) {
 		return !!(game && game.events && game.events["ap_invasion_event"] === game.turn)
+	}
+
+	function has_available_cyprus_beachhead(game) {
+		return CYPRUS_BEACHHEADS.some((s) => Engine.map.can_ap_place_beachhead_marker(game, s, CYPRUS))
 	}
 
 	function can_play_project_alexandria(game) {
@@ -559,7 +652,8 @@ module.exports = function (Engine) {
 			game.events["egyptian_coup"] &&
 			get_season(game) !== "Winter" &&
 			!game.events["unrestricted_submarine_warfare"] &&
-			!is_ap_invasion_event_used_this_turn(game)
+			!is_ap_invasion_event_used_this_turn(game) &&
+			has_available_cyprus_beachhead(game)
 		)
 	}
 
@@ -958,7 +1052,7 @@ module.exports = function (Engine) {
 			name: "CHURCHILL PREVAILS",
 			name_cn: "丘吉尔胜出",
 			effect_cn:
-				"允许打出【海上入侵】事件(亚历山大计划除外)。协约国玩家派遣皇家海军舰队，开始掷骰并按照顺序**从加利波里沿达达尼尔海峡向上**开始对**土耳其海峡沿岸要塞**实施炮击。若掷骰结果**大于**该要塞火力值，则要塞被摧毁，并继续向上对下一个要塞进行炮击。**一旦其中一次失败，则终止一切以下步骤。**。若**炮击加利波里要塞成功并将其摧毁**，则皇家海军驶入马尔马拉海，协约国玩家获得以下效果:。❶此时协约国玩家**可以选择**是否炮击君士坦丁堡。如果选择炮击，则获得:。1、-1VP。2、+1圣战等级。❷在预备军格或者地中海东部任何协约国控制的港口增援2个英国精锐步兵师。视为基钦纳被丘吉尔说服，从西线战场调来精锐部队。。❸此时协约国玩家**还可以选择**继续炮击博斯普鲁斯海峡要塞。若本次炮击成功则该要塞被摧毁，本回合立即获得2点俄国补员点数。此后的每回合额外获得1点俄国补员点数，直到【地中海潜艇猎袭】打出为止。",
+				"允许打出【海上入侵】事件(亚历山大计划除外)。协约国玩家派遣皇家海军舰队，开始掷骰并按照顺序**从加里波利沿达达尼尔海峡向上**开始对**土耳其海峡沿岸要塞**实施炮击。若掷骰结果**大于**该要塞火力值，则要塞被摧毁，并继续向上对下一个要塞进行炮击。**一旦其中一次失败，则终止一切以下步骤。**。若**炮击加里波利要塞成功并将其摧毁**，则皇家海军驶入马尔马拉海，协约国玩家获得以下效果:。❶此时协约国玩家**可以选择**是否炮击君士坦丁堡。如果选择炮击，则获得:。1、-1VP。2、+1圣战等级。❷在预备军格或者地中海东部任何协约国控制的港口增援2个英国精锐步兵师。视为基钦纳被丘吉尔说服，从西线战场调来精锐部队。。❸此时协约国玩家**还可以选择**继续炮击博斯普鲁斯海峡要塞。若本次炮击成功则该要塞被摧毁，本回合立即获得2点俄国补员点数。此后的每回合额外获得1点俄国补员点数，直到【地中海潜艇猎袭】打出为止。",
 			handler: function (game, ctx) {
 				let event = ctx && typeof ctx.start_event === "function" ? ctx.start_event("churchill_prevails") : null
 				game.events["churchill_prevails"] = true
@@ -1108,14 +1202,14 @@ module.exports = function (Engine) {
 				return true
 			},
 			handler: function (game, ctx) {
-				start_event_data(game, ctx, "kitcheners_invasion")
+				let event = start_event_data(game, ctx, "kitcheners_invasion")
 				game.events["kitcheners_invasion"] = true
-
-				reinforce(game, "BR Elite DIV #3", AP)
-				reinforce(game, "BR Cavalry #1", AP)
-
 				game.active = AP
-				game.state = "event_kitcheners_invasion_choice"
+				event.reinf_to_place = ["BR Elite DIV #3", "BR Cavalry #1"]
+				event.reinf_placement = "reserve"
+				event.reinf_prompt_prefix = "基钦纳入侵"
+				event.reinf_next_state = "event_kitcheners_invasion_choice"
+				game.state = "event_place_reinforcements"
 			},
 			defer_end: true
 		},
@@ -1127,12 +1221,14 @@ module.exports = function (Engine) {
 			can_play: function (game) {
 				if (!game.events["secret_treaty"] && !game.events["persian_push"]) return false
 				let has_port = false
-				for (let s of [BAKU, find_space("Derbent"), PETROVSK]) {
+				for (let s = 1; s < data.spaces.length; s++) {
+					if (!Engine.map.is_caspian_sea_port(s)) continue
 					let pieces = get_pieces_in_space(game, s)
 					// CP units will retreat, so we only count AP units already there that count toward stacking.
+					let ap_pieces = pieces.filter((p) => data.pieces[p].faction === AP)
 					let ap_stack_count = Engine.map.get_stack_count(pieces.filter((p) => data.pieces[p].faction === AP))
-					// Need room for 2 SCUs (RU DIV #14, RU Cavalry #8). Baratov HQ doesn't count.
-					if (ap_stack_count <= 1) {
+					//  for 2 SCUs (RU DIV #14, RU Cavalry #8). Baratov HQ doesn't count.
+					if (ap_pieces.length <= 1 && ap_stack_count <= 1) {
 						has_port = true
 						break
 					}
@@ -1141,20 +1237,12 @@ module.exports = function (Engine) {
 
 				let has_az_space = false
 				for (let s = 1; s < data.spaces.length; s++) {
-					if (Engine.map.is_azerbaijan(s) && get_pieces_in_space(game, s).length === 0) {
+					if (Engine.map.is_azerbaijan(s) && get_capacity(game, s) > 0) {
 						has_az_space = true
 						break
 					}
 				}
-				if (!has_az_space) return false
-
-				let persia_capacity = 0
-				for (let s = 1; s < data.spaces.length; s++) {
-					if (Engine.map.is_persia(s)) {
-						persia_capacity += get_capacity(game, s)
-					}
-				}
-				return persia_capacity >= 3
+				return has_az_space
 			},
 			handler: function (game, ctx) {
 				game.events["grand_duke_to_tiflis"] = game.turn
@@ -1262,6 +1350,10 @@ module.exports = function (Engine) {
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "let_the_french_bleed")
 				game.vp += 1
+<<<<<<< HEAD
+=======
+				log(game, "让法国人流血: CP +1 VP", ctx)
+>>>>>>> 310b522098a95a1310c117df8b66522587a38f88
 				game.active = AP
 				let units = ["BR Elite DIV #4", "BR Elite DIV #5", "BR Elite DIV #6"]
 				event.reinf_to_place = units
@@ -1312,25 +1404,39 @@ module.exports = function (Engine) {
 				}
 				return has_ap_lcu
 			},
-			handler: function (game) {
-				game.events["romania"] = true
-				game.entry_ro = true
-
-				let romania_entry_plan = Engine.collapse.get_romanian_entry_plan()
-				let ro_units = romania_entry_plan.ap.ro_units
-				for (let unit of ro_units) reinforce(game, unit, AP, "Bucharest")
-
-				let cp_units = [...romania_entry_plan.cp.ge_units, ...romania_entry_plan.cp.ah_units]
-				for (let unit of cp_units) reinforce(game, unit, CP, RESERVE)
-
-				game.active = AP
-				game.state = "event_romania_attack"
+			handler: function (game, ctx) {
+				let event = start_event_data(game, ctx, "romania_entry_29")
+				let entry = Engine.neutral.trigger_romania_entry(game)
+				let next_state = game.events["bulgaria"] ? "event_romania_place_bu_ah_div" : "event_romania_attack"
+				let ro_map_units = entry && entry.ro_map_units ? entry.ro_map_units : []
+				if (ro_map_units.length > 0) {
+					event.reinf_to_place = ro_map_units
+					event.reinf_placement = "map"
+					event.reinf_logic = "is_romanian_entry_rein"
+					event.reinf_prompt_prefix = "罗马尼亚参战"
+					event.reinf_next_state = next_state
+					event.reinf_allow_adjacent_overflow = false
+					event.reinf_check_supply_on_complete = true
+					game.active = AP
+					game.state = "event_place_reinforcements"
+					return
+				}
+				if (typeof Engine.map.check_supply === "function") {
+					Engine.map.check_supply(game)
+				}
+				if (game.events["bulgaria"]) {
+					game.active = CP
+					game.state = "event_romania_place_bu_ah_div"
+				} else {
+					game.active = AP
+					game.state = "event_romania_attack"
+				}
 			},
 			defer_end: true
 		},
 		30: {
 			name: "GALLIPOLI INVASION",
-			name_cn: "加利波里入侵",
+			name_cn: "加里波利入侵",
 			effect_cn:
 				"(只能在【丘吉尔胜出】后打出，不能在冬季回合打出。可以当作英国增援打出以代替入侵)。——海上入侵——。入侵:(英国第8军团)、(澳新军团)、2个法国步兵师、1个英国步兵师 至岛屿基地。。若预备军格有参与入侵的LCU所对应的SCU单位，则可以立即将本次增援的受损的LCU翻至满员面。(可以立即从地图上战略调整SCU至预备军格来达成该条件)。获得两个滩头标记。",
 			can_play: function () {
@@ -1399,13 +1505,14 @@ module.exports = function (Engine) {
 				return true
 			},
 			handler: function (game, ctx) {
-				start_event_data(game, ctx, "salonika_invasion")
+				let event = start_event_data(game, ctx, "salonika_invasion")
 				game.events["salonika_invasion"] = true
-
-				reinforce(game, "FR Army Orient 1", AP)
-
 				game.active = AP
-				game.state = "event_salonika_invasion_choice"
+				event.reinf_to_place = ["FR Army Orient 1"]
+				event.reinf_placement = "reserve"
+				event.reinf_prompt_prefix = "萨洛尼卡入侵"
+				event.reinf_next_state = "event_salonika_invasion_choice"
+				game.state = "event_place_reinforcements"
 			},
 			defer_end: true
 		},
@@ -1588,14 +1695,15 @@ module.exports = function (Engine) {
 				const { neutral } = Engine
 				// 如果 CP 手中有“康斯坦丁国王”(ID: 71) 且满足打出条件，则进入打断状态，询问 CP 是否打出以反制。
 				let has_constantine = game.hand_cp.includes(71)
- 				if (has_constantine) {
- 					game.state = "event_greece_counter"
- 					game.active = CP
+				if (has_constantine) {
+					game.state = "event_greece_counter"
+					game.active = CP
 					Engine.log(game, "协约国打出【希腊】事件，等待同盟国响应...")
 					return "interactive"
 				}
-				
-				neutral.trigger_greece_entry(game, null, CP, "希腊事件", (msg) => log(game, msg, ctx))
+
+				game.vp -= 1
+				neutral.trigger_greece_entry(game, null, AP, "希腊事件", (msg) => log(game, msg, ctx))
 				game.events["greece_event_played"] = true
 				if (ctx && typeof ctx.goto_end_event === "function") ctx.goto_end_event()
 				else if (ctx && typeof ctx.goto_end_operations === "function") ctx.goto_end_operations()
@@ -1900,7 +2008,7 @@ module.exports = function (Engine) {
 		63: {
 			name: "GERMAN MILITARY ADVISERS",
 			name_cn: "德国军事顾问",
-			effect_cn: "获得1点土耳其补员点数。在任何安纳托利亚地区或者加利波里地图内的地区放置4处1级战壕",
+			effect_cn: "获得1点土耳其补员点数。在任何安纳托利亚地区或者加里波利地图内的地区放置4处1级战壕",
 			handler: function (game, ctx) {
 				game.rp_cp.tu += 1
 				game.active = CP
@@ -2048,13 +2156,12 @@ module.exports = function (Engine) {
 
 				// Rule 19.2.1: Neutral Greece becomes a CP ally if King Constantine is played when conditions met.
 				if (neutral.is_greece_neutral(game) && neutral.check_constantine_entry_conditions(game)) {
-					neutral.trigger_greece_entry(game, null, AP, "康斯坦丁国王事件", (msg) => log(game, msg, ctx))
+					neutral.trigger_greece_entry(game, null, CP, "康斯坦丁国王事件", (msg) => log(game, msg, ctx))
 				} else {
-					// Even if not joining, CP gets reinforcements and control of Salonika
-					reinforce(game, "GR Inf #1", CP)
-					reinforce(game, "GR Inf #2", CP)
-					reinforce(game, "GR Inf #3", CP)
-					reinforce(game, "GR Cav #1", CP)
+					let salonika = Engine.game_utils.find_space("Salonika")
+					if (salonika >= 0 && typeof Engine.set_control === "function") {
+						Engine.set_control(game, salonika, CP)
+					}
 					game.vp += 1 // CP gains 1 VP
 				}
 
@@ -2234,8 +2341,9 @@ module.exports = function (Engine) {
 			handler: function (game, ctx) {
 				game.events["german_subs"] = true
 				game.events["german_subs_turn"] = game.turn
+				game.vp += 1
+				log(game, "地中海潜艇猎袭: CP +1 VP", ctx)
 				log(game, "地中海潜艇猎袭: 禁止所有的协约国海上支持。", ctx)
-
 				if (!game.ui_tokens) game.ui_tokens = {}
 				game.ui_tokens["SUB IN THE MED"] = "MUBMed.png"
 				let p = find_piece(undefined, "U_boats in the Med token")
@@ -2253,11 +2361,21 @@ module.exports = function (Engine) {
 				let baghdad = find_space("Baghdad")
 				return baghdad >= 0 && is_controlled_by(game, baghdad, CP)
 			},
-			handler: function (game) {
+			handler: function (game, ctx) {
 				update_jihad_level(game, 1)
-				reinforce(game, "TU Persian Insurgents", CP)
 				game.events["german_intrigue_persia"] = true
-			}
+				let event = start_event_data(game, ctx, "german_intrigues_persia", {
+					unit_name: "PE Uprising",
+					unit_spaces: get_german_intrigues_unit_spaces(game),
+					markers_to_place: 3,
+					marker_spaces: []
+				})
+				game.active = CP
+				if (!Array.isArray(game.persian_uprising_markers)) game.persian_uprising_markers = []
+				event.unit_spaces = get_german_intrigues_unit_spaces(game)
+				game.state = "event_german_intrigues_persia_unit"
+			},
+			defer_end: true
 		},
 		79: {
 			name: "MISSION TO AFGHANISTAN",
@@ -2387,14 +2505,14 @@ module.exports = function (Engine) {
 			name: "VERDUN",
 			name_cn: "凡尔登战役",
 			effect_cn:
-				"(只有在安纳托利亚地区以及加利波里小地图的陆上没有协约国LCU时才能打出)。协约国玩家需要选择。A: 让同盟国获得 +2VP。B: 移除至少2个师当量，使同盟国仅获得 +1VP。C: 移除至少4个师当量，使同盟国不获得 VP。本回合德国补员点数无法使用。(注: 1LCU=3SCU；可超额移除但不会找零。必须满足规则 21.1 的精锐/特种、BR→ANZ→IN 优先和补给要求。骑兵、骆驼以及英国特殊部队不能用于此效果。)",
+				"(只有在安纳托利亚地区以及加里波利小地图的陆上没有协约国LCU时才能打出)。协约国玩家可将合法单位移至移除格；确认后系统自动结算：未满足条件则同盟国 +2VP，达到至少2个师当量则同盟国仅 +1VP，达到至少4个师当量则同盟国不获得 VP。本回合德国补员点数无法使用。(注: 1LCU=3SCU；可超额移除但不会找零。必须满足规则 21.1 的精锐/特种、BR→ANZ→IN 优先和补给要求。骑兵、骆驼以及英国特殊部队不能用于此效果。)",
 			can_play: function (game) {
 				return !has_allied_lcu_in_verdun_restricted_zone(game)
 			},
 			handler: function (game) {
 				game.events["verdun"] = true
 				game.active = AP
-				game.state = "event_verdun_choice"
+				game.state = "event_verdun_remove"
 			},
 			defer_end: true
 		},
@@ -2405,38 +2523,23 @@ module.exports = function (Engine) {
 			can_play: function (game) {
 				return can_play_neutral_entry_this_turn(game)
 			},
-			handler: function (game) {
-				game.events["bulgaria"] = true
-				game.entry_bu = true
-				game.entry_sb = true
-				const bulgariaPlan = Engine.collapse.get_bulgaria_entry_plan()
-
-				const { AP, CP } = Engine.constants
-
-				// 1. Helper to find a division from Force Pool
-				function reinforce_first_available(names, faction, space) {
-					for (let name of names) {
-						if (reinforce(game, name, faction, space)) return true
+			handler: function (game, ctx) {
+				Engine.neutral.trigger_bulgaria_entry(game)
+				if (game.events["romania"]) {
+					game.active = CP
+					game.state = "event_bulgaria_place_3rd_army"
+				} else {
+					Engine.neutral.place_entry_units(game, CP, [
+						{ space: "Rustchuk", units: ["BU 3 Army"] }
+					])
+					if (typeof Engine.map.check_supply === "function") {
+						Engine.map.check_supply(game)
 					}
-					return false
+					if (ctx && typeof ctx.goto_end_event === "function") ctx.goto_end_event()
+					else game.state = "end_event"
 				}
-
-				// 2. Place CP pieces (Bulgaria)
-				// Rule 19.3.1: 1st Army, 2nd Army, 3rd Army, one BU division, one GE division, one AH division in any Bulgarian spaces.
-				for (let unit of bulgariaPlan.cp.fixed_armies) reinforce(game, unit, CP, "SOFIA")
-				reinforce_first_available(bulgariaPlan.cp.bu_division_pool, CP, "SOFIA")
-				reinforce_first_available(bulgariaPlan.cp.ge_division_pool, CP, "SOFIA")
-				reinforce_first_available(bulgariaPlan.cp.ah_division_pool, CP, "SOFIA")
-
-				// Additional German units entering with Bulgaria (Rule 19.3.1 / Setup card)
-				for (let unit of bulgariaPlan.cp.ge_support) reinforce(game, unit, CP, "SOFIA")
-
-				// 3. Place AP pieces (Serbia)
-				// Rule 19.4.1: 1st Army, 2nd Army, 3rd Army, 6 divisions, and Cavalry in any non-enemy occupied Serbian spaces.
-				for (let unit of bulgariaPlan.ap.armies) reinforce(game, unit, AP, "BELGRADE")
-				reinforce(game, bulgariaPlan.ap.cavalry, AP, "BELGRADE")
-				for (let unit of bulgariaPlan.ap.divisions) reinforce(game, unit, AP, "BELGRADE")
-			}
+			},
+			defer_end: true
 		},
 		89: {
 			name: "PARVUS TO BERLIN",
@@ -2712,7 +2815,7 @@ module.exports = function (Engine) {
 			name: "CAUCASIAN ARMY REFORMS",
 			name_cn: "高加索军队重组",
 			effect_cn:
-				"立即消灭4个地图上/预备军格的土耳其/土耳其-阿拉伯LCU作为代价。。增援:土耳其高加索第1军团、土耳其高加索第2军团 至安纳托利亚、高加索或者加利波里的同盟国控制区域。",
+				"立即消灭4个地图上/预备军格的土耳其/土耳其-阿拉伯LCU作为代价。。增援:土耳其高加索第1军团、土耳其高加索第2军团 至安纳托利亚、高加索或者加里波利的同盟国控制区域。",
 			handler: function (game) {
 				game.events["caucasian_army_reforms"] = true
 				game.active = CP
@@ -2729,8 +2832,9 @@ module.exports = function (Engine) {
 				let year = get_year(game)
 				return (year > 1917 || (year === 1917 && get_season(game) !== "Winter")) && game.events["german_subs"]
 			},
-			handler: function (game) {
+			handler: function (game, ctx) {
 				game.vp -= 1
+				log(game, "无限制潜艇战: AP +1 VP", ctx)
 				game.events["unrestricted_submarine_warfare"] = true
 				game.unplaced_beachheads = 0
 			}
@@ -2793,6 +2897,24 @@ module.exports = function (Engine) {
 	exports.bulls_eye_use_extra_attack = bulls_eye_use_extra_attack
 	exports.bulls_eye_ru_attack_drm = bulls_eye_ru_attack_drm
 	exports.bulls_eye_cleanup_scus = bulls_eye_cleanup_scus
+
+	// --- Generic Event Queries (Decoupling from map/game_utils) ---
+	function is_event_active(game, event_id) { return game.events && !!game.events[event_id] }
+	function is_turn_event_active(game, event_id) { return game.events && game.events[event_id] === game.turn }
+
+	exports.is_br_rp_blocked = function (game) { return game.active === Engine.constants.AP && is_turn_event_active(game, "parliamentary_inquiry") }
+	exports.is_ru_rp_blocked = function (game) { return is_turn_event_active(game, "gorlice_tarnow") }
+	exports.get_russian_revolution_level = function (game) { return (game.events && game.events["russian_revolution"]) || 0 }
+	exports.is_royal_navy_blockade_active = function (game) { return is_event_active(game, "royal_navy_blockade") }
+	exports.is_arab_desertion_active = function (game) { return is_event_active(game, "arab_desertion") }
+	exports.is_egyptian_coup_active = function (game) { return is_event_active(game, "egyptian_coup") }
+	exports.is_bulgaria_active = function (game) { return is_event_active(game, "bulgaria") }
+	exports.is_romania_active = function (game) { return is_event_active(game, "romania") }
+	exports.is_afghan_alliance_active = function (game) { return is_event_active(game, "afghan_alliance") }
+	exports.is_rupel_active = function (game) { return is_event_active(game, "rupel") }
+	exports.is_berlin_baghdad_active = function (game) { return is_event_active(game, "berlin_baghdad") }
+	// ----------------------------------------------------------------
+
 	exports.is_persia_open = is_persia_open
 	exports.is_german_subs_blocked_port = is_german_subs_blocked_port
 	exports.apply_turkish_war_weariness_rp = apply_turkish_war_weariness_rp
@@ -2806,6 +2928,7 @@ module.exports = function (Engine) {
 	exports.get_long_live_czar_turn = get_long_live_czar_turn
 	exports.sync_russian_revolution_markers = sync_russian_revolution_markers
 	exports.reinforce = reinforce
+	exports.finish_event = finish_event
 
 	return exports
 }

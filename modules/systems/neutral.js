@@ -140,30 +140,212 @@ module.exports = function (Engine) {
 	}
 
 	function trigger_greece_entry(game, target, entering_faction, reason, log_fn) {
-		const { map } = Engine
 		if (!is_greece_neutral(game)) return false
-		let opponent = map.other_faction(entering_faction)
-		set_greece_faction(game, opponent)
+		set_greece_faction(game, entering_faction)
 		game.entry_gr = true
 		if (typeof log_fn === "function") {
-			log_fn(`希腊加入${opponent === AP ? "协约国" : "同盟国"}阵营（${reason}${target ? " " + data.spaces[target].name : ""}）`)
+			log_fn(
+				`希腊加入${entering_faction === AP ? "协约国" : "同盟国"}阵营（${reason}${target ? " " + data.spaces[target].name : ""}）`
+			)
 		}
-		for (let s = 1; s < data.spaces.length; s++) {
-			if (!data.spaces[s] || data.spaces[s].nation !== "gr") continue
-			if (map.get_pieces_in_space(game, s).length === 0 && typeof Engine.set_control === "function") {
-				Engine.set_control(game, s, opponent)
-			}
-		}
-		let athens = find_space("Athens")
-		if (
-			athens >= 0 &&
-			map.get_pieces_in_space(game, athens).every((p) => data.pieces[p].faction !== entering_faction)
-		) {
-			if (typeof Engine.set_control === "function") {
-				Engine.set_control(game, athens, opponent)
-			}
-		}
+
+		change_neutral_control(game, "gr", entering_faction)
+
 		return true
+	}
+
+	function place_entry_units(game, faction, instructions) {
+		let { map, game_utils } = Engine
+		let log_fn = (msg) => Engine.log(game, msg)
+		for (let inst of instructions) {
+			let { space, units } = inst
+			let space_id = -1
+			if (space === "RESERVE") {
+				space_id = game_utils.get_reserve_box(faction)
+			} else {
+				space_id = game_utils.find_space(space)
+			}
+			if (space_id < 0) continue
+			for (let unit_name of units) {
+				let p = game_utils.find_piece(faction, unit_name)
+				if (p >= 0 && game_utils.is_not_on_map(game, p)) {
+					game.pieces[p] = space_id
+					log_fn(`部署 ${unit_name} 至 ${space === "RESERVE" ? "预备格" : data.spaces[space_id].name}`)
+				}
+			}
+		}
+	}
+
+	function change_neutral_control(game, nation, new_controller) {
+		// POG and PUG behavior: The UI renders tokens for controlled spaces
+		// However, spaces belonging to a nation joining its DEFAULT faction do not need explicit control tokens.
+		// map.js get_default_controller already handles "if bulgaria event -> bu is CP". 
+		// We only need to call set_control if the new_controller differs from the default controller AFTER the event,
+		// but since the event just fired, the default controller is already the new_controller.
+		// Actually, we shouldn't explicitly set control for all spaces because that places physical tokens.
+		// We just let get_default_controller do its job.
+		// To be safe and clean up any pre-existing enemy control tokens if needed (rare), we could do:
+		for (let s = 1; s < data.spaces.length; s++) {
+			if (data.spaces[s] && data.spaces[s].nation === nation) {
+				if (game.control && game.control[s] !== undefined) {
+					// Clear explicit control token so it falls back to the new default
+					delete game.control[s]
+				}
+			}
+		}
+	}
+
+	function trigger_romania_entry(game) {
+		game.events["romania"] = true
+		game.entry_ro = true
+		change_neutral_control(game, "ro", AP)
+
+		let { game_utils } = Engine
+		let get_divs = (nation, count, is_ap = false) => {
+			let plan = Engine.collapse.get_romanian_entry_plan()
+			let pool = is_ap ? plan.ap[`${nation}_division_pool`] || [] : plan.cp[`${nation}_division_pool`] || []
+			if (nation === "ro") pool = ["RO DIV #1", "RO DIV #2", "RO DIV #3", "RO DIV #4", "RO DIV #5", "RO DIV #6"]
+			if (nation === "ru") pool = ["RU DIV #1", "RU DIV #2"]
+			let selected = []
+			for (let name of pool) {
+				let p = game_utils.find_piece(is_ap ? AP : CP, name)
+				if (p >= 0 && game_utils.is_not_on_map(game, p)) {
+					selected.push(name)
+					if (selected.length === count) break
+				}
+			}
+			return selected
+		}
+
+		let ro_divs = get_divs("ro", 6, true)
+		let ru_divs = get_divs("ru", 2, true)
+		let ge_divs = get_divs("ge", 2, false)
+		let ah_divs = get_divs("ah", 3, false)
+		let get_available_entry_units = (faction, names) =>
+			names.filter((name) => {
+				let p = game_utils.find_piece(faction, name)
+				return p >= 0 && game_utils.is_not_on_map(game, p)
+			})
+
+		let ro_map_units = get_available_entry_units(AP, ["RO 1 Army", "RO 2 Army", "RO 3 Army", "RO Cavalry"])
+		for (let i = 0; i < 4 && ro_divs.length > 0; i++) ro_map_units.push(ro_divs.shift())
+		let ro_reserve_units = ro_divs
+
+		let schedule_reinf = (delay, unit_name, space) => {
+			if (!game.delayed_reinforcements) game.delayed_reinforcements = []
+			let p = game_utils.find_piece(AP, unit_name) // AP because all scheduled are AP (RU, FR)
+			if (p < 0) p = game_utils.find_piece(CP, unit_name)
+			if (p >= 0 && game_utils.is_not_on_map(game, p)) {
+				game.delayed_reinforcements.push({ turn: game.turn + delay, piece: p, space: space })
+				Engine.log(game, `预计于回合 ${game.turn + delay} 增援 ${unit_name} 至 ${space}`)
+			}
+		}
+
+		let ru_placements = []
+		if (game.events.russian_revolution_level === undefined || game.events.russian_revolution_level < 1) {
+			ru_placements.push({ space: "Constanta", units: ["RU Dobruja"] })
+			ru_placements.push({ space: "RESERVE", units: ["RU/SB Yugo Infantry", ...ru_divs] })
+			schedule_reinf(1, "RU Danube Army", "ODESSA")
+			schedule_reinf(2, "RU 6 Army", "ODESSA")
+		}
+
+		schedule_reinf(1, "FR DIV #1", "Lemnos")
+		schedule_reinf(1, "FR DIV #2", "Lemnos")
+
+		let ge_placements = [
+			{ space: "Galicia", units: ["GE IX Army"] },
+			{ space: "RESERVE", units: ge_divs }
+		]
+		if (!game.events["yildirim"]) ge_placements[0].units.push("GE Falkenhayn HQ")
+
+		// German Mountain Div if not on map
+		let ge_mtn = game_utils.find_piece(CP, "GE Alpenkorps")
+		if (ge_mtn >= 0 && game_utils.is_not_on_map(game, ge_mtn)) {
+			ge_placements[0].units.push("GE Alpenkorps")
+		}
+
+		schedule_reinf(1, "GE Schmettow", "Galicia")
+
+		let ah_placements = [
+			{ space: "Hermannstadt", units: [ah_divs.shift(), ah_divs.shift()].filter(Boolean) },
+			{ space: "Galicia", units: ["AH VI R Corps"] },
+			{ space: "RESERVE", units: ah_divs }
+		]
+
+		if (ro_reserve_units.length > 0) {
+			place_entry_units(game, AP, [{ space: "RESERVE", units: ro_reserve_units }])
+		}
+		if (ru_placements.length > 0) place_entry_units(game, AP, ru_placements)
+		place_entry_units(game, CP, ge_placements)
+		place_entry_units(game, CP, ah_placements)
+
+		if (!game.events["bulgaria"]) {
+			place_entry_units(game, CP, [{ space: "RESERVE", units: ["Combined BU/AH Div"] }])
+		}
+
+		return {
+			ro_map_units
+		}
+	}
+
+	function trigger_bulgaria_entry(game) {
+		if (!game.events) game.events = {}
+		game.events["bulgaria"] = true
+		game.entry_bu = true
+		game.entry_sb = true
+		change_neutral_control(game, "bu", CP)
+		change_neutral_control(game, "sb", AP)
+
+		let { game_utils } = Engine
+		let get_divs = (nation, count) => {
+			let pool = Engine.collapse.get_bulgaria_entry_plan()[nation === "sb" ? "ap" : "cp"][`${nation}_division_pool`] || Engine.collapse.get_bulgaria_entry_plan().ap.divisions
+			let selected = []
+			for (let name of pool) {
+				let p = game_utils.find_piece(nation === "sb" ? AP : CP, name)
+				if (p >= 0 && game_utils.is_not_on_map(game, p)) {
+					selected.push(name)
+					if (selected.length === count) break
+				}
+			}
+			return selected
+		}
+
+		let bu_divs = get_divs("bu", 7)
+		let ge_divs = get_divs("ge", 2)
+		let ah_divs = get_divs("ah", 2)
+		let sb_divs = get_divs("sb", 6)
+
+		let bu_placements = [
+			{ space: "Vidin", units: ["BU 1 Army", bu_divs.shift()].filter(Boolean) },
+			{ space: "SOFIA", units: ["BU 2 Army", bu_divs.shift()].filter(Boolean) },
+			{ space: "Xanthi", units: [bu_divs.shift()].filter(Boolean) },
+			{ space: "Strumica", units: [bu_divs.shift()].filter(Boolean) },
+			{ space: "Varna", units: [bu_divs.shift()].filter(Boolean) },
+			{ space: "RESERVE", units: bu_divs } // The rest to reserve
+		]
+
+		let ge_placements = [
+			{ space: "Galicia", units: ["GE IV R Corps", "German 11th Army", "GE Hvy Arty", "GE Mackenson HQ"] },
+			{ space: "Vidin", units: ["GE Alpenkorps"] },
+			{ space: "RESERVE", units: ge_divs }
+		]
+
+		let ah_placements = [
+			{ space: "Galicia", units: ["AH VIII Corps", "AH XXII R Corps", ah_divs.shift()].filter(Boolean) },
+			{ space: "RESERVE", units: ah_divs }
+		]
+
+		let sb_placements = [
+			{ space: "BELGRADE", units: ["SB 1 Army", "SB 3 Army", sb_divs.shift()].filter(Boolean) },
+			{ space: "Nis", units: ["SB 2 Army", "SB Cavalry", sb_divs.shift()].filter(Boolean) },
+			{ space: "Veles", units: [sb_divs.shift(), sb_divs.shift()].filter(Boolean) },
+			{ space: "RESERVE", units: sb_divs }
+		]
+
+		place_entry_units(game, CP, bu_placements)
+		place_entry_units(game, CP, ge_placements)
+		place_entry_units(game, CP, ah_placements)
+		place_entry_units(game, AP, sb_placements)
 	}
 
 	function should_trigger_greece_entry_on_attack(game, target, attacker_faction) {
@@ -224,7 +406,7 @@ module.exports = function (Engine) {
 			if ((Engine.map.is_azerbaijan(s) || is_neutral_persia_outside_three) && has_ap_entry) {
 				game.events["ap_russian_sphere_penalty"] = true
 				game.vp += 1
-				Engine.log(game, "俄国势力范围受侵犯：协约军首次进入阿塞拜疆或中立波斯非三大区，CP +1 VP。")
+				Engine.log(game, "AP非俄军首次进入阿塞拜疆或中立波斯，+1 VP。")
 			}
 		}
 	}
@@ -370,6 +552,9 @@ module.exports = function (Engine) {
 		can_end_move_in_neutral_greece,
 		check_constantine_entry_conditions,
 		trigger_greece_entry,
+		trigger_bulgaria_entry,
+		trigger_romania_entry,
+		place_entry_units,
 		should_trigger_greece_entry_on_attack,
 		on_beachhead_placed,
 		check_athens_entry,
