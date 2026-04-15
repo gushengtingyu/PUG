@@ -854,9 +854,10 @@ exports.view = function (state, current) {
 	function create_result_for_current() {
 		let next = Engine.create_result(game)
 		if (game.rollback_proposal) next.rollback_proposal({ index: game.rollback_proposal.index })
-		if (current === AP_ROLE) {
+		let current_faction = short_faction(current)
+		if (current_faction === AP) {
 			next.hand(game.hand_ap)
-		} else if (current === CP_ROLE) {
+		} else if (current_faction === CP) {
 			next.hand(game.hand_cp)
 		}
 		return next
@@ -868,7 +869,9 @@ exports.view = function (state, current) {
 			return
 		}
 
-		if (current === "Observer" || (game.active !== current && faction_name(game.active) !== current)) {
+		let current_faction = short_faction(current)
+		let active = short_faction(game.active)
+		if (current === "Observer" || current_faction !== active) {
 			if (game.state === "review_supply_warnings") {
 				states[game.state].prompt(next)
 			} else {
@@ -1953,36 +1956,27 @@ function set_up_standard_decks(full) {
 	}
 
 	// Special handling for Turn 1 opening:
-	// Ensure all CP mobilization 4-ops cards are in the deck for the "opening pick" phase.
-	// We'll temporarily remove them from the deck before drawing initial hand,
-	// then put them back after drawing.
-	let special_cards = game.deck_cp.filter(c => {
-		let card = data.cards[c];
-		return card && card.faction === CP && card.commitment === COMMITMENT_MOBILIZATION && Number(card.ops) === 4;
+	// Keep the four CP mobilization 4-ops cards outside the draw deck until the
+	// opening choice resolves. CP first chooses one of those cards, then the
+	// remaining three are shuffled into the draw deck and CP draws hand_size - 1
+	// additional cards.
+	let special_cards = game.deck_cp.filter((c) => {
+		let card = data.cards[c]
+		return card && card.faction === CP && card.commitment === COMMITMENT_MOBILIZATION && Number(card.ops) === 4
 	});
 
 	for (let c of special_cards) {
-		let idx = game.deck_cp.indexOf(c);
-		if (idx >= 0) game.deck_cp.splice(idx, 1);
+		let idx = game.deck_cp.indexOf(c)
+		if (idx >= 0) game.deck_cp.splice(idx, 1)
 	}
+	game.cp_opening_mobilization_pool = special_cards.slice().sort((a, b) => a - b)
 
 	// Draw initial hands
 	while (game.hand_ap.length < game.options.hand_size) {
 		if (game.deck_ap.length > 0) game.hand_ap.push(game.deck_ap.pop())
 		else break
 	}
-	// CP draws one less because they will pick one mobilization 4-ops card later
-	while (game.hand_cp.length < game.options.hand_size - 1) {
-		if (game.deck_cp.length > 0) game.hand_cp.push(game.deck_cp.pop())
-		else break
-	}
-
-	// Put special cards back to deck
-	for (let c of special_cards) {
-		game.deck_cp.push(c)
-	}
-	// Re-shuffle deck_cp
-	shuffle(game.deck_cp, game);
+	// CP does not draw random cards before making the opening 4-op choice.
 }
 
 exports.active_faction = active_faction

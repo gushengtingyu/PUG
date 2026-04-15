@@ -4,9 +4,9 @@ module.exports = function (Engine) {
 	const { data } = Engine
 	const exports = {}
 
-	const { set_add } = Engine.utils
+	const { set_add, shuffle } = Engine.utils
 	const { find_space, find_piece } = Engine.game_utils
-	const { COMMITMENT_LIMITED, REMOVED } = Engine.constants
+	const { COMMITMENT_LIMITED, COMMITMENT_MOBILIZATION, REMOVED, CP } = Engine.constants
 	const CYPRUS_BEACHHEAD_NAMES = ["To Adana", "To Beirut", "To Haifa", "To Jaffa"]
 	const piece_lookup = new Map()
 	const space_lookup = new Map()
@@ -343,6 +343,16 @@ module.exports = function (Engine) {
 		return value
 	}
 
+	function is_cp_opening_mobilization_ops4_card(card_id) {
+		let card = data.cards[card_id]
+		return (
+			card &&
+			card.faction === CP &&
+			card.commitment === COMMITMENT_MOBILIZATION &&
+			Number(card.ops) === 4
+		)
+	}
+
 	function normalize_game(state) {
 		const { COMMITMENT_MOBILIZATION } = Engine.constants
 		const { MO_NONE } = Engine.mo
@@ -367,6 +377,7 @@ module.exports = function (Engine) {
 		if (!Array.isArray(state.hand_cp)) state.hand_cp = []
 		if (!Array.isArray(state.discard_cp)) state.discard_cp = []
 		if (!Array.isArray(state.removed_cp)) state.removed_cp = []
+		if (!Array.isArray(state.cp_opening_mobilization_pool)) state.cp_opening_mobilization_pool = []
 		if (!Array.isArray(state.discarded_ccs)) state.discarded_ccs = []
 		if (!state.cc_retained) state.cc_retained = { ap: [], cp: [] }
 		if (!Array.isArray(state.cc_retained.ap)) state.cc_retained.ap = []
@@ -432,6 +443,17 @@ module.exports = function (Engine) {
 		if (!Array.isArray(state.jihad_cities_flipped)) state.jihad_cities_flipped = []
 		if (state.tribes_to_place === undefined) state.tribes_to_place = 0
 		if (state.cp_opening_mobilization_pick_done === undefined) state.cp_opening_mobilization_pick_done = state.turn > 1
+		if (state.turn === 1 && !state.cp_opening_mobilization_pick_done && Array.isArray(state.hand_cp) && state.hand_cp.length > 0) {
+			for (let c of state.hand_cp) {
+				if (!state.deck_cp.includes(c)) state.deck_cp.push(c)
+			}
+			state.hand_cp = []
+			shuffle(state.deck_cp, state)
+		}
+		if (state.turn === 1 && !state.cp_opening_mobilization_pick_done && Array.isArray(state.cp_opening_mobilization_pool)) {
+			state.cp_opening_mobilization_pool = state.cp_opening_mobilization_pool.filter(is_cp_opening_mobilization_ops4_card)
+			state.cp_opening_mobilization_pool.sort((a, b) => a - b)
+		}
 		return state
 	}
 
@@ -510,7 +532,8 @@ module.exports = function (Engine) {
 			rollback: [],
 			rollback_state: [],
 			balkan_attack_targets: { ap: -1, ap_mo: -1, cp: -1 },
-			cp_opening_mobilization_pick_done: false
+			cp_opening_mobilization_pick_done: false,
+			cp_opening_mobilization_pool: []
 		}
 		return normalize_game(state)
 	}

@@ -8,7 +8,7 @@ exports.set_globals = function (g) {
 
 exports.register = function (states, Engine, context) {
 	const { data, combat } = Engine
-	const { set_has, set_add } = Engine.utils
+	const { set_has, set_add, shuffle } = Engine.utils
 
 	const {
 		log,
@@ -463,9 +463,46 @@ exports.register = function (states, Engine, context) {
 		start_mandated_offensive_phase()
 	}
 
+	function is_cp_opening_mobilization_ops4_card(c) {
+		let card = data.cards[c]
+		return (
+			card &&
+			card.faction === CP &&
+			card.commitment === COMMITMENT_MOBILIZATION &&
+			Number(card.ops) === 4
+		)
+	}
+
+	function ensure_cp_opening_mobilization_pool() {
+		if (!Array.isArray(game.cp_opening_mobilization_pool)) game.cp_opening_mobilization_pool = []
+		if (game.cp_opening_mobilization_pick_done) return
+		if (game.cp_opening_mobilization_pool.length > 0) return
+		if (!Array.isArray(game.deck_cp)) return
+		for (let i = game.deck_cp.length - 1; i >= 0; --i) {
+			let c = game.deck_cp[i]
+			if (!is_cp_opening_mobilization_ops4_card(c)) continue
+			game.cp_opening_mobilization_pool.push(c)
+			game.deck_cp.splice(i, 1)
+		}
+		game.cp_opening_mobilization_pool.sort((a, b) => a - b)
+	}
+
+	function return_cp_opening_mobilization_remainder_to_deck(chosen = null) {
+		ensure_cp_opening_mobilization_pool()
+		let remainder = []
+		for (let c of game.cp_opening_mobilization_pool) {
+			if (c !== chosen) remainder.push(c)
+		}
+		game.cp_opening_mobilization_pool = []
+		if (remainder.length === 0) return
+		for (let c of remainder) game.deck_cp.push(c)
+		shuffle(game.deck_cp, game)
+	}
+
 	function get_cp_opening_mobilization_ops4_cards() {
-		if (!Array.isArray(game.deck_cp)) return []
-		let candidates = game.deck_cp.filter((c) => {
+		ensure_cp_opening_mobilization_pool()
+		if (!Array.isArray(game.cp_opening_mobilization_pool)) return []
+		let candidates = game.cp_opening_mobilization_pool.filter((c) => {
 			let card = data.cards[c]
 			return (
 				card &&
@@ -602,6 +639,8 @@ exports.register = function (states, Engine, context) {
 			let candidates = get_cp_opening_mobilization_ops4_cards()
 			if (candidates.length === 0) {
 				log("开局同盟国未找到可选的动员阶段4点牌，跳过选牌。")
+				return_cp_opening_mobilization_remainder_to_deck()
+				deal_cards(CP)
 				game.cp_opening_mobilization_pick_done = true
 				game.active = AP
 				game.state = "acknowledge_mo_results"
@@ -620,9 +659,9 @@ exports.register = function (states, Engine, context) {
 			let candidates = get_cp_opening_mobilization_ops4_cards()
 			if (!candidates.includes(c)) return
 			push_undo()
-			let idx = game.deck_cp.indexOf(c)
-			if (idx >= 0) game.deck_cp.splice(idx, 1)
 			game.hand_cp.push(c)
+			return_cp_opening_mobilization_remainder_to_deck(c)
+			deal_cards(CP)
 			game.cp_opening_mobilization_pick_done = true
 			log(`同盟国自选牌: ${card_name(c)}`)
 			game.active = AP
