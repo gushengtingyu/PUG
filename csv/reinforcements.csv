@@ -1,14 +1,14 @@
 id,card,name,x,y,side,type
-1001,2,ANZ Elite DIV,82,137,ap,reinforcement
-1002,2,ANZ Cavalry #1,151,137,ap,reinforcement
-1003,8,BR Persian Cordon #1,255,137,ap,reinforcement
-1004,9,RU Elite DIV #3,384,137,ap,reinforcement
-1005,9,RU DIV #11 #12,453,138,ap,reinforcement
-1006,10,RU IV Caucasian,565,145,ap,reinforcement
-1007,10,RU Elite DIV #4,640,138,ap,reinforcement
-1008,10,RU DIV #13,709,138,ap,reinforcement
-1009,10,RU Cavalry #7,777,138,ap,reinforcement
-1010,11,Max TU RP,890,145,ap,reinforcement
+1001,2,ANZ Elite DIV,80,135,ap,reinforcement
+1002,2,ANZ Cavalry #1,149,135,ap,reinforcement
+1003,8,BR Persian Cordon #1,253,135,ap,reinforcement
+1004,9,RU Elite DIV #3,382,135,ap,reinforcement
+1005,9,RU DIV #11 #12,451,136,ap,reinforcement
+1006,10,RU IV Caucasian,563,143,ap,reinforcement
+1007,10,RU Elite DIV #4,638,136,ap,reinforcement
+1008,10,RU DIV #13,707,136,ap,reinforcement
+1009,10,RU Cavalry #7,775,136,ap,reinforcement
+1010,11,Max TU RP,888,143,ap,reinforcement
 1011,12,Beachhead #2,88,263,ap,reinforcement
 1012,13,BR Elite DIV #1 #2,207,256,ap,reinforcement
 1013,14,Kitch.token,321,263,ap,reinforcement
@@ -90,7 +90,7 @@ id,card,name,x,y,side,type
 1102,10,TU-A DIV #10,233,137,cp,reinforcement
 1103,13,TU Elite DIV #9 #10,394,137,cp,reinforcement
 1104,13,TU Cavalry #5,462,137,cp,reinforcement
-1105,18,TU-A DIV #11 #12 #13 #14,567,137,cp,reinforcement
+1105,18,TU-A DIV #11,567,137,cp,reinforcement
 1106,21,CP Air Superiority token,713,145,cp,reinforcement
 1107,22,U_boats in the Med token,900,145,cp,reinforcement
 1108,23,PE Uprising,81,257,cp,reinforcement
@@ -103,12 +103,12 @@ id,card,name,x,y,side,type
 1115,26,TU XVII Corps,702,265,cp,reinforcement
 1116,26,TU-A XVIII Corps,786,264,cp,reinforcement
 1117,26,TU DIV #18,863,257,cp,reinforcement
-1118,26,TU-A DIV #15,930,257,cp,reinforcement
+1118,26,TU-A DIV #12,930,257,cp,reinforcement
 1119,29,BU 4 Army,89,383,cp,reinforcement
 1120,34,Parvus to Berlin token,301,383,cp,reinforcement
 1121,34,Revolution token,385,383,cp,reinforcement
 1122,34,Long Live the Czar! token,470,383,cp,reinforcement
-1123,37,TU-A DIV #16 #17 #18 #19,580,375,cp,reinforcement
+1123,37,TU-A DIV #13 #14 #15 #16,580,375,cp,reinforcement
 1124,37,Trench,657,383,cp,reinforcement
 1125,44,TU Army Islam HQ,769,375,cp,reinforcement
 1126,45,GE Yildrim #1 #2 #3,918,375,cp,reinforcement
@@ -116,7 +116,7 @@ id,card,name,x,y,side,type
 1128,51,TU XX Corps,279,503,cp,reinforcement
 1129,51,TU XXII Corps,363,503,cp,reinforcement
 1130,51,TU-A Left Wing Gp,446,503,cp,reinforcement
-1131,51,TU-A DIV #20,523,496,cp,reinforcement
+1131,51,TU-A DIV #17,523,496,cp,reinforcement
 1132,52,TU 1 Caucasian,635,503,cp,reinforcement
 1133,52,TU 2 Caucasian,720,503,cp,reinforcement
 1134,0,Afghan Uprising #1 #2 #3,81,711,cp,reinforcement

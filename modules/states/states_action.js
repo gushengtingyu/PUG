@@ -343,9 +343,8 @@ exports.register = function (states, Engine, context) {
 	}
 
 	states.play_card = {
-		inactive: "行动",
+		inactive: "play a card",
 		prompt(res) {
-			if (res && res._is_noop) return
 			let t0 = DEBUG_ACTION_TRACE ? action_now() : 0
 			let event_check_count = 0
 			res.prompt(`第 ${game.turn} 回合, 行动轮 ${game.action_round}: 请选择一项行动`)
@@ -471,7 +470,6 @@ exports.register = function (states, Engine, context) {
 
 	states.card_action = {
 		prompt(res) {
-			if (res && res._is_noop) return
 			let t0 = DEBUG_ACTION_TRACE ? action_now() : 0
 			let info = data.cards[game.card]
 			res.prompt(`打出 ${card_name(game.card)}`)
@@ -650,7 +648,6 @@ exports.register = function (states, Engine, context) {
 
 	function start_action_phase() {
 		game.action_round = 1
-		game.action_state = {}
 		game.jihad_cities_flipped = game.jihad_cities_flipped || []
 		let player_order = game.player_order || [AP, CP]
 		game.active = player_order[0]
@@ -681,7 +678,6 @@ exports.register = function (states, Engine, context) {
 		delete game.sr_moved
 		delete game.entrenching
 		delete game.entrench_attempts
-		game.action_state = {}
 
 		// 67: LIBERATE SUEZ - Clear flags
 		delete game.liberate_suez_op_required

@@ -209,15 +209,11 @@ exports.register = function (states, Engine, context) {
 		return get_valid_lcus_for_selected_scus(selected_pieces).length > 0
 	}
 
-	function space_has_adjacent_enemy(s, faction, enemy_space_flag = null) {
+	function space_has_adjacent_enemy(s, faction) {
 		let info = data.spaces[s]
 		if (!info || !Array.isArray(info.connections)) return false
 		for (let n of info.connections) {
-			if (enemy_space_flag) {
-				if (enemy_space_flag[n] === 1) return true
-			} else if (Engine.map.contains_enemy_pieces(game, n, faction)) {
-				return true
-			}
+			if (Engine.map.contains_enemy_pieces(game, n, faction)) return true
 		}
 		return false
 	}
@@ -254,7 +250,6 @@ exports.register = function (states, Engine, context) {
 
 	states.activate_spaces = {
 		prompt(res) {
-			if (res && res._is_noop) return
 			let perf_start = DEBUG_ACTIVATION_TRACE ? activation_now() : 0
 			let perf_attack_checks = 0
 			let perf_enemy_adjacency_checks = 0
@@ -270,24 +265,12 @@ exports.register = function (states, Engine, context) {
 			let faction = active_faction()
 			let russo_british_mode = is_russo_british_russian_activation()
 			let russo_british_selected = Array.isArray(game.activated?.attack) ? game.activated.attack.length : 0
-			let all_pieces_by_space = new Map()
 			let pieces_by_space = new Map()
 			let activated_move_set = new Set(game.activated.move || [])
 			let activated_attack_set = new Set(game.activated.attack || [])
-			let enemy = other_faction(faction)
-			let enemy_space_flag = new Uint8Array(data.spaces.length)
 			for (let p = 0; p < game.pieces.length; p++) {
 				let s = game.pieces[p]
 				if (s <= 0 || is_not_on_map(game, p)) continue
-				let all_list = all_pieces_by_space.get(s)
-				if (!all_list) {
-					all_list = []
-					all_pieces_by_space.set(s, all_list)
-				}
-				all_list.push(p)
-				if (Engine.game_utils.get_piece_effective_faction(game, p) === enemy) {
-					enemy_space_flag[s] = 1
-				}
 				if (!can_piece_participate_in_activation(p, faction)) continue
 				let list = pieces_by_space.get(s)
 				if (!list) {
@@ -303,7 +286,7 @@ exports.register = function (states, Engine, context) {
 			for (let [s, friendly_pieces] of pieces_by_space) {
 				if (activated_move_set.has(s) || activated_attack_set.has(s)) continue
 
-				let costs = get_activation_cost_pair(game, s, all_pieces_by_space.get(s))
+				let costs = get_activation_cost_pair(game, s)
 				let move_cost = costs.move
 				let attack_cost = costs.attack
 				let unmoved_pieces = friendly_pieces.filter((p) => !set_has(game.moved, p))
@@ -313,7 +296,7 @@ exports.register = function (states, Engine, context) {
 				if (game.ops >= attack_cost && unmoved_pieces.length > 0) {
 					let has_adjacent_enemy = false
 					let t_adj = DEBUG_ACTIVATION_TRACE ? activation_now() : 0
-					has_adjacent_enemy = space_has_adjacent_enemy(s, faction, enemy_space_flag)
+					has_adjacent_enemy = space_has_adjacent_enemy(s, faction)
 					if (DEBUG_ACTIVATION_TRACE) {
 						perf_enemy_adjacency_checks += 1
 						perf_enemy_adjacency_ms += activation_now() - t_adj

@@ -836,9 +836,6 @@ module.exports = function (Engine) {
 	}
 
 	function can_play_combat_card(game, card) {
-		if (game?.action_state && Array.isArray(game.action_state.used_ccs) && set_has(game.action_state.used_ccs, card)) {
-			return false
-		}
 		let spec = get_combat_card_spec(card)
 		if (!spec) return true
 		if (!is_combat_card_window_allowed(card, game.state, game)) return false

@@ -25,14 +25,9 @@ Thumbs.db
 dist/
 build/
 coverage/
-
-# Cache and testing
 .eslintcache
 .parcel-cache
 .cache
-.vite/
-.vitest-cache/
-.prettiercache
 
 # Project specific
 .env*

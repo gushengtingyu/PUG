@@ -457,7 +457,7 @@ exports.register = function (states, Engine, context) {
 		// Rule: Churchill Prevails recurring RU RP
 		if (game.events["bosphorus_destroyed"] && !game.events["german_subs"]) {
 			game.rp_ap.ru += 1
-			log("丘吉尔胜出持续效果：博斯普鲁斯海峡已打通，俄国补员点数 +1。")
+			log("Churchill Prevails: +1 Russian RP (Bosphorus clear).")
 		}
 
 		start_mandated_offensive_phase()
@@ -602,7 +602,6 @@ exports.register = function (states, Engine, context) {
 			let candidates = get_cp_opening_mobilization_ops4_cards()
 			if (candidates.length === 0) {
 				log("开局同盟国未找到可选的动员阶段4点牌，跳过选牌。")
-				deal_cards(CP)
 				game.cp_opening_mobilization_pick_done = true
 				game.active = AP
 				game.state = "acknowledge_mo_results"
@@ -624,7 +623,6 @@ exports.register = function (states, Engine, context) {
 			let idx = game.deck_cp.indexOf(c)
 			if (idx >= 0) game.deck_cp.splice(idx, 1)
 			game.hand_cp.push(c)
-			deal_cards(CP)
 			game.cp_opening_mobilization_pick_done = true
 			log(`同盟国自选牌: ${card_name(c)}`)
 			game.active = AP

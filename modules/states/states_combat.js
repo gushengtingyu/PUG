@@ -119,7 +119,6 @@ exports.register = function (states, Engine, context) {
 
 	states.attack = {
 		prompt(res) {
-			if (res && res._is_noop) return
 			refresh_attack_eligibility()
 			if (game.eligible_attackers.length === 0) {
 				res.prompt("操作完成.")
@@ -140,16 +139,6 @@ exports.register = function (states, Engine, context) {
 				res.prompt("请选择攻击单位和目标")
 			}
 			let selected_pieces = game.attack.pieces || []
-			let prompt_attackable_cache = new Map()
-			function get_cached_attackable_spaces(pieces) {
-				if (!Array.isArray(pieces) || pieces.length === 0) return []
-				let key =
-					pieces.length === 1 ? `p:${pieces[0]}` : `g:${pieces.slice().sort((a, b) => a - b).join(",")}`
-				if (!prompt_attackable_cache.has(key)) {
-					prompt_attackable_cache.set(key, get_legal_attackable_spaces(pieces))
-				}
-				return prompt_attackable_cache.get(key)
-			}
 			if (selected_pieces.length > 0) {
 				let selected_spaces = [...new Set(selected_pieces.map((p) => game.pieces[p]).filter((s) => s > 0))]
 				if (game.attack.space !== -1) {
@@ -170,14 +159,14 @@ exports.register = function (states, Engine, context) {
 					res.action("select_all")
 				}
 			} else {
-				let selected_targets = get_cached_attackable_spaces(selected_pieces)
+				let selected_targets = get_attackable_spaces(selected_pieces)
 
 				for (let p of game.eligible_attackers) {
 					if (set_has(selected_pieces, p)) {
 						res.piece(p)
 						continue
 					}
-					if (get_cached_attackable_spaces([...selected_pieces, p]).length > 0) {
+					if (get_attackable_spaces([...selected_pieces, p]).length > 0) {
 						res.piece(p)
 					}
 				}
@@ -324,7 +313,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	states.confirm_event = {
-		inactive: "确认事件",
+		inactive: "confirm event",
 		prompt(res) {
 			let c = game.card !== null ? game.card : game.last_card
 			let info = data.cards[c]
@@ -337,7 +326,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	states.end_operations = {
-		inactive: "结束行动",
+		inactive: "end operations",
 		prompt(res) {
 			res.prompt("操作完成.")
 			res.action("end_action")
@@ -488,39 +477,18 @@ exports.register = function (states, Engine, context) {
 		return combat_cards.can_play_combat_card(target_game, c)
 	}
 
-	function get_used_ccs_this_action(target_game) {
-		if (!target_game || !target_game.action_state) return []
-		return Array.isArray(target_game.action_state.used_ccs) ? target_game.action_state.used_ccs : []
-	}
-
-	function is_cc_used_this_action(target_game, c) {
-		return set_has(get_used_ccs_this_action(target_game), c)
-	}
-
-	function mark_cc_used_this_action(target_game, c) {
-		if (!target_game.action_state || typeof target_game.action_state !== "object") {
-			target_game.action_state = {}
-		}
-		if (!Array.isArray(target_game.action_state.used_ccs)) {
-			target_game.action_state.used_ccs = []
-		}
-		set_add(target_game.action_state.used_ccs, c)
-	}
-
 	function collect_playable_cc_options(target_game, faction, is_attacker) {
 		let hand = faction === AP ? target_game.hand_ap || [] : target_game.hand_cp || []
 		let retained = get_cc_retained(faction)
 		let options = []
 		for (let c of hand) {
 			if (!data.cards[c].cc) continue
-			if (is_cc_used_this_action(target_game, c)) continue
 			if (is_attacker && c === combat.CC_CP_JAFAR_PASHA) continue
 			if (!can_play_combat_card(c, target_game)) continue
 			set_add(options, c)
 		}
 		for (let c of retained) {
 			if (!data.cards[c].cc) continue
-			if (is_cc_used_this_action(target_game, c)) continue
 			if (is_attacker && c === combat.CC_CP_JAFAR_PASHA) continue
 			if (!can_play_combat_card(c, target_game)) continue
 			// Only allow play if not already played in this combat
@@ -707,7 +675,7 @@ exports.register = function (states, Engine, context) {
 
 	function register_combat_card_state(name, config) {
 		states[name] = {
-			inactive: "打出战斗卡",
+			inactive: "play combat cards",
 			prompt(res) {
 				res.prompt(config.prompt)
 				show_attack_context(res)
@@ -785,9 +753,6 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function handle_play_cc(game, c, is_attacker) {
-		// Defense in depth: the UI should already hide these cards, but some
-		// event/state round-trips can re-enter combat windows with stale actions.
-		if (is_cc_used_this_action(game, c)) return
 		if (!game.combat_cards) game.combat_cards = { attacker: [], defender: [] }
 		if (!game.combat_cards_effected) game.combat_cards_effected = []
 		let return_state = game.state
@@ -800,7 +765,6 @@ exports.register = function (states, Engine, context) {
 		} else {
 			game.combat_cards.defender.push(c)
 		}
-		mark_cc_used_this_action(game, c)
 		const mark_effected = (card) => {
 			set_add(game.combat_cards_effected, card)
 		}
@@ -857,7 +821,7 @@ exports.register = function (states, Engine, context) {
 	})
 
 	states.maude_place_indian_division = {
-		inactive: "打出战斗卡",
+		inactive: "play combat cards",
 		prompt(res) {
 			res.prompt("莫德：放置印度第15步兵师")
 			show_attack_context(res)
@@ -872,7 +836,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	states.maude_place_hq = {
-		inactive: "打出战斗卡",
+		inactive: "play combat cards",
 		prompt(res) {
 			res.prompt("莫德：将莫德HQ放置到包含英国与印度部队的攻击地块")
 			show_attack_context(res)
@@ -894,7 +858,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	states.army_of_islam_place_hq = {
-		inactive: "打出战斗卡",
+		inactive: "play combat cards",
 		prompt(res) {
 			res.prompt("伊斯兰军：将伊斯兰军HQ放置到已启动攻击的土耳其/土耳其-阿拉伯部队所在攻击地块")
 			show_attack_context(res)
@@ -2130,7 +2094,7 @@ exports.register = function (states, Engine, context) {
 			}
 
 			if (snapshot.mandatory.length > 0) {
-				res.prompt("土耳其撤退：必须选择部队进行撤退")
+				res.prompt("土耳其撤退：必须选择一个 SCU 进行撤退")
 				for (let p of snapshot.mandatory) res.piece(p)
 				// PUG Rule 617: Turkish SCUs MUST retreat. If only mandatory units remain, skip is not allowed.
 				return

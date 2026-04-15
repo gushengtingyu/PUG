@@ -176,7 +176,7 @@ module.exports = function (Engine) {
 		let s = game.pieces[p]
 		let pe_box = get_permanently_eliminated_box(data.pieces[p].faction)
 		// If PE box is same as removed box, we don't want recursion
-		if (pe_box === get_removed_box(data.pieces[p].faction)) return false
+		if (pe_box === get_removed_box(data.pieces[p].faction)) return false 
 		return s === pe_box
 	}
 
@@ -218,7 +218,7 @@ module.exports = function (Engine) {
 		if (name === "Combined BU/AH Div") return ["bu", "ah"]
 		if (name === "German 11th Army") return ["ge", "bu"]
 		if (name === "RU/SB Yugo Infantry") {
-			if (purpose !== "mo" && Engine.events.get_russian_revolution_level(game) >= 4) return ["br"]
+			if (purpose !== "mo" && game && game.events && game.events["russian_revolution"] >= 4) return ["br"]
 			return ["ru", "sb"]
 		}
 		if (purpose === "activation" && info.symbol === "Y" && info.nation === "ge") return []
@@ -253,7 +253,7 @@ module.exports = function (Engine) {
 		return is_eliminated(game, p) || is_in_reserve(game, p) || is_removed(game, p) || is_reinforcement(game, p)
 	}
 	function get_piece_cf(game, p) {
-		if (p < 0) return 0
+		if (p < 0) return 0 
 		if (is_hq(p)) {
 			if (set_has(game.reduced, p)) return data.pieces[p].rlf || 0
 			return data.pieces[p].lf || 0
@@ -531,13 +531,14 @@ module.exports = function (Engine) {
 		let rps = game.active === Engine.constants.AP ? game.rp_ap : game.rp_cp
 		if (info.rp_a) rps.a += info.rp_a
 		if (info.rp_ah) rps.a += info.rp_ah
-		let block_br_rp = Engine.events.is_br_rp_blocked(game)
+		let block_br_rp =
+			game.active === Engine.constants.AP && game.events && game.events["parliamentary_inquiry"] === game.turn
 		if (info.rp_br && !block_br_rp) rps.br += info.rp_br
 		if (info.rp_ru) {
 			// Rule 978: No longer record RU RP after Russian Revolution Phase 1
 			// Gorlice-Tarnow event blocks RU RP for the turn
-			const block_ru_rp = Engine.events.is_ru_rp_blocked(game)
-			if (Engine.events.get_russian_revolution_level(game) < 1 && !block_ru_rp) {
+			const block_ru_rp = game.events && game.events["gorlice_tarnow"] === game.turn
+			if (!(game.events["russian_revolution"] >= 1) && !block_ru_rp) {
 				rps.ru += info.rp_ru
 			} else if (block_ru_rp && log) {
 				log("戈尔利采-塔尔诺夫攻势：本回合无法记录俄国补员点数。")
@@ -546,7 +547,7 @@ module.exports = function (Engine) {
 		if (info.rp_ge) rps.ge += info.rp_ge
 		if (info.rp_in) rps.in += info.rp_in
 		if (info.rp_tu) {
-			if (Engine.events.is_royal_navy_blockade_active(game)) {
+			if (game.events && game.events["royal_navy_blockade"]) {
 				let max_tu_rp = Math.max(0, Number(game.tu_rp_limit ?? 25))
 				let recordable_tu_rp = Math.min(info.rp_tu, max_tu_rp)
 				if (recordable_tu_rp > 0) {
@@ -862,7 +863,7 @@ module.exports = function (Engine) {
 				if (is_hq(p) || is_tribe(p)) return false
 				if (get_piece_effective_faction(game, p) !== faction) return false
 				if (set_has(game.moved, p)) return false
-				if (Engine.events.is_arab_desertion_active(game) && data.pieces[p].nation === "tua") return false
+				if (game.events && game.events["arab_desertion"] && data.pieces[p].nation === "tua") return false
 				let status = supply.get_supply_status(game, s, faction, p)
 				return status !== "OOS" && status !== "LIMITED"
 			}
