@@ -650,6 +650,7 @@ exports.register = function (states, Engine, context) {
 
 	function start_action_phase() {
 		game.action_round = 1
+		game.action_state = {}
 		game.jihad_cities_flipped = game.jihad_cities_flipped || []
 		let player_order = game.player_order || [AP, CP]
 		game.active = player_order[0]
@@ -680,6 +681,7 @@ exports.register = function (states, Engine, context) {
 		delete game.sr_moved
 		delete game.entrenching
 		delete game.entrench_attempts
+		game.action_state = {}
 
 		// 67: LIBERATE SUEZ - Clear flags
 		delete game.liberate_suez_op_required

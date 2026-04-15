@@ -903,15 +903,17 @@ exports.view = function (state, current) {
 	set_state_globals()
 	normalize_transient_state()
 
-	for (let i = 0; i < 5; i++) {
-		let state_before_prompt = game.state
-		let active_before_prompt = game.active
-		res = create_result_for_current()
-		prompt_current_view(res)
-		if (game.state === state_before_prompt && game.active === active_before_prompt) {
-			break
+	with_space_index_cache(() => {
+		for (let i = 0; i < 5; i++) {
+			let state_before_prompt = game.state
+			let active_before_prompt = game.active
+			res = create_result_for_current()
+			prompt_current_view(res)
+			if (game.state === state_before_prompt && game.active === active_before_prompt) {
+				break
+			}
 		}
-	}
+	})
 
 	view = create_view()
 	res.apply(view)
@@ -1758,27 +1760,48 @@ function create_noop_result() {
 	}
 }
 
-function normalize_transient_state() {
-	for (let i = 0; i < 5; i++) {
-		let state_before_normalize = game.state
-		let active_before_normalize = game.active
-
-		if (game.state === "attack") {
-			refresh_attack_eligibility()
-			if (game.eligible_attackers.length === 0) {
-				game.state = "end_operations"
-			}
-		}
-
-		let state_handlers = states[game.state]
-		if (state_handlers && typeof state_handlers.prompt === "function") {
-			state_handlers.prompt(create_noop_result())
-		}
-
-		if (game.state === state_before_normalize && game.active === active_before_normalize) {
-			break
+function with_space_index_cache(fn) {
+	if (game._space_index) return fn()
+	
+	let index = []
+	for (let p = 0; p < game.pieces.length; p++) {
+		let loc = game.pieces[p]
+		if (loc >= 0) {
+			if (!index[loc]) index[loc] = []
+			index[loc].push(p)
 		}
 	}
+	game._space_index = index
+	try {
+		return fn()
+	} finally {
+		delete game._space_index
+	}
+}
+
+function normalize_transient_state() {
+	with_space_index_cache(() => {
+		for (let i = 0; i < 5; i++) {
+			let state_before_normalize = game.state
+			let active_before_normalize = game.active
+
+			if (game.state === "attack") {
+				refresh_attack_eligibility()
+				if (game.eligible_attackers.length === 0) {
+					game.state = "end_operations"
+				}
+			}
+
+			let state_handlers = states[game.state]
+			if (state_handlers && typeof state_handlers.prompt === "function") {
+				state_handlers.prompt(create_noop_result())
+			}
+
+			if (game.state === state_before_normalize && game.active === active_before_normalize) {
+				break
+			}
+		}
+	})
 }
 
 function start_event(key, data) {
@@ -1973,37 +1996,11 @@ function set_up_standard_decks(full) {
 		return
 	}
 
-	// Special handling for Turn 1 opening:
-	// Ensure all CP mobilization 4-ops cards are in the deck for the "opening pick" phase.
-	// We'll temporarily remove them from the deck before drawing initial hand,
-	// then put them back after drawing.
-	let special_cards = game.deck_cp.filter(c => {
-		let card = data.cards[c];
-		return card && card.faction === CP && card.commitment === COMMITMENT_MOBILIZATION && Number(card.ops) === 4;
-	});
-
-	for (let c of special_cards) {
-		let idx = game.deck_cp.indexOf(c);
-		if (idx >= 0) game.deck_cp.splice(idx, 1);
-	}
-
 	// Draw initial hands
 	while (game.hand_ap.length < game.options.hand_size) {
 		if (game.deck_ap.length > 0) game.hand_ap.push(game.deck_ap.pop())
 		else break
 	}
-	// CP draws one less because they will pick one mobilization 4-ops card later
-	while (game.hand_cp.length < game.options.hand_size - 1) {
-		if (game.deck_cp.length > 0) game.hand_cp.push(game.deck_cp.pop())
-		else break
-	}
-
-	// Put special cards back to deck
-	for (let c of special_cards) {
-		game.deck_cp.push(c)
-	}
-	// Re-shuffle deck_cp
-	shuffle(game.deck_cp, game);
 }
 
 exports.active_faction = active_faction

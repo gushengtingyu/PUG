@@ -406,7 +406,7 @@ module.exports = function (Engine) {
 			if ((Engine.map.is_azerbaijan(s) || is_neutral_persia_outside_three) && has_ap_entry) {
 				game.events["ap_russian_sphere_penalty"] = true
 				game.vp += 1
-				Engine.log(game, "俄国势力范围受侵犯：协约军首次进入阿塞拜疆或中立波斯非三大区，CP +1 VP。")
+				Engine.log(game, "AP非俄军首次进入阿塞拜疆或中立波斯，+1 VP。")
 			}
 		}
 	}

@@ -54,6 +54,9 @@ module.exports = function (Engine) {
 	// --- Unit/Space Helpers ---
 
 	function get_pieces_in_space(game, s) {
+		if (game._space_index) {
+			return game._space_index[s] || []
+		}
 		let list = []
 		for (let p = 0; p < game.pieces.length; p++) {
 			if (game.pieces[p] === s) list.push(p)
@@ -62,6 +65,11 @@ module.exports = function (Engine) {
 	}
 
 	function for_each_piece_in_space(game, s, fn) {
+		if (game._space_index) {
+			let list = game._space_index[s] || []
+			for (let i = 0; i < list.length; i++) fn(list[i])
+			return
+		}
 		for (let p = 0; p < game.pieces.length; p++) {
 			if (game.pieces[p] === s) fn(p)
 		}
@@ -275,7 +283,7 @@ module.exports = function (Engine) {
 	}
 
 	/**
-	 * 获取 CSV 中定义的大区 (Macro-region / Theatre)
+	 * 获取 CSV 中定义的大区 (region)
 	 * 例如: Persia (East/West/South/), India, Afghanistan, Central Asia
 	 */
 	function get_region(space) {
@@ -343,6 +351,12 @@ module.exports = function (Engine) {
 		if (region && region.includes("persia")) return true
 		let area = get_area(s)
 		return area === "persia" && !is_afghanistan(s) && !is_baluchistan(s)
+	}
+
+	function is_persian_region(s) {
+		let region = String(get_region(s) || "").toLowerCase()
+		// Only Meshed (East Persia), Shiraz (Central Persia), Bushire (South Persia)
+		return region === "east persia" || region === "central persia" || region === "south persia"
 	}
 
 	function is_azerbaijan(s) {
@@ -3243,6 +3257,7 @@ function get_stack_yildirim_count(pieces) {
 		is_balkans,
 		is_arabistan,
 		is_persia,
+		is_persian_region,
 		is_central_asia,
 		is_azerbaijan,
 		is_india,

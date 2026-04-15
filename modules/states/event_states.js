@@ -51,6 +51,10 @@ module.exports = function (Engine) {
 		)
 	}
 
+	function log_churchill_bombardment(rules, target, cf, roll, success) {
+		rules.log(`丘吉尔胜出：炮击 ${target}，要塞火力值 ${cf}，掷骰 ${roll}，${success ? "成功" : "失败"}。`)
+	}
+
 	/**
 	 * 获取或初始化事件数据
 	 * @param {object} game 游戏状态
@@ -376,109 +380,148 @@ module.exports = function (Engine) {
 		return total
 	}
 
-	function create_verdun_plan(game, target, awarded_vp) {
-		let pool = build_verdun_pool(game)
+	function create_verdun_requirement(pool, target, awarded_vp) {
 		let minimum = Math.ceil(target / 2)
 		let br_available = sum_verdun_cost(pool, (p, info) => info.nation === "br")
-		let br_anz_available = sum_verdun_cost(pool, (p, info) => info.nation === "br" || info.nation === "anz")
+		let anz_available = sum_verdun_cost(pool, (p, info) => info.nation === "anz")
+		let in_available = sum_verdun_cost(pool, (p, info) => info.nation === "in")
 		let elite_available = sum_verdun_cost(pool, (p) => is_verdun_elite_or_special(p))
-		let plan = {
+		return {
 			target,
 			awarded_vp,
-			pool,
-			selected: [],
-			count: 0,
-			br_count: 0,
-			br_anz_count: 0,
-			elite_count: 0,
 			br_min: Math.min(minimum, br_available),
-			br_anz_min: Math.min(minimum, br_anz_available),
+			br_anz_min: Math.min(minimum, br_available + anz_available),
+			br_anz_in_min: Math.min(minimum, br_available + anz_available + in_available),
 			elite_min: Math.min(minimum, elite_available)
 		}
-		return can_finish_verdun_plan(plan) ? plan : null
 	}
 
-	function is_verdun_plan_satisfied(plan) {
-		return (
-			plan.count >= plan.target &&
-			plan.br_count >= plan.br_min &&
-			plan.br_anz_count >= plan.br_anz_min &&
-			plan.elite_count >= plan.elite_min
-		)
+	function create_verdun_plan(game) {
+		let pool = build_verdun_pool(game)
+		let plan = {
+			pool,
+			selected: [],
+			original_spaces: {},
+			partial: create_verdun_requirement(pool, 2, 1),
+			full: create_verdun_requirement(pool, 4, 0)
+		}
+		return plan
 	}
 
-	function can_finish_verdun_plan(plan, pending_piece = null) {
+	function get_verdun_selection_summary(plan, pending_piece = null) {
 		let selected = new Set(plan.selected || [])
-		let count = plan.count || 0
-		let br_count = plan.br_count || 0
-		let br_anz_count = plan.br_anz_count || 0
-		let elite_count = plan.elite_count || 0
+		let count = 0
+		let br_count = 0
+		let br_anz_count = 0
+		let br_anz_in_count = 0
+		let elite_count = 0
 
-		if (pending_piece !== null && pending_piece !== undefined) {
-			let info = data.pieces[pending_piece]
-			let cost = get_verdun_piece_cost(pending_piece)
+		for (let p of selected) {
+			let info = data.pieces[p]
+			let cost = get_verdun_piece_cost(p)
 			count += cost
 			if (info.nation === "br") br_count += cost
 			if (info.nation === "br" || info.nation === "anz") br_anz_count += cost
-			if (is_verdun_elite_or_special(pending_piece)) elite_count += cost
-			selected.add(pending_piece)
+			if (info.nation === "br" || info.nation === "anz" || info.nation === "in") br_anz_in_count += cost
+			if (is_verdun_elite_or_special(p)) elite_count += cost
 		}
 
+		if (pending_piece !== null && pending_piece !== undefined && !selected.has(pending_piece)) {
+			let info = data.pieces[pending_piece]
+			let cost = get_verdun_piece_cost(pending_piece)
+			selected.add(pending_piece)
+			count += cost
+			if (info.nation === "br") br_count += cost
+			if (info.nation === "br" || info.nation === "anz") br_anz_count += cost
+			if (info.nation === "br" || info.nation === "anz" || info.nation === "in") br_anz_in_count += cost
+			if (is_verdun_elite_or_special(pending_piece)) elite_count += cost
+		}
+
+		return {
+			selected,
+			count,
+			br_count,
+			br_anz_count,
+			br_anz_in_count,
+			elite_count
+		}
+	}
+
+	function is_verdun_requirement_satisfied(plan, requirement, pending_piece = null) {
+		let summary = get_verdun_selection_summary(plan, pending_piece)
 		if (
-			count >= plan.target &&
-			br_count >= plan.br_min &&
-			br_anz_count >= plan.br_anz_min &&
-			elite_count >= plan.elite_min
+			summary.count >= requirement.target &&
+			summary.br_count >= requirement.br_min &&
+			summary.br_anz_count >= requirement.br_anz_min &&
+			summary.br_anz_in_count >= requirement.br_anz_in_min &&
+			summary.elite_count >= requirement.elite_min
 		) {
 			return true
 		}
+		return false
+	}
+
+	function can_finish_verdun_requirement(plan, requirement, pending_piece = null) {
+		let summary = get_verdun_selection_summary(plan, pending_piece)
+		if (is_verdun_requirement_satisfied(plan, requirement, pending_piece)) return true
 
 		let candidates = []
 		for (let p of plan.pool || []) {
-			if (!selected.has(p)) {
+			if (!summary.selected.has(p)) {
 				let info = data.pieces[p]
+				let cost = get_verdun_piece_cost(p)
 				candidates.push({
 					id: p,
-					cost: get_verdun_piece_cost(p),
-					br: info.nation === "br" ? get_verdun_piece_cost(p) : 0,
-					br_anz: info.nation === "br" || info.nation === "anz" ? get_verdun_piece_cost(p) : 0,
-					elite: is_verdun_elite_or_special(p) ? get_verdun_piece_cost(p) : 0
+					cost,
+					br: info.nation === "br" ? cost : 0,
+					br_anz: info.nation === "br" || info.nation === "anz" ? cost : 0,
+					br_anz_in: info.nation === "br" || info.nation === "anz" || info.nation === "in" ? cost : 0,
+					elite: is_verdun_elite_or_special(p) ? cost : 0
 				})
 			}
 		}
 
 		let suffix = new Array(candidates.length + 1)
-		suffix[candidates.length] = { total: 0, br: 0, br_anz: 0, elite: 0 }
+		suffix[candidates.length] = { total: 0, br: 0, br_anz: 0, br_anz_in: 0, elite: 0 }
 		for (let i = candidates.length - 1; i >= 0; i--) {
 			suffix[i] = {
 				total: suffix[i + 1].total + candidates[i].cost,
 				br: suffix[i + 1].br + candidates[i].br,
 				br_anz: suffix[i + 1].br_anz + candidates[i].br_anz,
+				br_anz_in: suffix[i + 1].br_anz_in + candidates[i].br_anz_in,
 				elite: suffix[i + 1].elite + candidates[i].elite
 			}
 		}
 
 		let memo = new Map()
-		let max_total_key = plan.target + 2
+		let max_total_key = requirement.target + 2
 
-		function search(index, total, br, br_anz, elite) {
-			if (total >= plan.target && br >= plan.br_min && br_anz >= plan.br_anz_min && elite >= plan.elite_min) {
+		function search(index, total, br, br_anz, br_anz_in, elite) {
+			if (
+				total >= requirement.target &&
+				br >= requirement.br_min &&
+				br_anz >= requirement.br_anz_min &&
+				br_anz_in >= requirement.br_anz_in_min &&
+				elite >= requirement.elite_min
+			) {
 				return true
 			}
 			if (index >= candidates.length) return false
 
 			let remain = suffix[index]
-			if (total + remain.total < plan.target) return false
-			if (br + remain.br < plan.br_min) return false
-			if (br_anz + remain.br_anz < plan.br_anz_min) return false
-			if (elite + remain.elite < plan.elite_min) return false
+			if (total + remain.total < requirement.target) return false
+			if (br + remain.br < requirement.br_min) return false
+			if (br_anz + remain.br_anz < requirement.br_anz_min) return false
+			if (br_anz_in + remain.br_anz_in < requirement.br_anz_in_min) return false
+			if (elite + remain.elite < requirement.elite_min) return false
 
 			let key = [
 				index,
 				Math.min(total, max_total_key),
-				Math.min(br, plan.br_min),
-				Math.min(br_anz, plan.br_anz_min),
-				Math.min(elite, plan.elite_min)
+				Math.min(br, requirement.br_min),
+				Math.min(br_anz, requirement.br_anz_min),
+				Math.min(br_anz_in, requirement.br_anz_in_min),
+				Math.min(elite, requirement.elite_min)
 			].join("|")
 			if (memo.has(key)) return memo.get(key)
 
@@ -489,6 +532,7 @@ module.exports = function (Engine) {
 					total + candidate.cost,
 					br + candidate.br,
 					br_anz + candidate.br_anz,
+					br_anz_in + candidate.br_anz_in,
 					elite + candidate.elite
 				)
 			) {
@@ -496,32 +540,94 @@ module.exports = function (Engine) {
 				return true
 			}
 
-			let result = search(index + 1, total, br, br_anz, elite)
+			let result = search(index + 1, total, br, br_anz, br_anz_in, elite)
 			memo.set(key, result)
 			return result
 		}
 
-		return search(0, count, br_count, br_anz_count, elite_count)
+		return search(
+			0,
+			summary.count,
+			summary.br_count,
+			summary.br_anz_count,
+			summary.br_anz_in_count,
+			summary.elite_count
+		)
 	}
 
 	function get_verdun_selectable_pieces(plan) {
 		let options = []
 		for (let p of plan.pool || []) {
 			if (plan.selected && plan.selected.includes(p)) continue
-			if (can_finish_verdun_plan(plan, p)) options.push(p)
+			if (
+				can_finish_verdun_requirement(plan, plan.partial, p) ||
+				can_finish_verdun_requirement(plan, plan.full, p)
+			) {
+				options.push(p)
+			}
 		}
 		return options
 	}
 
+	function get_verdun_awarded_vp(plan) {
+		if (is_verdun_requirement_satisfied(plan, plan.full)) return 0
+		if (is_verdun_requirement_satisfied(plan, plan.partial)) return 1
+		return 2
+	}
+
+	function reset_verdun_removed_piece_state(game, p) {
+		set_delete(game.moved, p)
+		set_delete(game.attacked, p)
+		if (game.sr_moved) set_delete(game.sr_moved, p)
+		if (game.oos) set_delete(game.oos, p)
+		if (game.entrenching) set_delete(game.entrenching, p)
+		if (game.activated) {
+			if (Array.isArray(game.activated.move)) set_delete(game.activated.move, p)
+			if (Array.isArray(game.activated.attack)) set_delete(game.activated.attack, p)
+		}
+		if (game.attack && Array.isArray(game.attack.pieces)) set_delete(game.attack.pieces, p)
+		if (game.move && Array.isArray(game.move.pieces)) set_delete(game.move.pieces, p)
+		set_delete(game.reduced, p)
+	}
+
+	function select_verdun_piece(game, rules, plan, p) {
+		if (!plan.original_spaces) plan.original_spaces = {}
+		if (!plan.selected) plan.selected = []
+		if (plan.original_spaces[p] === undefined) {
+			plan.original_spaces[p] = game.pieces[p]
+		}
+		plan.selected.push(p)
+		game.pieces[p] = rules.get_removed_box(data.pieces[p].faction)
+		game.selected_piece = null
+	}
+
+	function unselect_verdun_piece(game, plan, p) {
+		if (plan.original_spaces && plan.original_spaces[p] !== undefined) {
+			game.pieces[p] = plan.original_spaces[p]
+			delete plan.original_spaces[p]
+		}
+		if (plan.selected) {
+			plan.selected = plan.selected.filter((id) => id !== p)
+		}
+		if (game.selected_piece === p) {
+			game.selected_piece = null
+		}
+	}
+
 	function finalize_verdun_plan(game, rules) {
 		let plan = use_event(game, "verdun")
-		game.vp += plan.awarded_vp
-		if (plan.awarded_vp === 0) {
-			rules.log("AP 通过移除单位取消了凡尔登战役的全部 VP。")
-		} else if (plan.awarded_vp === 1) {
-			rules.log("AP 通过移除单位抵消了 1 VP，CP 仅获得 +1 VP。")
+		let awarded_vp = get_verdun_awarded_vp(plan)
+		for (let p of plan.selected || []) {
+			reset_verdun_removed_piece_state(game, p)
+		}
+		delete game.selected_piece
+		game.vp += awarded_vp
+		if (awarded_vp === 0) {
+			rules.log("凡尔登战役：CP 0 VP。")
+		} else if (awarded_vp === 1) {
+			rules.log("凡尔登战役：CP +1 VP。")
 		} else {
-			rules.log(`CP 获得 +${plan.awarded_vp} VP。`)
+			rules.log("凡尔登战役：CP +2 VP。")
 		}
 		rules.goto_end_event()
 	}
@@ -1281,10 +1387,11 @@ module.exports = function (Engine) {
 
 			let cf = data.spaces[s].fort || 1
 			let roll = rules.roll_die(6, game)
-			rules.log(`Bombardment roll against ${rules.space_name(s)} (CF ${cf}): ${roll}`)
+			let success = roll > cf
+			log_churchill_bombardment(rules, rules.space_name(s), cf, roll, success)
 
-			if (roll > cf) {
-				rules.log(`${rules.space_name(s)} destroyed!`)
+			if (success) {
+				rules.log(`丘吉尔胜出：${rules.space_name(s)} 要塞被摧毁。`)
 				if (!game.forts) game.forts = { destroyed: [] }
 				if (!game.forts.destroyed) game.forts.destroyed = []
 				rules.set_add(game.forts.destroyed, s)
@@ -1300,11 +1407,11 @@ module.exports = function (Engine) {
 				} else if (event.churchill_prevails_step === 3) {
 					event.churchill_prevails_step = 4
 				} else if (event.churchill_prevails_step === 4) {
-					rules.log("Royal Navy enters Sea of Marmara!")
+					rules.log("丘吉尔胜出：加里波利要塞被摧毁，皇家海军驶入马尔马拉海。")
 					game.state = "event_churchill_prevails_constantinople"
 				}
 			} else {
-				rules.log(`Bombardment failed. Churchill's plan ends.`)
+				rules.log("丘吉尔胜出：炮击受挫，后续计划终止。")
 				rules.goto_end_operations()
 			}
 		}
@@ -1320,13 +1427,14 @@ module.exports = function (Engine) {
 		bombard(ctx) {
 			let { game, rules } = ctx
 			rules.push_undo()
-			rules.log("Royal Navy bombards Constantinople!")
+			rules.log("丘吉尔胜出：皇家海军炮击君士坦丁堡，协约国 VP -1，圣战等级 +1。")
 			game.vp -= 1
 			game.state = "event_churchill_prevails_place_units"
 			rules.update_jihad_level(game, 1)
 		},
 		skip(ctx) {
-			let { game } = ctx
+			let { game, rules } = ctx
+			rules.log("丘吉尔胜出：协约国放弃炮击君士坦丁堡。")
 			game.state = "event_churchill_prevails_place_units"
 		}
 	}
@@ -1386,26 +1494,28 @@ module.exports = function (Engine) {
 			rules.push_undo()
 			let cf = BOSPHORUS_FORTS >= 0 ? data.spaces[BOSPHORUS_FORTS].fort || 1 : 3
 			let roll = rules.roll_die(6, game)
-			rules.log(`Bombardment roll against Bosphorus Forts (CF ${cf}): ${roll}`)
-			if (roll > cf) {
+			let success = roll > cf
+			log_churchill_bombardment(rules, "博斯普鲁斯海峡要塞", cf, roll, success)
+			if (success) {
 				if (!game.forts) game.forts = { destroyed: [] }
 				if (!game.forts.destroyed) game.forts.destroyed = []
 				if (BOSPHORUS_FORTS >= 0) rules.set_add(game.forts.destroyed, BOSPHORUS_FORTS)
 				game.events["bosphorus_destroyed"] = true
 				if (!game.events["german_subs"]) {
 					game.rp_ap.ru += 2
-					rules.log("Bosphorus Forts destroyed! Allied gain +2 RU RP and +1 RU RP each turn thereafter.")
+					rules.log("丘吉尔胜出：博斯普鲁斯海峡要塞被摧毁，俄国立即获得 2 点补员点数，此后每回合额外获得 1 点，直到【地中海潜艇猎袭】打出。")
 				} else {
-					rules.log("Bosphorus Forts destroyed, but German Subs in the Med already played: no RU RP bonus.")
+					rules.log("丘吉尔胜出：博斯普鲁斯海峡要塞被摧毁，但【地中海潜艇猎袭】已生效，俄国不获得额外补员点数。")
 				}
 				rules.goto_end_operations()
 			} else {
-				rules.log("Bombardment failed. Churchill's plan ends.")
+				rules.log("丘吉尔胜出：炮击受挫，后续计划终止。")
 				rules.goto_end_operations()
 			}
 		},
 		skip(ctx) {
 			let { rules } = ctx
+			rules.log("丘吉尔胜出：协约国不继续炮击博斯普鲁斯海峡要塞。")
 			rules.goto_end_operations()
 		}
 	}
@@ -2181,7 +2291,7 @@ module.exports = function (Engine) {
 				let count = event.br_cordons_to_place || 3
 				res.prompt(`尼古拉大公抵达第比利斯 ：在任意波斯大区内放置${count} 个英国波斯宪兵师。`)
 				for (let s = 1; s < data.spaces.length; s++) {
-					if (rules.is_persia(s)) {
+					if (rules.is_persian_region(s)) {
 						res.space(s)
 					}
 				}
@@ -3566,73 +3676,70 @@ module.exports = function (Engine) {
 		}
 	}
 
+	function prompt_verdun_remove(ctx) {
+		let { game, res } = ctx
+		let plan = use_event(game, "verdun")
+		if (!plan.pool) {
+			plan = create_verdun_plan(game)
+		}
+		let summary = get_verdun_selection_summary(plan)
+		let awarded_vp = get_verdun_awarded_vp(plan)
+		let selectable = get_verdun_selectable_pieces(plan)
+		let current_result =
+			awarded_vp === 0
+				? "当前为 CP 0 VP"
+				: awarded_vp === 1
+					? "当前为 CP +1 VP"
+					: "当前为 CP +2 VP"
+
+		res.prompt(`凡尔登战役：移除单位并确认（${summary.count} 师当量；${current_result}）。`)
+		res.action("confirm")
+		for (let p of selectable) res.piece(p)
+	}
+
+	function on_verdun_piece(ctx) {
+		let { game, rules, arg: p } = ctx
+		let plan = use_event(game, "verdun")
+		if (!plan.pool) {
+			plan = rules.start_event("verdun", create_verdun_plan(game))
+		}
+		let selectable = get_verdun_selectable_pieces(plan)
+		if (!selectable.includes(p)) return
+		rules.push_undo()
+		select_verdun_piece(game, rules, plan, p)
+	}
+
+	function on_verdun_confirm(ctx) {
+		let { game, rules } = ctx
+		let plan = use_event(game, "verdun")
+		if (!plan.pool) {
+			plan = rules.start_event("verdun", create_verdun_plan(game))
+		}
+		rules.push_undo()
+		finalize_verdun_plan(game, rules)
+	}
+
 	states.event_verdun_choice = {
 		prompt(ctx) {
-			let { game, res } = ctx
-			let partial = create_verdun_plan(game, 2, 1)
-			let full = create_verdun_plan(game, 4, 0)
-			res.prompt("凡尔登战役：选择一项")
-			res.action("vp")
-			if (partial) res.action("negate_one")
-			if (full) res.action("negate_all")
+			prompt_verdun_remove(ctx)
 		},
-		vp(ctx) {
-			let { game, rules } = ctx
-			rules.push_undo()
-			game.vp += 2
-			rules.log("AP 未移除单位，CP 获得 +2 VP。")
-			rules.goto_end_event()
+		piece(ctx) {
+			on_verdun_piece(ctx)
 		},
-		negate_one(ctx) {
-			let { game, rules } = ctx
-			let plan = create_verdun_plan(game, 2, 1)
-			if (!plan) return
-			rules.push_undo()
-			rules.start_event("verdun", plan)
-			game.state = "event_verdun_remove"
-		},
-		negate_all(ctx) {
-			let { game, rules } = ctx
-			let plan = create_verdun_plan(game, 4, 0)
-			if (!plan) return
-			rules.push_undo()
-			rules.start_event("verdun", plan)
-			game.state = "event_verdun_remove"
+		confirm(ctx) {
+			on_verdun_confirm(ctx)
 		}
 	}
 
 	states.event_verdun_remove = {
 		prompt(ctx) {
-			let { game, res } = ctx
-			let plan = use_event(game, "verdun")
-			let target_label = plan.awarded_vp === 0 ? "取消全部 VP" : "将 VP 降为 +1"
-			res.prompt(
-				`凡尔登战役：选择要移除的单位（${target_label}；当前 ${plan.count}/${plan.target} 师当量，BR ${plan.br_count}/${plan.br_min}，BR/ANZ ${plan.br_anz_count}/${plan.br_anz_min}，精锐/特种 ${plan.elite_count}/${plan.elite_min}）`
-			)
-			for (let p of get_verdun_selectable_pieces(plan)) res.piece(p)
-			if (is_verdun_plan_satisfied(plan)) res.action("done")
+			prompt_verdun_remove(ctx)
 		},
 		piece(ctx) {
-			let { game, rules, arg: p } = ctx
-			let plan = use_event(game, "verdun")
-			if (!plan || (plan.selected && plan.selected.includes(p)) || !can_finish_verdun_plan(plan, p)) return
-			rules.push_undo()
-			let info = data.pieces[p]
-			let cost = get_verdun_piece_cost(p)
-			if (!plan.selected) plan.selected = []
-			plan.selected.push(p)
-			plan.count += cost
-			if (info.nation === "br") plan.br_count += cost
-			if (info.nation === "br" || info.nation === "anz") plan.br_anz_count += cost
-			if (is_verdun_elite_or_special(p)) plan.elite_count += cost
-			rules.eliminate_piece(p, true)
-			if (is_verdun_plan_satisfied(plan)) finalize_verdun_plan(game, rules)
+			on_verdun_piece(ctx)
 		},
-		done(ctx) {
-			let { game, rules } = ctx
-			let plan = use_event(game, "verdun")
-			if (!plan || !is_verdun_plan_satisfied(plan)) return
-			finalize_verdun_plan(game, rules)
+		confirm(ctx) {
+			on_verdun_confirm(ctx)
 		}
 	}
 

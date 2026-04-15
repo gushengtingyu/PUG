@@ -1349,7 +1349,8 @@ module.exports = function (Engine) {
 			},
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "let_the_french_bleed")
-				game.vp -= 1
+				game.vp += 1
+				log(game, "让法国人流血: CP +1 VP", ctx)
 				game.active = AP
 				let units = ["BR Elite DIV #4", "BR Elite DIV #5", "BR Elite DIV #6"]
 				event.reinf_to_place = units
@@ -1691,13 +1692,13 @@ module.exports = function (Engine) {
 				const { neutral } = Engine
 				// 如果 CP 手中有“康斯坦丁国王”(ID: 71) 且满足打出条件，则进入打断状态，询问 CP 是否打出以反制。
 				let has_constantine = game.hand_cp.includes(71)
- 				if (has_constantine) {
- 					game.state = "event_greece_counter"
- 					game.active = CP
+				if (has_constantine) {
+					game.state = "event_greece_counter"
+					game.active = CP
 					Engine.log(game, "协约国打出【希腊】事件，等待同盟国响应...")
 					return "interactive"
 				}
-				
+
 				game.vp -= 1
 				neutral.trigger_greece_entry(game, null, AP, "希腊事件", (msg) => log(game, msg, ctx))
 				game.events["greece_event_played"] = true
@@ -2333,8 +2334,9 @@ module.exports = function (Engine) {
 			handler: function (game, ctx) {
 				game.events["german_subs"] = true
 				game.events["german_subs_turn"] = game.turn
+				game.vp += 1
+				log(game, "地中海潜艇猎袭: CP +1 VP", ctx)
 				log(game, "地中海潜艇猎袭: 禁止所有的协约国海上支持。", ctx)
-
 				if (!game.ui_tokens) game.ui_tokens = {}
 				game.ui_tokens["SUB IN THE MED"] = "MUBMed.png"
 				let p = find_piece(undefined, "U_boats in the Med token")
@@ -2496,14 +2498,14 @@ module.exports = function (Engine) {
 			name: "VERDUN",
 			name_cn: "凡尔登战役",
 			effect_cn:
-				"(只有在安纳托利亚地区以及加里波利小地图的陆上没有协约国LCU时才能打出)。协约国玩家需要选择。A: 让同盟国获得 +2VP。B: 移除至少2个师当量，使同盟国仅获得 +1VP。C: 移除至少4个师当量，使同盟国不获得 VP。本回合德国补员点数无法使用。(注: 1LCU=3SCU；可超额移除但不会找零。必须满足规则 21.1 的精锐/特种、BR→ANZ→IN 优先和补给要求。骑兵、骆驼以及英国特殊部队不能用于此效果。)",
+				"(只有在安纳托利亚地区以及加里波利小地图的陆上没有协约国LCU时才能打出)。协约国玩家可将合法单位移至移除格；确认后系统自动结算：未满足条件则同盟国 +2VP，达到至少2个师当量则同盟国仅 +1VP，达到至少4个师当量则同盟国不获得 VP。本回合德国补员点数无法使用。(注: 1LCU=3SCU；可超额移除但不会找零。必须满足规则 21.1 的精锐/特种、BR→ANZ→IN 优先和补给要求。骑兵、骆驼以及英国特殊部队不能用于此效果。)",
 			can_play: function (game) {
 				return !has_allied_lcu_in_verdun_restricted_zone(game)
 			},
 			handler: function (game) {
 				game.events["verdun"] = true
 				game.active = AP
-				game.state = "event_verdun_choice"
+				game.state = "event_verdun_remove"
 			},
 			defer_end: true
 		},
@@ -2823,8 +2825,9 @@ module.exports = function (Engine) {
 				let year = get_year(game)
 				return (year > 1917 || (year === 1917 && get_season(game) !== "Winter")) && game.events["german_subs"]
 			},
-			handler: function (game) {
+			handler: function (game, ctx) {
 				game.vp -= 1
+				log(game, "无限制潜艇战: AP +1 VP", ctx)
 				game.events["unrestricted_submarine_warfare"] = true
 				game.unplaced_beachheads = 0
 			}
@@ -2887,6 +2890,24 @@ module.exports = function (Engine) {
 	exports.bulls_eye_use_extra_attack = bulls_eye_use_extra_attack
 	exports.bulls_eye_ru_attack_drm = bulls_eye_ru_attack_drm
 	exports.bulls_eye_cleanup_scus = bulls_eye_cleanup_scus
+
+	// --- Generic Event Queries (Decoupling from map/game_utils) ---
+	function is_event_active(game, event_id) { return game.events && !!game.events[event_id] }
+	function is_turn_event_active(game, event_id) { return game.events && game.events[event_id] === game.turn }
+
+	exports.is_br_rp_blocked = function (game) { return game.active === Engine.constants.AP && is_turn_event_active(game, "parliamentary_inquiry") }
+	exports.is_ru_rp_blocked = function (game) { return is_turn_event_active(game, "gorlice_tarnow") }
+	exports.get_russian_revolution_level = function (game) { return (game.events && game.events["russian_revolution"]) || 0 }
+	exports.is_royal_navy_blockade_active = function (game) { return is_event_active(game, "royal_navy_blockade") }
+	exports.is_arab_desertion_active = function (game) { return is_event_active(game, "arab_desertion") }
+	exports.is_egyptian_coup_active = function (game) { return is_event_active(game, "egyptian_coup") }
+	exports.is_bulgaria_active = function (game) { return is_event_active(game, "bulgaria") }
+	exports.is_romania_active = function (game) { return is_event_active(game, "romania") }
+	exports.is_afghan_alliance_active = function (game) { return is_event_active(game, "afghan_alliance") }
+	exports.is_rupel_active = function (game) { return is_event_active(game, "rupel") }
+	exports.is_berlin_baghdad_active = function (game) { return is_event_active(game, "berlin_baghdad") }
+	// ----------------------------------------------------------------
+
 	exports.is_persia_open = is_persia_open
 	exports.is_german_subs_blocked_port = is_german_subs_blocked_port
 	exports.apply_turkish_war_weariness_rp = apply_turkish_war_weariness_rp

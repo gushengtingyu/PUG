@@ -488,18 +488,39 @@ exports.register = function (states, Engine, context) {
 		return combat_cards.can_play_combat_card(target_game, c)
 	}
 
+	function get_used_ccs_this_action(target_game) {
+		if (!target_game || !target_game.action_state) return []
+		return Array.isArray(target_game.action_state.used_ccs) ? target_game.action_state.used_ccs : []
+	}
+
+	function is_cc_used_this_action(target_game, c) {
+		return set_has(get_used_ccs_this_action(target_game), c)
+	}
+
+	function mark_cc_used_this_action(target_game, c) {
+		if (!target_game.action_state || typeof target_game.action_state !== "object") {
+			target_game.action_state = {}
+		}
+		if (!Array.isArray(target_game.action_state.used_ccs)) {
+			target_game.action_state.used_ccs = []
+		}
+		set_add(target_game.action_state.used_ccs, c)
+	}
+
 	function collect_playable_cc_options(target_game, faction, is_attacker) {
 		let hand = faction === AP ? target_game.hand_ap || [] : target_game.hand_cp || []
 		let retained = get_cc_retained(faction)
 		let options = []
 		for (let c of hand) {
 			if (!data.cards[c].cc) continue
+			if (is_cc_used_this_action(target_game, c)) continue
 			if (is_attacker && c === combat.CC_CP_JAFAR_PASHA) continue
 			if (!can_play_combat_card(c, target_game)) continue
 			set_add(options, c)
 		}
 		for (let c of retained) {
 			if (!data.cards[c].cc) continue
+			if (is_cc_used_this_action(target_game, c)) continue
 			if (is_attacker && c === combat.CC_CP_JAFAR_PASHA) continue
 			if (!can_play_combat_card(c, target_game)) continue
 			// Only allow play if not already played in this combat
@@ -764,6 +785,9 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function handle_play_cc(game, c, is_attacker) {
+		// Defense in depth: the UI should already hide these cards, but some
+		// event/state round-trips can re-enter combat windows with stale actions.
+		if (is_cc_used_this_action(game, c)) return
 		if (!game.combat_cards) game.combat_cards = { attacker: [], defender: [] }
 		if (!game.combat_cards_effected) game.combat_cards_effected = []
 		let return_state = game.state
@@ -776,6 +800,7 @@ exports.register = function (states, Engine, context) {
 		} else {
 			game.combat_cards.defender.push(c)
 		}
+		mark_cc_used_this_action(game, c)
 		const mark_effected = (card) => {
 			set_add(game.combat_cards_effected, card)
 		}

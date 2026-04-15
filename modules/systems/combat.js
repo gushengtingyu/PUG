@@ -258,6 +258,13 @@ module.exports = function (Engine) {
 		delete game.combat_cards_effected
 	}
 
+	function unmark_cc_used_this_action(game, card) {
+		if (!game?.action_state || !Array.isArray(game.action_state.used_ccs)) return
+		if (set_has(game.action_state.used_ccs, card)) {
+			set_delete(game.action_state.used_ccs, card)
+		}
+	}
+
 	function finish_attack(game) {
 		let attacker = game.attack?.attacker
 		if (game.attack && !game.attack.keep_context) {
@@ -1404,21 +1411,29 @@ module.exports = function (Engine) {
 					// Special case: Jafar Pasha & No Prisoners
 					if (card === CC_CP_JAFAR_PASHA || card === CC_AP_NO_PRISONERS) was_retained = true // Always returned to front if cancelled
 
+					let returned = false
 					if (was_retained) {
 						set_add(retained, card)
 						// Note: We don't need to remove it from discard/removed because when played from retained,
 						// it was moved there. We should probably remove it from there now.
 						if (set_has(discard, card)) set_delete(discard, card)
 						if (set_has(removed, card)) set_delete(removed, card)
+						returned = true
 					} else {
 						if (set_has(discard, card)) {
 							set_delete(discard, card)
 							set_add(hand, card)
+							returned = true
 						} else if (set_has(removed, card)) {
 							set_delete(removed, card)
 							set_add(hand, card)
+							returned = true
 						}
 					}
+
+					// Cancelled battles return unaffected CCs to their prior availability,
+					// so they should no longer count as "used this action".
+					if (returned) unmark_cc_used_this_action(game, card)
 				}
 
 				if (game.combat_cards.attacker) {
@@ -1819,7 +1834,7 @@ module.exports = function (Engine) {
 			(p) => !is_piece_reduced(game, p) && !is_not_on_map(game, p) && !is_eliminated(game, p)
 		)
 		let attacker_blocks_retreat = !attacker_has_full_strength_unit
-		if (attacker_blocks_retreat) {
+		if (attacker_blocks_retreat && !result.turkish_retreat) {
 			result.retreat_needed = false
 			if (log_fn && result.attacker_losses >= result.defender_losses && !result.no_full_strength_retreat_logged) {
 				result.no_full_strength_retreat_logged = true
@@ -2251,7 +2266,7 @@ module.exports = function (Engine) {
 		let cp_defenders = get_cp_defenders(defenders)
 		if (cp_defenders.length === 0) return space
 
-		// We use the first TU/TUA SCU to determine valid retreat spaces (they usually retreat together)
+		// We use the first TU/TUA SCU to determine valid retreat spaces
 		let p = cp_defenders.find(
 			(p) => (get_piece_nation(p) === "tu" || get_piece_nation(p) === "tua") && get_piece_class(p) === "SCU"
 		)
@@ -3474,6 +3489,9 @@ module.exports = function (Engine) {
 	function refresh_post_battle_defender_retreat(game) {
 		let result = game.battle_result
 		if (!result || !game.attack || !(game.attack.space > 0)) return
+
+		// Post-battle cards like Reserves to the Front can rebuild/restore defenders
+		// after the initial result was computed, so retreat eligibility must be recalculated.
 
 		let defender_faction = game.attack.defender
 		if (defender_faction === undefined || defender_faction === null) {
