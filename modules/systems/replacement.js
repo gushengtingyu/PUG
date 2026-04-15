@@ -360,6 +360,27 @@ module.exports = function (Engine) {
 		return game.ge_to_tu_rp_used + cost <= 1
 	}
 
+	function get_ge_to_tu_conversion_budget(game, rps) {
+		if (game.no_ge_to_tu_rp_conversion) return 0
+		let ge_available = Number(rps.ge || 0)
+		if (ge_available <= 0) return 0
+		if (can_convert_ge_to_tu_unlimited(game)) return ge_available
+		let remaining = Math.max(0, 1 - Number(game.ge_to_tu_rp_used || 0))
+		return Math.min(ge_available, remaining)
+	}
+
+	function get_turkish_replacement_payment_plan(game, cost, rps) {
+		let remaining = Number(cost || 0)
+		let ge_spend = Math.min(get_ge_to_tu_conversion_budget(game, rps), remaining)
+		remaining -= ge_spend
+
+		let tu_spend = Math.min(Number(rps.tu || 0), remaining)
+		remaining -= tu_spend
+
+		if (remaining > 1e-9) return null
+		return { ge: ge_spend, tu: tu_spend }
+	}
+
 	const REPLACEMENT_SUPPLY_REQUIREMENTS = {
 		ge: { any: ["sofia", "turkey"], require: "galicia" },
 		ah: { any: ["sofia", "turkey"], require: "galicia" },
@@ -500,12 +521,27 @@ module.exports = function (Engine) {
 	}
 
 	function can_afford_replacement_as_nation(game, p, nation, cost, rps, faction) {
+		if (nation === "tu" || nation === "tua") {
+			return !!get_turkish_replacement_payment_plan(game, cost, rps)
+		}
 		let options = get_replacement_payment_options(game, p, nation, faction)
 		let context = { game, p, nation, cost, rps, faction }
 		return options.some((option) => can_use_replacement_payment_option(option, context))
 	}
 
 	function spend_replacement_as_nation(game, p, nation, cost, rps, faction) {
+		if (nation === "tu" || nation === "tua") {
+			let plan = get_turkish_replacement_payment_plan(game, cost, rps)
+			if (!plan) return false
+			if (plan.ge > 0) {
+				rps.ge -= plan.ge
+				if (!can_convert_ge_to_tu_unlimited(game)) game.ge_to_tu_rp_used += plan.ge
+			}
+			if (plan.tu > 0) {
+				rps.tu -= plan.tu
+			}
+			return true
+		}
 		let options = get_replacement_payment_options(game, p, nation, faction)
 		let context = { game, p, nation, cost, rps, faction }
 		for (let option of options) {
