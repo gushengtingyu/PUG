@@ -417,8 +417,15 @@ module.exports = function (Engine) {
 		}
 	}
 
+	function can_use_br_to_ru_during_revolution(game) {
+		if (!(game.events && game.events["russian_revolution"] >= 1)) return true
+		if (CONSTANTINOPLE < 0) return false
+		return is_controlled_by(game, CONSTANTINOPLE, AP)
+	}
+
 	function can_convert_br_to_ru(game, cost, rps) {
-		if (game.events && game.events["russian_revolution"] >= 1) return false
+		if (game.events && game.events["gorlice_tarnow"] === game.turn) return false
+		if (!can_use_br_to_ru_during_revolution(game)) return false
 		if (rps.br < cost) return false
 		if (game.events && game.events["asquith_coalition"]) return true
 		if (game.events && game.events["kitchener"] && !game.br_to_ru_rp_used) return true
