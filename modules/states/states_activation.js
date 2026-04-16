@@ -683,6 +683,9 @@ exports.register = function (states, Engine, context) {
 			let target = has_lcu_val ? 3 : Math.min(3, regular_scu_count)
 			log(`掘壕尝试：${space_name(s)}`)
 			log(`> ${roll} <= ${target} -> ${success ? "成功" : "失败"}`)
+			if (success) {
+				place_trench(game, s, active_faction())
+			}
 
 			// All participating units are marked as moved (cannot move further)
 			for (let p of selected) {

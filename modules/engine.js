@@ -185,7 +185,7 @@ const Engine = {
 		game.control[s] = faction === default_controller ? null : faction
 
 		if (Engine.jihad && typeof Engine.jihad.on_control_changed === "function") {
-			Engine.jihad.on_control_changed(game, s, faction, {
+			Engine.jihad.on_control_changed(game, s, current_controller, faction, {
 				update_jihad_level: (g, amount) => Engine.update_jihad_level(g, amount)
 			})
 		}

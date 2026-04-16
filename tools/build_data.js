@@ -64,7 +64,7 @@ spacesRaw.forEach((s) => {
 		if (s[k] !== undefined) s[k] = Number(s[k])
 	})
 
-	if (s.jihad_city === "true" || s.jihad_city === true) s.jihad_city = true
+	if (s.jihad_city === "true" || s.jihad_city === true || s.jihad_city === "1" || s.jihad_city === 1) s.jihad_city = true
 	else delete s.jihad_city
 
 	if (s.tribal_activity_grid) {

@@ -3427,6 +3427,7 @@ var data = {
 		"nation": "pe",
 		"faction": "neutral",
 		"area": "persia",
+		"jihad_city": true,
 		"connections": [
 			122,
 			147,
@@ -4570,6 +4571,7 @@ var data = {
 		"faction": "cp",
 		"vp": 2,
 		"area": "mesopotamia",
+		"jihad_city": true,
 		"connections": [
 			167,
 			168,
@@ -5833,6 +5835,7 @@ var data = {
 		"terrain": "mountain",
 		"vp": 2,
 		"area": "syria_palestine",
+		"jihad_city": true,
 		"connections": [
 			224,
 			228,
@@ -6605,6 +6608,7 @@ var data = {
 		"faction": "ap",
 		"vp": 2,
 		"area": "egypt",
+		"jihad_city": true,
 		"connections": [
 			256,
 			257,
@@ -6891,6 +6895,7 @@ var data = {
 		"vp": 1,
 		"fort": 3,
 		"area": "syria_palestine",
+		"jihad_city": true,
 		"connections": [
 			272,
 			278,
@@ -6917,6 +6922,7 @@ var data = {
 		"vp": 1,
 		"region": "hejaz",
 		"area": "syria_palestine",
+		"jihad_city": true,
 		"connections": [
 			245,
 			277,

@@ -58,22 +58,19 @@ module.exports = function (Engine) {
 		}
 	}
 
-	function on_control_changed(game, s, faction, helpers = {}) {
+	function on_control_changed(game, s, previous_controller, faction, helpers = {}) {
 		if (!data.spaces[s] || !data.spaces[s].jihad_city) return
 		const { AP, CP } = Engine.constants
 		const update_level =
 			typeof helpers.update_jihad_level === "function" ? helpers.update_jihad_level : update_jihad_level
-		if (faction === CP) {
+		if (faction === CP && previous_controller !== CP) {
 			if (!game.jihad_cities_flipped) game.jihad_cities_flipped = []
 			if (!game.jihad_cities_flipped.includes(s)) {
 				game.jihad_cities_flipped.push(s)
 				update_level(game, 1)
 			}
-		} else if (faction === AP) {
-			if (game.jihad_cities_flipped && game.jihad_cities_flipped.includes(s)) {
-				game.jihad_cities_flipped = game.jihad_cities_flipped.filter((x) => x !== s)
-				update_level(game, -1)
-			}
+		} else if (faction === AP && previous_controller !== AP) {
+			update_level(game, -1)
 		}
 	}
 
