@@ -1816,7 +1816,7 @@ module.exports = function (Engine) {
 			name_cn: "新兵征募",
 			effect_cn: "同盟国玩家获得2点土耳其补员点数，来立即进行土耳其部队的补员",
 			handler: function (game) {
-				game.rp_cp.tu += 2
+				game.fresh_recruits_bonus_tu = 2
 				game.fresh_recruits_pieces = []
 				game.state = "event_fresh_recruits"
 			},

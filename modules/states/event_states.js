@@ -2031,7 +2031,7 @@ module.exports = function (Engine) {
 		prompt(ctx) {
 			let { game, res, rules } = ctx
 			let spent = game.fresh_recruits_spent || 0
-			let remaining = 2 - spent
+			let remaining = Number(game.fresh_recruits_bonus_tu || 0) - spent
 			res.prompt(`新兵征募: 剩余 ${remaining} 土耳其补员点数`)
 
 			if (remaining > 0) {
@@ -2044,7 +2044,7 @@ module.exports = function (Engine) {
 					if (rules.is_capital_restricted(game, info.nation)) continue
 
 					let cost = rules.get_replacement_cost(game, p)
-					if (cost > 0 && cost <= remaining && rules.can_afford_replacement(game, p, cost)) {
+					if (cost > 0 && cost <= remaining) {
 						if (rules.is_eliminated(game, p)) {
 							if (info.symbol === "triangle") continue
 							let valid_spaces = rules.get_valid_rebuild_spaces(game, p, CP)
@@ -2067,7 +2067,6 @@ module.exports = function (Engine) {
 			let { game, rules, arg: p } = ctx
 			rules.push_undo()
 			let cost = rules.get_replacement_cost(game, p)
-			rules.spend_replacement_points(game, p, cost)
 			if (!game.fresh_recruits_spent) game.fresh_recruits_spent = 0
 			game.fresh_recruits_spent += cost
 
@@ -2081,11 +2080,8 @@ module.exports = function (Engine) {
 		},
 		done(ctx) {
 			let { game, rules } = ctx
-			let leftover = 2 - (game.fresh_recruits_spent || 0)
-			if (leftover > 0) {
-				game.rp_cp.tu -= leftover
-			}
 			delete game.fresh_recruits_spent
+			delete game.fresh_recruits_bonus_tu
 			delete game.fresh_recruits_pieces
 			rules.goto_end_action()
 		}
