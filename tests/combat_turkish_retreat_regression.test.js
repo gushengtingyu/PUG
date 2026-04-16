@@ -276,7 +276,14 @@ describe("土耳其撤退与战斗系统回归测试 (精简版)", () => {
 	test("无恶劣天气战斗时帕夏一号进入标准窗口", () => {
 		let { game, apPiece, cpTuScu } = createMinimalBattleGame()
 		let card = findCardByName("PASHA 1 CC")
-		let cpGeLcu = findPieceId((p) => p.faction === CP && p.nation === "ge" && p.piece_class === "LCU" && p.type !== "hq")
+		let cpGeLcu = findPieceId(
+			(p) =>
+				p.faction === CP &&
+				p.nation === "ge" &&
+				p.piece_class === "LCU" &&
+				p.type !== "hq" &&
+				!Engine.collapse.is_bulgaria_entry_setup_piece(p)
+		)
 		let plainTarget = data.spaces.findIndex(
 			(s) =>
 				s &&
@@ -308,7 +315,14 @@ describe("土耳其撤退与战斗系统回归测试 (精简版)", () => {
 	test("有恶劣天气战斗时帕夏一号进入天气前窗口", () => {
 		let { game, apPiece, cpTuScu } = createMinimalBattleGame()
 		let card = findCardByName("PASHA 1 CC")
-		let cpGeLcu = findPieceId((p) => p.faction === CP && p.nation === "ge" && p.piece_class === "LCU" && p.type !== "hq")
+		let cpGeLcu = findPieceId(
+			(p) =>
+				p.faction === CP &&
+				p.nation === "ge" &&
+				p.piece_class === "LCU" &&
+				p.type !== "hq" &&
+				!Engine.collapse.is_bulgaria_entry_setup_piece(p)
+		)
 		let desertTarget = data.spaces.findIndex((s) => s && s.terrain === "desert" && Array.isArray(s.connections) && s.connections.length > 0)
 		let desertFrom = data.spaces[desertTarget].connections[0]
 		game.turn = 4

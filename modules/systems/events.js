@@ -4,7 +4,7 @@ module.exports = function (Engine) {
 	const { data } = Engine
 	const exports = {}
 
-	const { set_add, set_has, random } = Engine.utils
+	const { set_add, set_delete, set_has, random } = Engine.utils
 	const { AP, CP, RESERVE, REMOVED } = Engine.constants
 	const {
 		find_space,
@@ -27,6 +27,7 @@ module.exports = function (Engine) {
 		get_piece_nation,
 		piece_counts_as_nation_for_rule,
 		get_piece_badge,
+		get_piece_effective_faction,
 		space_name,
 		piece_name
 	} = Engine.game_utils
@@ -678,6 +679,76 @@ module.exports = function (Engine) {
 		return false
 	}
 
+	function resolve_entry_space(space) {
+		if (typeof space === "string") {
+			let s = find_space(space)
+			return s >= 0 ? s : null
+		}
+		return space
+	}
+
+	function is_piece_effectively_on_map_for_entry(game, p) {
+		if (!data.pieces[p]) return false
+		if (Engine.game_utils.is_bulgaria_entry_locked && Engine.game_utils.is_bulgaria_entry_locked(game, p)) return false
+		return !Engine.game_utils.is_not_on_map(game, p)
+	}
+
+	function is_piece_available_for_entry(game, p, options = {}) {
+		if (p < 0 || !data.pieces[p]) return false
+		let pe_box = Engine.game_utils.get_permanently_eliminated_box(data.pieces[p].faction)
+		if (game.pieces[p] === pe_box) return false
+		if (options.skip_if_event && game.events && game.events[options.skip_if_event]) return false
+		if (options.if_not_already_on_map || options.if_available) {
+			if (is_piece_effectively_on_map_for_entry(game, p)) return false
+			if (
+				options.if_available &&
+				data.pieces[p].piece_class === "LCU" &&
+				game.pieces[p] === get_lcu_reserve_box(data.pieces[p].faction)
+			) {
+				return false
+			}
+			return true
+		}
+		return !is_piece_effectively_on_map_for_entry(game, p)
+	}
+
+	function place_entry_piece_from_any_box(game, name, faction, space, options = {}) {
+		let p = find_piece(faction, name)
+		if (!is_piece_available_for_entry(game, p, options)) return false
+		let target = resolve_entry_space(space)
+		if (target === null || target === undefined || target < 0) return false
+		if (options.unlock_bulgaria_display && Engine.game_utils.unlock_entry_piece) {
+			Engine.game_utils.unlock_entry_piece(game, p)
+		}
+		game.pieces[p] = target
+		set_delete(game.reduced, p)
+		log(game, `增援：${name} 放置到 ${space_name(target)}`)
+		if (Engine.sync_neutral_vp_state && target > 0) Engine.sync_neutral_vp_state(game, target)
+		return true
+	}
+
+	function place_first_available_entry_pieces(game, names, count, faction, space, options = {}) {
+		let placed = 0
+		for (let name of names) {
+			if (placed >= count) break
+			if (place_entry_piece_from_any_box(game, name, faction, space, options)) placed += 1
+		}
+		return placed
+	}
+
+	function schedule_delayed_entry_piece(game, name, faction, turn_offset, space, options = {}) {
+		let p = find_piece(faction, name)
+		if (!is_piece_available_for_entry(game, p, options)) return false
+		let target = resolve_entry_space(space)
+		if (target === null || target === undefined || target < 0) return false
+		if (!Array.isArray(game.delayed_reinforcements)) game.delayed_reinforcements = []
+		if (!game.delayed_reinforcements.some((entry) => entry.piece === p && entry.turn === game.turn + turn_offset && entry.space === target)) {
+			game.delayed_reinforcements.push({ turn: game.turn + turn_offset, piece: p, space: target })
+			log(game, `延迟增援：${name} 将在第 ${game.turn + turn_offset} 回合进入 ${space_name(target)}`)
+		}
+		return true
+	}
+
 	function get_event_entry(card) {
 		let entry = events_by_id[card.num]
 		if (!entry && card.event) entry = events_by_name[card.event]
@@ -1302,9 +1373,9 @@ module.exports = function (Engine) {
 				let has_ap_lcu = false
 				for (let p = 1; p < data.pieces.length; p++) {
 					let info = data.pieces[p]
-					if (info && info.piece_class === "LCU" && get_piece_faction(p) === AP) {
+					if (info && info.piece_class === "LCU" && get_piece_effective_faction(game, p) === AP) {
 						let s = game.pieces[p]
-						if (s > 0 && is_balkans(game, s)) {
+						if (s > 0 && is_balkans(s)) {
 							has_ap_lcu = true
 							break
 						}
@@ -1317,11 +1388,54 @@ module.exports = function (Engine) {
 				game.entry_ro = true
 
 				let romania_entry_plan = Engine.collapse.get_romanian_entry_plan()
-				let ro_units = romania_entry_plan.ap.ro_units
-				for (let unit of ro_units) reinforce(game, unit, AP, "Bucharest")
+				for (let s = 1; s < data.spaces.length; s++) {
+					let info = data.spaces[s]
+					if (!info || info.faction !== "neutral") continue
+					if (info.nation === "ro") Engine.set_control(game, s, AP)
+				}
 
-				let cp_units = [...romania_entry_plan.cp.ge_units, ...romania_entry_plan.cp.ah_units]
-				for (let unit of cp_units) reinforce(game, unit, CP, RESERVE)
+				for (let entry of romania_entry_plan.ap.immediate) {
+					place_entry_piece_from_any_box(game, entry.name, AP, entry.space)
+				}
+				place_first_available_entry_pieces(game, romania_entry_plan.ap.ru_division_pool, 2, AP, "AP Reserve", {
+					if_available: true
+				})
+				for (let entry of romania_entry_plan.ap.delayed) {
+					schedule_delayed_entry_piece(game, entry.name, AP, entry.turn_offset, entry.space, {
+						if_available: true
+					})
+				}
+
+				for (let entry of romania_entry_plan.cp.immediate) {
+					let target_space = entry.space
+					if (entry.name === "Combined BU/AH Div" && game.events["bulgaria"]) {
+						target_space = entry.bulgaria_space || entry.space
+					}
+					place_entry_piece_from_any_box(game, entry.name, CP, target_space, {
+						if_not_already_on_map: !!entry.if_not_already_on_map,
+						unlock_bulgaria_display: !!entry.unlock_bulgaria_display,
+						skip_if_event: entry.skip_if_event || null
+					})
+				}
+				place_first_available_entry_pieces(game, romania_entry_plan.cp.ge_division_pool, 2, CP, "CP Reserve", {
+					if_available: true
+				})
+				place_first_available_entry_pieces(
+					game,
+					romania_entry_plan.cp.ah_hermannstadt_pool,
+					2,
+					CP,
+					"Hermannstadt",
+					{ if_available: true }
+				)
+				place_first_available_entry_pieces(game, romania_entry_plan.cp.ah_reserve_pool, 1, CP, "CP Reserve", {
+					if_available: true
+				})
+				for (let entry of romania_entry_plan.cp.delayed) {
+					schedule_delayed_entry_piece(game, entry.name, CP, entry.turn_offset, entry.space, {
+						if_available: true
+					})
+				}
 
 				game.active = AP
 				game.state = "event_romania_attack"
@@ -2413,29 +2527,25 @@ module.exports = function (Engine) {
 
 				const { AP, CP } = Engine.constants
 
-				// 1. Helper to find a division from Force Pool
-				function reinforce_first_available(names, faction, space) {
-					for (let name of names) {
-						if (reinforce(game, name, faction, space)) return true
-					}
-					return false
+				// Rule 19.3.1 / 19.4.1: Bulgaria joins CP and Serbia joins AP immediately.
+				// The setup initializes these neutral spaces with an explicit "neutral" control override,
+				// so we must actively switch control here instead of relying on default-controller logic.
+				for (let s = 1; s < data.spaces.length; s++) {
+					let info = data.spaces[s]
+					if (!info || info.faction !== "neutral") continue
+					if (info.nation === "bu") Engine.set_control(game, s, CP)
+					else if (info.nation === "sb") Engine.set_control(game, s, AP)
 				}
 
-				// 2. Place CP pieces (Bulgaria)
-				// Rule 19.3.1: 1st Army, 2nd Army, 3rd Army, one BU division, one GE division, one AH division in any Bulgarian spaces.
-				for (let unit of bulgariaPlan.cp.fixed_armies) reinforce(game, unit, CP, "SOFIA")
-				reinforce_first_available(bulgariaPlan.cp.bu_division_pool, CP, "SOFIA")
-				reinforce_first_available(bulgariaPlan.cp.ge_division_pool, CP, "SOFIA")
-				reinforce_first_available(bulgariaPlan.cp.ah_division_pool, CP, "SOFIA")
-
-				// Additional German units entering with Bulgaria (Rule 19.3.1 / Setup card)
-				for (let unit of bulgariaPlan.cp.ge_support) reinforce(game, unit, CP, "SOFIA")
-
-				// 3. Place AP pieces (Serbia)
-				// Rule 19.4.1: 1st Army, 2nd Army, 3rd Army, 6 divisions, and Cavalry in any non-enemy occupied Serbian spaces.
-				for (let unit of bulgariaPlan.ap.armies) reinforce(game, unit, AP, "BELGRADE")
-				reinforce(game, bulgariaPlan.ap.cavalry, AP, "BELGRADE")
-				for (let unit of bulgariaPlan.ap.divisions) reinforce(game, unit, AP, "BELGRADE")
+				// New games pre-place these units on the Bulgarian Entry display positions at setup.
+				// Keep this reinforce pass for backward compatibility with older saves that still have
+				// the entry units sitting in the reinforcement pool.
+				for (let entry of bulgariaPlan.cp.placements) {
+					reinforce(game, entry.name, CP, entry.space)
+				}
+				for (let entry of bulgariaPlan.ap.placements) {
+					reinforce(game, entry.name, AP, entry.space)
+				}
 			}
 		},
 		89: {
@@ -2524,7 +2634,7 @@ module.exports = function (Engine) {
 			can_play: function (game) {
 				let has_ap_lcu = false
 				for (let p = 1; p < data.pieces.length; p++) {
-					if (is_lcu(p) && get_piece_faction(p) === AP) {
+					if (is_lcu(p) && get_piece_effective_faction(game, p) === AP) {
 						let s = game.pieces[p]
 						if (s > 0) {
 							let nation = data.spaces[s].nation

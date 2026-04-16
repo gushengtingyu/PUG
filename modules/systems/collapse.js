@@ -12,70 +12,111 @@ module.exports = function (Engine) {
 	const CONSTANTA = Engine.game_utils.find_space("Constanta")
 	const SOFIA = Engine.game_utils.find_space("SOFIA")
 
+	const BULGARIA_ENTRY_CP_PLACEMENTS = Object.freeze([
+		Object.freeze({ name: "BU 1 Army", space: "Vidin" }),
+		Object.freeze({ name: "BU DIV #1", space: "Vidin" }),
+		Object.freeze({ name: "BU 2 Army", space: "SOFIA" }),
+		Object.freeze({ name: "BU DIV #2", space: "SOFIA" }),
+		Object.freeze({ name: "BU 3 Army", space: "Rustchuk" }),
+		Object.freeze({ name: "BU DIV #3", space: "Xanthi" }),
+		Object.freeze({ name: "BU DIV #4", space: "Strumica" }),
+		Object.freeze({ name: "BU DIV #5", space: "Varna" }),
+		Object.freeze({ name: "BU DIV #6", space: "CP Reserve" }),
+		Object.freeze({ name: "BU DIV #7", space: "CP Reserve" }),
+		Object.freeze({ name: "GE IV R Corps", space: "Galicia" }),
+		Object.freeze({ name: "German 11th Army", space: "Galicia" }),
+		Object.freeze({ name: "GE Hvy Arty", space: "Galicia" }),
+		Object.freeze({ name: "GE Mackenson HQ", space: "Galicia" }),
+		Object.freeze({ name: "GE Alpenkorps", space: "Vidin" }),
+		Object.freeze({ name: "GE DIV #1", space: "CP Reserve" }),
+		Object.freeze({ name: "GE DIV #2", space: "CP Reserve" }),
+		Object.freeze({ name: "AH VIII Corps", space: "Galicia" }),
+		Object.freeze({ name: "AH XXII R Corps", space: "Galicia" }),
+		Object.freeze({ name: "AH DIV #4", space: "Galicia" }),
+		Object.freeze({ name: "AH DIV #5", space: "CP Reserve" })
+	])
+	const BULGARIA_ENTRY_AP_PLACEMENTS = Object.freeze([
+		Object.freeze({ name: "SB 1 Army", space: "BELGRADE" }),
+		Object.freeze({ name: "SB 3 Army", space: "BELGRADE" }),
+		Object.freeze({ name: "SB DIV #1", space: "BELGRADE" }),
+		Object.freeze({ name: "SB 2 Army", space: "Nis" }),
+		Object.freeze({ name: "SB DIV #2", space: "Nis" }),
+		Object.freeze({ name: "SB Cavalry", space: "Nis" }),
+		Object.freeze({ name: "SB DIV #3", space: "Veles" }),
+		Object.freeze({ name: "SB DIV #4", space: "Veles" }),
+		Object.freeze({ name: "SB DIV #5", space: "AP Reserve" }),
+		Object.freeze({ name: "SB DIV #6", space: "AP Reserve" })
+	])
 	const BULGARIA_ENTRY_PLAN = Object.freeze({
 		cp: Object.freeze({
-			fixed_armies: Object.freeze(["BU 1 Army", "BU 2 Army", "BU 3 Army"]),
-			bu_division_pool: Object.freeze([
-				"BU DIV #1",
-				"BU DIV #2",
-				"BU DIV #3",
-				"BU DIV #4",
-				"BU DIV #5",
-				"BU DIV #6",
-				"BU DIV #7"
-			]),
-			ge_division_pool: Object.freeze(["GE DIV #1", "GE DIV #2", "GE DIV #3", "GE DIV #4"]),
-			ah_division_pool: Object.freeze(["AH DIV #1", "AH DIV #2", "AH DIV #3", "AH DIV #4", "AH DIV #5", "AH DIV #6"]),
-			ge_support: Object.freeze(["German 11th Army", "GE Mackenson HQ", "GE Hvy Arty"])
+			placements: BULGARIA_ENTRY_CP_PLACEMENTS,
+			ah_divisions: Object.freeze(["AH DIV #4", "AH DIV #5"])
 		}),
 		ap: Object.freeze({
-			armies: Object.freeze(["SB 1 Army", "SB 2 Army", "SB 3 Army"]),
-			cavalry: "SB Cavalry",
-			divisions: Object.freeze(["SB DIV #1", "SB DIV #2", "SB DIV #3", "SB DIV #4", "SB DIV #5", "SB DIV #6"])
+			placements: BULGARIA_ENTRY_AP_PLACEMENTS
 		})
 	})
 	const ROMANIA_ENTRY_PLAN = Object.freeze({
 		ap: Object.freeze({
-			ro_units: Object.freeze([
-				"RO 1 Army",
-				"RO 2 Army",
-				"RO 3 Army",
-				"RO Cavalry",
-				"RO DIV #1",
-				"RO DIV #2",
-				"RO DIV #3",
-				"RO DIV #4",
-				"RO DIV #5",
-				"RO DIV #6"
+			immediate: Object.freeze([
+				Object.freeze({ name: "RO 1 Army", space: "Craiova" }),
+				Object.freeze({ name: "RO DIV #1", space: "Targa Jiu" }),
+				Object.freeze({ name: "RO DIV #2", space: "Targa Jiu" }),
+				Object.freeze({ name: "RO 2 Army", space: "Ploesti" }),
+				Object.freeze({ name: "RO DIV #3", space: "Ploesti" }),
+				Object.freeze({ name: "RO Cavalry", space: "Ploesti" }),
+				Object.freeze({ name: "RO 3 Army", space: "Turtukai" }),
+				Object.freeze({ name: "RO DIV #4", space: "BUCHAREST" }),
+				Object.freeze({ name: "RO DIV #5", space: "BUCHAREST" }),
+				Object.freeze({ name: "RO DIV #6", space: "AP Reserve" }),
+				Object.freeze({ name: "RU Dobruja", space: "Constanta" }),
+				Object.freeze({ name: "RU/SB Yugo Infantry", space: "AP Reserve" })
+			]),
+			ru_division_pool: Object.freeze(["RU DIV #11", "RU DIV #12", "RU DIV #13", "RU DIV #14", "RU DIV #15"]),
+			delayed: Object.freeze([
+				Object.freeze({ name: "RU Danube Army", turn_offset: 1, space: "Odessa" }),
+				Object.freeze({ name: "RU 6 Army", turn_offset: 2, space: "Odessa" }),
+				Object.freeze({ name: "FR Army Orient 1", turn_offset: 1, space: "Lemnos" }),
+				Object.freeze({ name: "FR Army Orient 2", turn_offset: 1, space: "Lemnos" })
 			])
 		}),
 		cp: Object.freeze({
-			ge_units: Object.freeze(["GE IX Army", "GE Falkenhayn HQ", "GE Hvy Arty", "GE Schmettow"]),
+			immediate: Object.freeze([
+				Object.freeze({ name: "GE IX Army", space: "Galicia" }),
+				Object.freeze({ name: "GE Falkenhayn HQ", space: "Galicia", skip_if_event: "yildrim" }),
+				Object.freeze({ name: "GE Alpenkorps", space: "Galicia", if_not_already_on_map: true, unlock_bulgaria_display: true }),
+				Object.freeze({ name: "AH VI R Corps", space: "Galicia" }),
+				Object.freeze({ name: "Combined BU/AH Div", space: "CP Reserve", bulgaria_space: "SOFIA" })
+			]),
+			ge_division_pool: Object.freeze(["GE DIV #3", "GE DIV #4"]),
+			ah_hermannstadt_pool: Object.freeze(["AH DIV #1", "AH DIV #2"]),
+			ah_reserve_pool: Object.freeze(["AH DIV #3"]),
+			delayed: Object.freeze([Object.freeze({ name: "GE Schmettow", turn_offset: 1, space: "Galicia" })]),
 			ah_units: Object.freeze(["Combined BU/AH Div", "AH DIV #1", "AH DIV #2", "AH DIV #3"])
 		})
 	})
 
-	const BULGARIAN_ENTRY_UNIT_NAMES = new Set([
-		...BULGARIA_ENTRY_PLAN.cp.ah_division_pool,
-		...BULGARIA_ENTRY_PLAN.cp.fixed_armies,
-		"BU 4 Army",
-		...BULGARIA_ENTRY_PLAN.cp.bu_division_pool,
-		"Combined BU/AH Div",
-		"GE Alpenkorps",
-		...BULGARIA_ENTRY_PLAN.cp.ge_division_pool,
-		...BULGARIA_ENTRY_PLAN.cp.ge_support,
-		"GE IV R Corps"
+	const BULGARIAN_ENTRY_UNIT_NAMES = new Set(BULGARIA_ENTRY_CP_PLACEMENTS.map((entry) => entry.name))
+	const BULGARIA_ENTRY_SETUP_UNIT_NAMES = new Set([
+		...BULGARIA_ENTRY_CP_PLACEMENTS.map((entry) => entry.name),
+		...BULGARIA_ENTRY_AP_PLACEMENTS.map((entry) => entry.name)
 	])
 	const ROMANIAN_ENTRY_UNIT_NAMES = new Set([
-		...ROMANIA_ENTRY_PLAN.ap.ro_units,
-		...ROMANIA_ENTRY_PLAN.cp.ge_units,
+		...ROMANIA_ENTRY_PLAN.ap.immediate.map((entry) => entry.name),
+		...ROMANIA_ENTRY_PLAN.ap.ru_division_pool,
+		...ROMANIA_ENTRY_PLAN.ap.delayed.map((entry) => entry.name),
+		...ROMANIA_ENTRY_PLAN.cp.immediate.map((entry) => entry.name),
+		...ROMANIA_ENTRY_PLAN.cp.ge_division_pool,
+		...ROMANIA_ENTRY_PLAN.cp.ah_hermannstadt_pool,
+		...ROMANIA_ENTRY_PLAN.cp.ah_reserve_pool,
+		...ROMANIA_ENTRY_PLAN.cp.delayed.map((entry) => entry.name),
 		...ROMANIA_ENTRY_PLAN.cp.ah_units
 	])
 	const ROMANIAN_COLLAPSE_AH_UNIT_NAMES = new Set([...ROMANIA_ENTRY_PLAN.cp.ah_units])
 	// 两个崩溃事件的“可选保留/移除”名单并不相同：
 	// 塞尔维亚崩溃看保加利亚入场时的 AH 师，罗马尼亚崩溃看罗马尼亚入场时的 AH 单位。
 	const COLLAPSE_OPTIONAL_REMOVAL_PLAN = Object.freeze({
-		serbia: BULGARIA_ENTRY_PLAN.cp.ah_division_pool,
+		serbia: BULGARIA_ENTRY_PLAN.cp.ah_divisions,
 		romania: ROMANIA_ENTRY_PLAN.cp.ah_units
 	})
 	const {
@@ -97,22 +138,6 @@ module.exports = function (Engine) {
 	const exports = {}
 
 	function validate_entry_rules() {
-		const bulgarianUnitSets = [
-			BULGARIA_ENTRY_PLAN.cp.fixed_armies,
-			BULGARIA_ENTRY_PLAN.cp.bu_division_pool,
-			BULGARIA_ENTRY_PLAN.cp.ge_division_pool,
-			BULGARIA_ENTRY_PLAN.cp.ah_division_pool,
-			BULGARIA_ENTRY_PLAN.cp.ge_support
-		]
-
-		for (let units of bulgarianUnitSets) {
-			for (let name of units) {
-				if (!BULGARIAN_ENTRY_UNIT_NAMES.has(name)) {
-					throw new Error(`Invalid Bulgarian entry rules: missing unit ${name}`)
-				}
-			}
-		}
-
 		if (!ROMANIAN_ENTRY_UNIT_NAMES.has("GE IX Army")) {
 			throw new Error("Invalid Romanian entry rules: missing unit GE IX Army")
 		}
@@ -126,6 +151,7 @@ module.exports = function (Engine) {
 		}
 
 		const hardcodedUnitNames = new Set([
+			...BULGARIA_ENTRY_SETUP_UNIT_NAMES,
 			...BULGARIAN_ENTRY_UNIT_NAMES,
 			...ROMANIAN_ENTRY_UNIT_NAMES,
 			...ROMANIAN_COLLAPSE_AH_UNIT_NAMES
@@ -142,6 +168,11 @@ module.exports = function (Engine) {
 		return BULGARIAN_ENTRY_UNIT_NAMES.has(info.name)
 	}
 
+	function is_bulgaria_entry_setup_piece(info) {
+		if (!info) return false
+		return BULGARIA_ENTRY_SETUP_UNIT_NAMES.has(info.name)
+	}
+
 	function is_romanian_entry_piece(info) {
 		if (!info) return false
 		return ROMANIAN_ENTRY_UNIT_NAMES.has(info.name)
@@ -152,7 +183,7 @@ module.exports = function (Engine) {
 	}
 
 	function get_bulgarian_entry_ah_divisions() {
-		return BULGARIA_ENTRY_PLAN.cp.ah_division_pool
+		return BULGARIA_ENTRY_PLAN.cp.ah_divisions
 	}
 
 	function get_collapse_choice_unit_names(nation) {
@@ -546,6 +577,7 @@ module.exports = function (Engine) {
 	exports.get_romanian_entry_plan = get_romanian_entry_plan
 	exports.get_collapse_sr_limit = get_collapse_sr_limit
 	exports.is_bulgarian_entry_piece = is_bulgarian_entry_piece
+	exports.is_bulgaria_entry_setup_piece = is_bulgaria_entry_setup_piece
 	exports.is_romanian_entry_piece = is_romanian_entry_piece
 	exports.has_serbia_collapsed = has_serbia_collapsed
 	exports.has_romania_collapsed = has_romania_collapsed

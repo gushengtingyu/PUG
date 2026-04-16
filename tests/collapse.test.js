@@ -213,8 +213,8 @@ describe("崩溃规则", () => {
 	test("塞尔维亚自愿崩溃可完成 offer->accept->移除->免费SR->done 全链路", () => {
 		const game = createGame()
 		const rules = createStateRules(game)
-		const ahDiv1 = moveToReserve(game, CP, "AH DIV #1")
-		const ahDiv2 = moveToReserve(game, CP, "AH DIV #2")
+		const ahDiv1 = moveToReserve(game, CP, "AH DIV #4")
+		const ahDiv2 = moveToReserve(game, CP, "AH DIV #5")
 		const srPiece = placePiece(game, CP, "German 11th Army", "SOFIA")
 		const destination = findSpace("BELGRADE")
 

@@ -249,6 +249,25 @@ module.exports = function (Engine) {
 		return data.pieces[p].name !== "GE GeoProtect"
 	}
 
+	function is_bulgaria_entry_locked(game, p) {
+		let info = data.pieces[p]
+		if (!info || !game || (game.events && game.events["bulgaria"])) return false
+		if (Array.isArray(game.unlocked_entry_pieces) && set_has(game.unlocked_entry_pieces, p)) return false
+		return !!(
+			Engine.collapse &&
+			Engine.collapse.is_bulgaria_entry_setup_piece &&
+			Engine.collapse.is_bulgaria_entry_setup_piece(info)
+		)
+	}
+
+	function unlock_entry_piece(game, p) {
+		if (!game || p < 0 || !data.pieces[p]) return false
+		if (!Array.isArray(game.unlocked_entry_pieces)) game.unlocked_entry_pieces = []
+		if (set_has(game.unlocked_entry_pieces, p)) return false
+		set_add(game.unlocked_entry_pieces, p)
+		return true
+	}
+
 	function is_not_on_map(game, p) {
 		return is_eliminated(game, p) || is_in_reserve(game, p) || is_removed(game, p) || is_reinforcement(game, p)
 	}
@@ -266,6 +285,7 @@ module.exports = function (Engine) {
 		let info = data.pieces[p]
 		if (!info) return null
 		if (info.name === "GE GeoProtect") return AP
+		if (is_bulgaria_entry_locked(game, p)) return "neutral"
 		if (info.nation === "gr" && Engine.neutral) {
 			let greece_faction = Engine.neutral.get_greece_faction(game)
 			if (greece_faction) return greece_faction
@@ -316,6 +336,7 @@ module.exports = function (Engine) {
 			if (!info) continue
 			if (info.nation !== nation) continue
 			if (!is_scu(p)) continue
+			if (is_bulgaria_entry_locked(game, p)) continue
 			let reserve = get_reserve_box(info.faction)
 			if (game.pieces[p] === reserve || game.pieces[p] === RESERVE) return true
 		}
@@ -325,7 +346,7 @@ module.exports = function (Engine) {
 	function get_pieces_in_reserve(game, faction) {
 		let pieces = []
 		for (let p = 0; p < game.pieces.length; p++) {
-			if (data.pieces[p].faction === faction && is_in_reserve(game, p)) {
+			if (data.pieces[p].faction === faction && is_in_reserve(game, p) && !is_bulgaria_entry_locked(game, p)) {
 				pieces.push(p)
 			}
 		}
@@ -373,6 +394,7 @@ module.exports = function (Engine) {
 
 		for (let i = 1; i < data.pieces.length; i++) {
 			if (!is_in_reserve(game, i)) continue
+			if (is_bulgaria_entry_locked(game, i)) continue
 			let replacement = data.pieces[i]
 			if (replacement.piece_class !== "SCU") continue
 			if (get_nation_group(replacement.nation) !== group) continue
@@ -991,6 +1013,8 @@ module.exports = function (Engine) {
 		can_combine_in_space,
 		get_lcu_reserve_box,
 		get_piece_effective_faction,
+		is_bulgaria_entry_locked,
+		unlock_entry_piece,
 		get_reserve_box,
 		get_capacity,
 		get_tribe_key_space,

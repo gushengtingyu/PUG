@@ -88,6 +88,16 @@ module.exports = function (Engine) {
 		}
 	}
 
+	function place_bulgaria_entry_display_units(game) {
+		const plan = Engine.collapse.get_bulgaria_entry_plan()
+		for (let entry of plan.cp.placements) {
+			place_piece(game, CP, entry.name, entry.space)
+		}
+		for (let entry of plan.ap.placements) {
+			place_piece(game, "ap", entry.name, entry.space)
+		}
+	}
+
 	function setup_historical_scenario(game) {
 		game.scenario_max_turn = 17
 
@@ -222,6 +232,8 @@ module.exports = function (Engine) {
 		place_piece(game, "ap", "RU Cavalry #6", "Central Asia", true)
 		place_piece(game, "ap", "RU Persian coss", "Tabriz", false)
 		place_piece(game, "ap", "RU Yudenitch HQ", "TIFLIS", false)
+
+		place_bulgaria_entry_display_units(game)
 
 		// Beachhead
 		place_beachhead(game, "to Fao")
@@ -425,6 +437,7 @@ module.exports = function (Engine) {
 		if (!Array.isArray(state.entrenching)) state.entrenching = []
 		if (!Array.isArray(state.entrench_attempts)) state.entrench_attempts = []
 		if (!Array.isArray(state.entered_regions_this_turn)) state.entered_regions_this_turn = []
+		if (!Array.isArray(state.unlocked_entry_pieces)) state.unlocked_entry_pieces = []
 		if (state.last_card === undefined) state.last_card = 0
 		if (!Array.isArray(state.rollback)) state.rollback = []
 		if (!(Array.isArray(state.rollback_state) || typeof state.rollback_state === "string"))
@@ -528,6 +541,7 @@ module.exports = function (Engine) {
 			entrenching: [],
 			entrench_attempts: [],
 			entered_regions_this_turn: [],
+			unlocked_entry_pieces: [],
 			last_card: 0,
 			rollback: [],
 			rollback_state: [],
