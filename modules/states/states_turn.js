@@ -330,7 +330,7 @@ exports.register = function (states, Engine, context) {
 		}
 
 		let constantinople = find_space("CONSTANTINOPLE")
-		let blocked = constantinople >= 0 && Engine.map.is_controlled_by(game, constantinople, AP)
+		let blocked = constantinople >= 0 && Engine.map.is_russia_controlled_space(game, constantinople)
 		if (!game.events["russian_revolution"]) {
 			let timer =
 				typeof Engine.events.get_revolution_marker_turn === "function"
@@ -800,6 +800,7 @@ exports.register = function (states, Engine, context) {
 	function enter_replacement_rp_phase() {
 		game.kitchener_conversion_used = false
 		game.br_to_ru_rp_used = false
+		game.br_to_ru_rp_spent = 0
 
 		if (game.events["central_asia_rebellion"]) game.rp_rebel.ca += 1
 		if (game.events["afghan_alliance"]) game.rp_rebel.af += 1

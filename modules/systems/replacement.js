@@ -4,7 +4,7 @@ module.exports = function (Engine) {
 	const { data } = Engine
 	const exports = {}
 
-	const { is_controlled_by } = Engine.map
+	const { is_controlled_by, is_russia_controlled_space } = Engine.map
 	const {
 		is_besieged,
 		can_trace_supply_to_source,
@@ -441,16 +441,43 @@ module.exports = function (Engine) {
 	function can_use_br_to_ru_during_revolution(game) {
 		if (!(game.events && game.events["russian_revolution"] >= 1)) return true
 		if (CONSTANTINOPLE < 0) return false
-		return is_controlled_by(game, CONSTANTINOPLE, AP)
+		return is_russia_controlled_space(game, CONSTANTINOPLE)
+	}
+
+	function get_br_to_ru_conversion_spent(game) {
+		let spent = Number(game.br_to_ru_rp_spent || 0)
+		if (!Number.isFinite(spent)) spent = 0
+		if (spent <= 0 && game.br_to_ru_rp_used === true) return 1
+		return spent
+	}
+
+	function get_br_to_ru_conversion_budget(game, rps) {
+		if (game.events && game.events["gorlice_tarnow"] === game.turn) return 0
+		if (!can_use_br_to_ru_during_revolution(game)) return 0
+		let br_available = Number(rps.br || 0)
+		if (br_available <= 0) return 0
+		if (game.events && game.events["asquith_coalition"]) return br_available
+		if (game.events && game.events["kitchener"]) {
+			let remaining = Math.max(0, 1 - get_br_to_ru_conversion_spent(game))
+			return Math.min(br_available, remaining)
+		}
+		return 0
 	}
 
 	function can_convert_br_to_ru(game, cost, rps) {
-		if (game.events && game.events["gorlice_tarnow"] === game.turn) return false
-		if (!can_use_br_to_ru_during_revolution(game)) return false
-		if (rps.br < cost) return false
-		if (game.events && game.events["asquith_coalition"]) return true
-		if (game.events && game.events["kitchener"] && !game.br_to_ru_rp_used) return true
-		return false
+		return get_br_to_ru_conversion_budget(game, rps) >= cost
+	}
+
+	function get_russian_replacement_payment_plan(game, cost, rps) {
+		let remaining = Number(cost || 0)
+		let br_spend = Math.min(get_br_to_ru_conversion_budget(game, rps), remaining)
+		remaining -= br_spend
+
+		let ru_spend = Math.min(Number(rps.ru || 0), remaining)
+		remaining -= ru_spend
+
+		if (remaining > 1e-9) return null
+		return { br: br_spend, ru: ru_spend }
 	}
 
 	const AP_REPLACEMENT_PAYMENT_OPTIONS = {
@@ -521,6 +548,9 @@ module.exports = function (Engine) {
 	}
 
 	function can_afford_replacement_as_nation(game, p, nation, cost, rps, faction) {
+		if (nation === "ru") {
+			return !!get_russian_replacement_payment_plan(game, cost, rps)
+		}
 		if (nation === "tu" || nation === "tua") {
 			return !!get_turkish_replacement_payment_plan(game, cost, rps)
 		}
@@ -530,6 +560,21 @@ module.exports = function (Engine) {
 	}
 
 	function spend_replacement_as_nation(game, p, nation, cost, rps, faction) {
+		if (nation === "ru") {
+			let plan = get_russian_replacement_payment_plan(game, cost, rps)
+			if (!plan) return false
+			if (plan.br > 0) {
+				rps.br -= plan.br
+				if (!(game.events && game.events["asquith_coalition"]) && game.events && game.events["kitchener"]) {
+					game.br_to_ru_rp_spent = get_br_to_ru_conversion_spent(game) + plan.br
+					game.br_to_ru_rp_used = true
+				}
+			}
+			if (plan.ru > 0) {
+				rps.ru -= plan.ru
+			}
+			return true
+		}
 		if (nation === "tu" || nation === "tua") {
 			let plan = get_turkish_replacement_payment_plan(game, cost, rps)
 			if (!plan) return false

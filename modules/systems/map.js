@@ -406,6 +406,14 @@ module.exports = function (Engine) {
 		return get_space_controller(game, s) === faction
 	}
 
+	function is_russia_controlled_space(game, s) {
+		if (!is_controlled_by(game, s, AP)) return false
+		if (game.warm_water_port_vp === s) return true
+		if (!data.spaces[s]) return false
+		if (data.spaces[s].nation === "ru" || is_azerbaijan(s)) return true
+		return Array.isArray(game.ru_control_markers) && game.ru_control_markers.includes(s)
+	}
+
 	function has_allied_control_of_balfour_spaces(game) {
 		return (
 			is_controlled_by(game, JERUSALEM, AP) ||
@@ -3230,6 +3238,7 @@ function get_stack_yildirim_count(pieces) {
 		get_default_controller,
 		get_space_controller,
 		is_controlled_by,
+		is_russia_controlled_space,
 		has_allied_control_of_balfour_spaces,
 		destroy_fort,
 		is_naval_access_space,
