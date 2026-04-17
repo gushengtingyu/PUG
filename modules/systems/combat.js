@@ -2248,12 +2248,12 @@ module.exports = function (Engine) {
 		finish_attack(game)
 	}
 
-	function get_cp_defenders(defenders) {
+	function get_cp_defenders(game, defenders) {
 		return defenders.filter((p) => get_piece_effective_faction(game, p) === CP)
 	}
 
-	function get_turkish_retreat_units(defenders) {
-		let cp_defenders = get_cp_defenders(defenders)
+	function get_turkish_retreat_units(game, defenders) {
+		let cp_defenders = get_cp_defenders(game, defenders)
 		let mandatory = cp_defenders.filter(
 			(p) => (get_piece_nation(p) === "tu" || get_piece_nation(p) === "tua") && get_piece_class(p) === "SCU"
 		)
@@ -2273,7 +2273,7 @@ module.exports = function (Engine) {
 		// is_turkish_retreat_active already checks for is_region(game.attack.space).
 
 		let space = game.attack.space
-		let cp_defenders = get_cp_defenders(defenders)
+		let cp_defenders = get_cp_defenders(game, defenders)
 		if (cp_defenders.length === 0) return space
 
 		// We use the first TU/TUA SCU to determine valid retreat spaces
@@ -2325,7 +2325,7 @@ module.exports = function (Engine) {
 	function is_turkish_retreat_active(game, defenders) {
 		if (!game.turkish_retreat) return false
 		if (game.attack && is_region(game, game.attack.space)) return false
-		let cp_defenders = get_cp_defenders(defenders)
+		let cp_defenders = get_cp_defenders(game, defenders)
 		if (cp_defenders.length === 0) return false
 		return cp_defenders.some(
 			(p) => (get_piece_nation(p) === "tu" || get_piece_nation(p) === "tua") && get_piece_class(p) === "SCU"
@@ -3272,7 +3272,7 @@ module.exports = function (Engine) {
 		if (turkish_retreat_active) {
 			turkish_retreat = true
 			advance_with_reduced = true // Rule 12.8.3: AP may advance with reduced units
-			let cp_defenders = get_cp_defenders(defenders)
+			let cp_defenders = get_cp_defenders(game, defenders)
 			let mandatory = []
 			let optional = []
 
