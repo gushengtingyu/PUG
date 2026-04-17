@@ -434,7 +434,7 @@ module.exports = function (Engine) {
 		return {
 			pool,
 			can_use: options.can_use || (() => true),
-			on_spend: options.on_spend || (() => {})
+			on_spend: options.on_spend || (() => { })
 		}
 	}
 
@@ -566,7 +566,6 @@ module.exports = function (Engine) {
 			if (plan.br > 0) {
 				rps.br -= plan.br
 				if (!(game.events && game.events["asquith_coalition"]) && game.events && game.events["kitchener"]) {
-					game.br_to_ru_rp_spent = get_br_to_ru_conversion_spent(game) + plan.br
 					game.br_to_ru_rp_used = true
 				}
 			}
@@ -740,83 +739,9 @@ module.exports = function (Engine) {
 						can_rebuild = true
 					}
 				}
-			} else if (nation === "ro") {
-				// Rule 19.5.4 / 22.2.2: RO units may be rebuilt in Bucharest or Odessa prior to Romanian Collapse.
-				if (
-					(s === nation_capital || s === ODESSA) &&
-					is_controlled_by(game, s, AP) &&
-					!is_besieged(game, s) &&
-					!has_romania_collapsed(game)
-				)
-					can_rebuild = true
-			} else if (nation === "bu") {
-				// Rule 22.2.2: BU units may be rebuilt only in CP-controlled Sofia.
-				if (s === nation_capital && is_controlled_by(game, s, CP)) can_rebuild = true
-			} else if (nation === "gr") {
-				// Rule 22.2.2: GR units in any vacant or friendly-controlled space in Greece.
-				// Exception: The GR-BR CND unit is rebuilt at Lemnos or any AP-controlled port in Greece.
-				if (info.name && info.name.includes("CND")) {
-					// Rule 13.3.2: 德国潜艇地中海猎袭期间，不能在特定港口增援/重建
-					if (!Engine.events.is_german_subs_blocked_port(game, s)) {
-						if (s === LEMNOS) can_rebuild = true
-						if (
-							is_aegean_east_med_port(s) &&
-							data.spaces[s].nation === "gr" &&
-							is_controlled_by(game, s, AP) &&
-							!is_besieged(game, s)
-						)
-							can_rebuild = true
-					}
-				} else {
-					if (data.spaces[s].nation === "gr" && !is_besieged(game, s)) {
-						// Rule 13.3.2: 德国潜艇地中海猎袭期间，不能在特定港口增援/重建
-						if (is_port(s) && Engine.events.is_german_subs_blocked_port(game, s)) {
-							can_rebuild = false
-						} else {
-							if (get_pieces_in_space(game, s).length === 0 || is_controlled_by(game, s, faction))
-								can_rebuild = true
-						}
-					}
-				}
-			} else if (nation === "sb") {
-				// Rule 19.4.4 & 22.2.2: SB units are governed by 19.4, according to whether or not Serbia has collapsed.
-				// After Serbian Collapse, SB units may not be rebuilt until The Serbs Return event is played.
-
-				// Rule 13.3.2: 德国潜艇地中海猎袭期间，不能在特定港口增援/重建
-				let blocked = Engine.events.is_german_subs_blocked_port(game, s)
-
-				if (has_serbia_collapsed(game)) {
-					if (game.events["the_serbs_return"]) {
-						if (BELGRADE >= 0 && is_controlled_by(game, BELGRADE, AP)) {
-							// Rule 19.4.4: After Belgrade is recaptured, SB units may again be built in Belgrade and Nis.
-							if (
-								!blocked &&
-								(s === LEMNOS || (s === SALONIKA && is_controlled_by(game, s, AP) && !is_besieged(game, s)))
-							)
-								can_rebuild = true
-							if ((s === BELGRADE || s === NIS) && is_controlled_by(game, s, AP) && !is_besieged(game, s)) can_rebuild = true
-						} else {
-							// Rule 19.4.4: (only in AP-controlled Salonika or Lemnos, until Belgrade is recaptured)
-							if (
-								!blocked &&
-								(s === LEMNOS || (s === SALONIKA && is_controlled_by(game, s, AP) && !is_besieged(game, s)))
-							)
-								can_rebuild = true
-						}
-					} else {
-						// Rule 19.4.4: SB units may not be rebuilt until The Serbs Return event is played.
-						can_rebuild = false
-					}
-				} else {
-					// Rule 19.4.4: Prior to Serbian Collapse
-					// 22.1.5: SB units may still be built at Lemnos or AP-controlled Salonika if Belgrade and Nis are enemy-controlled.
-					if (
-						!blocked &&
-						(s === LEMNOS || (s === SALONIKA && is_controlled_by(game, s, AP) && !is_besieged(game, s)))
-					)
-						can_rebuild = true
-					if ((s === BELGRADE || s === NIS) && is_controlled_by(game, s, AP) && !is_besieged(game, s)) can_rebuild = true
-				}
+			} else if (Engine.neutral && typeof Engine.neutral.can_rebuild_balkan_unit_in_space === "function") {
+				let neutral_override = Engine.neutral.can_rebuild_balkan_unit_in_space(game, p, s, faction)
+				if (neutral_override !== undefined) can_rebuild = neutral_override
 			} else if (nation === "ar") {
 				// Rule 22.2.2: Arab Revolt Irregular Units in Hejaz (even if CP), Aqaba, or Jiddah (if AP).
 				// ANA (Arab Northern Army) in any AP-controlled port in Syria/Palestine.

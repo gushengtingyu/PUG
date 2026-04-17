@@ -32,6 +32,12 @@ module.exports = function (Engine) {
 		let tribe_type = get_tribe_type(p)
 		if (!tribe_type) return false
 		if (data.spaces[s].tribal_activity_grid !== tribe_type) return false
+		
+		// Tribes cannot be placed in a space with enemy units unless it's a Region (e.g., NW Tribe in India)
+		if (!map.is_region(game, s) && map.contains_enemy_pieces(game, s, get_piece_faction(p))) {
+			return false
+		}
+		
 		return map.can_stack_end_in_space(game, s, [p])
 	}
 
@@ -167,6 +173,9 @@ module.exports = function (Engine) {
 			helpers.reinforce(game, "Afghan Uprising #1", CP, af_space)
 			helpers.reinforce(game, "Afghan Uprising #2", CP, af_space)
 			helpers.reinforce(game, "Afghan Uprising #3", CP, af_space)
+			if (typeof Engine.set_control === "function" && af_space >= 0) {
+				Engine.set_control(game, af_space, CP)
+			}
 			return true
 		}
 		if (country === "Egypt") {

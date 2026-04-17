@@ -209,17 +209,25 @@ exports.register = function (states, Engine, context) {
 		return get_valid_lcus_for_selected_scus(selected_pieces).length > 0
 	}
 
-	function space_has_adjacent_enemy(s, faction) {
+	function space_has_adjacent_enemy(s, faction, enemy_space_flag = null) {
 		let info = data.spaces[s]
 		if (!info || !Array.isArray(info.connections)) return false
 		for (let n of info.connections) {
-			if (Engine.map.contains_enemy_pieces(game, n, faction)) return true
+			if (enemy_space_flag) {
+				if (enemy_space_flag[n] === 1) return true
+			} else if (Engine.map.contains_enemy_pieces(game, n, faction)) {
+				return true
+			}
 		}
 		return false
 	}
 
 	function is_russo_british_russian_activation() {
 		return Engine.event_states.is_russo_british_russian_activation(game)
+	}
+
+	function is_romania_event_activation() {
+		return Engine.event_states.is_romania_event_activation(game)
 	}
 
 	function get_russo_british_legal_attack_spaces(pieces_by_space) {
@@ -248,8 +256,35 @@ exports.register = function (states, Engine, context) {
 		return legal
 	}
 
+	function get_romania_event_legal_attack_spaces(pieces_by_space) {
+		if (!pieces_by_space) {
+			pieces_by_space = new Map()
+			for (let p = 0; p < game.pieces.length; p++) {
+				let s = game.pieces[p]
+				if (s <= 0 || is_not_on_map(game, p)) continue
+				let list = pieces_by_space.get(s)
+				if (!list) {
+					list = []
+					pieces_by_space.set(s, list)
+				}
+				list.push(p)
+			}
+		}
+		let legal = []
+		for (let [s, pieces] of pieces_by_space) {
+			let has_ro_can_attack = pieces.some(
+				(p) => data.pieces[p].nation === "ro" && can_piece_attack_in_activation(p, s, AP)
+			)
+			if (has_ro_can_attack) {
+				legal.push(s)
+			}
+		}
+		return legal
+	}
+
 	states.activate_spaces = {
 		prompt(res) {
+			if (res && res._is_noop) return
 			let perf_start = DEBUG_ACTIVATION_TRACE ? activation_now() : 0
 			let perf_attack_checks = 0
 			let perf_enemy_adjacency_checks = 0
@@ -264,13 +299,27 @@ exports.register = function (states, Engine, context) {
 
 			let faction = active_faction()
 			let russo_british_mode = is_russo_british_russian_activation()
+			let romania_mode = is_romania_event_activation()
 			let russo_british_selected = Array.isArray(game.activated?.attack) ? game.activated.attack.length : 0
+			let romania_selected = Array.isArray(game.activated?.attack) ? game.activated.attack.length : 0
+			let all_pieces_by_space = new Map()
 			let pieces_by_space = new Map()
 			let activated_move_set = new Set(game.activated.move || [])
 			let activated_attack_set = new Set(game.activated.attack || [])
+			let enemy = other_faction(faction)
+			let enemy_space_flag = new Uint8Array(data.spaces.length)
 			for (let p = 0; p < game.pieces.length; p++) {
 				let s = game.pieces[p]
 				if (s <= 0 || is_not_on_map(game, p)) continue
+				let all_list = all_pieces_by_space.get(s)
+				if (!all_list) {
+					all_list = []
+					all_pieces_by_space.set(s, all_list)
+				}
+				all_list.push(p)
+				if (Engine.game_utils.get_piece_effective_faction(game, p) === enemy) {
+					enemy_space_flag[s] = 1
+				}
 				if (!can_piece_participate_in_activation(p, faction)) continue
 				let list = pieces_by_space.get(s)
 				if (!list) {
@@ -282,11 +331,14 @@ exports.register = function (states, Engine, context) {
 			let russo_british_legal_spaces = russo_british_mode ? get_russo_british_legal_attack_spaces(pieces_by_space) : []
 			let russo_british_required_count = russo_british_mode ? Math.min(2, russo_british_legal_spaces.length) : 0
 			let russo_british_legal_set = russo_british_mode ? new Set(russo_british_legal_spaces) : null
+			let romania_legal_spaces = romania_mode ? get_romania_event_legal_attack_spaces(pieces_by_space) : []
+			let romania_required_count = romania_mode ? Math.min(1, romania_legal_spaces.length) : 0
+			let romania_legal_set = romania_mode ? new Set(romania_legal_spaces) : null
 
 			for (let [s, friendly_pieces] of pieces_by_space) {
 				if (activated_move_set.has(s) || activated_attack_set.has(s)) continue
 
-				let costs = get_activation_cost_pair(game, s)
+				let costs = get_activation_cost_pair(game, s, all_pieces_by_space.get(s))
 				let move_cost = costs.move
 				let attack_cost = costs.attack
 				let unmoved_pieces = friendly_pieces.filter((p) => !set_has(game.moved, p))
@@ -296,7 +348,7 @@ exports.register = function (states, Engine, context) {
 				if (game.ops >= attack_cost && unmoved_pieces.length > 0) {
 					let has_adjacent_enemy = false
 					let t_adj = DEBUG_ACTIVATION_TRACE ? activation_now() : 0
-					has_adjacent_enemy = space_has_adjacent_enemy(s, faction)
+					has_adjacent_enemy = space_has_adjacent_enemy(s, faction, enemy_space_flag)
 					if (DEBUG_ACTIVATION_TRACE) {
 						perf_enemy_adjacency_checks += 1
 						perf_enemy_adjacency_ms += activation_now() - t_adj
@@ -319,6 +371,14 @@ exports.register = function (states, Engine, context) {
 					continue
 				}
 
+				if (romania_mode) {
+					if (!romania_legal_set.has(s)) continue
+					if (activated_attack_set.has(s) || romania_selected < romania_required_count) {
+						res.action("activate_attack", s)
+					}
+					continue
+				}
+
 				if (can_move) res.action("activate_move", s)
 				if (can_attack) res.action("activate_attack", s)
 			}
@@ -334,6 +394,7 @@ exports.register = function (states, Engine, context) {
 				if (!deactivated_spaces.has(s)) {
 					if (game.liberate_suez_op_required && Engine.map.is_egypt(s)) continue
 					if (russo_british_mode && !russo_british_legal_set.has(s)) continue
+					if (romania_mode && !romania_legal_set.has(s)) continue
 					res.action("deactivate", s)
 					deactivated_spaces.add(s)
 				}
@@ -348,6 +409,9 @@ exports.register = function (states, Engine, context) {
 
 			if (russo_british_mode) {
 				can_done = russo_british_required_count === 0 || russo_british_selected >= russo_british_required_count
+			}
+			if (romania_mode) {
+				can_done = romania_required_count === 0 || romania_selected >= romania_required_count
 			}
 
 			if (can_done) {
@@ -377,7 +441,8 @@ exports.register = function (states, Engine, context) {
 		activate_attack(s) {
 			push_undo()
 			let russo_british_mode = is_russo_british_russian_activation()
-			let cost = russo_british_mode ? 0 : get_activation_cost(game, s, "attack")
+			let romania_mode = is_romania_event_activation()
+			let cost = russo_british_mode || romania_mode ? 0 : get_activation_cost(game, s, "attack")
 			game.ops -= cost
 			set_add(game.activated.attack, s)
 			if (!game.activation_cost) game.activation_cost = {}
@@ -385,6 +450,11 @@ exports.register = function (states, Engine, context) {
 
 			if (russo_british_mode) {
 				let required_count = Math.min(2, get_russo_british_legal_attack_spaces().length)
+				if (game.activated.attack.length >= required_count) {
+					states.activate_spaces.done()
+				}
+			} else if (romania_mode) {
+				let required_count = Math.min(1, get_romania_event_legal_attack_spaces().length)
 				if (game.activated.attack.length >= required_count) {
 					states.activate_spaces.done()
 				}
@@ -409,12 +479,24 @@ exports.register = function (states, Engine, context) {
 		},
 		done() {
 			let russo_british_mode = is_russo_british_russian_activation()
+			let romania_mode = is_romania_event_activation()
 			if (is_russo_british_russian_activation()) {
 				let required_count = Math.min(2, get_russo_british_legal_attack_spaces().length)
 				if (required_count > 0 && game.activated.attack.length < required_count) {
 					return
 				}
 				delete game.russo_british_russian_activation
+			}
+			if (romania_mode) {
+				let required_count = Math.min(1, get_romania_event_legal_attack_spaces().length)
+				if (required_count > 0 && game.activated.attack.length < required_count) {
+					return
+				}
+				delete game.romania_event_activation
+				if (required_count === 0) {
+					game.state = "event_romania_attack_cleanup"
+					return
+				}
 			}
 			if (!russo_british_mode) log_activation_summary()
 			if (Engine.event_states.on_activation_done(game)) {

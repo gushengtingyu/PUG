@@ -1,5 +1,6 @@
 const rules = require("../rules.js")
 const Engine = require("../modules/engine.js")
+const eventStates = Engine.event_states.states
 
 const { AP, CP } = Engine.constants
 
@@ -28,6 +29,25 @@ function hasDelayedEntry(game, faction, name, turn, spaceName) {
 function countPoolUnitsInSpace(game, faction, names, spaceName) {
 	let space = findSpace(spaceName)
 	return names.filter((name) => game.pieces[findPiece(faction, name)] === space).length
+}
+
+function createEventStateRules(game) {
+	return {
+		...rules,
+		can_activate_piece_in_space_to_attack(p, s) {
+			return Engine.combat.can_activate_piece_in_space_to_attack(
+				game,
+				p,
+				s,
+				game.active,
+				() => Engine.game_utils.get_season(game),
+				rules.is_rail_connected_to_supply
+			)
+		},
+		get_season(targetGame) {
+			return Engine.game_utils.get_season(targetGame)
+		}
+	}
 }
 
 test("Romania 事件会按展示板正确放置单位、切换罗马尼亚控制并登记延迟入场", () => {
@@ -68,7 +88,7 @@ test("Romania 事件会按展示板正确放置单位、切换罗马尼亚控制
 	expect(hasDelayedEntry(game, AP, "FR Army Orient 2", game.turn + 1, "Lemnos")).toBe(true)
 	expect(hasDelayedEntry(game, CP, "GE Schmettow", game.turn + 1, "Galicia")).toBe(true)
 	expect(game.active).toBe(AP)
-	expect(game.state).toBe("event_romania_attack")
+	expect(game.state).toBe("activate_spaces")
 })
 
 test("Bulgaria 已参战后打出 Romania 不会把已经在地图上的 Alpenkorps 拉回 Galicia，并把 Combined BU/AH Div 放入保加利亚", () => {
@@ -85,4 +105,58 @@ test("Bulgaria 已参战后打出 Romania 不会把已经在地图上的 Alpenko
 
 	expect(game.pieces[geAlpen]).toBe(findSpace("Vidin"))
 	expect(game.pieces[findPiece(CP, "Combined BU/AH Div")]).toBe(findSpace("SOFIA"))
+	expect(game.state).toBe("activate_spaces")
+	expect(game.active).toBe(AP)
+})
+
+test("Romania 入场前的 Bull's Eye 清理不会提前挪走 Alpenkorps，且事件后仍会正常解锁到 Galicia", () => {
+	let game = setupGame(2026041712, "Historical")
+	let romaniaEvent = Engine.events.get_event_by_id(29)
+	let geAlpen = findPiece(CP, "GE Alpenkorps")
+
+	expect(game.pieces[geAlpen]).toBe(findSpace("Vidin"))
+	expect(Engine.game_utils.get_piece_effective_faction(game, geAlpen)).toBe("neutral")
+
+	Engine.events.bulls_eye_cleanup_scus(game)
+
+	expect(game.pieces[geAlpen]).toBe(findSpace("Vidin"))
+	expect(Engine.game_utils.get_piece_effective_faction(game, geAlpen)).toBe("neutral")
+
+	romaniaEvent.handler(game)
+
+	expect(game.pieces[geAlpen]).toBe(findSpace("Galicia"))
+	expect(Engine.game_utils.get_piece_effective_faction(game, geAlpen)).toBe(CP)
+})
+
+test("Romania 事件会复用标准激活界面，并强制完成这次攻击", () => {
+	let game = setupGame(2026041713, "Historical")
+	let romaniaEvent = Engine.events.get_event_by_id(29)
+	let stateRules = createEventStateRules(game)
+
+	romaniaEvent.handler(game)
+	expect(game.state).toBe("activate_spaces")
+
+	let view = rules.view(game, "ap")
+	expect(view.prompt).toContain("罗马尼亚")
+	let sourceSpaces = view.actions.activate_attack || []
+	expect(sourceSpaces.length).toBeGreaterThan(0)
+	expect(view.actions.activate_move).toBeUndefined()
+
+	game = rules.action(game, "ap", "activate_attack", sourceSpaces[0])
+	expect(game.state).toBe("attack")
+	expect(game.activated.attack).toEqual([sourceSpaces[0]])
+	expect(game.event_romania_attack_required).toBe(true)
+	expect(game.event_next_state).toBe("event_romania_attack_cleanup")
+	expect(game.attack).toBeUndefined()
+
+	game = rules.action(game, "ap", "end_attack")
+	expect(game.state).toBe("attack")
+
+	game.state = "event_romania_attack_cleanup"
+	eventStates.event_romania_attack_cleanup.done({ game, rules: stateRules })
+	expect(game.state).toBe("confirm_event")
+	expect(game.attack).toBeUndefined()
+	expect(game.activated).toBeUndefined()
+	expect(game.event_romania_attack_required).toBeUndefined()
+	expect(game.event_next_state).toBeUndefined()
 })

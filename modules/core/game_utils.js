@@ -10,6 +10,8 @@ module.exports = function (Engine) {
 
 	// === Basic Lookup ===
 
+	// Printed/static faction from the unit definition. Use this for box ownership,
+	// faction-specific pools, and other data-level identity checks.
 	function get_piece_faction(p) {
 		if (p < 0 || !data.pieces[p]) return null
 		return data.pieces[p].faction
@@ -30,8 +32,15 @@ module.exports = function (Engine) {
 	}
 
 	function find_space(name) {
+		if (typeof name !== "string") return -1
 		for (let s = 1; s < data.spaces.length; s++) {
 			if (data.spaces[s] && data.spaces[s].name === name) return s
+		}
+		let lowered = name.toLowerCase()
+		for (let s = 1; s < data.spaces.length; s++) {
+			if (data.spaces[s] && typeof data.spaces[s].name === "string" && data.spaces[s].name.toLowerCase() === lowered) {
+				return s
+			}
 		}
 		return -1
 	}
@@ -176,7 +185,7 @@ module.exports = function (Engine) {
 		let s = game.pieces[p]
 		let pe_box = get_permanently_eliminated_box(data.pieces[p].faction)
 		// If PE box is same as removed box, we don't want recursion
-		if (pe_box === get_removed_box(data.pieces[p].faction)) return false 
+		if (pe_box === get_removed_box(data.pieces[p].faction)) return false
 		return s === pe_box
 	}
 
@@ -218,7 +227,7 @@ module.exports = function (Engine) {
 		if (name === "Combined BU/AH Div") return ["bu", "ah"]
 		if (name === "German 11th Army") return ["ge", "bu"]
 		if (name === "RU/SB Yugo Infantry") {
-			if (purpose !== "mo" && game && game.events && game.events["russian_revolution"] >= 4) return ["br"]
+			if (purpose !== "mo" && Engine.events.get_russian_revolution_level(game) >= 4) return ["br"]
 			return ["ru", "sb"]
 		}
 		if (purpose === "activation" && info.symbol === "Y" && info.nation === "ge") return []
@@ -249,30 +258,11 @@ module.exports = function (Engine) {
 		return data.pieces[p].name !== "GE GeoProtect"
 	}
 
-	function is_bulgaria_entry_locked(game, p) {
-		let info = data.pieces[p]
-		if (!info || !game || (game.events && game.events["bulgaria"])) return false
-		if (Array.isArray(game.unlocked_entry_pieces) && set_has(game.unlocked_entry_pieces, p)) return false
-		return !!(
-			Engine.collapse &&
-			Engine.collapse.is_bulgaria_entry_setup_piece &&
-			Engine.collapse.is_bulgaria_entry_setup_piece(info)
-		)
-	}
-
-	function unlock_entry_piece(game, p) {
-		if (!game || p < 0 || !data.pieces[p]) return false
-		if (!Array.isArray(game.unlocked_entry_pieces)) game.unlocked_entry_pieces = []
-		if (set_has(game.unlocked_entry_pieces, p)) return false
-		set_add(game.unlocked_entry_pieces, p)
-		return true
-	}
-
 	function is_not_on_map(game, p) {
 		return is_eliminated(game, p) || is_in_reserve(game, p) || is_removed(game, p) || is_reinforcement(game, p)
 	}
 	function get_piece_cf(game, p) {
-		if (p < 0) return 0 
+		if (p < 0) return 0
 		if (is_hq(p)) {
 			if (set_has(game.reduced, p)) return data.pieces[p].rlf || 0
 			return data.pieces[p].lf || 0
@@ -281,16 +271,16 @@ module.exports = function (Engine) {
 		return data.pieces[p].cf || 0
 	}
 
+	// Board-state/dynamic faction used for enemy/friendly checks on the map.
+	// This may differ from the printed faction because of neutral frameworks or
+	// special-case rule overrides, and can return "neutral".
 	function get_piece_effective_faction(game, p) {
 		let info = data.pieces[p]
 		if (!info) return null
 		if (info.name === "GE GeoProtect") return AP
-		if (is_bulgaria_entry_locked(game, p)) return "neutral"
-		if (info.nation === "gr" && Engine.neutral) {
-			let greece_faction = Engine.neutral.get_greece_faction(game)
-			if (greece_faction) return greece_faction
-			if (Engine.neutral.is_greek_cnd && Engine.neutral.is_greek_cnd(p)) return AP
-			return "neutral"
+		if (Engine.neutral && typeof Engine.neutral.get_piece_effective_faction_override === "function") {
+			let override = Engine.neutral.get_piece_effective_faction_override(game, p)
+			if (override !== undefined) return override
 		}
 		return info.faction
 	}
@@ -336,7 +326,7 @@ module.exports = function (Engine) {
 			if (!info) continue
 			if (info.nation !== nation) continue
 			if (!is_scu(p)) continue
-			if (is_bulgaria_entry_locked(game, p)) continue
+			if (get_piece_effective_faction(game, p) !== info.faction) continue
 			let reserve = get_reserve_box(info.faction)
 			if (game.pieces[p] === reserve || game.pieces[p] === RESERVE) return true
 		}
@@ -346,7 +336,7 @@ module.exports = function (Engine) {
 	function get_pieces_in_reserve(game, faction) {
 		let pieces = []
 		for (let p = 0; p < game.pieces.length; p++) {
-			if (data.pieces[p].faction === faction && is_in_reserve(game, p) && !is_bulgaria_entry_locked(game, p)) {
+			if (data.pieces[p].faction === faction && get_piece_effective_faction(game, p) === faction && is_in_reserve(game, p)) {
 				pieces.push(p)
 			}
 		}
@@ -394,7 +384,6 @@ module.exports = function (Engine) {
 
 		for (let i = 1; i < data.pieces.length; i++) {
 			if (!is_in_reserve(game, i)) continue
-			if (is_bulgaria_entry_locked(game, i)) continue
 			let replacement = data.pieces[i]
 			if (replacement.piece_class !== "SCU") continue
 			if (get_nation_group(replacement.nation) !== group) continue
@@ -553,14 +542,13 @@ module.exports = function (Engine) {
 		let rps = game.active === Engine.constants.AP ? game.rp_ap : game.rp_cp
 		if (info.rp_a) rps.a += info.rp_a
 		if (info.rp_ah) rps.a += info.rp_ah
-		let block_br_rp =
-			game.active === Engine.constants.AP && game.events && game.events["parliamentary_inquiry"] === game.turn
+		let block_br_rp = Engine.events.is_br_rp_blocked(game)
 		if (info.rp_br && !block_br_rp) rps.br += info.rp_br
 		if (info.rp_ru) {
 			// Rule 978: No longer record RU RP after Russian Revolution Phase 1
 			// Gorlice-Tarnow event blocks RU RP for the turn
-			const block_ru_rp = game.events && game.events["gorlice_tarnow"] === game.turn
-			if (!(game.events["russian_revolution"] >= 1) && !block_ru_rp) {
+			const block_ru_rp = Engine.events.is_ru_rp_blocked(game)
+			if (Engine.events.get_russian_revolution_level(game) < 1 && !block_ru_rp) {
 				rps.ru += info.rp_ru
 			} else if (block_ru_rp && log) {
 				log("戈尔利采-塔尔诺夫攻势：本回合无法记录俄国补员点数。")
@@ -569,7 +557,7 @@ module.exports = function (Engine) {
 		if (info.rp_ge) rps.ge += info.rp_ge
 		if (info.rp_in) rps.in += info.rp_in
 		if (info.rp_tu) {
-			if (game.events && game.events["royal_navy_blockade"]) {
+			if (Engine.events.is_royal_navy_blockade_active(game)) {
 				let max_tu_rp = Math.max(0, Number(game.tu_rp_limit ?? 25))
 				let recordable_tu_rp = Math.min(info.rp_tu, max_tu_rp)
 				if (recordable_tu_rp > 0) {
@@ -885,7 +873,7 @@ module.exports = function (Engine) {
 				if (is_hq(p) || is_tribe(p)) return false
 				if (get_piece_effective_faction(game, p) !== faction) return false
 				if (set_has(game.moved, p)) return false
-				if (game.events && game.events["arab_desertion"] && data.pieces[p].nation === "tua") return false
+				if (Engine.events.is_arab_desertion_active(game) && data.pieces[p].nation === "tua") return false
 				let status = supply.get_supply_status(game, s, faction, p)
 				return status !== "OOS" && status !== "LIMITED"
 			}
@@ -1013,8 +1001,6 @@ module.exports = function (Engine) {
 		can_combine_in_space,
 		get_lcu_reserve_box,
 		get_piece_effective_faction,
-		is_bulgaria_entry_locked,
-		unlock_entry_piece,
 		get_reserve_box,
 		get_capacity,
 		get_tribe_key_space,

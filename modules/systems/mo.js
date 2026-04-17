@@ -6,6 +6,7 @@ module.exports = function (Engine) {
 		is_regular,
 		get_piece_nation,
 		get_piece_faction,
+		get_piece_effective_faction,
 		is_not_on_map,
 		piece_counts_as_nation_for_rule,
 		pieces_count_as_any_nation_for_rule
@@ -325,7 +326,8 @@ module.exports = function (Engine) {
 		const pieces = overrides.pieces || game.attack.pieces || []
 		const defender = overrides.defender || game.attack.defender || (attacker === AP ? CP : AP)
 		const defender_pieces =
-			overrides.defender_pieces || get_pieces_in_space(game, space).filter((p) => get_piece_faction(p) === defender)
+			overrides.defender_pieces ||
+			get_pieces_in_space(game, space).filter((p) => get_piece_effective_faction(game, p) === defender)
 		return { attacker, space, pieces, defender_pieces }
 	}
 
@@ -732,6 +734,7 @@ module.exports = function (Engine) {
 		mo_name,
 		determine_mo_ap,
 		determine_mo_cp,
+		create_attack_context,
 		check_mo_criteria,
 		check_mo_validity,
 		update_mo_fulfillment_status,

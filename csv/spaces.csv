@@ -282,7 +282,7 @@ id,map,name,x,y,w,h,nation,faction,terrain,vp,fort,port,capital,region,island_ba
 291,asia,Bahrain,4216,2298,,,br,ap,,,,,,,true,,,,
 292,asia,Meshed,4082,922,,,pe,neutral,mountain,1,,,,East Persia,,,persia,Qashqai,
 293,Reserve Box,AP Corps Assets,1310,2098,,,,,,,,,,,,,,,
-294,asia,Simla,4285,1210,,,br,ap,mountain,2,,2,,,,,india,,
+294,asia,Simla,4285,1210,,,br,ap,mountain,2,,,,,,,india,,
 295,asia,Odessa,1259,166,,,ru,ap,,,,,,Odessa,,,balkans,,
 296,asia,Galicia,128,102,,,ah,cp,,,,,,Galicia,,,balkans,,
 297,asia,Petrovsk,3270,166,,,ru,ap,,,,,,Petrovsk,,,russia,,

@@ -70,6 +70,7 @@ exports.register = function (states, Engine, context) {
 		has_trench,
 		remove_trench
 	} = context
+	const JERUSALEM = find_space("Jerusalem")
 
 	function count_beachhead_captured_materiel_bonus() {
 		let initial_defenders = (game.attack && game.attack.initial_defenders) || []
@@ -117,8 +118,48 @@ exports.register = function (states, Engine, context) {
 		game.attack[flag] = true
 	}
 
+	function needs_jerusalem_special_rule() {
+		if (!game.attack || game.attack.space !== JERUSALEM) return false
+		if ((game.attack.pieces?.length || 0) < 3) return false
+		if (game.attack.jerusalem_special_resolved) return false
+		return !game.events["jerusalem_actual_combat"]
+	}
+
+	function apply_jerusalem_battleground_penalty() {
+		if (!game.attack || game.attack.jerusalem_battleground_penalty_applied) return
+		let defender = game.attack.defender || other_faction(game.attack.attacker || game.active)
+		if (defender === CP) game.vp -= 1
+		else game.vp += 1
+		if (game.attack.attacker === AP) {
+			update_jihad_level(game, 1)
+			log("协约国将耶路撒冷变为战区，圣战等级 +1。")
+		}
+		log(`${defender === CP ? "同盟国" : "协约国"}因将耶路撒冷变为战区而承受 1 VP 惩罚。`)
+		game.attack.jerusalem_battleground_penalty_applied = true
+	}
+
+	function enter_jerusalem_withdrawal_advance() {
+		let attackers = (game.attack?.pieces || []).filter((p) => !is_not_on_map(game, p))
+		let advance_pieces = get_advance_pieces(game, {
+			attackers,
+			advance_with_reduced: true
+		}).filter((p) => set_has(attackers, p))
+		if (advance_pieces.length === 0) {
+			goto_attack()
+			return
+		}
+		game.advance_pieces = advance_pieces
+		game.advance_space = game.attack.space
+		game.advance_count = 0
+		game.advance_limit = 3
+		game.advance_trench_processed = false
+		game.active = game.attack?.attacker || game.active
+		game.state = "advance"
+	}
+
 	states.attack = {
 		prompt(res) {
+			if (res && res._is_noop) return
 			refresh_attack_eligibility()
 			if (game.eligible_attackers.length === 0) {
 				res.prompt("操作完成.")
@@ -139,6 +180,16 @@ exports.register = function (states, Engine, context) {
 				res.prompt("请选择攻击单位和目标")
 			}
 			let selected_pieces = game.attack.pieces || []
+			let prompt_attackable_cache = new Map()
+			function get_cached_attackable_spaces(pieces) {
+				if (!Array.isArray(pieces) || pieces.length === 0) return []
+				let key =
+					pieces.length === 1 ? `p:${pieces[0]}` : `g:${pieces.slice().sort((a, b) => a - b).join(",")}`
+				if (!prompt_attackable_cache.has(key)) {
+					prompt_attackable_cache.set(key, get_legal_attackable_spaces(pieces))
+				}
+				return prompt_attackable_cache.get(key)
+			}
 			if (selected_pieces.length > 0) {
 				let selected_spaces = [...new Set(selected_pieces.map((p) => game.pieces[p]).filter((s) => s > 0))]
 				if (game.attack.space !== -1) {
@@ -159,14 +210,14 @@ exports.register = function (states, Engine, context) {
 					res.action("select_all")
 				}
 			} else {
-				let selected_targets = get_attackable_spaces(selected_pieces)
+				let selected_targets = get_cached_attackable_spaces(selected_pieces)
 
 				for (let p of game.eligible_attackers) {
 					if (set_has(selected_pieces, p)) {
 						res.piece(p)
 						continue
 					}
-					if (get_attackable_spaces([...selected_pieces, p]).length > 0) {
+					if (get_cached_attackable_spaces([...selected_pieces, p]).length > 0) {
 						res.piece(p)
 					}
 				}
@@ -245,6 +296,11 @@ exports.register = function (states, Engine, context) {
 				game.state = "attack"
 				return
 			}
+			if (game.event_romania_attack_required && game.eligible_attackers.length > 0) {
+				log("罗马尼亚：必须用该事件完成一次攻击，不能结束进攻阶段。")
+				game.state = "attack"
+				return
+			}
 			push_undo()
 			if (game.attack) {
 				delete game.attack
@@ -304,6 +360,11 @@ exports.register = function (states, Engine, context) {
 				game.state = "attack"
 				return
 			}
+			if (game.event_romania_attack_required && game.eligible_attackers.length > 0) {
+				log("罗马尼亚：必须用该事件完成一次攻击，不能跳过进攻。")
+				game.state = "attack"
+				return
+			}
 			game.eligible_attackers = []
 			game.state = "end_operations"
 		},
@@ -313,7 +374,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	states.confirm_event = {
-		inactive: "confirm event",
+		inactive: "确认事件",
 		prompt(res) {
 			let c = game.card !== null ? game.card : game.last_card
 			let info = data.cards[c]
@@ -326,7 +387,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	states.end_operations = {
-		inactive: "end operations",
+		inactive: "结束行动",
 		prompt(res) {
 			res.prompt("操作完成.")
 			res.action("end_action")
@@ -339,6 +400,11 @@ exports.register = function (states, Engine, context) {
 				game.eligible_attackers.length > 0
 			) {
 				log("解放苏伊士：必须在埃及地区完成至少一次战斗，当前不能结束行动轮。")
+				game.state = "attack"
+				return
+			}
+			if (game.event_romania_attack_required && game.eligible_attackers.length > 0) {
+				log("罗马尼亚：必须先完成这次事件攻击。")
 				game.state = "attack"
 				return
 			}
@@ -477,18 +543,39 @@ exports.register = function (states, Engine, context) {
 		return combat_cards.can_play_combat_card(target_game, c)
 	}
 
+	function get_used_ccs_this_action(target_game) {
+		if (!target_game || !target_game.action_state) return []
+		return Array.isArray(target_game.action_state.used_ccs) ? target_game.action_state.used_ccs : []
+	}
+
+	function is_cc_used_this_action(target_game, c) {
+		return set_has(get_used_ccs_this_action(target_game), c)
+	}
+
+	function mark_cc_used_this_action(target_game, c) {
+		if (!target_game.action_state || typeof target_game.action_state !== "object") {
+			target_game.action_state = {}
+		}
+		if (!Array.isArray(target_game.action_state.used_ccs)) {
+			target_game.action_state.used_ccs = []
+		}
+		set_add(target_game.action_state.used_ccs, c)
+	}
+
 	function collect_playable_cc_options(target_game, faction, is_attacker) {
 		let hand = faction === AP ? target_game.hand_ap || [] : target_game.hand_cp || []
 		let retained = get_cc_retained(faction)
 		let options = []
 		for (let c of hand) {
 			if (!data.cards[c].cc) continue
+			if (is_cc_used_this_action(target_game, c)) continue
 			if (is_attacker && c === combat.CC_CP_JAFAR_PASHA) continue
 			if (!can_play_combat_card(c, target_game)) continue
 			set_add(options, c)
 		}
 		for (let c of retained) {
 			if (!data.cards[c].cc) continue
+			if (is_cc_used_this_action(target_game, c)) continue
 			if (is_attacker && c === combat.CC_CP_JAFAR_PASHA) continue
 			if (!can_play_combat_card(c, target_game)) continue
 			// Only allow play if not already played in this combat
@@ -675,7 +762,7 @@ exports.register = function (states, Engine, context) {
 
 	function register_combat_card_state(name, config) {
 		states[name] = {
-			inactive: "play combat cards",
+			inactive: "打出战斗卡",
 			prompt(res) {
 				res.prompt(config.prompt)
 				show_attack_context(res)
@@ -753,6 +840,9 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function handle_play_cc(game, c, is_attacker) {
+		// Defense in depth: the UI should already hide these cards, but some
+		// event/state round-trips can re-enter combat windows with stale actions.
+		if (is_cc_used_this_action(game, c)) return
 		if (!game.combat_cards) game.combat_cards = { attacker: [], defender: [] }
 		if (!game.combat_cards_effected) game.combat_cards_effected = []
 		let return_state = game.state
@@ -765,6 +855,7 @@ exports.register = function (states, Engine, context) {
 		} else {
 			game.combat_cards.defender.push(c)
 		}
+		mark_cc_used_this_action(game, c)
 		const mark_effected = (card) => {
 			set_add(game.combat_cards_effected, card)
 		}
@@ -821,7 +912,7 @@ exports.register = function (states, Engine, context) {
 	})
 
 	states.maude_place_indian_division = {
-		inactive: "play combat cards",
+		inactive: "打出战斗卡",
 		prompt(res) {
 			res.prompt("莫德：放置印度第15步兵师")
 			show_attack_context(res)
@@ -836,7 +927,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	states.maude_place_hq = {
-		inactive: "play combat cards",
+		inactive: "打出战斗卡",
 		prompt(res) {
 			res.prompt("莫德：将莫德HQ放置到包含英国与印度部队的攻击地块")
 			show_attack_context(res)
@@ -858,7 +949,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	states.army_of_islam_place_hq = {
-		inactive: "play combat cards",
+		inactive: "打出战斗卡",
 		prompt(res) {
 			res.prompt("伊斯兰军：将伊斯兰军HQ放置到已启动攻击的土耳其/土耳其-阿拉伯部队所在攻击地块")
 			show_attack_context(res)
@@ -984,7 +1075,7 @@ exports.register = function (states, Engine, context) {
 			res.action("done")
 			for (let p = 0; p < data.pieces.length; p++) {
 				if (!data.pieces[p]) continue
-				if (data.pieces[p].faction !== CP) continue
+				if (Engine.game_utils.get_piece_effective_faction(game, p) !== CP) continue
 				if (!["tu", "tua"].includes(data.pieces[p].nation)) continue
 				if (!is_scu(p)) continue
 				if (!is_in_reserve(game, p)) continue
@@ -1103,7 +1194,7 @@ exports.register = function (states, Engine, context) {
 		retreat() {
 			let attackers = game.attack ? game.attack.pieces || [] : []
 			let defenders = get_pieces_in_space(game, game.attack.space).filter(
-				(p) => data.pieces[p].faction === game.active && !set_has(game.retreated, p)
+				(p) => Engine.game_utils.get_piece_effective_faction(game, p) === game.active && !set_has(game.retreated, p)
 			)
 			combat.retreat_units(
 				game,
@@ -1133,6 +1224,12 @@ exports.register = function (states, Engine, context) {
 		if (game.attack) {
 			delete game.attack.cc_log_header
 			delete game.attack.cc_log_sides
+		}
+		if (needs_jerusalem_special_rule()) {
+			game.attack.jerusalem_special_resolved = true
+			game.active = game.attack.defender || other_faction(game.attack.attacker || game.active)
+			game.state = "jerusalem_defender_choice"
+			return
 		}
 
 		// Rule 12.2 sequence: Flank Attack Announcement (Step 2) before CC (Step 5)
@@ -1182,7 +1279,71 @@ exports.register = function (states, Engine, context) {
 		combat.resolve_flank_attempt(game, log)
 
 		if (combat.resolve_battle_sequence(game, ctx) === "end") {
+			if (game.attack?.space === JERUSALEM) {
+				game.events["jerusalem_actual_combat"] = true
+			}
 			end_battle_sequence()
+		}
+	}
+
+	states.jerusalem_defender_choice = {
+		prompt(res) {
+			res.where(game.attack?.space)
+			res.who(game.attack?.pieces || [])
+			res.prompt("耶路撒冷特殊规则：防守方必须选择战斗或撤退。")
+			res.action("fight")
+			res.action("withdraw")
+		},
+		fight() {
+			push_undo()
+			game.active = game.attack?.attacker || AP
+			game.state = "jerusalem_attacker_choice"
+		},
+		withdraw() {
+			if (!game.attack) return
+			let defender = game.attack.defender || other_faction(game.attack.attacker || game.active)
+			let defenders = get_pieces_in_space(game, game.attack.space).filter(
+				(p) =>
+					Engine.game_utils.get_piece_effective_faction(game, p) === defender &&
+					!(Array.isArray(game.retreated) && set_has(game.retreated, p))
+			)
+			push_undo()
+			log("耶路撒冷特殊规则：防守方选择在战斗前撤退。")
+			game.jerusalem_withdrawal = true
+			game.active = defender
+			game.retreat_pieces = defenders
+			game.retreat_space = game.attack.space
+			game.retreat_from = game.attack.space
+			game.retreat_distance = 1
+			game.retreat_first_spaces = []
+			game.retreat_steps_left = null
+			game.selected_piece = null
+			game.state = "retreat"
+		}
+	}
+
+	states.jerusalem_attacker_choice = {
+		prompt(res) {
+			res.where(game.attack?.space)
+			res.who(game.attack?.pieces || [])
+			res.prompt("耶路撒冷特殊规则：防守方选择战斗。进攻方可以取消攻击，或继续并使耶路撒冷成为战区。")
+			res.action("continue_attack")
+			res.action("cancel_attack")
+		},
+		continue_attack() {
+			push_undo()
+			apply_jerusalem_battleground_penalty()
+			game.active = game.attack?.attacker || AP
+			if (combat.check_can_flank(game) && game.attack.flank_attempt === undefined) {
+				game.state = "choose_flank_attack"
+			} else {
+				goto_pre_weather_step()
+			}
+		},
+		cancel_attack() {
+			push_undo()
+			log("耶路撒冷特殊规则：进攻方取消了本次攻击。")
+			goto_attack()
 		}
 	}
 
@@ -1338,7 +1499,10 @@ exports.register = function (states, Engine, context) {
 
 			res.prompt(`防守方分配损失：${game.attack.defender_losses_absorbed}/${game.attack.defender_losses}`)
 			let defenders = get_pieces_in_space(game, game.attack.space).filter(
-				(p) => data.pieces[p].faction === active_faction() && data.pieces[p].type !== "hq" && !set_has(game.retreated, p)
+				(p) =>
+					Engine.game_utils.get_piece_effective_faction(game, p) === active_faction() &&
+					data.pieces[p].type !== "hq" &&
+					!set_has(game.retreated, p)
 			)
 			let fort_strength = 0
 			let defender_faction = active_faction()
@@ -1414,7 +1578,7 @@ exports.register = function (states, Engine, context) {
 			}
 			let defender_faction = game.attack.defender || active_faction()
 			let retreated_defenders = get_pieces_in_space(game, game.attack.space).filter(
-				(p) => data.pieces[p].faction === defender_faction && set_has(game.retreated, p)
+				(p) => Engine.game_utils.get_piece_effective_faction(game, p) === defender_faction && set_has(game.retreated, p)
 			)
 			if (retreated_defenders.length === 0) {
 				res.prompt(`战斗结算: ${space_name(game.attack.space)}（无此前退却单位）`)
@@ -1658,7 +1822,10 @@ exports.register = function (states, Engine, context) {
 				: null
 		if (mandatory.length === 0 && optional.length === 0 && game.battle_result) {
 			let current_cp_defenders = get_pieces_in_space(game, retreat_space).filter(
-				(p) => data.pieces[p].faction === CP && !is_not_on_map(game, p) && !is_eliminated(game, p)
+				(p) =>
+					Engine.game_utils.get_piece_effective_faction(game, p) === CP &&
+					!is_not_on_map(game, p) &&
+					!is_eliminated(game, p)
 			)
 			if (game.battle_result.retreat_needed && game.battle_result.retreating_faction === CP) {
 				mandatory = current_cp_defenders
@@ -1722,6 +1889,7 @@ exports.register = function (states, Engine, context) {
 		delete game.turkish_retreat_prev_active
 		delete game.turkish_retreat_chosen_space
 		delete game.post_battle_cc_resume
+		delete game.jerusalem_withdrawal
 		delete game.selected_piece
 		delete game.battle_result
 		delete game.battle_resolution_applied
@@ -1772,6 +1940,13 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function finish_retreat_resolution() {
+		if (game.jerusalem_withdrawal) {
+			delete game.jerusalem_withdrawal
+			game.active = game.attack?.attacker || AP
+			enter_jerusalem_withdrawal_advance()
+			clear_retreat_runtime_state()
+			return
+		}
 		if (game.active === game.attack?.defender) {
 			game.active = game.attack?.attacker || AP
 			continue_after_defender_retreat(create_advance_resume(), true)
@@ -2094,7 +2269,7 @@ exports.register = function (states, Engine, context) {
 			}
 
 			if (snapshot.mandatory.length > 0) {
-				res.prompt("土耳其撤退：必须选择一个 SCU 进行撤退")
+				res.prompt("土耳其撤退：必须选择部队进行撤退")
 				for (let p of snapshot.mandatory) res.piece(p)
 				// PUG Rule 617: Turkish SCUs MUST retreat. If only mandatory units remain, skip is not allowed.
 				return

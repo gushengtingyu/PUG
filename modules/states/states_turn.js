@@ -8,7 +8,7 @@ exports.set_globals = function (g) {
 
 exports.register = function (states, Engine, context) {
 	const { data, combat } = Engine
-	const { set_has, set_add, shuffle } = Engine.utils
+	const { set_has, set_add } = Engine.utils
 
 	const {
 		log,
@@ -35,6 +35,7 @@ exports.register = function (states, Engine, context) {
 		get_connected_spaces,
 		is_controlled_by,
 		is_gallipoli,
+		pieces_count_as_any_nation_for_rule,
 		reinforce,
 		push_undo,
 		pop_undo,
@@ -454,55 +455,42 @@ exports.register = function (states, Engine, context) {
 			game.delayed_reinforcements = remaining
 		}
 
+		if (
+			game.events["jerusalem_by_christmas"] &&
+			typeof game.events["jerusalem_by_christmas"] === "object" &&
+			game.events["jerusalem_by_christmas"].turn !== undefined &&
+			game.events["jerusalem_by_christmas"].turn <= game.turn
+		) {
+			let event = game.events["jerusalem_by_christmas"]
+			let target = event.target_space
+			let occupied = false
+			if (target > 0) {
+				let pieces = get_pieces_in_space(game, target)
+				occupied = pieces_count_as_any_nation_for_rule(game, pieces, ["br", "in", "anz"])
+			}
+			if (occupied) {
+				game.vp -= 1
+				log(`圣诞节前收复圣城结算：${data.spaces[target].name} 被英国/印度/澳新部队占据，VP -1。`)
+			} else {
+				game.vp += 1
+				let target_name = target > 0 ? data.spaces[target].name : "目标地块"
+				log(`圣诞节前收复圣城结算：${target_name} 未被英国/印度/澳新部队占据，VP +1。`)
+			}
+			delete game.events["jerusalem_by_christmas"]
+		}
+
 		// Rule: Churchill Prevails recurring RU RP
 		if (game.events["bosphorus_destroyed"] && !game.events["german_subs"]) {
 			game.rp_ap.ru += 1
-			log("Churchill Prevails: +1 Russian RP (Bosphorus clear).")
+			log("丘吉尔胜出持续效果：博斯普鲁斯海峡已打通，俄国补员点数 +1。")
 		}
 
 		start_mandated_offensive_phase()
 	}
 
-	function is_cp_opening_mobilization_ops4_card(c) {
-		let card = data.cards[c]
-		return (
-			card &&
-			card.faction === CP &&
-			card.commitment === COMMITMENT_MOBILIZATION &&
-			Number(card.ops) === 4
-		)
-	}
-
-	function ensure_cp_opening_mobilization_pool() {
-		if (!Array.isArray(game.cp_opening_mobilization_pool)) game.cp_opening_mobilization_pool = []
-		if (game.cp_opening_mobilization_pick_done) return
-		if (game.cp_opening_mobilization_pool.length > 0) return
-		if (!Array.isArray(game.deck_cp)) return
-		for (let i = game.deck_cp.length - 1; i >= 0; --i) {
-			let c = game.deck_cp[i]
-			if (!is_cp_opening_mobilization_ops4_card(c)) continue
-			game.cp_opening_mobilization_pool.push(c)
-			game.deck_cp.splice(i, 1)
-		}
-		game.cp_opening_mobilization_pool.sort((a, b) => a - b)
-	}
-
-	function return_cp_opening_mobilization_remainder_to_deck(chosen = null) {
-		ensure_cp_opening_mobilization_pool()
-		let remainder = []
-		for (let c of game.cp_opening_mobilization_pool) {
-			if (c !== chosen) remainder.push(c)
-		}
-		game.cp_opening_mobilization_pool = []
-		if (remainder.length === 0) return
-		for (let c of remainder) game.deck_cp.push(c)
-		shuffle(game.deck_cp, game)
-	}
-
 	function get_cp_opening_mobilization_ops4_cards() {
-		ensure_cp_opening_mobilization_pool()
-		if (!Array.isArray(game.cp_opening_mobilization_pool)) return []
-		let candidates = game.cp_opening_mobilization_pool.filter((c) => {
+		if (!Array.isArray(game.deck_cp)) return []
+		let candidates = game.deck_cp.filter((c) => {
 			let card = data.cards[c]
 			return (
 				card &&
@@ -639,7 +627,6 @@ exports.register = function (states, Engine, context) {
 			let candidates = get_cp_opening_mobilization_ops4_cards()
 			if (candidates.length === 0) {
 				log("开局同盟国未找到可选的动员阶段4点牌，跳过选牌。")
-				return_cp_opening_mobilization_remainder_to_deck()
 				deal_cards(CP)
 				game.cp_opening_mobilization_pick_done = true
 				game.active = AP
@@ -659,8 +646,9 @@ exports.register = function (states, Engine, context) {
 			let candidates = get_cp_opening_mobilization_ops4_cards()
 			if (!candidates.includes(c)) return
 			push_undo()
+			let idx = game.deck_cp.indexOf(c)
+			if (idx >= 0) game.deck_cp.splice(idx, 1)
 			game.hand_cp.push(c)
-			return_cp_opening_mobilization_remainder_to_deck(c)
 			deal_cards(CP)
 			game.cp_opening_mobilization_pick_done = true
 			log(`同盟国自选牌: ${card_name(c)}`)
@@ -800,7 +788,6 @@ exports.register = function (states, Engine, context) {
 	function enter_replacement_rp_phase() {
 		game.kitchener_conversion_used = false
 		game.br_to_ru_rp_used = false
-		game.br_to_ru_rp_spent = 0
 
 		if (game.events["central_asia_rebellion"]) game.rp_rebel.ca += 1
 		if (game.events["afghan_alliance"]) game.rp_rebel.af += 1

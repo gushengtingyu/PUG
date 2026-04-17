@@ -64,7 +64,8 @@ spacesRaw.forEach((s) => {
 		if (s[k] !== undefined) s[k] = Number(s[k])
 	})
 
-	if (s.jihad_city === "true" || s.jihad_city === true || s.jihad_city === "1" || s.jihad_city === 1) s.jihad_city = true
+	if (s.jihad_city === "true" || s.jihad_city === true || s.jihad_city === "1" || s.jihad_city === 1)
+		s.jihad_city = true
 	else delete s.jihad_city
 
 	if (s.tribal_activity_grid) {
@@ -176,6 +177,9 @@ const conn_straits = Array(spaces.length)
 const conn_crossings = Array(spaces.length)
 	.fill()
 	.map(() => ({}))
+const conn_nations = Array(spaces.length)
+	.fill()
+	.map(() => ({}))
 const conn_flags = Array(spaces.length)
 	.fill()
 	.map(() => ({}))
@@ -194,7 +198,9 @@ edgesRaw.forEach((e) => {
 				.map((n) => n.trim())
 				.filter(Boolean)
 		: []
-	let nations = rawNations.map((n) => n.toLowerCase())
+		
+	const nationTokens = rawNations.map((n) => n.toLowerCase())
+	let nations = nationTokens.slice()
 	if (nations.includes("ap") || nations.includes("cp")) {
 		const expanded = []
 		nations.forEach((n) => {
@@ -268,6 +274,11 @@ edgesRaw.forEach((e) => {
 		conn_flags[b][a] = flags
 	}
 
+	if (nationTokens.length > 0) {
+		conn_nations[a][b] = nationTokens
+		conn_nations[b][a] = nationTokens
+	}
+
 	if (crossing_type) {
 		conn_crossings[a][b] = crossing_type
 		// Apply directional logic to crossings map?
@@ -322,6 +333,7 @@ for (let i = 1; i < spaces.length; i++) {
 	spaces[i].connection_types = conn_types[i]
 	if (Object.keys(conn_straits[i]).length > 0) spaces[i].connection_straits = conn_straits[i]
 	if (Object.keys(conn_crossings[i]).length > 0) spaces[i].crossings = conn_crossings[i]
+	if (Object.keys(conn_nations[i]).length > 0) spaces[i].connection_nations = conn_nations[i]
 	if (Object.keys(conn_flags[i]).length > 0) spaces[i].connection_flags = conn_flags[i]
 
 	if (Object.keys(lim_adj[i]).length > 0) {

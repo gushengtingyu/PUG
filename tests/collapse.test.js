@@ -122,6 +122,30 @@ describe("崩溃规则", () => {
 		})
 	})
 
+	test("塞尔维亚崩溃的 AH 选择提示只展示保加利亚入场的两个 AH 师", () => {
+		const game = createGame()
+		const log = makeLogger(game)
+
+		game.events.bulgaria = true
+		game.events.romania = true
+		moveToReserve(game, CP, "AH DIV #1")
+		moveToReserve(game, CP, "AH DIV #4")
+		moveToReserve(game, CP, "AH DIV #5")
+
+		Engine.collapse.accept_voluntary_collapse(game, "serbia", log)
+
+		const res = Engine.create_result(game)
+		eventStates.event_serbian_collapse_choice.prompt({
+			game,
+			res,
+			rules: createStateRules(game)
+		})
+
+		expect(getPiecesAction(res)).toContain(findPiece(CP, "AH DIV #4"))
+		expect(getPiecesAction(res)).toContain(findPiece(CP, "AH DIV #5"))
+		expect(getPiecesAction(res)).not.toContain(findPiece(CP, "AH DIV #1"))
+	})
+
 	test("罗马尼亚崩溃的选择提示只展示罗马尼亚入场的 AH 单位名单", () => {
 		const game = createGame()
 		const log = makeLogger(game)

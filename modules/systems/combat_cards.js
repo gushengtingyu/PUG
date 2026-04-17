@@ -500,15 +500,10 @@ module.exports = function (Engine) {
 		return !is_active_attacker
 	}
 
-	function is_neutral_persia_space(s) {
-		let info = data.spaces[s]
-		return !!(info && info.area === "persia" && info.faction === "neutral")
-	}
-
 	function is_army_of_islam_origin_space(s) {
 		let info = data.spaces[s]
 		if (!info) return false
-		if (info.area === "persia") return is_neutral_persia_space(s)
+		if (info.area === "persia") return map.is_neutral_persia_space(s)
 		return ARMY_OF_ISLAM_AREAS.has(info.area)
 	}
 
@@ -836,6 +831,9 @@ module.exports = function (Engine) {
 	}
 
 	function can_play_combat_card(game, card) {
+		if (game?.action_state && Array.isArray(game.action_state.used_ccs) && set_has(game.action_state.used_ccs, card)) {
+			return false
+		}
 		let spec = get_combat_card_spec(card)
 		if (!spec) return true
 		if (!is_combat_card_window_allowed(card, game.state, game)) return false

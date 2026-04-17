@@ -80,6 +80,11 @@ var data = {
 		"crossings": {
 			"16": "bidirectional"
 		},
+		"connection_nations": {
+			"295": [
+				"ru"
+			]
+		},
 		"limited_connections": {
 			"ru": [
 				2,
@@ -110,6 +115,11 @@ var data = {
 			"1": "",
 			"18": "rail",
 			"296": "rail"
+		},
+		"connection_nations": {
+			"296": [
+				"cp"
+			]
 		},
 		"limited_connections": {
 			"ah": [
@@ -211,6 +221,11 @@ var data = {
 		"connection_types": {
 			"14": "rail",
 			"296": "rail"
+		},
+		"connection_nations": {
+			"296": [
+				"cp"
+			]
 		},
 		"limited_connections": {
 			"ah": [
@@ -325,6 +340,11 @@ var data = {
 		"connection_types": {
 			"23": "rail",
 			"297": "rail"
+		},
+		"connection_nations": {
+			"297": [
+				"ru"
+			]
 		},
 		"limited_connections": {
 			"ru": [
@@ -547,6 +567,11 @@ var data = {
 		"crossings": {
 			"296": "b_to_a"
 		},
+		"connection_nations": {
+			"296": [
+				"cp"
+			]
+		},
 		"limited_connections": {
 			"ah": [
 				29,
@@ -736,9 +761,7 @@ var data = {
 		"connections": [
 			9,
 			28,
-			40,
-			78,
-			283
+			40
 		],
 		"rail_connections": [
 			9,
@@ -751,12 +774,24 @@ var data = {
 			"78": "green",
 			"283": "green"
 		},
-		"connection_flags": {
+		"crossings": {
+			"283": "bidirectional"
+		},
+		"connection_nations": {
 			"78": [
-				"caspian"
+				"no_tribe"
 			],
 			"283": [
-				"caspian"
+				"no_tribe"
+			]
+		},
+		"limited_connections": {
+			"no_tribe": [
+				9,
+				28,
+				40,
+				78,
+				283
 			]
 		}
 	},
@@ -2126,10 +2161,8 @@ var data = {
 		"area": "persia",
 		"tribal_activity_grid": "Jangali",
 		"connections": [
-			23,
 			59,
-			101,
-			283
+			101
 		],
 		"rail_connections": [],
 		"connection_types": {
@@ -2141,12 +2174,20 @@ var data = {
 		"crossings": {
 			"283": "bidirectional"
 		},
-		"connection_flags": {
+		"connection_nations": {
 			"23": [
-				"caspian"
+				"no_tribe"
 			],
 			"283": [
-				"caspian"
+				"no_tribe"
+			]
+		},
+		"limited_connections": {
+			"no_tribe": [
+				23,
+				59,
+				101,
+				283
 			]
 		}
 	},
@@ -2162,6 +2203,7 @@ var data = {
 		"area": "balkans",
 		"connections": [
 			63,
+			89,
 			169
 		],
 		"rail_connections": [],
@@ -2174,7 +2216,7 @@ var data = {
 			"89": 4
 		},
 		"crossings": {
-			"89": "b_to_a"
+			"89": "bidirectional"
 		},
 		"connection_flags": {
 			"89": [
@@ -2439,7 +2481,7 @@ var data = {
 		},
 		"crossings": {
 			"65": "bidirectional",
-			"79": "b_to_a"
+			"79": "bidirectional"
 		},
 		"connection_flags": {
 			"65": [
@@ -5001,8 +5043,7 @@ var data = {
 		"connections": [
 			193,
 			208,
-			217,
-			219
+			217
 		],
 		"rail_connections": [
 			193,
@@ -5012,7 +5053,20 @@ var data = {
 			"193": "rail",
 			"208": "",
 			"217": "rail",
-			"219": ""
+			"219": "green"
+		},
+		"connection_nations": {
+			"219": [
+				"arab"
+			]
+		},
+		"limited_connections": {
+			"arab": [
+				193,
+				208,
+				217,
+				219
+			]
 		}
 	},
 	{
@@ -5342,7 +5396,6 @@ var data = {
 		"connections": [
 			202,
 			208,
-			219,
 			236
 		],
 		"rail_connections": [
@@ -5353,8 +5406,21 @@ var data = {
 		"connection_types": {
 			"202": "rail",
 			"208": "rail",
-			"219": "",
+			"219": "green",
 			"236": "rail"
+		},
+		"connection_nations": {
+			"219": [
+				"arab"
+			]
+		},
+		"limited_connections": {
+			"arab": [
+				202,
+				208,
+				219,
+				236
+			]
 		}
 	},
 	{
@@ -5403,16 +5469,30 @@ var data = {
 		"faction": "cp",
 		"terrain": "desert",
 		"area": "syria_palestine",
-		"connections": [
-			202,
-			217,
-			235
-		],
+		"connections": [],
 		"rail_connections": [],
 		"connection_types": {
-			"202": "",
-			"217": "",
-			"235": ""
+			"202": "green",
+			"217": "green",
+			"235": "green"
+		},
+		"connection_nations": {
+			"202": [
+				"arab"
+			],
+			"217": [
+				"arab"
+			],
+			"235": [
+				"arab"
+			]
+		},
+		"limited_connections": {
+			"arab": [
+				202,
+				217,
+				235
+			]
 		}
 	},
 	{
@@ -5784,16 +5864,30 @@ var data = {
 		"faction": "cp",
 		"terrain": "desert",
 		"area": "syria_palestine",
-		"connections": [
-			219,
-			236,
-			245
-		],
+		"connections": [],
 		"rail_connections": [],
 		"connection_types": {
-			"219": "",
-			"236": "",
-			"245": ""
+			"219": "green",
+			"236": "green",
+			"245": "green"
+		},
+		"connection_nations": {
+			"219": [
+				"arab"
+			],
+			"236": [
+				"arab"
+			],
+			"245": [
+				"arab"
+			]
+		},
+		"limited_connections": {
+			"arab": [
+				219,
+				236,
+				245
+			]
 		}
 	},
 	{
@@ -5809,7 +5903,6 @@ var data = {
 		"area": "syria_palestine",
 		"connections": [
 			217,
-			235,
 			237,
 			244
 		],
@@ -5819,9 +5912,22 @@ var data = {
 		],
 		"connection_types": {
 			"217": "rail",
-			"235": "",
+			"235": "green",
 			"237": "",
 			"244": "rail"
+		},
+		"connection_nations": {
+			"235": [
+				"arab"
+			]
+		},
+		"limited_connections": {
+			"arab": [
+				217,
+				235,
+				237,
+				244
+			]
 		}
 	},
 	{
@@ -6022,8 +6128,22 @@ var data = {
 		],
 		"connection_types": {
 			"236": "rail",
+			"245": "green",
 			"249": "",
 			"263": "rail"
+		},
+		"connection_nations": {
+			"245": [
+				"arab"
+			]
+		},
+		"limited_connections": {
+			"arab": [
+				236,
+				245,
+				249,
+				263
+			]
 		}
 	},
 	{
@@ -6036,14 +6156,30 @@ var data = {
 		"faction": "cp",
 		"terrain": "desert",
 		"area": "syria_palestine",
-		"connections": [
-			235,
-			278
-		],
+		"connections": [],
 		"rail_connections": [],
 		"connection_types": {
-			"235": "",
-			"278": ""
+			"235": "green",
+			"244": "green",
+			"278": "green"
+		},
+		"connection_nations": {
+			"235": [
+				"arab"
+			],
+			"244": [
+				"arab"
+			],
+			"278": [
+				"arab"
+			]
+		},
+		"limited_connections": {
+			"arab": [
+				235,
+				244,
+				278
+			]
 		}
 	},
 	{
@@ -6485,17 +6621,27 @@ var data = {
 		"area": "syria_palestine",
 		"connections": [
 			244,
-			271,
-			272
+			271
 		],
 		"rail_connections": [
-			244,
-			272
+			244
 		],
 		"connection_types": {
 			"244": "rail",
 			"271": "",
 			"272": "rail"
+		},
+		"connection_nations": {
+			"272": [
+				"arab_and_tu"
+			]
+		},
+		"limited_connections": {
+			"arab_and_tu": [
+				244,
+				271,
+				272
+			]
 		}
 	},
 	{
@@ -6566,7 +6712,6 @@ var data = {
 		"area": "egypt",
 		"connections": [
 			264,
-			273,
 			275
 		],
 		"rail_connections": [],
@@ -6574,6 +6719,18 @@ var data = {
 			"264": "",
 			"273": "",
 			"275": ""
+		},
+		"connection_nations": {
+			"273": [
+				"s"
+			]
+		},
+		"limited_connections": {
+			"s": [
+				264,
+				273,
+				275
+			]
 		}
 	},
 	{
@@ -6586,16 +6743,30 @@ var data = {
 		"faction": "ap",
 		"terrain": "desert",
 		"area": "egypt",
-		"connections": [
-			268,
-			273,
-			300
-		],
+		"connections": [],
 		"rail_connections": [],
 		"connection_types": {
 			"268": "",
 			"273": "",
 			"300": ""
+		},
+		"connection_nations": {
+			"268": [
+				"s"
+			],
+			"273": [
+				"s"
+			],
+			"300": [
+				"s"
+			]
+		},
+		"limited_connections": {
+			"s": [
+				268,
+				273,
+				300
+			]
 		}
 	},
 	{
@@ -6612,7 +6783,6 @@ var data = {
 		"connections": [
 			256,
 			257,
-			267,
 			269
 		],
 		"rail_connections": [
@@ -6627,83 +6797,86 @@ var data = {
 			"269": "rail",
 			"300": "rail"
 		},
+		"connection_nations": {
+			"267": [
+				"s"
+			],
+			"300": [
+				"ap"
+			]
+		},
 		"limited_connections": {
 			"anz": [
 				256,
 				257,
-				267,
 				269,
 				300
 			],
 			"ar": [
 				256,
 				257,
-				267,
 				269,
 				300
 			],
 			"arm": [
 				256,
 				257,
-				267,
 				269,
 				300
 			],
 			"br": [
 				256,
 				257,
-				267,
 				269,
 				300
 			],
 			"fr": [
 				256,
 				257,
-				267,
 				269,
 				300
 			],
 			"gr": [
 				256,
 				257,
-				267,
 				269,
 				300
 			],
 			"in": [
 				256,
 				257,
-				267,
 				269,
 				300
 			],
 			"it": [
 				256,
 				257,
-				267,
 				269,
 				300
 			],
 			"ro": [
 				256,
 				257,
-				267,
 				269,
 				300
 			],
 			"ru": [
 				256,
 				257,
-				267,
 				269,
 				300
 			],
 			"sb": [
 				256,
 				257,
-				267,
 				269,
 				300
+			],
+			"s": [
+				256,
+				257,
+				267,
+				269
 			]
 		}
 	},
@@ -6774,13 +6947,23 @@ var data = {
 		"port": 1,
 		"area": "syria_palestine",
 		"connections": [
-			263,
-			276
+			263
 		],
 		"rail_connections": [],
 		"connection_types": {
 			"263": "",
 			"276": ""
+		},
+		"connection_nations": {
+			"276": [
+				"arab_and_tu"
+			]
+		},
+		"limited_connections": {
+			"arab_and_tu": [
+				263,
+				276
+			]
 		}
 	},
 	{
@@ -6793,17 +6976,25 @@ var data = {
 		"faction": "cp",
 		"terrain": "desert",
 		"area": "syria_palestine",
-		"connections": [
-			263,
-			277
-		],
-		"rail_connections": [
-			263,
-			277
-		],
+		"connections": [],
+		"rail_connections": [],
 		"connection_types": {
 			"263": "rail",
 			"277": "rail"
+		},
+		"connection_nations": {
+			"263": [
+				"arab_and_tu"
+			],
+			"277": [
+				"arab_and_tu"
+			]
+		},
+		"limited_connections": {
+			"arab_and_tu": [
+				263,
+				277
+			]
 		}
 	},
 	{
@@ -6818,10 +7009,7 @@ var data = {
 		"area": "egypt",
 		"tribal_activity_grid": "Senussi",
 		"connections": [
-			264,
-			266,
-			267,
-			275
+			264
 		],
 		"rail_connections": [],
 		"connection_types": {
@@ -6829,6 +7017,25 @@ var data = {
 			"266": "",
 			"267": "",
 			"275": ""
+		},
+		"connection_nations": {
+			"266": [
+				"s"
+			],
+			"267": [
+				"s"
+			],
+			"275": [
+				"s"
+			]
+		},
+		"limited_connections": {
+			"s": [
+				264,
+				266,
+				267,
+				275
+			]
 		}
 	},
 	{
@@ -6853,14 +7060,25 @@ var data = {
 		"tribal_activity_grid": "Senussi",
 		"connections": [
 			259,
-			266,
-			273
+			266
 		],
 		"rail_connections": [],
 		"connection_types": {
 			"259": "",
 			"266": "",
 			"273": ""
+		},
+		"connection_nations": {
+			"273": [
+				"s"
+			]
+		},
+		"limited_connections": {
+			"s": [
+				259,
+				266,
+				273
+			]
 		}
 	},
 	{
@@ -6873,14 +7091,25 @@ var data = {
 		"faction": "cp",
 		"terrain": "desert",
 		"area": "syria_palestine",
-		"connections": [
-			271,
-			280
-		],
+		"connections": [],
 		"rail_connections": [],
 		"connection_types": {
 			"271": "",
 			"280": ""
+		},
+		"connection_nations": {
+			"271": [
+				"arab_and_tu"
+			],
+			"280": [
+				"arab_and_tu"
+			]
+		},
+		"limited_connections": {
+			"arab_and_tu": [
+				271,
+				280
+			]
 		}
 	},
 	{
@@ -6896,18 +7125,30 @@ var data = {
 		"fort": 3,
 		"area": "syria_palestine",
 		"jihad_city": true,
-		"connections": [
-			272,
-			278,
-			280
-		],
-		"rail_connections": [
-			272
-		],
+		"connections": [],
+		"rail_connections": [],
 		"connection_types": {
 			"272": "rail",
 			"278": "",
 			"280": ""
+		},
+		"connection_nations": {
+			"272": [
+				"arab_and_tu"
+			],
+			"278": [
+				"arab_and_tu"
+			],
+			"280": [
+				"arab_and_tu"
+			]
+		},
+		"limited_connections": {
+			"arab_and_tu": [
+				272,
+				278,
+				280
+			]
 		}
 	},
 	{
@@ -6923,16 +7164,32 @@ var data = {
 		"region": "hejaz",
 		"area": "syria_palestine",
 		"jihad_city": true,
-		"connections": [
-			245,
-			277,
-			280
-		],
+		"connections": [],
 		"rail_connections": [],
 		"connection_types": {
-			"245": "",
+			"245": "green",
 			"277": "",
 			"280": ""
+		},
+		"connection_nations": {
+			"245": [
+				"arab"
+			],
+			"277": [
+				"arab_and_tu"
+			],
+			"280": [
+				"arab_and_tu"
+			]
+		},
+		"limited_connections": {
+			"arab_and_tu": [
+				277,
+				280
+			],
+			"arab": [
+				245
+			]
 		}
 	},
 	{
@@ -6955,16 +7212,30 @@ var data = {
 		"terrain": "desert",
 		"port": 1,
 		"area": "syria_palestine",
-		"connections": [
-			276,
-			277,
-			278
-		],
+		"connections": [],
 		"rail_connections": [],
 		"connection_types": {
 			"276": "",
 			"277": "",
 			"278": ""
+		},
+		"connection_nations": {
+			"276": [
+				"arab_and_tu"
+			],
+			"277": [
+				"arab_and_tu"
+			],
+			"278": [
+				"arab_and_tu"
+			]
+		},
+		"limited_connections": {
+			"arab_and_tu": [
+				276,
+				277,
+				278
+			]
 		}
 	},
 	{
@@ -7003,8 +7274,6 @@ var data = {
 		"region": "central asia",
 		"area": "central_asia",
 		"connections": [
-			23,
-			78,
 			292,
 			298
 		],
@@ -7017,20 +7286,28 @@ var data = {
 			"312": ""
 		},
 		"crossings": {
+			"23": "bidirectional",
 			"78": "bidirectional"
 		},
-		"connection_flags": {
+		"connection_nations": {
 			"23": [
-				"caspian"
+				"no_tribe"
 			],
 			"78": [
-				"caspian"
+				"no_tribe"
+			],
+			"312": [
+				"none"
 			]
 		},
 		"limited_connections": {
-			"none": [
+			"no_tribe": [
 				23,
 				78,
+				292,
+				298
+			],
+			"none": [
 				292,
 				298,
 				312
@@ -7236,12 +7513,16 @@ var data = {
 		"faction": "ap",
 		"terrain": "mountain",
 		"vp": 2,
-		"port": 2,
 		"area": "india",
 		"connections": [],
 		"rail_connections": [],
 		"connection_types": {
 			"313": ""
+		},
+		"connection_nations": {
+			"313": [
+				"none"
+			]
 		},
 		"limited_connections": {
 			"none": [
@@ -7263,6 +7544,11 @@ var data = {
 		"rail_connections": [],
 		"connection_types": {
 			"3": "rail"
+		},
+		"connection_nations": {
+			"3": [
+				"ru"
+			]
 		},
 		"limited_connections": {
 			"ru": [
@@ -7289,6 +7575,17 @@ var data = {
 		},
 		"crossings": {
 			"17": "b_to_a"
+		},
+		"connection_nations": {
+			"4": [
+				"cp"
+			],
+			"6": [
+				"cp"
+			],
+			"17": [
+				"cp"
+			]
 		},
 		"limited_connections": {
 			"ah": [
@@ -7358,6 +7655,11 @@ var data = {
 		"connection_types": {
 			"9": "rail"
 		},
+		"connection_nations": {
+			"9": [
+				"ru"
+			]
+		},
 		"limited_connections": {
 			"ru": [
 				9
@@ -7422,58 +7724,56 @@ var data = {
 		"terrain": "desert",
 		"region": "sudan and darfur",
 		"area": "egypt",
-		"connections": [
-			267
-		],
+		"connections": [],
 		"rail_connections": [],
 		"connection_types": {
 			"267": "",
 			"268": "rail"
 		},
+		"connection_nations": {
+			"267": [
+				"s"
+			],
+			"268": [
+				"ap"
+			]
+		},
 		"limited_connections": {
 			"anz": [
-				267,
 				268
 			],
 			"ar": [
-				267,
 				268
 			],
 			"arm": [
-				267,
 				268
 			],
 			"br": [
-				267,
 				268
 			],
 			"fr": [
-				267,
 				268
 			],
 			"gr": [
-				267,
 				268
 			],
 			"in": [
-				267,
 				268
 			],
 			"it": [
-				267,
 				268
 			],
 			"ro": [
-				267,
 				268
 			],
 			"ru": [
-				267,
 				268
 			],
 			"sb": [
-				267,
 				268
+			],
+			"s": [
+				267
 			]
 		}
 	},
@@ -7624,6 +7924,11 @@ var data = {
 		"connection_types": {
 			"283": ""
 		},
+		"connection_nations": {
+			"283": [
+				"none"
+			]
+		},
 		"limited_connections": {
 			"none": [
 				283
@@ -7651,6 +7956,11 @@ var data = {
 			"294": "",
 			"298": "green",
 			"299": "green"
+		},
+		"connection_nations": {
+			"294": [
+				"none"
+			]
 		},
 		"limited_connections": {
 			"none": [
@@ -13847,8 +14157,8 @@ var data = {
 		"id": 1001,
 		"card": 2,
 		"name": "ANZ Elite DIV",
-		"x": 80,
-		"y": 135,
+		"x": 82,
+		"y": 137,
 		"side": "ap",
 		"type": "reinforcement",
 		"connections": [],
@@ -13859,8 +14169,8 @@ var data = {
 		"id": 1002,
 		"card": 2,
 		"name": "ANZ Cavalry #1",
-		"x": 149,
-		"y": 135,
+		"x": 151,
+		"y": 137,
 		"side": "ap",
 		"type": "reinforcement",
 		"connections": [],
@@ -13871,8 +14181,8 @@ var data = {
 		"id": 1003,
 		"card": 8,
 		"name": "BR Persian Cordon #1",
-		"x": 253,
-		"y": 135,
+		"x": 255,
+		"y": 137,
 		"side": "ap",
 		"type": "reinforcement",
 		"connections": [],
@@ -13883,8 +14193,8 @@ var data = {
 		"id": 1004,
 		"card": 9,
 		"name": "RU Elite DIV #3",
-		"x": 382,
-		"y": 135,
+		"x": 384,
+		"y": 137,
 		"side": "ap",
 		"type": "reinforcement",
 		"connections": [],
@@ -13895,8 +14205,8 @@ var data = {
 		"id": 1005,
 		"card": 9,
 		"name": "RU DIV #11 #12",
-		"x": 451,
-		"y": 136,
+		"x": 453,
+		"y": 138,
 		"side": "ap",
 		"type": "reinforcement",
 		"connections": [],
@@ -13907,8 +14217,8 @@ var data = {
 		"id": 1006,
 		"card": 10,
 		"name": "RU IV Caucasian",
-		"x": 563,
-		"y": 143,
+		"x": 565,
+		"y": 145,
 		"side": "ap",
 		"type": "reinforcement",
 		"connections": [],
@@ -13919,8 +14229,8 @@ var data = {
 		"id": 1007,
 		"card": 10,
 		"name": "RU Elite DIV #4",
-		"x": 638,
-		"y": 136,
+		"x": 640,
+		"y": 138,
 		"side": "ap",
 		"type": "reinforcement",
 		"connections": [],
@@ -13931,8 +14241,8 @@ var data = {
 		"id": 1008,
 		"card": 10,
 		"name": "RU DIV #13",
-		"x": 707,
-		"y": 136,
+		"x": 709,
+		"y": 138,
 		"side": "ap",
 		"type": "reinforcement",
 		"connections": [],
@@ -13943,8 +14253,8 @@ var data = {
 		"id": 1009,
 		"card": 10,
 		"name": "RU Cavalry #7",
-		"x": 775,
-		"y": 136,
+		"x": 777,
+		"y": 138,
 		"side": "ap",
 		"type": "reinforcement",
 		"connections": [],
@@ -13955,8 +14265,8 @@ var data = {
 		"id": 1010,
 		"card": 11,
 		"name": "Max TU RP",
-		"x": 888,
-		"y": 143,
+		"x": 890,
+		"y": 145,
 		"side": "ap",
 		"type": "reinforcement",
 		"connections": [],
@@ -15055,7 +15365,7 @@ var data = {
 	{
 		"id": 1105,
 		"card": 18,
-		"name": "TU-A DIV #11",
+		"name": "TU-A DIV #11 #12 #13 #14",
 		"x": 567,
 		"y": 137,
 		"side": "cp",
@@ -15211,7 +15521,7 @@ var data = {
 	{
 		"id": 1118,
 		"card": 26,
-		"name": "TU-A DIV #12",
+		"name": "TU-A DIV #15",
 		"x": 930,
 		"y": 257,
 		"side": "cp",
@@ -15271,7 +15581,7 @@ var data = {
 	{
 		"id": 1123,
 		"card": 37,
-		"name": "TU-A DIV #13 #14 #15 #16",
+		"name": "TU-A DIV #16 #17 #18 #19",
 		"x": 580,
 		"y": 375,
 		"side": "cp",
@@ -15367,7 +15677,7 @@ var data = {
 	{
 		"id": 1131,
 		"card": 51,
-		"name": "TU-A DIV #17",
+		"name": "TU-A DIV #20",
 		"x": 523,
 		"y": 496,
 		"side": "cp",
@@ -16357,8 +16667,8 @@ var data = {
 	{
 		"id": 1227,
 		"name": "neutral_gr_UI",
-		"x": 179,
-		"y": 915,
+		"x": 150,
+		"y": 958,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -16607,8 +16917,8 @@ var data = {
 	{
 		"id": 1252,
 		"name": "box_cp_reserve_tu_scu",
-		"x": 1040,
-		"y": 1760,
+		"x": 1055,
+		"y": 1680,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -16617,8 +16927,8 @@ var data = {
 	{
 		"id": 1253,
 		"name": "box_cp_reserve_tua_scu",
-		"x": 1120,
-		"y": 1760,
+		"x": 1145,
+		"y": 1680,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -16627,8 +16937,8 @@ var data = {
 	{
 		"id": 1254,
 		"name": "box_cp_reserve_bu_scu",
-		"x": 1200,
-		"y": 1760,
+		"x": 1055,
+		"y": 1790,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -16637,8 +16947,8 @@ var data = {
 	{
 		"id": 1255,
 		"name": "box_cp_reserve_ge_scu",
-		"x": 1280,
-		"y": 1760,
+		"x": 1145,
+		"y": 1790,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -16647,8 +16957,8 @@ var data = {
 	{
 		"id": 1256,
 		"name": "box_cp_reserve_ah_scu",
-		"x": 1360,
-		"y": 1760,
+		"x": 1240,
+		"y": 1790,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
@@ -16656,6 +16966,16 @@ var data = {
 	},
 	{
 		"id": 1257,
+		"name": "box_cp_reserve_minor_scu",
+		"x": 1340,
+		"y": 1790,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1258,
 		"name": "box_ap_reserve_ru_scu",
 		"x": 815,
 		"y": 1995,
@@ -16665,7 +16985,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1258,
+		"id": 1259,
 		"name": "box_ap_reserve_br_scu",
 		"x": 815,
 		"y": 2060,
@@ -16675,7 +16995,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1259,
+		"id": 1260,
 		"name": "box_ap_reserve_in_scu",
 		"x": 910,
 		"y": 1995,
@@ -16685,7 +17005,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1260,
+		"id": 1261,
 		"name": "box_ap_reserve_anz_scu",
 		"x": 910,
 		"y": 2060,
@@ -16695,7 +17015,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1261,
+		"id": 1262,
 		"name": "box_ap_reserve_sb_scu",
 		"x": 1005,
 		"y": 1995,
@@ -16705,7 +17025,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1262,
+		"id": 1263,
 		"name": "box_ap_reserve_ro_scu",
 		"x": 1005,
 		"y": 2060,
@@ -16715,7 +17035,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1263,
+		"id": 1264,
 		"name": "box_ap_reserve_fr_scu",
 		"x": 1095,
 		"y": 1995,
@@ -16725,7 +17045,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1264,
+		"id": 1265,
 		"name": "box_ap_reserve_other_scu",
 		"x": 1095,
 		"y": 2060,
@@ -16735,7 +17055,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1265,
+		"id": 1266,
 		"name": "box_ap_corps_assets_ru_lcu",
 		"x": 1230,
 		"y": 2000,
@@ -16745,7 +17065,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1266,
+		"id": 1267,
 		"name": "box_ap_corps_assets_br_lcu",
 		"x": 1230,
 		"y": 2090,
@@ -16755,7 +17075,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1267,
+		"id": 1268,
 		"name": "box_ap_corps_assets_in_lcu",
 		"x": 1340,
 		"y": 2000,
@@ -16765,7 +17085,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1268,
+		"id": 1269,
 		"name": "box_ap_corps_assets_fr_lcu",
 		"x": 1340,
 		"y": 2090,
@@ -16775,7 +17095,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1269,
+		"id": 1270,
 		"name": "box_cp_eliminated_tu_lcu",
 		"x": 2155,
 		"y": 85,
@@ -16785,7 +17105,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1270,
+		"id": 1271,
 		"name": "box_cp_eliminated_tu_scu",
 		"x": 2155,
 		"y": 148,
@@ -16795,7 +17115,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1271,
+		"id": 1272,
 		"name": "box_cp_eliminated_tua_lcu",
 		"x": 2238,
 		"y": 85,
@@ -16805,7 +17125,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1272,
+		"id": 1273,
 		"name": "box_cp_eliminated_tua_scu",
 		"x": 2238,
 		"y": 148,
@@ -16815,7 +17135,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1273,
+		"id": 1274,
 		"name": "box_cp_eliminated_bu_lcu",
 		"x": 2320,
 		"y": 85,
@@ -16825,7 +17145,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1274,
+		"id": 1275,
 		"name": "box_cp_eliminated_bu_scu",
 		"x": 2320,
 		"y": 150,
@@ -16835,7 +17155,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1275,
+		"id": 1276,
 		"name": "box_cp_eliminated_ge_lcu",
 		"x": 2155,
 		"y": 212,
@@ -16845,7 +17165,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1276,
+		"id": 1277,
 		"name": "box_cp_eliminated_ge_scu",
 		"x": 2155,
 		"y": 275,
@@ -16855,7 +17175,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1277,
+		"id": 1278,
 		"name": "box_cp_eliminated_ah_lcu",
 		"x": 2238,
 		"y": 212,
@@ -16865,7 +17185,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1278,
+		"id": 1279,
 		"name": "box_cp_eliminated_ah_scu",
 		"x": 2238,
 		"y": 275,
@@ -16875,17 +17195,27 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1279,
-		"name": "box_cp_eliminated_tr",
-		"x": 2320,
-		"y": 245,
+		"id": 1280,
+		"name": "box_cp_eliminated_minor",
+		"x": 2238,
+		"y": 212,
 		"type": "ui",
 		"connections": [],
 		"rail_connections": [],
 		"connection_types": {}
 	},
 	{
-		"id": 1280,
+		"id": 1281,
+		"name": "box_cp_eliminated_tr",
+		"x": 2155,
+		"y": 275,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1282,
 		"name": "box_ap_eliminated_ru_lcu",
 		"x": 1548,
 		"y": 2615,
@@ -16895,7 +17225,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1281,
+		"id": 1283,
 		"name": "box_ap_eliminated_ru_scu",
 		"x": 1548,
 		"y": 2675,
@@ -16905,7 +17235,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1282,
+		"id": 1284,
 		"name": "box_ap_eliminated_br_lcu",
 		"x": 1624,
 		"y": 2615,
@@ -16915,7 +17245,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1283,
+		"id": 1285,
 		"name": "box_ap_eliminated_br_scu",
 		"x": 1624,
 		"y": 2675,
@@ -16925,7 +17255,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1284,
+		"id": 1286,
 		"name": "box_ap_eliminated_anz_lcu",
 		"x": 1699,
 		"y": 2615,
@@ -16935,7 +17265,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1285,
+		"id": 1287,
 		"name": "box_ap_eliminated_anz_scu",
 		"x": 1699,
 		"y": 2675,
@@ -16945,7 +17275,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1286,
+		"id": 1288,
 		"name": "box_ap_eliminated_in_lcu",
 		"x": 1780,
 		"y": 2615,
@@ -16955,7 +17285,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1287,
+		"id": 1289,
 		"name": "box_ap_eliminated_in_scu",
 		"x": 1780,
 		"y": 2675,
@@ -16965,7 +17295,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1288,
+		"id": 1290,
 		"name": "box_ap_eliminated_sb_lcu",
 		"x": 1855,
 		"y": 2615,
@@ -16975,7 +17305,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1289,
+		"id": 1291,
 		"name": "box_ap_eliminated_sb_scu",
 		"x": 1855,
 		"y": 2675,
@@ -16985,7 +17315,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1290,
+		"id": 1292,
 		"name": "box_ap_eliminated_fr_lcu",
 		"x": 1548,
 		"y": 2735,
@@ -16995,7 +17325,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1291,
+		"id": 1293,
 		"name": "box_ap_eliminated_fr_scu",
 		"x": 1624,
 		"y": 2735,
@@ -17005,7 +17335,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1292,
+		"id": 1294,
 		"name": "box_ap_eliminated_ro_lcu",
 		"x": 1699,
 		"y": 2735,
@@ -17015,7 +17345,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1293,
+		"id": 1295,
 		"name": "box_ap_eliminated_ro_scu",
 		"x": 1780,
 		"y": 2735,
@@ -17025,7 +17355,7 @@ var data = {
 		"connection_types": {}
 	},
 	{
-		"id": 1294,
+		"id": 1296,
 		"name": "box_ap_eliminated_other",
 		"x": 1855,
 		"y": 2735,
@@ -17092,7 +17422,7 @@ var data = {
 	{
 		"a": 3,
 		"b": 295,
-		"nations": "RU",
+		"nations": "ru",
 		"type": "rail"
 	},
 	{
@@ -17331,7 +17661,7 @@ var data = {
 		"a": 79,
 		"b": 89,
 		"type": "strait",
-		"crossing": 3,
+		"crossing": 1,
 		"flags": 4
 	},
 	{
@@ -17923,9 +18253,9 @@ var data = {
 	{
 		"a": 283,
 		"b": 78,
+		"nations": "no_tribe",
 		"type": "green",
-		"crossing": 1,
-		"flags": "caspian"
+		"crossing": 1
 	},
 	{
 		"a": 298,
@@ -18083,8 +18413,8 @@ var data = {
 	{
 		"a": 78,
 		"b": 23,
-		"type": "green",
-		"flags": "caspian"
+		"nations": "no_tribe",
+		"type": "green"
 	},
 	{
 		"a": 59,
@@ -18724,6 +19054,7 @@ var data = {
 	{
 		"a": 263,
 		"b": 272,
+		"nations": "arab_and_tu",
 		"type": "rail"
 	},
 	{
@@ -18732,52 +19063,70 @@ var data = {
 	},
 	{
 		"a": 277,
-		"b": 278
+		"b": 278,
+		"nations": "arab_and_tu"
 	},
 	{
 		"a": 277,
-		"b": 280
+		"b": 280,
+		"nations": "arab_and_tu"
 	},
 	{
 		"a": 280,
-		"b": 278
+		"b": 278,
+		"nations": "arab_and_tu"
 	},
 	{
 		"a": 280,
-		"b": 276
+		"b": 276,
+		"nations": "arab_and_tu"
 	},
 	{
 		"a": 276,
-		"b": 271
+		"b": 271,
+		"nations": "arab_and_tu"
 	},
 	{
 		"a": 277,
 		"b": 272,
+		"nations": "arab_and_tu",
 		"type": "rail"
 	},
 	{
 		"a": 278,
-		"b": 245
+		"b": 245,
+		"nations": "arab",
+		"type": "green"
 	},
 	{
 		"a": 235,
-		"b": 236
+		"b": 236,
+		"nations": "arab",
+		"type": "green"
 	},
 	{
 		"a": 235,
-		"b": 245
+		"b": 245,
+		"nations": "arab",
+		"type": "green"
 	},
 	{
 		"a": 235,
-		"b": 219
+		"b": 219,
+		"nations": "arab",
+		"type": "green"
 	},
 	{
 		"a": 219,
-		"b": 217
+		"b": 217,
+		"nations": "arab",
+		"type": "green"
 	},
 	{
 		"a": 219,
-		"b": 202
+		"b": 202,
+		"nations": "arab",
+		"type": "green"
 	},
 	{
 		"a": 261,
@@ -18879,15 +19228,18 @@ var data = {
 	},
 	{
 		"a": 300,
-		"b": 267
+		"b": 267,
+		"nations": "s"
 	},
 	{
 		"a": 267,
-		"b": 268
+		"b": 268,
+		"nations": "s"
 	},
 	{
 		"a": 267,
-		"b": 273
+		"b": 273,
+		"nations": "s"
 	},
 	{
 		"a": 275,
@@ -18899,7 +19251,8 @@ var data = {
 	},
 	{
 		"a": 275,
-		"b": 273
+		"b": 273,
+		"nations": "s"
 	},
 	{
 		"a": 266,
@@ -18907,7 +19260,8 @@ var data = {
 	},
 	{
 		"a": 266,
-		"b": 273
+		"b": 273,
+		"nations": "s"
 	},
 	{
 		"a": 264,
@@ -18934,8 +19288,9 @@ var data = {
 	{
 		"a": 283,
 		"b": 23,
+		"nations": "no_tribe",
 		"type": "green",
-		"flags": "caspian"
+		"crossing": 1
 	},
 	{
 		"a": 283,
@@ -19016,6 +19371,12 @@ var data = {
 	{
 		"a": 234,
 		"b": 226
+	},
+	{
+		"a": 245,
+		"b": 244,
+		"nations": "arab",
+		"type": "green"
 	}
 ], // Keep raw edges for reference if needed, or structured adj
 	pieces: [
@@ -23888,7 +24249,7 @@ var data = {
 		"id": 282,
 		"faction": "cp",
 		"nation": "tua",
-		"name": "TU-A DIV #10",
+		"name": "TU-A DIV #2",
 		"cf": 1,
 		"lf": 1,
 		"mf": 4,
@@ -23905,7 +24266,7 @@ var data = {
 		"id": 283,
 		"faction": "cp",
 		"nation": "tua",
-		"name": "TU-A DIV #11",
+		"name": "TU-A DIV #3",
 		"cf": 1,
 		"lf": 1,
 		"mf": 4,
@@ -23922,7 +24283,7 @@ var data = {
 		"id": 284,
 		"faction": "cp",
 		"nation": "tua",
-		"name": "TU-A DIV #12",
+		"name": "TU-A DIV #4",
 		"cf": 1,
 		"lf": 1,
 		"mf": 4,
@@ -23939,7 +24300,7 @@ var data = {
 		"id": 285,
 		"faction": "cp",
 		"nation": "tua",
-		"name": "TU-A DIV #13",
+		"name": "TU-A DIV #5",
 		"cf": 1,
 		"lf": 1,
 		"mf": 4,
@@ -23956,7 +24317,7 @@ var data = {
 		"id": 286,
 		"faction": "cp",
 		"nation": "tua",
-		"name": "TU-A DIV #14",
+		"name": "TU-A DIV #6",
 		"cf": 1,
 		"lf": 1,
 		"mf": 4,
@@ -23973,7 +24334,7 @@ var data = {
 		"id": 287,
 		"faction": "cp",
 		"nation": "tua",
-		"name": "TU-A DIV #15",
+		"name": "TU-A DIV #7",
 		"cf": 1,
 		"lf": 1,
 		"mf": 4,
@@ -23990,7 +24351,7 @@ var data = {
 		"id": 288,
 		"faction": "cp",
 		"nation": "tua",
-		"name": "TU-A DIV #16",
+		"name": "TU-A DIV #8",
 		"cf": 1,
 		"lf": 1,
 		"mf": 4,
@@ -24007,7 +24368,7 @@ var data = {
 		"id": 289,
 		"faction": "cp",
 		"nation": "tua",
-		"name": "TU-A DIV #17",
+		"name": "TU-A DIV #9",
 		"cf": 1,
 		"lf": 1,
 		"mf": 4,
@@ -24024,7 +24385,7 @@ var data = {
 		"id": 290,
 		"faction": "cp",
 		"nation": "tua",
-		"name": "TU-A DIV #2",
+		"name": "TU-A DIV #10",
 		"cf": 1,
 		"lf": 1,
 		"mf": 4,
@@ -24041,7 +24402,7 @@ var data = {
 		"id": 291,
 		"faction": "cp",
 		"nation": "tua",
-		"name": "TU-A DIV #3",
+		"name": "TU-A DIV #11",
 		"cf": 1,
 		"lf": 1,
 		"mf": 4,
@@ -24058,7 +24419,7 @@ var data = {
 		"id": 292,
 		"faction": "cp",
 		"nation": "tua",
-		"name": "TU-A DIV #4",
+		"name": "TU-A DIV #12",
 		"cf": 1,
 		"lf": 1,
 		"mf": 4,
@@ -24075,7 +24436,7 @@ var data = {
 		"id": 293,
 		"faction": "cp",
 		"nation": "tua",
-		"name": "TU-A DIV #5",
+		"name": "TU-A DIV #13",
 		"cf": 1,
 		"lf": 1,
 		"mf": 4,
@@ -24092,7 +24453,7 @@ var data = {
 		"id": 294,
 		"faction": "cp",
 		"nation": "tua",
-		"name": "TU-A DIV #6",
+		"name": "TU-A DIV #14",
 		"cf": 1,
 		"lf": 1,
 		"mf": 4,
@@ -24109,7 +24470,7 @@ var data = {
 		"id": 295,
 		"faction": "cp",
 		"nation": "tua",
-		"name": "TU-A DIV #7",
+		"name": "TU-A DIV #15",
 		"cf": 1,
 		"lf": 1,
 		"mf": 4,
@@ -24126,7 +24487,7 @@ var data = {
 		"id": 296,
 		"faction": "cp",
 		"nation": "tua",
-		"name": "TU-A DIV #8",
+		"name": "TU-A DIV #16",
 		"cf": 1,
 		"lf": 1,
 		"mf": 4,
@@ -24143,7 +24504,58 @@ var data = {
 		"id": 297,
 		"faction": "cp",
 		"nation": "tua",
-		"name": "TU-A DIV #9",
+		"name": "TU-A DIV #17",
+		"cf": 1,
+		"lf": 1,
+		"mf": 4,
+		"rcf": 0,
+		"rlf": 1,
+		"rmf": 4,
+		"type": "regular",
+		"badge": "infantry",
+		"piece_class": "SCU",
+		"image_full": "TUADiv.png",
+		"image_reduced": "TUADivR.png"
+	},
+	{
+		"id": 297,
+		"faction": "cp",
+		"nation": "tua",
+		"name": "TU-A DIV #18",
+		"cf": 1,
+		"lf": 1,
+		"mf": 4,
+		"rcf": 0,
+		"rlf": 1,
+		"rmf": 4,
+		"type": "regular",
+		"badge": "infantry",
+		"piece_class": "SCU",
+		"image_full": "TUADiv.png",
+		"image_reduced": "TUADivR.png"
+	},
+	{
+		"id": 297,
+		"faction": "cp",
+		"nation": "tua",
+		"name": "TU-A DIV #19",
+		"cf": 1,
+		"lf": 1,
+		"mf": 4,
+		"rcf": 0,
+		"rlf": 1,
+		"rmf": 4,
+		"type": "regular",
+		"badge": "infantry",
+		"piece_class": "SCU",
+		"image_full": "TUADiv.png",
+		"image_reduced": "TUADivR.png"
+	},
+	{
+		"id": 297,
+		"faction": "cp",
+		"nation": "tua",
+		"name": "TU-A DIV #20",
 		"cf": 1,
 		"lf": 1,
 		"mf": 4,
@@ -24686,7 +25098,7 @@ var data = {
 		"rp_br": 2,
 		"rp_ru": 3,
 		"rp_in": 2,
-		"name": "加利波里入侵",
+		"name": "加里波利入侵",
 		"event": "GALLIPOLI INVASION"
 	},
 	{
@@ -26378,8 +26790,8 @@ var data = {
 	{
 		"id": 82,
 		"key": "neutral_gr_UI",
-		"x": 179,
-		"y": 915,
+		"x": 150,
+		"y": 958,
 		"w": 200,
 		"h": 160
 	},
@@ -26578,45 +26990,53 @@ var data = {
 	{
 		"id": 107,
 		"key": "box_cp_reserve_tu_scu",
-		"x": 1040,
-		"y": 1760,
+		"x": 1055,
+		"y": 1680,
 		"w": 44,
 		"h": 44
 	},
 	{
 		"id": 108,
 		"key": "box_cp_reserve_tua_scu",
-		"x": 1120,
-		"y": 1760,
+		"x": 1145,
+		"y": 1680,
 		"w": 44,
 		"h": 44
 	},
 	{
 		"id": 109,
 		"key": "box_cp_reserve_bu_scu",
-		"x": 1200,
-		"y": 1760,
+		"x": 1055,
+		"y": 1790,
 		"w": 44,
 		"h": 44
 	},
 	{
 		"id": 110,
 		"key": "box_cp_reserve_ge_scu",
-		"x": 1280,
-		"y": 1760,
+		"x": 1145,
+		"y": 1790,
 		"w": 44,
 		"h": 44
 	},
 	{
 		"id": 111,
 		"key": "box_cp_reserve_ah_scu",
-		"x": 1360,
-		"y": 1760,
+		"x": 1240,
+		"y": 1790,
 		"w": 44,
 		"h": 44
 	},
 	{
 		"id": 112,
+		"key": "box_cp_reserve_minor_scu",
+		"x": 1340,
+		"y": 1790,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 113,
 		"key": "box_ap_reserve_ru_scu",
 		"x": 815,
 		"y": 1995,
@@ -26624,7 +27044,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 113,
+		"id": 114,
 		"key": "box_ap_reserve_br_scu",
 		"x": 815,
 		"y": 2060,
@@ -26632,7 +27052,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 114,
+		"id": 115,
 		"key": "box_ap_reserve_in_scu",
 		"x": 910,
 		"y": 1995,
@@ -26640,7 +27060,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 115,
+		"id": 116,
 		"key": "box_ap_reserve_anz_scu",
 		"x": 910,
 		"y": 2060,
@@ -26648,7 +27068,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 116,
+		"id": 117,
 		"key": "box_ap_reserve_sb_scu",
 		"x": 1005,
 		"y": 1995,
@@ -26656,7 +27076,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 117,
+		"id": 118,
 		"key": "box_ap_reserve_ro_scu",
 		"x": 1005,
 		"y": 2060,
@@ -26664,7 +27084,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 118,
+		"id": 119,
 		"key": "box_ap_reserve_fr_scu",
 		"x": 1095,
 		"y": 1995,
@@ -26672,7 +27092,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 119,
+		"id": 120,
 		"key": "box_ap_reserve_other_scu",
 		"x": 1095,
 		"y": 2060,
@@ -26680,7 +27100,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 120,
+		"id": 121,
 		"key": "box_ap_corps_assets_ru_lcu",
 		"x": 1230,
 		"y": 2000,
@@ -26688,7 +27108,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 121,
+		"id": 122,
 		"key": "box_ap_corps_assets_br_lcu",
 		"x": 1230,
 		"y": 2090,
@@ -26696,7 +27116,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 122,
+		"id": 123,
 		"key": "box_ap_corps_assets_in_lcu",
 		"x": 1340,
 		"y": 2000,
@@ -26704,7 +27124,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 123,
+		"id": 124,
 		"key": "box_ap_corps_assets_fr_lcu",
 		"x": 1340,
 		"y": 2090,
@@ -26712,7 +27132,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 124,
+		"id": 125,
 		"key": "box_cp_eliminated_tu_lcu",
 		"x": 2155,
 		"y": 85,
@@ -26720,7 +27140,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 125,
+		"id": 126,
 		"key": "box_cp_eliminated_tu_scu",
 		"x": 2155,
 		"y": 148,
@@ -26728,7 +27148,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 126,
+		"id": 127,
 		"key": "box_cp_eliminated_tua_lcu",
 		"x": 2238,
 		"y": 85,
@@ -26736,7 +27156,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 127,
+		"id": 128,
 		"key": "box_cp_eliminated_tua_scu",
 		"x": 2238,
 		"y": 148,
@@ -26744,7 +27164,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 128,
+		"id": 129,
 		"key": "box_cp_eliminated_bu_lcu",
 		"x": 2320,
 		"y": 85,
@@ -26752,7 +27172,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 129,
+		"id": 130,
 		"key": "box_cp_eliminated_bu_scu",
 		"x": 2320,
 		"y": 150,
@@ -26760,7 +27180,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 130,
+		"id": 131,
 		"key": "box_cp_eliminated_ge_lcu",
 		"x": 2155,
 		"y": 212,
@@ -26768,7 +27188,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 131,
+		"id": 132,
 		"key": "box_cp_eliminated_ge_scu",
 		"x": 2155,
 		"y": 275,
@@ -26776,7 +27196,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 132,
+		"id": 133,
 		"key": "box_cp_eliminated_ah_lcu",
 		"x": 2238,
 		"y": 212,
@@ -26784,7 +27204,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 133,
+		"id": 134,
 		"key": "box_cp_eliminated_ah_scu",
 		"x": 2238,
 		"y": 275,
@@ -26792,15 +27212,23 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 134,
-		"key": "box_cp_eliminated_tr",
-		"x": 2320,
-		"y": 245,
+		"id": 135,
+		"key": "box_cp_eliminated_minor",
+		"x": 2238,
+		"y": 212,
 		"w": 44,
 		"h": 44
 	},
 	{
-		"id": 135,
+		"id": 136,
+		"key": "box_cp_eliminated_tr",
+		"x": 2155,
+		"y": 275,
+		"w": 44,
+		"h": 44
+	},
+	{
+		"id": 137,
 		"key": "box_ap_eliminated_ru_lcu",
 		"x": 1548,
 		"y": 2615,
@@ -26808,7 +27236,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 136,
+		"id": 138,
 		"key": "box_ap_eliminated_ru_scu",
 		"x": 1548,
 		"y": 2675,
@@ -26816,7 +27244,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 137,
+		"id": 139,
 		"key": "box_ap_eliminated_br_lcu",
 		"x": 1624,
 		"y": 2615,
@@ -26824,7 +27252,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 138,
+		"id": 140,
 		"key": "box_ap_eliminated_br_scu",
 		"x": 1624,
 		"y": 2675,
@@ -26832,7 +27260,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 139,
+		"id": 141,
 		"key": "box_ap_eliminated_anz_lcu",
 		"x": 1699,
 		"y": 2615,
@@ -26840,7 +27268,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 140,
+		"id": 142,
 		"key": "box_ap_eliminated_anz_scu",
 		"x": 1699,
 		"y": 2675,
@@ -26848,7 +27276,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 141,
+		"id": 143,
 		"key": "box_ap_eliminated_in_lcu",
 		"x": 1780,
 		"y": 2615,
@@ -26856,7 +27284,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 142,
+		"id": 144,
 		"key": "box_ap_eliminated_in_scu",
 		"x": 1780,
 		"y": 2675,
@@ -26864,7 +27292,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 143,
+		"id": 145,
 		"key": "box_ap_eliminated_sb_lcu",
 		"x": 1855,
 		"y": 2615,
@@ -26872,7 +27300,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 144,
+		"id": 146,
 		"key": "box_ap_eliminated_sb_scu",
 		"x": 1855,
 		"y": 2675,
@@ -26880,7 +27308,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 145,
+		"id": 147,
 		"key": "box_ap_eliminated_fr_lcu",
 		"x": 1548,
 		"y": 2735,
@@ -26888,7 +27316,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 146,
+		"id": 148,
 		"key": "box_ap_eliminated_fr_scu",
 		"x": 1624,
 		"y": 2735,
@@ -26896,7 +27324,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 147,
+		"id": 149,
 		"key": "box_ap_eliminated_ro_lcu",
 		"x": 1699,
 		"y": 2735,
@@ -26904,7 +27332,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 148,
+		"id": 150,
 		"key": "box_ap_eliminated_ro_scu",
 		"x": 1780,
 		"y": 2735,
@@ -26912,7 +27340,7 @@ var data = {
 		"h": 44
 	},
 	{
-		"id": 149,
+		"id": 151,
 		"key": "box_ap_eliminated_other",
 		"x": 1855,
 		"y": 2735,
@@ -27360,7 +27788,11 @@ data.space_name = {
 	"TU Elite DIV #9": 1103,
 	"TU Elite DIV #10": 1103,
 	"TU Cavalry #5": 1104,
+	"TU-A DIV #11 #12 #13 #14": 1105,
 	"TU-A DIV #11": 1105,
+	"TU-A DIV #12": 1105,
+	"TU-A DIV #13": 1105,
+	"TU-A DIV #14": 1105,
 	"CP Air Superiority token": 1106,
 	"U_boats in the Med token": 1107,
 	"PE Uprising": 1108,
@@ -27378,16 +27810,16 @@ data.space_name = {
 	"TU XVII Corps": 1115,
 	"TU-A XVIII Corps": 1116,
 	"TU DIV #18": 1117,
-	"TU-A DIV #12": 1118,
+	"TU-A DIV #15": 1118,
 	"BU 4 Army": 1119,
 	"Parvus to Berlin token": 1120,
 	"Revolution token": 1121,
 	"Long Live the Czar! token": 1122,
-	"TU-A DIV #13 #14 #15 #16": 1123,
-	"TU-A DIV #13": 1123,
-	"TU-A DIV #14": 1123,
-	"TU-A DIV #15": 1123,
+	"TU-A DIV #16 #17 #18 #19": 1123,
 	"TU-A DIV #16": 1123,
+	"TU-A DIV #17": 1123,
+	"TU-A DIV #18": 1123,
+	"TU-A DIV #19": 1123,
 	"TU Army Islam HQ": 1125,
 	"GE Yildrim #1 #2 #3": 1126,
 	"GE Yildrim #1": 1126,
@@ -27397,7 +27829,7 @@ data.space_name = {
 	"TU XX Corps": 1128,
 	"TU XXII Corps": 1129,
 	"TU-A Left Wing Gp": 1130,
-	"TU-A DIV #17": 1131,
+	"TU-A DIV #20": 1131,
 	"TU 1 Caucasian": 1132,
 	"TU 2 Caucasian": 1133,
 	"Afghan Uprising #1 #2 #3": 1134,
@@ -27537,44 +27969,46 @@ data.space_name = {
 	"box_cp_reserve_bu_scu": 1254,
 	"box_cp_reserve_ge_scu": 1255,
 	"box_cp_reserve_ah_scu": 1256,
-	"box_ap_reserve_ru_scu": 1257,
-	"box_ap_reserve_br_scu": 1258,
-	"box_ap_reserve_in_scu": 1259,
-	"box_ap_reserve_anz_scu": 1260,
-	"box_ap_reserve_sb_scu": 1261,
-	"box_ap_reserve_ro_scu": 1262,
-	"box_ap_reserve_fr_scu": 1263,
-	"box_ap_reserve_other_scu": 1264,
-	"box_ap_corps_assets_ru_lcu": 1265,
-	"box_ap_corps_assets_br_lcu": 1266,
-	"box_ap_corps_assets_in_lcu": 1267,
-	"box_ap_corps_assets_fr_lcu": 1268,
-	"box_cp_eliminated_tu_lcu": 1269,
-	"box_cp_eliminated_tu_scu": 1270,
-	"box_cp_eliminated_tua_lcu": 1271,
-	"box_cp_eliminated_tua_scu": 1272,
-	"box_cp_eliminated_bu_lcu": 1273,
-	"box_cp_eliminated_bu_scu": 1274,
-	"box_cp_eliminated_ge_lcu": 1275,
-	"box_cp_eliminated_ge_scu": 1276,
-	"box_cp_eliminated_ah_lcu": 1277,
-	"box_cp_eliminated_ah_scu": 1278,
-	"box_cp_eliminated_tr": 1279,
-	"box_ap_eliminated_ru_lcu": 1280,
-	"box_ap_eliminated_ru_scu": 1281,
-	"box_ap_eliminated_br_lcu": 1282,
-	"box_ap_eliminated_br_scu": 1283,
-	"box_ap_eliminated_anz_lcu": 1284,
-	"box_ap_eliminated_anz_scu": 1285,
-	"box_ap_eliminated_in_lcu": 1286,
-	"box_ap_eliminated_in_scu": 1287,
-	"box_ap_eliminated_sb_lcu": 1288,
-	"box_ap_eliminated_sb_scu": 1289,
-	"box_ap_eliminated_fr_lcu": 1290,
-	"box_ap_eliminated_fr_scu": 1291,
-	"box_ap_eliminated_ro_lcu": 1292,
-	"box_ap_eliminated_ro_scu": 1293,
-	"box_ap_eliminated_other": 1294
+	"box_cp_reserve_minor_scu": 1257,
+	"box_ap_reserve_ru_scu": 1258,
+	"box_ap_reserve_br_scu": 1259,
+	"box_ap_reserve_in_scu": 1260,
+	"box_ap_reserve_anz_scu": 1261,
+	"box_ap_reserve_sb_scu": 1262,
+	"box_ap_reserve_ro_scu": 1263,
+	"box_ap_reserve_fr_scu": 1264,
+	"box_ap_reserve_other_scu": 1265,
+	"box_ap_corps_assets_ru_lcu": 1266,
+	"box_ap_corps_assets_br_lcu": 1267,
+	"box_ap_corps_assets_in_lcu": 1268,
+	"box_ap_corps_assets_fr_lcu": 1269,
+	"box_cp_eliminated_tu_lcu": 1270,
+	"box_cp_eliminated_tu_scu": 1271,
+	"box_cp_eliminated_tua_lcu": 1272,
+	"box_cp_eliminated_tua_scu": 1273,
+	"box_cp_eliminated_bu_lcu": 1274,
+	"box_cp_eliminated_bu_scu": 1275,
+	"box_cp_eliminated_ge_lcu": 1276,
+	"box_cp_eliminated_ge_scu": 1277,
+	"box_cp_eliminated_ah_lcu": 1278,
+	"box_cp_eliminated_ah_scu": 1279,
+	"box_cp_eliminated_minor": 1280,
+	"box_cp_eliminated_tr": 1281,
+	"box_ap_eliminated_ru_lcu": 1282,
+	"box_ap_eliminated_ru_scu": 1283,
+	"box_ap_eliminated_br_lcu": 1284,
+	"box_ap_eliminated_br_scu": 1285,
+	"box_ap_eliminated_anz_lcu": 1286,
+	"box_ap_eliminated_anz_scu": 1287,
+	"box_ap_eliminated_in_lcu": 1288,
+	"box_ap_eliminated_in_scu": 1289,
+	"box_ap_eliminated_sb_lcu": 1290,
+	"box_ap_eliminated_sb_scu": 1291,
+	"box_ap_eliminated_fr_lcu": 1292,
+	"box_ap_eliminated_fr_scu": 1293,
+	"box_ap_eliminated_ro_lcu": 1294,
+	"box_ap_eliminated_ro_scu": 1295,
+	"box_ap_eliminated_other": 1296
 }
 
 if (typeof module === 'object') {

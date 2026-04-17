@@ -719,6 +719,10 @@ exports.view = function (state, current) {
 	}
 
 	function create_view() {
+		const entry_gr = !!(game.entry_gr || (Engine.neutral && Engine.neutral.get_greece_faction(game)))
+		const entry_bu = !!(game.entry_bu || (game.events && game.events["bulgaria"]))
+		const entry_ro = !!(game.entry_ro || (game.events && game.events["romania"]))
+		const entry_sb = !!(game.entry_sb || (game.events && game.events["bulgaria"]))
 		return {
 			active: game.active,
 			log: game.log,
@@ -747,10 +751,10 @@ exports.view = function (state, current) {
 			cp_hand_count: game.hand_cp ? game.hand_cp.length : 0,
 			ap_deck_size: game.deck_ap ? game.deck_ap.length : 0,
 			cp_deck_size: game.deck_cp ? game.deck_cp.length : 0,
-			entry_gr: game.entry_gr,
-			entry_bu: game.entry_bu,
-			entry_ro: game.entry_ro,
-			entry_sb: game.entry_sb,
+			entry_gr,
+			entry_bu,
+			entry_ro,
+			entry_sb,
 			hand: [],
 			ap: {
 				deck: game.deck_ap ? game.deck_ap.length : 0,
@@ -771,6 +775,7 @@ exports.view = function (state, current) {
 			hidden_reinforcement_markers: hidden_reinforcement_markers,
 			control: game.control,
 			ru_control_markers: game.ru_control_markers || [],
+			persian_uprising_markers: game.persian_uprising_markers || [],
 			reduced: game.reduced,
 			forts: game.forts,
 			beachheads: game.beachheads,
@@ -854,10 +859,9 @@ exports.view = function (state, current) {
 	function create_result_for_current() {
 		let next = Engine.create_result(game)
 		if (game.rollback_proposal) next.rollback_proposal({ index: game.rollback_proposal.index })
-		let current_faction = short_faction(current)
-		if (current_faction === AP) {
+		if (current === AP_ROLE) {
 			next.hand(game.hand_ap)
-		} else if (current_faction === CP) {
+		} else if (current === CP_ROLE) {
 			next.hand(game.hand_cp)
 		}
 		return next
@@ -869,16 +873,14 @@ exports.view = function (state, current) {
 			return
 		}
 
-		let current_faction = short_faction(current)
-		let active = short_faction(game.active)
-		if (current === "Observer" || current_faction !== active) {
+		if (current === "Observer" || short_faction(game.active) !== short_faction(current)) {
 			if (game.state === "review_supply_warnings") {
 				states[game.state].prompt(next)
 			} else {
 				let inactive = states[game.state].inactive
 				if (typeof inactive === "function") inactive()
 				else if (typeof inactive === "string") next.prompt(`等待 ${faction_name(game.active)}   ${inactive}`)
-				else next.prompt(`等待 ${faction_name(game.active)}行动`)
+				else next.prompt(`等待 ${faction_name(game.active)} 行动`)
 			}
 		} else {
 			states[game.state].prompt(next)
@@ -905,15 +907,17 @@ exports.view = function (state, current) {
 	set_state_globals()
 	normalize_transient_state()
 
-	for (let i = 0; i < 5; i++) {
-		let state_before_prompt = game.state
-		let active_before_prompt = game.active
-		res = create_result_for_current()
-		prompt_current_view(res)
-		if (game.state === state_before_prompt && game.active === active_before_prompt) {
-			break
+	with_space_index_cache(() => {
+		for (let i = 0; i < 5; i++) {
+			let state_before_prompt = game.state
+			let active_before_prompt = game.active
+			res = create_result_for_current()
+			prompt_current_view(res)
+			if (game.state === state_before_prompt && game.active === active_before_prompt) {
+				break
+			}
 		}
-	}
+	})
 
 	view = create_view()
 	res.apply(view)
@@ -1045,7 +1049,7 @@ states.acknowledge_mo_results = {
 		if (game.mo_cp === MO_ENVER) {
 			cp_mo = `${cp_mo} [攻势#1: ${mo_name(game.mo_cp_1)}, 攻势#2: ${mo_name(game.mo_cp_2)}]`
 		}
-		res.prompt(`强制进攻: AP=${ap_mo} , CP=${cp_mo}.`)
+		res.prompt(`强制进攻: AP = ${ap_mo} , CP= ${cp_mo}.`)
 		res.action("next")
 	},
 	next() {
@@ -1109,6 +1113,33 @@ function start_attack_sequence() {
 
 // Helpers
 
+const HISTORY_SNAPSHOT_OMIT_KEYS = new Set([
+	"undo",
+	"rollback",
+	"rollback_state",
+	"supply_query_cache",
+	"event_playability_cache",
+	"supply_projection",
+	"supply_projection_ap_split",
+	"oos",
+	"oos_spaces",
+	"disrupted_supply"
+])
+
+function copy_history_snapshot(source) {
+	let copy = {}
+	for (let key in source) {
+		if (!Object.prototype.hasOwnProperty.call(source, key)) continue
+		if (key === "log") {
+			copy.log = Array.isArray(source.log) ? source.log.length : source.log
+			continue
+		}
+		if (HISTORY_SNAPSHOT_OMIT_KEYS.has(key)) continue
+		copy[key] = object_copy(source[key])
+	}
+	return copy
+}
+
 function save_rollback_point() {
 	if (game.options.no_supply_warnings) return
 
@@ -1119,11 +1150,7 @@ function save_rollback_point() {
 	const cp_action_count = Array.isArray(game.cp_actions) ? game.cp_actions.filter(Boolean).length : 0
 	const is_turn_start = ap_action_count === 0 && cp_action_count === 0
 
-	let copy = object_copy(game)
-	delete copy.undo
-	delete copy.rollback
-	delete copy.rollback_state
-	if (Array.isArray(copy.log)) copy.log = copy.log.length
+	let copy = copy_history_snapshot(game)
 
 	let action_index = copy.action_round || 1
 	game.rollback.push({
@@ -1201,7 +1228,7 @@ function goto_propose_rollback(rollback_index) {
 }
 
 states.review_rollback_proposal = {
-	inactive: "review rollback proposal",
+	inactive: "审查回滚提议",
 	prompt(res) {
 		const rollback = game.rollback[game.rollback_proposal.index]
 		const label = rollback.turn_start
@@ -1228,7 +1255,7 @@ states.review_rollback_proposal = {
 }
 
 states.confirm_rollback = {
-	inactive: "confirm rollback",
+	inactive: "确认回滚",
 	prompt(res) {
 		res.prompt(game.rollback_confirmation.msg)
 		res.action("next")
@@ -1261,9 +1288,9 @@ function goto_flag_supply_warnings() {
 }
 
 states.flag_supply_warnings = {
-	inactive: "flag supply warnings",
+	inactive: "标记补给警告",
 	prompt(res) {
-		res.prompt("标记补给线可能受威胁的地区格。")
+		res.prompt("标记补给线可能受威胁的地块。")
 		for (let s = 1; s < data.spaces.length; ++s) {
 			res.space(s)
 		}
@@ -1311,11 +1338,7 @@ states.review_supply_warnings = {
 }
 
 function push_undo() {
-	let copy = object_copy(game)
-	delete copy.undo
-	copy.log = game.log.length
-	delete copy.rollback
-	delete copy.rollback_state
+	let copy = copy_history_snapshot(game)
 	if (!game.undo) game.undo = []
 	game.undo.push(copy)
 }
@@ -1695,6 +1718,7 @@ function refresh_attack_eligibility() {
 function create_noop_result() {
 	return {
 		game,
+		_is_noop: true,
 		prompt() {
 			return this
 		},
@@ -1740,27 +1764,48 @@ function create_noop_result() {
 	}
 }
 
-function normalize_transient_state() {
-	for (let i = 0; i < 5; i++) {
-		let state_before_normalize = game.state
-		let active_before_normalize = game.active
-
-		if (game.state === "attack") {
-			refresh_attack_eligibility()
-			if (game.eligible_attackers.length === 0) {
-				game.state = "end_operations"
-			}
-		}
-
-		let state_handlers = states[game.state]
-		if (state_handlers && typeof state_handlers.prompt === "function") {
-			state_handlers.prompt(create_noop_result())
-		}
-
-		if (game.state === state_before_normalize && game.active === active_before_normalize) {
-			break
+function with_space_index_cache(fn) {
+	if (game._space_index) return fn()
+	
+	let index = []
+	for (let p = 0; p < game.pieces.length; p++) {
+		let loc = game.pieces[p]
+		if (loc >= 0) {
+			if (!index[loc]) index[loc] = []
+			index[loc].push(p)
 		}
 	}
+	game._space_index = index
+	try {
+		return fn()
+	} finally {
+		delete game._space_index
+	}
+}
+
+function normalize_transient_state() {
+	with_space_index_cache(() => {
+		for (let i = 0; i < 5; i++) {
+			let state_before_normalize = game.state
+			let active_before_normalize = game.active
+
+			if (game.state === "attack") {
+				refresh_attack_eligibility()
+				if (game.eligible_attackers.length === 0) {
+					game.state = "end_operations"
+				}
+			}
+
+			let state_handlers = states[game.state]
+			if (state_handlers && typeof state_handlers.prompt === "function") {
+				state_handlers.prompt(create_noop_result())
+			}
+
+			if (game.state === state_before_normalize && game.active === active_before_normalize) {
+				break
+			}
+		}
+	})
 }
 
 function start_event(key, data) {
@@ -1955,28 +2000,11 @@ function set_up_standard_decks(full) {
 		return
 	}
 
-	// Special handling for Turn 1 opening:
-	// Keep the four CP mobilization 4-ops cards outside the draw deck until the
-	// opening choice resolves. CP first chooses one of those cards, then the
-	// remaining three are shuffled into the draw deck and CP draws hand_size - 1
-	// additional cards.
-	let special_cards = game.deck_cp.filter((c) => {
-		let card = data.cards[c]
-		return card && card.faction === CP && card.commitment === COMMITMENT_MOBILIZATION && Number(card.ops) === 4
-	});
-
-	for (let c of special_cards) {
-		let idx = game.deck_cp.indexOf(c)
-		if (idx >= 0) game.deck_cp.splice(idx, 1)
-	}
-	game.cp_opening_mobilization_pool = special_cards.slice().sort((a, b) => a - b)
-
 	// Draw initial hands
 	while (game.hand_ap.length < game.options.hand_size) {
 		if (game.deck_ap.length > 0) game.hand_ap.push(game.deck_ap.pop())
 		else break
 	}
-	// CP does not draw random cards before making the opening 4-op choice.
 }
 
 exports.active_faction = active_faction

@@ -258,6 +258,13 @@ module.exports = function (Engine) {
 		delete game.combat_cards_effected
 	}
 
+	function unmark_cc_used_this_action(game, card) {
+		if (!game?.action_state || !Array.isArray(game.action_state.used_ccs)) return
+		if (set_has(game.action_state.used_ccs, card)) {
+			set_delete(game.action_state.used_ccs, card)
+		}
+	}
+
 	function finish_attack(game) {
 		let attacker = game.attack?.attacker
 		if (game.attack && !game.attack.keep_context) {
@@ -514,7 +521,9 @@ module.exports = function (Engine) {
 			)
 		)
 		let defenders = get_pieces_in_space(game, target_space).filter(
-			(p) => get_piece_faction(p) === defender_faction && !(Array.isArray(game.retreated) && set_has(game.retreated, p))
+			(p) =>
+				get_piece_effective_faction(game, p) === defender_faction &&
+				!(Array.isArray(game.retreated) && set_has(game.retreated, p))
 		)
 
 		log_fn("")
@@ -597,7 +606,7 @@ module.exports = function (Engine) {
 		for (let space of origins) {
 			let pieces = get_pieces_in_space(game, space)
 			for (let p of pieces) {
-				if (get_piece_faction(p) === game.active && (is_hq(p) || is_heavy_arty(p))) {
+				if (get_piece_effective_faction(game, p) === game.active && (is_hq(p) || is_heavy_arty(p))) {
 					support_units.push(p)
 				}
 			}
@@ -687,7 +696,9 @@ module.exports = function (Engine) {
 		if (space === undefined || space === null) return false
 		if (!is_controlled_by(game, space, CP)) return false
 		let defenders = get_pieces_in_space(game, space).filter(
-			(p) => get_piece_faction(p) === CP && !(Array.isArray(game.retreated) && set_has(game.retreated, p))
+			(p) =>
+				get_piece_effective_faction(game, p) === CP &&
+				!(Array.isArray(game.retreated) && set_has(game.retreated, p))
 		)
 		if (defenders.length === 0) return false
 		let turkish_scus = defenders.filter(
@@ -1223,7 +1234,7 @@ module.exports = function (Engine) {
 		let defender_faction = other_faction(active_f)
 		let defenders = get_pieces_in_space(game, game.attack.space).filter(
 			(p) =>
-				get_piece_faction(p) === defender_faction &&
+				get_piece_effective_faction(game, p) === defender_faction &&
 				!(Array.isArray(game.retreated) && set_has(game.retreated, p))
 		)
 		if (defenders.length === 0) return ""
@@ -1323,7 +1334,7 @@ module.exports = function (Engine) {
 			let defender_faction = other_faction(game.active)
 			game.attack.initial_defenders = get_pieces_in_space(game, game.attack.space).filter(
 				(p) =>
-					get_piece_faction(p) === defender_faction &&
+					get_piece_effective_faction(game, p) === defender_faction &&
 					!(Array.isArray(game.retreated) && set_has(game.retreated, p))
 			)
 		}
@@ -1404,21 +1415,29 @@ module.exports = function (Engine) {
 					// Special case: Jafar Pasha & No Prisoners
 					if (card === CC_CP_JAFAR_PASHA || card === CC_AP_NO_PRISONERS) was_retained = true // Always returned to front if cancelled
 
+					let returned = false
 					if (was_retained) {
 						set_add(retained, card)
 						// Note: We don't need to remove it from discard/removed because when played from retained,
 						// it was moved there. We should probably remove it from there now.
 						if (set_has(discard, card)) set_delete(discard, card)
 						if (set_has(removed, card)) set_delete(removed, card)
+						returned = true
 					} else {
 						if (set_has(discard, card)) {
 							set_delete(discard, card)
 							set_add(hand, card)
+							returned = true
 						} else if (set_has(removed, card)) {
 							set_delete(removed, card)
 							set_add(hand, card)
+							returned = true
 						}
 					}
+
+					// Cancelled battles return unaffected CCs to their prior availability,
+					// so they should no longer count as "used this action".
+					if (returned) unmark_cc_used_this_action(game, card)
 				}
 
 				if (game.combat_cards.attacker) {
@@ -1465,7 +1484,9 @@ module.exports = function (Engine) {
 		let defender_faction = game.attack.defender || other_faction(game.attack.attacker || game.active)
 		let retreated_defenders = get_pieces_in_space(game, game.attack.space).filter(
 			(p) =>
-				get_piece_faction(p) === defender_faction && Array.isArray(game.retreated) && set_has(game.retreated, p)
+				get_piece_effective_faction(game, p) === defender_faction &&
+				Array.isArray(game.retreated) &&
+				set_has(game.retreated, p)
 		)
 		return retreated_defenders.length > 0 ? "eliminate_retreated_units" : "apply_defender_losses"
 	}
@@ -1532,7 +1553,7 @@ module.exports = function (Engine) {
 			// Rule: Fort destroyed if no units OR units destroyed and remaining losses >= LF
 			let defenders = get_pieces_in_space(game, target_space).filter(
 				(p) =>
-					get_piece_faction(p) === defender_faction &&
+					get_piece_effective_faction(game, p) === defender_faction &&
 					!(Array.isArray(game.retreated) && set_has(game.retreated, p))
 			)
 			if (defenders.length === 0 && remaining_losses >= fort_lf) {
@@ -1552,7 +1573,7 @@ module.exports = function (Engine) {
 			// Rule 66: Save Tiflis
 			let ru_pieces = []
 			for (let p = 0; p < game.pieces.length; p++) {
-				if (get_piece_faction(p) === AP && get_piece_nation(p) === "ru" && !is_not_on_map(game, p)) {
+				if (get_piece_effective_faction(game, p) === AP && get_piece_nation(p) === "ru" && !is_not_on_map(game, p)) {
 					let s = game.pieces[p]
 					let s_data = data.spaces[s]
 					if (!s_data) continue
@@ -1597,7 +1618,7 @@ module.exports = function (Engine) {
 		) {
 			let defenders_now = get_pieces_in_space(game, game.attack.space).filter(
 				(p) =>
-					get_piece_faction(p) !== game.active &&
+					get_piece_effective_faction(game, p) !== game.active &&
 					!(Array.isArray(game.retreated) && set_has(game.retreated, p))
 			)
 			let can_cancel_advance = false
@@ -1735,7 +1756,9 @@ module.exports = function (Engine) {
 			}
 
 			const check_12_6_8 = (space, faction) => {
-				let pieces = get_pieces_in_space(game, space).filter((p) => get_piece_faction(p) === faction)
+				let pieces = get_pieces_in_space(game, space).filter(
+					(p) => get_piece_effective_faction(game, p) === faction
+				)
 				if (pieces.length > 0) {
 					let combat_units = pieces.filter((p) => !is_hq(p) && !is_heavy_arty(p))
 					if (combat_units.length === 0) {
@@ -1772,7 +1795,7 @@ module.exports = function (Engine) {
 			if (result.turkish_retreat) {
 				let alive_cp_defenders = get_pieces_in_space(game, target_space).filter(
 					(p) =>
-						get_piece_faction(p) === CP &&
+						get_piece_effective_faction(game, p) === CP &&
 						!is_not_on_map(game, p) &&
 						!is_eliminated(game, p) &&
 						!(Array.isArray(game.retreated) && set_has(game.retreated, p))
@@ -1810,7 +1833,7 @@ module.exports = function (Engine) {
 
 		let defenders_in_space = get_pieces_in_space(game, target_space).filter(
 			(p) =>
-				get_piece_faction(p) === defender_faction &&
+				get_piece_effective_faction(game, p) === defender_faction &&
 				!(Array.isArray(game.retreated) && set_has(game.retreated, p))
 		)
 
@@ -1819,7 +1842,7 @@ module.exports = function (Engine) {
 			(p) => !is_piece_reduced(game, p) && !is_not_on_map(game, p) && !is_eliminated(game, p)
 		)
 		let attacker_blocks_retreat = !attacker_has_full_strength_unit
-		if (attacker_blocks_retreat) {
+		if (attacker_blocks_retreat && !result.turkish_retreat) {
 			result.retreat_needed = false
 			if (log_fn && result.attacker_losses >= result.defender_losses && !result.no_full_strength_retreat_logged) {
 				result.no_full_strength_retreat_logged = true
@@ -2211,7 +2234,9 @@ module.exports = function (Engine) {
 		}
 
 		let defenders = get_pieces_in_space(game, retreat_space).filter(
-			(p) => get_piece_faction(p) === CP && !(Array.isArray(game.retreated) && set_has(game.retreated, p))
+			(p) =>
+				get_piece_effective_faction(game, p) === CP &&
+				!(Array.isArray(game.retreated) && set_has(game.retreated, p))
 		)
 		if (defenders.length === 0) {
 			if (!game.battle_result || !game.battle_result.no_advance) {
@@ -2224,7 +2249,7 @@ module.exports = function (Engine) {
 	}
 
 	function get_cp_defenders(defenders) {
-		return defenders.filter((p) => get_piece_faction(p) === CP)
+		return defenders.filter((p) => get_piece_effective_faction(game, p) === CP)
 	}
 
 	function get_turkish_retreat_units(defenders) {
@@ -2251,7 +2276,7 @@ module.exports = function (Engine) {
 		let cp_defenders = get_cp_defenders(defenders)
 		if (cp_defenders.length === 0) return space
 
-		// We use the first TU/TUA SCU to determine valid retreat spaces (they usually retreat together)
+		// We use the first TU/TUA SCU to determine valid retreat spaces
 		let p = cp_defenders.find(
 			(p) => (get_piece_nation(p) === "tu" || get_piece_nation(p) === "tua") && get_piece_class(p) === "SCU"
 		)
@@ -2409,7 +2434,7 @@ module.exports = function (Engine) {
 		for (let s of connected) {
 			if (s === target_space) continue
 			let pieces = get_pieces_in_space(game, s)
-			let enemy_units = pieces.filter((p) => get_piece_faction(p) === enemy_faction)
+			let enemy_units = pieces.filter((p) => get_piece_effective_faction(game, p) === enemy_faction)
 
 			// Rule 12.4.2: Spaces that contain only an enemy Fort are not considered enemy-occupied.
 			if (enemy_units.length === 0) continue
@@ -2471,7 +2496,7 @@ module.exports = function (Engine) {
 
 		let defenders = get_pieces_in_space(game, target_space).filter(
 			(p) =>
-				data.pieces[p].faction === defender_faction &&
+				get_piece_effective_faction(game, p) === defender_faction &&
 				!(Array.isArray(game.retreated) && set_has(game.retreated, p))
 		)
 		let has_defenders = defenders.length > 0
@@ -2508,7 +2533,7 @@ module.exports = function (Engine) {
 		let defender_faction = other_faction(game.active)
 		let defenders = get_pieces_in_space(game, target_space).filter(
 			(p) =>
-				data.pieces[p].faction === defender_faction &&
+				get_piece_effective_faction(game, p) === defender_faction &&
 				!(Array.isArray(game.retreated) && set_has(game.retreated, p))
 		)
 
@@ -3186,7 +3211,7 @@ module.exports = function (Engine) {
 			retreat_distance = loss_diff >= 2 ? 2 : 1
 			retreating_units = get_pieces_in_space(game, target_space).filter(
 				(p) =>
-					data.pieces[p].faction === retreating_faction &&
+					get_piece_effective_faction(game, p) === retreating_faction &&
 					!(Array.isArray(game.retreated) && set_has(game.retreated, p))
 			)
 
@@ -3327,7 +3352,7 @@ module.exports = function (Engine) {
 			// Defender fires now (hits on attacker)
 			let defenders = get_pieces_in_space(game, target_space).filter(
 				(p) =>
-					data.pieces[p].faction === other_faction(game.active) &&
+					get_piece_effective_faction(game, p) === other_faction(game.active) &&
 					!(Array.isArray(game.retreated) && set_has(game.retreated, p))
 			)
 			let def_cf = defenders.reduce((sum, p) => sum + get_piece_cf(game, p), 0)
@@ -3384,7 +3409,7 @@ module.exports = function (Engine) {
 			// Turkish Retreat check after attacker fire
 			let defenders = get_pieces_in_space(game, target_space).filter(
 				(p) =>
-					data.pieces[p].faction === other_faction(game.active) &&
+					get_piece_effective_faction(game, p) === other_faction(game.active) &&
 					!(Array.isArray(game.retreated) && set_has(game.retreated, p))
 			)
 			if (is_turkish_retreat_active(game, defenders) && def_losses > 0) {
@@ -3417,7 +3442,7 @@ module.exports = function (Engine) {
 			result.retreat_distance = loss_diff >= 2 ? 2 : 1
 			result.retreating_units = get_pieces_in_space(game, target_space).filter(
 				(p) =>
-					data.pieces[p].faction === result.retreating_faction &&
+					get_piece_effective_faction(game, p) === result.retreating_faction &&
 					!(Array.isArray(game.retreated) && set_has(game.retreated, p))
 			)
 
@@ -3445,7 +3470,9 @@ module.exports = function (Engine) {
 			result.turkish_retreat = true
 			result.advance_with_reduced = true // Rule 12.8.3: AP may advance with reduced units
 			let cp_defenders = get_pieces_in_space(game, target_space).filter(
-				(p) => data.pieces[p].faction === CP && !(Array.isArray(game.retreated) && set_has(game.retreated, p))
+				(p) =>
+					get_piece_effective_faction(game, p) === CP &&
+					!(Array.isArray(game.retreated) && set_has(game.retreated, p))
 			)
 			let mandatory = []
 			let optional = []
@@ -3475,6 +3502,9 @@ module.exports = function (Engine) {
 		let result = game.battle_result
 		if (!result || !game.attack || !(game.attack.space > 0)) return
 
+		// Post-battle cards like Reserves to the Front can rebuild/restore defenders
+		// after the initial result was computed, so retreat eligibility must be recalculated.
+
 		let defender_faction = game.attack.defender
 		if (defender_faction === undefined || defender_faction === null) {
 			defender_faction = other_faction(game.attack.attacker ?? game.active)
@@ -3484,7 +3514,7 @@ module.exports = function (Engine) {
 		let target_space = game.attack.space
 		let defenders_in_space = get_pieces_in_space(game, target_space).filter(
 			(p) =>
-				get_piece_faction(p) === defender_faction &&
+				get_piece_effective_faction(game, p) === defender_faction &&
 				!is_not_on_map(game, p) &&
 				!is_eliminated(game, p) &&
 				!(Array.isArray(game.retreated) && set_has(game.retreated, p))

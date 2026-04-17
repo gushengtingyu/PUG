@@ -4,9 +4,9 @@ module.exports = function (Engine) {
 	const { data } = Engine
 	const exports = {}
 
-	const { set_add, shuffle } = Engine.utils
+	const { set_add } = Engine.utils
 	const { find_space, find_piece } = Engine.game_utils
-	const { COMMITMENT_LIMITED, COMMITMENT_MOBILIZATION, REMOVED, CP } = Engine.constants
+	const { COMMITMENT_LIMITED, REMOVED } = Engine.constants
 	const CYPRUS_BEACHHEAD_NAMES = ["To Adana", "To Beirut", "To Haifa", "To Jaffa"]
 	const piece_lookup = new Map()
 	const space_lookup = new Map()
@@ -66,6 +66,18 @@ module.exports = function (Engine) {
 		}
 	}
 
+	function preplace_balkan_entry_displays(game) {
+		if (!Engine.collapse || typeof Engine.collapse.get_bulgaria_entry_plan !== "function") return
+
+		let bulgaria = Engine.collapse.get_bulgaria_entry_plan()
+		for (let entry of bulgaria.cp.placements) {
+			place_piece(game, "cp", entry.name, entry.space, false)
+		}
+		for (let entry of bulgaria.ap.placements) {
+			place_piece(game, "ap", entry.name, entry.space, false)
+		}
+	}
+
 	function place_trench(game, level, space_name) {
 		let s = get_space_id(space_name)
 		if (s >= 0) {
@@ -85,16 +97,6 @@ module.exports = function (Engine) {
 			set_add(game.beachheads, s)
 		} else {
 			console.log("Could not find space for beachhead:", space_name)
-		}
-	}
-
-	function place_bulgaria_entry_display_units(game) {
-		const plan = Engine.collapse.get_bulgaria_entry_plan()
-		for (let entry of plan.cp.placements) {
-			place_piece(game, CP, entry.name, entry.space)
-		}
-		for (let entry of plan.ap.placements) {
-			place_piece(game, "ap", entry.name, entry.space)
 		}
 	}
 
@@ -233,8 +235,6 @@ module.exports = function (Engine) {
 		place_piece(game, "ap", "RU Persian coss", "Tabriz", false)
 		place_piece(game, "ap", "RU Yudenitch HQ", "TIFLIS", false)
 
-		place_bulgaria_entry_display_units(game)
-
 		// Beachhead
 		place_beachhead(game, "to Fao")
 
@@ -245,6 +245,10 @@ module.exports = function (Engine) {
 		place_trench(game, 1, "CONSTANTINOPLE")
 		place_trench(game, 1, "Ctesiphon")
 		place_trench(game, 2, "Doiran")
+
+		// 保加利亚展示板单位在历史开局时预摆到固定展示位，待事件打出后再“解锁”归属。
+		// BU 3 Army 仍由事件流程决定具体落位，因此不在此处预摆。
+		preplace_balkan_entry_displays(game)
 	}
 
 	function mark_removed_cards(game, card_ids) {
@@ -355,16 +359,6 @@ module.exports = function (Engine) {
 		return value
 	}
 
-	function is_cp_opening_mobilization_ops4_card(card_id) {
-		let card = data.cards[card_id]
-		return (
-			card &&
-			card.faction === CP &&
-			card.commitment === COMMITMENT_MOBILIZATION &&
-			Number(card.ops) === 4
-		)
-	}
-
 	function normalize_game(state) {
 		const { COMMITMENT_MOBILIZATION } = Engine.constants
 		const { MO_NONE } = Engine.mo
@@ -389,7 +383,6 @@ module.exports = function (Engine) {
 		if (!Array.isArray(state.hand_cp)) state.hand_cp = []
 		if (!Array.isArray(state.discard_cp)) state.discard_cp = []
 		if (!Array.isArray(state.removed_cp)) state.removed_cp = []
-		if (!Array.isArray(state.cp_opening_mobilization_pool)) state.cp_opening_mobilization_pool = []
 		if (!Array.isArray(state.discarded_ccs)) state.discarded_ccs = []
 		if (!state.cc_retained) state.cc_retained = { ap: [], cp: [] }
 		if (!Array.isArray(state.cc_retained.ap)) state.cc_retained.ap = []
@@ -437,7 +430,6 @@ module.exports = function (Engine) {
 		if (!Array.isArray(state.entrenching)) state.entrenching = []
 		if (!Array.isArray(state.entrench_attempts)) state.entrench_attempts = []
 		if (!Array.isArray(state.entered_regions_this_turn)) state.entered_regions_this_turn = []
-		if (!Array.isArray(state.unlocked_entry_pieces)) state.unlocked_entry_pieces = []
 		if (state.last_card === undefined) state.last_card = 0
 		if (!Array.isArray(state.rollback)) state.rollback = []
 		if (!(Array.isArray(state.rollback_state) || typeof state.rollback_state === "string"))
@@ -456,17 +448,6 @@ module.exports = function (Engine) {
 		if (!Array.isArray(state.jihad_cities_flipped)) state.jihad_cities_flipped = []
 		if (state.tribes_to_place === undefined) state.tribes_to_place = 0
 		if (state.cp_opening_mobilization_pick_done === undefined) state.cp_opening_mobilization_pick_done = state.turn > 1
-		if (state.turn === 1 && !state.cp_opening_mobilization_pick_done && Array.isArray(state.hand_cp) && state.hand_cp.length > 0) {
-			for (let c of state.hand_cp) {
-				if (!state.deck_cp.includes(c)) state.deck_cp.push(c)
-			}
-			state.hand_cp = []
-			shuffle(state.deck_cp, state)
-		}
-		if (state.turn === 1 && !state.cp_opening_mobilization_pick_done && Array.isArray(state.cp_opening_mobilization_pool)) {
-			state.cp_opening_mobilization_pool = state.cp_opening_mobilization_pool.filter(is_cp_opening_mobilization_ops4_card)
-			state.cp_opening_mobilization_pool.sort((a, b) => a - b)
-		}
 		return state
 	}
 
@@ -541,13 +522,11 @@ module.exports = function (Engine) {
 			entrenching: [],
 			entrench_attempts: [],
 			entered_regions_this_turn: [],
-			unlocked_entry_pieces: [],
 			last_card: 0,
 			rollback: [],
 			rollback_state: [],
 			balkan_attack_targets: { ap: -1, ap_mo: -1, cp: -1 },
-			cp_opening_mobilization_pick_done: false,
-			cp_opening_mobilization_pool: []
+			cp_opening_mobilization_pick_done: false
 		}
 		return normalize_game(state)
 	}

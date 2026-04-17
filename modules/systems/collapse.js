@@ -17,7 +17,6 @@ module.exports = function (Engine) {
 		Object.freeze({ name: "BU DIV #1", space: "Vidin" }),
 		Object.freeze({ name: "BU 2 Army", space: "SOFIA" }),
 		Object.freeze({ name: "BU DIV #2", space: "SOFIA" }),
-		Object.freeze({ name: "BU 3 Army", space: "Rustchuk" }),
 		Object.freeze({ name: "BU DIV #3", space: "Xanthi" }),
 		Object.freeze({ name: "BU DIV #4", space: "Strumica" }),
 		Object.freeze({ name: "BU DIV #5", space: "Varna" }),
@@ -50,6 +49,9 @@ module.exports = function (Engine) {
 	const BULGARIA_ENTRY_PLAN = Object.freeze({
 		cp: Object.freeze({
 			placements: BULGARIA_ENTRY_CP_PLACEMENTS,
+			third_army_name: "BU 3 Army",
+			third_army_default_space: "Rustchuk",
+			third_army_choice_spaces: Object.freeze(["Rustchuk", "Plevna"]),
 			ah_divisions: Object.freeze(["AH DIV #4", "AH DIV #5"])
 		}),
 		ap: Object.freeze({
@@ -84,7 +86,7 @@ module.exports = function (Engine) {
 			immediate: Object.freeze([
 				Object.freeze({ name: "GE IX Army", space: "Galicia" }),
 				Object.freeze({ name: "GE Falkenhayn HQ", space: "Galicia", skip_if_event: "yildrim" }),
-				Object.freeze({ name: "GE Alpenkorps", space: "Galicia", if_not_already_on_map: true, unlock_bulgaria_display: true }),
+				Object.freeze({ name: "GE Alpenkorps", space: "Galicia", unlock_bulgaria_display: true }),
 				Object.freeze({ name: "AH VI R Corps", space: "Galicia" }),
 				Object.freeze({ name: "Combined BU/AH Div", space: "CP Reserve", bulgaria_space: "SOFIA" })
 			]),
@@ -92,13 +94,14 @@ module.exports = function (Engine) {
 			ah_hermannstadt_pool: Object.freeze(["AH DIV #1", "AH DIV #2"]),
 			ah_reserve_pool: Object.freeze(["AH DIV #3"]),
 			delayed: Object.freeze([Object.freeze({ name: "GE Schmettow", turn_offset: 1, space: "Galicia" })]),
+			ge_units: Object.freeze(["GE IX Army", "GE Falkenhayn HQ", "GE Hvy Arty", "GE Schmettow"]),
 			ah_units: Object.freeze(["Combined BU/AH Div", "AH DIV #1", "AH DIV #2", "AH DIV #3"])
 		})
 	})
 
-	const BULGARIAN_ENTRY_UNIT_NAMES = new Set(BULGARIA_ENTRY_CP_PLACEMENTS.map((entry) => entry.name))
-	const BULGARIA_ENTRY_SETUP_UNIT_NAMES = new Set([
+	const BULGARIAN_ENTRY_UNIT_NAMES = new Set([
 		...BULGARIA_ENTRY_CP_PLACEMENTS.map((entry) => entry.name),
+		BULGARIA_ENTRY_PLAN.cp.third_army_name,
 		...BULGARIA_ENTRY_AP_PLACEMENTS.map((entry) => entry.name)
 	])
 	const ROMANIAN_ENTRY_UNIT_NAMES = new Set([
@@ -138,6 +141,20 @@ module.exports = function (Engine) {
 	const exports = {}
 
 	function validate_entry_rules() {
+		const bulgarianUnitSets = [
+			BULGARIA_ENTRY_CP_PLACEMENTS.map((entry) => entry.name),
+			BULGARIA_ENTRY_AP_PLACEMENTS.map((entry) => entry.name),
+			[BULGARIA_ENTRY_PLAN.cp.third_army_name]
+		]
+
+		for (let units of bulgarianUnitSets) {
+			for (let name of units) {
+				if (!BULGARIAN_ENTRY_UNIT_NAMES.has(name)) {
+					throw new Error(`Invalid Bulgarian entry rules: missing unit ${name}`)
+				}
+			}
+		}
+
 		if (!ROMANIAN_ENTRY_UNIT_NAMES.has("GE IX Army")) {
 			throw new Error("Invalid Romanian entry rules: missing unit GE IX Army")
 		}
@@ -151,7 +168,6 @@ module.exports = function (Engine) {
 		}
 
 		const hardcodedUnitNames = new Set([
-			...BULGARIA_ENTRY_SETUP_UNIT_NAMES,
 			...BULGARIAN_ENTRY_UNIT_NAMES,
 			...ROMANIAN_ENTRY_UNIT_NAMES,
 			...ROMANIAN_COLLAPSE_AH_UNIT_NAMES
@@ -166,11 +182,6 @@ module.exports = function (Engine) {
 	function is_bulgarian_entry_piece(info) {
 		if (!info) return false
 		return BULGARIAN_ENTRY_UNIT_NAMES.has(info.name)
-	}
-
-	function is_bulgaria_entry_setup_piece(info) {
-		if (!info) return false
-		return BULGARIA_ENTRY_SETUP_UNIT_NAMES.has(info.name)
 	}
 
 	function is_romanian_entry_piece(info) {
@@ -577,7 +588,6 @@ module.exports = function (Engine) {
 	exports.get_romanian_entry_plan = get_romanian_entry_plan
 	exports.get_collapse_sr_limit = get_collapse_sr_limit
 	exports.is_bulgarian_entry_piece = is_bulgarian_entry_piece
-	exports.is_bulgaria_entry_setup_piece = is_bulgaria_entry_setup_piece
 	exports.is_romanian_entry_piece = is_romanian_entry_piece
 	exports.has_serbia_collapsed = has_serbia_collapsed
 	exports.has_romania_collapsed = has_romania_collapsed
