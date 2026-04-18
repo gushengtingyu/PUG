@@ -735,6 +735,21 @@ module.exports = function (Engine) {
 		return ports
 	}
 
+	function get_grand_duke_to_tiflis_vacant_azerbaijan_spaces(game, rules) {
+		let spaces = []
+		let get_pieces =
+			rules && typeof rules.get_pieces_in_space === "function"
+				? rules.get_pieces_in_space.bind(rules)
+				: Engine.map.get_pieces_in_space
+		for (let s = 1; s < data.spaces.length; s++) {
+			if (!Engine.map.is_azerbaijan(s)) continue
+			if (get_pieces(game, s).length === 0) {
+				spaces.push(s)
+			}
+		}
+		return spaces
+	}
+
 	function get_grand_duke_to_tiflis_retreat_options(game, piece, event_port) {
 		let current_space = game.pieces[piece]
 		let current_distance = Engine.map.get_distance(current_space, event_port)
@@ -2358,7 +2373,7 @@ module.exports = function (Engine) {
 				for (let p = 0; p < game.pieces.length; p++) {
 					let info = data.pieces[p]
 					if (info && info.faction === AP && info.name.includes("RU Cavalry") && info.piece_class === "SCU") {
-						if (game.pieces[p] !== event.event_port && game.pieces[p] > 0) {
+						if (game.pieces[p] !== event.event_port && game.pieces[p] > 0 && Engine.map.can_sr_to_space(game, p, event.event_port, AP)) {
 							res.piece(p)
 						}
 					}
@@ -2370,6 +2385,8 @@ module.exports = function (Engine) {
 			let { game, rules, arg: p } = ctx
 			let event = use_event(game, "grand_duke_to_tiflis")
 			rules.push_undo()
+			if (!game.sr_moved) game.sr_moved = []
+			set_add(game.sr_moved, p)
 			game.pieces[p] = event.event_port
 			rules.log(`${rules.piece_name(p)} Strategic Redeployed to ${data.spaces[event.event_port].name}`)
 			game.state = "event_grand_duke_to_tiflis_place_cordons"
@@ -2386,16 +2403,14 @@ module.exports = function (Engine) {
 			let event = use_event(game, "grand_duke_to_tiflis")
 			if (!event.placed_ru_police) {
 				res.prompt("尼古拉大公抵达第比利斯 ：将俄国北波斯军警队放置在阿塞拜疆的空置地区。")
-				for (let s = 1; s < data.spaces.length; s++) {
-					if (rules.is_azerbaijan(s) && get_capacity(game, s) > 0) {
-						res.space(s)
-					}
+				for (let s of get_grand_duke_to_tiflis_vacant_azerbaijan_spaces(game, rules)) {
+					res.space(s)
 				}
 			} else {
 				let count = event.br_cordons_to_place || 3
 				res.prompt(`尼古拉大公抵达第比利斯 ：在任意波斯大区内放置${count} 个英国波斯宪兵师。`)
 				for (let s = 1; s < data.spaces.length; s++) {
-					if (rules.is_persian_region(s)) {
+					if (Engine.map.is_persian_region(s)) {
 						res.space(s)
 					}
 				}

@@ -77,6 +77,17 @@ module.exports = function (Engine) {
 		"Smyrna"
 	].map(find_space)
 
+	function get_grand_duke_to_tiflis_vacant_azerbaijan_spaces(game) {
+		let spaces = []
+		for (let s = 1; s < data.spaces.length; s++) {
+			if (!Engine.map.is_azerbaijan(s)) continue
+			if (get_pieces_in_space(game, s).length === 0) {
+				spaces.push(s)
+			}
+		}
+		return spaces
+	}
+
 	// === Game Constants ===
 	const STACKING_LIMIT = 3
 	const NEUTRAL_ENTRY_CARD_IDS = new Set([29, 45, 88])
@@ -1224,6 +1235,7 @@ module.exports = function (Engine) {
 				"(只能在【秘密条约】或者【波斯攻势】后打出)。增援:1个俄国骑兵师、1个俄国步兵师、HQ:巴拉托夫 至任何里海港口。同盟国**必须**从该港口将所有占据该地的单位**向后撤出1-2格**。协约国还可以立即战略调整1个俄国骑兵师至该港口。。增援:俄国北波斯军警队 至阿塞拜疆境内的空置格。。增援:3个英国波斯宪兵师 至任何波斯大区内。",
 			can_play: function (game) {
 				if (!game.events["secret_treaty"] && !game.events["persian_push"]) return false
+				if (Engine.events.get_russian_revolution_level(game) >= 4) return true
 				let has_port = false
 				for (let s = 1; s < data.spaces.length; s++) {
 					if (!Engine.map.is_caspian_sea_port(s)) continue
@@ -1239,22 +1251,31 @@ module.exports = function (Engine) {
 				}
 				if (!has_port) return false
 
-				let has_az_space = false
-				for (let s = 1; s < data.spaces.length; s++) {
-					if (Engine.map.is_azerbaijan(s) && get_capacity(game, s) > 0) {
-						has_az_space = true
-						break
-					}
-				}
-				return has_az_space
+				return get_grand_duke_to_tiflis_vacant_azerbaijan_spaces(game).length > 0
 			},
 			handler: function (game, ctx) {
 				game.events["grand_duke_to_tiflis"] = game.turn
+				let event = null
 				if (ctx && typeof ctx.start_event === "function") {
-					ctx.start_event("grand_duke_to_tiflis")
+					event = ctx.start_event("grand_duke_to_tiflis")
+				} else {
+					if (!game.event_ctx || game.event_ctx.key !== "grand_duke_to_tiflis") {
+						game.event_ctx = { key: "grand_duke_to_tiflis", data: {} }
+					} else if (!game.event_ctx.data) {
+						game.event_ctx.data = {}
+					}
+					event = game.event_ctx.data
 				}
 				game.active = AP
-				game.state = "event_grand_duke_to_tiflis_select_port"
+				if (Engine.events.get_russian_revolution_level(game) >= 4) {
+					if (event) {
+						event.placed_ru_police = true
+						event.br_cordons_to_place = 3
+					}
+					game.state = "event_grand_duke_to_tiflis_place_cordons"
+				} else {
+					game.state = "event_grand_duke_to_tiflis_select_port"
+				}
 			},
 			defer_end: true
 		},
