@@ -40,11 +40,24 @@ module.exports = function (Engine) {
 	/**
 	 * 检查地块是否为丘吉尔胜出事件的合法增援地块
 	 */
+	function is_german_subs_reinforcement_turn(game) {
+		return !!(
+			game &&
+			game.events &&
+			game.events["german_subs"] &&
+			game.events["german_subs_turn"] === game.turn
+		)
+	}
+
 	function is_churchill_reinf_space(ctx, s) {
 		let { game, rules } = ctx
+		let space = data.spaces[s]
 		if (s === rules.get_reserve_box(AP)) return true
 		return (
+			!!space &&
+			!!space.port &&
 			Engine.map.is_aegean_east_med_port(s) &&
+			!is_german_subs_reinforcement_turn(game) &&
 			Engine.map.is_controlled_by(game, s, AP) &&
 			!Engine.map.is_besieged(game, s) &&
 			get_capacity(game, s) > 0

@@ -91,6 +91,16 @@ test("Romania 事件会按展示板正确放置单位、切换罗马尼亚控制
 	expect(game.state).toBe("activate_spaces")
 })
 
+test("Romania 入场前处于中立展示位的 Alpenkorps 不能执行 SR", () => {
+	let game = setupGame(2026041814, "Historical")
+	let geAlpen = findPiece(CP, "GE Alpenkorps")
+
+	expect(game.pieces[geAlpen]).toBe(findSpace("Vidin"))
+	expect(Engine.game_utils.get_piece_effective_faction(game, geAlpen)).toBe("neutral")
+	expect(Engine.map.can_sr_piece(game, geAlpen, CP)).toBe(false)
+	expect(Engine.map.get_sr_destinations(game, geAlpen, CP)).toEqual([])
+})
+
 test("Bulgaria 已参战后打出 Romania 不会把已经在地图上的 Alpenkorps 拉回 Galicia，并把 Combined BU/AH Div 放入保加利亚", () => {
 	let game = setupGame(2026041702, "Historical")
 	let bulgariaEvent = Engine.events.get_event_by_id(88)

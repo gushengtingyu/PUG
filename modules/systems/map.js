@@ -1760,7 +1760,7 @@ function get_stack_yildirim_count(pieces) {
 		if (source !== RESERVE && (source <= 0 || !data.spaces[source])) return []
 		if (set_has(game.sr_moved || [], p)) return []
 		let info = data.pieces[p]
-		if (!info || info.faction !== faction) return []
+		if (!info || get_piece_effective_faction(game, p) !== faction) return []
 
 		let source_reserve = is_reserve_space(source)
 		let destinations = new Set()
@@ -1781,7 +1781,7 @@ function get_stack_yildirim_count(pieces) {
 				let q_space = game.pieces[q]
 				if (q_space <= 0 || !data.spaces[q_space]) continue
 				let q_info = data.pieces[q]
-				if (!q_info || q_info.faction !== faction) continue
+				if (!q_info || get_piece_effective_faction(game, q) !== faction) continue
 				if (!is_same_sr_nationality(info.nation, q_info.nation)) continue
 				let q_status = get_supply_status(
 					game,
@@ -1909,7 +1909,7 @@ function get_stack_yildirim_count(pieces) {
 	function can_sr_piece(game, p, faction) {
 		let info = data.pieces[p]
 		if (!info) return false
-		if (info.faction !== faction) return false
+		if (get_piece_effective_faction(game, p) !== faction) return false
 		if (is_greek_piece(p) && !can_move_piece_for_faction(game, p, faction)) return false
 		if (info.mf === 0) return false
 		if (info.type === "irregular" || info.type === "tribe" || is_hq(p)) return false
@@ -1948,6 +1948,8 @@ function get_stack_yildirim_count(pieces) {
 		if (s <= 0 || !data.spaces[s]) return false
 		if (set_has(game.sr_moved || [], p)) return false
 		let info = data.pieces[p]
+		if (!info) return false
+		if (get_piece_effective_faction(game, p) !== faction) return false
 		let source_reserve = is_reserve_space(source)
 		let dest_reserve = is_reserve_space(s)
 
