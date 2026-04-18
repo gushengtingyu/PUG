@@ -215,6 +215,19 @@ module.exports = function (Engine) {
 		return Engine.game_utils.get_reserve_box(faction)
 	}
 
+	function get_reinforcement_logic_key(source, unit_name) {
+		if (!source || source.reinf_logic === undefined) return "is_br"
+		let value = source.reinf_logic
+		if (typeof value === "function") {
+			let resolved = value(unit_name, source)
+			return resolved || "is_br"
+		}
+		if (value && typeof value === "object" && !Array.isArray(value)) {
+			return value[unit_name] || value.default || "is_br"
+		}
+		return value || "is_br"
+	}
+
 	function consume_reinforcement_placement(source, unit_name) {
 		if (!source || source.reinf_placement === undefined) return
 
@@ -2891,20 +2904,23 @@ module.exports = function (Engine) {
 	states.event_turkish_reinf_81_combine = {
 		prompt(ctx) {
 			let { game, res, rules } = ctx
-			const { Engine, active_faction, data } = rules
+			let event = use_event(game, "turkish_reinf_81")
+			if (event.combine_used) {
+				res.prompt("土耳其增援：已完成本次事件赠送的 1 次 LCU 组合。")
+				res.action("done")
+				return
+			}
 			res.prompt("土耳其增援：你可以立即对此次增援的单位进行 LCU 组合。")
 
-			// 找出此次增援新加入的单位 ID
-			let new_scu_names = ["TU DIV #18", "TU-A DIV #11"]
+			// 找出此次增援新加入的 LCU ID
 			let new_lcu_names = ["TU XIV Corps", "TU XV Corps", "TU XVI Corps", "TU XVII Corps", "TU-A XVIII Corps"]
 
-			let new_scus = new_scu_names.map((name) => find_piece(CP, name)).filter((id) => id >= 0)
 			let new_lcus = new_lcu_names.map((name) => find_piece(CP, name)).filter((id) => id >= 0)
 
-			// 查找所有符合条件的组合地块，且仅限于新加入的 SCU 和 LCU
+			// 允许用任意符合正常规则的土耳其/TU-A SCU，立即组织本次加入的一个 Corps。
 			let possible_spaces = []
 			for (let s = 1; s < data.spaces.length; s++) {
-				if (Engine.game_utils.can_combine_in_space(game, s, active_faction(), new_lcus, new_scus)) {
+				if (Engine.game_utils.can_combine_in_space(game, s, CP, new_lcus)) {
 					possible_spaces.push(s)
 				}
 			}
@@ -2925,15 +2941,13 @@ module.exports = function (Engine) {
 			game.event_next_state = "event_turkish_reinf_81_combine"
 
 			// 为通用组合状态设置限制参数
-			let new_scu_names = ["TU DIV #18", "TU-A DIV #11"]
 			let new_lcu_names = ["TU XIV Corps", "TU XV Corps", "TU XVI Corps", "TU XVII Corps", "TU-A XVIII Corps"]
-			let new_scus = new_scu_names.map((name) => find_piece(CP, name)).filter((id) => id >= 0)
 			let new_lcus = new_lcu_names.map((name) => find_piece(CP, name)).filter((id) => id >= 0)
 
 			game.combine_ctx = {
 				selected_scus: [],
-				allowed_scus: new_scus,
-				allowed_lcus: new_lcus
+				allowed_lcus: new_lcus,
+				event_flag_on_success: { key: "turkish_reinf_81", field: "combine_used" }
 			}
 			game.state = "combine_lcu"
 		},
@@ -3174,8 +3188,6 @@ module.exports = function (Engine) {
 		prompt(ctx) {
 			let { game, res, rules } = ctx
 			let event = get_active_event_data(game)
-			let logic_key = (event && event.reinf_logic) || "is_br"
-			let helper = Engine.reinf_helpers[logic_key]
 
 			let { units, source } = get_reinforcement_units(game)
 
@@ -3185,6 +3197,8 @@ module.exports = function (Engine) {
 			}
 
 			let unit = units[0]
+			let logic_key = get_reinforcement_logic_key(source || event, unit)
+			let helper = Engine.reinf_helpers[logic_key]
 			let desc = helper ? helper.desc : "指定地点"
 			if (typeof desc === "function") desc = desc(game, unit)
 			let faction = helper ? helper.faction : game.active || AP
@@ -3286,7 +3300,7 @@ module.exports = function (Engine) {
 			}
 
 			let unit_name = units.shift()
-			let logic_key = (event && event.reinf_logic) || "is_br"
+			let logic_key = get_reinforcement_logic_key(source || event, unit_name)
 			let helper = Engine.reinf_helpers[logic_key]
 			let faction = helper ? helper.faction : game.active || AP
 			consume_reinforcement_placement(source, unit_name)

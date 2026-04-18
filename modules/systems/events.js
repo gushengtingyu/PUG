@@ -2449,7 +2449,15 @@ module.exports = function (Engine) {
 					"TU-A DIV #11": "either"
 				}
 
-				event.reinf_logic = "is_tu"
+				event.reinf_logic = {
+					"TU XIV Corps": "is_tu",
+					"TU XV Corps": "is_tu",
+					"TU XVI Corps": "is_tu",
+					"TU XVII Corps": "is_tu",
+					"TU-A XVIII Corps": "is_tua",
+					"TU DIV #18": "is_tu",
+					"TU-A DIV #11": "is_tua"
+				}
 				game.state = "event_place_reinforcements"
 				event.reinf_next_state = "event_turkish_reinf_81_combine"
 			},

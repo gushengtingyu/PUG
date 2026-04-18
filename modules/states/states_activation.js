@@ -1213,7 +1213,9 @@ exports.register = function (states, Engine, context) {
 			if (!options) {
 				return
 			}
+			let previous_ctx = game.combine_ctx || {}
 			game.combine_ctx = {
+				...previous_ctx,
 				selected_scus: selected.slice(),
 				lcu_id,
 				type: options.type,
@@ -1459,6 +1461,10 @@ exports.register = function (states, Engine, context) {
 		} else {
 			set_delete(game.reduced, ctx.lcu_id)
 			log(`${active_faction()} combines 3 SCUs into a Full LCU ${lcu_info.name} in ${space_name(space)}.`)
+		}
+		if (ctx.event_flag_on_success && game.event_ctx && game.event_ctx.key === ctx.event_flag_on_success.key) {
+			if (!game.event_ctx.data) game.event_ctx.data = {}
+			game.event_ctx.data[ctx.event_flag_on_success.field] = true
 		}
 		set_add(game.moved, ctx.lcu_id)
 		clear_combine_ctx()
