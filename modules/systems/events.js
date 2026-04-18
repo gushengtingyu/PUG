@@ -961,6 +961,8 @@ module.exports = function (Engine) {
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "secret_treaty")
 				game.events["secret_treaty"] = true
+				if (!game.ui_tokens) game.ui_tokens = {}
+				game.ui_tokens["Persian_Neutrality"] = "MPENV.png"
 				game.active = AP
 				let units = ["BR Persian Cordon #4"]
 				event.reinf_to_place = units
@@ -2027,6 +2029,8 @@ module.exports = function (Engine) {
 				"增援:1个土耳其-阿拉伯步兵师 至任何同盟国控制的美索不达米亚地区。可以立即启动一处高加索、阿赛拜疆或美索不达米亚的部队进行移动。从现在开始到游戏结束，双方玩家的部队都可以进入中立的波斯地区。",
 			handler: function (game, ctx) {
 				game.events["persian_push"] = true
+				if (!game.ui_tokens) game.ui_tokens = {}
+				game.ui_tokens["Persian_Neutrality"] = "MPENV.png"
 				game.active = CP
 				start_event_data(game, ctx, "persian_push", { reinf_to_place: ["TU-A DIV #10"] })
 				game.state = "event_persian_push_place"
@@ -2099,6 +2103,8 @@ module.exports = function (Engine) {
 			handler: function (game) {
 				update_jihad_level(game, 1)
 				game.events["indian_mutiny"] = game.turn
+				if (!game.ui_tokens) game.ui_tokens = {}
+				game.ui_tokens["Indian_Mutiny"] = "MINMUTA.png"
 				// 规则补充：本轮任何土耳其对印度部队的攻击+1drm
 				game.indian_mutiny_drm = true
 			}
@@ -2367,6 +2373,9 @@ module.exports = function (Engine) {
 			handler: function (game) {
 				update_jihad_level(game, 1)
 				game.events["mission_to_afghanistan"] = true
+				if (!game.ui_tokens) game.ui_tokens = {}
+				game.ui_tokens["Afghan_Alliance"] = "MAFALA.png"
+				game.ui_tokens["C.Asia_Revolt"] = "MCASRVA.png"
 			}
 		},
 		80: {

@@ -1576,6 +1576,7 @@ const marker_info = {
 	j_by_c: { name: "Jerusalem by Christmas", counter: "marker j_by_c", size: 75 * SCALE },
 	persian_uprising: { name: "Persian Uprising", counter: "marker persian_uprising", size: 75 * SCALE },
 	parvus_to_berlin: { name: "Parvus to Berlin", counter: "marker parvus_to_berlin", size: 75 * SCALE },
+	gorlice_tarnow_return: { name: "Gorl. LCU Back", counter: "marker gorlice_tarnow_return", size: 75 * SCALE },
 	revolution_token: { name: "Revolution", counter: "marker revolution_token", size: 75 * SCALE },
 	long_live_czar: { name: "Long Live the Czar!", counter: "marker long_live_czar", size: 75 * SCALE },
 	bb_rr: { name: "BB.RR", counter: "marker bb_rr", size: 75 * SCALE },
@@ -4057,6 +4058,11 @@ function update_system_markers() {
 	update_turn_record("game_turn", view.turn)
 	update_turn_record("sinai_railroad", view.events.xinai, view.events.xinai === undefined)
 	update_turn_record("parvus_to_berlin", view.parvus_to_berlin, view.parvus_to_berlin === undefined)
+	update_turn_record(
+		"gorlice_tarnow_return",
+		view.events.gorlice_tarnow_return,
+		view.events.gorlice_tarnow_return === undefined
+	)
 	update_turn_record(
 		"long_live_czar",
 		view.long_live_czar,

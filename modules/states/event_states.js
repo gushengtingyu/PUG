@@ -1843,10 +1843,9 @@ module.exports = function (Engine) {
 			if (event) {
 				event.reinf_to_place = ["BR VIII Corps", "ANZ ANZAC", "FR DIV #1", "FR DIV #2", "BR DIV #1"]
 				event.flip_lcu_if_scu = true
+				event.beachheads_to_place = 2
 			}
-			game.unplaced_beachheads = (game.unplaced_beachheads || 0) + 2
-			rules.log("加里波利入侵：获得 2 个未放置滩头标记。")
-			game.state = "event_invasion_place_units_island"
+			game.state = "event_invasion_place_beachhead"
 		},
 		reinforcement(ctx) {
 			let { game, rules } = ctx
@@ -1879,10 +1878,9 @@ module.exports = function (Engine) {
 			if (event) {
 				event.reinf_to_place = ["BR XVI Corps", "BR XII Corps", "FR DIV #1", "FR DIV #2"]
 				event.allow_sr_to_island = 3
+				event.beachheads_to_place = 1
 			}
-			game.unplaced_beachheads = (game.unplaced_beachheads || 0) + 1
-			rules.log("萨洛尼卡入侵：获得 1 个未放置滩头标记。")
-			game.state = "event_invasion_place_units_island"
+			game.state = "event_invasion_place_beachhead"
 		},
 		reinforcement(ctx) {
 			let { game, rules } = ctx
@@ -1913,6 +1911,19 @@ module.exports = function (Engine) {
 			for (let s of get_available_beachhead_placement_spaces(game)) {
 				res.space(s)
 			}
+			res.action("skip", "暂时不放置（存入预备）")
+		},
+		skip(ctx) {
+			let { game, rules } = ctx
+			let event = get_active_event_data(game)
+			let b = (event && event.beachheads_to_place) || 0
+			if (b > 0) {
+				rules.push_undo()
+				game.unplaced_beachheads = (game.unplaced_beachheads || 0) + b
+				if (event) event.beachheads_to_place = 0
+				rules.log(`AP暂不放置 ${b} 个滩头标记。`)
+			}
+			this.done(ctx)
 		},
 		done(ctx) {
 			let { game } = ctx
@@ -3743,9 +3754,15 @@ module.exports = function (Engine) {
 			if (game.move && Array.isArray(game.move.pieces)) set_delete(game.move.pieces, p)
 			set_delete(game.reduced, p)
 
+			let return_turn = game.turn + 4
 			if (!game.delayed_reinforcements) game.delayed_reinforcements = []
-			game.delayed_reinforcements.push({ turn: game.turn + 4, piece: p, space: rules.get_reserve_box(AP) })
-			rules.log(`${data.pieces[p].name} 被移除并派往东线，将在 ${game.turn + 4} 回合返回预备军格。`)
+			game.delayed_reinforcements.push({ turn: return_turn, piece: p, space: rules.get_reserve_box(AP) })
+
+			if (!game.events) game.events = {}
+			game.events["gorlice_tarnow_return"] = return_turn
+			game.events["gorlice_tarnow_piece"] = p
+
+			rules.log(`${data.pieces[p].name} 被移除并派往东线，将在 ${return_turn} 回合返回预备军格。`)
 			rules.goto_end_event()
 		},
 		done(ctx) {

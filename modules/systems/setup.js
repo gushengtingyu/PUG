@@ -311,6 +311,10 @@ module.exports = function (Engine) {
 
 		game.events["indian_mutiny"] = 2
 		game.jihad += 1
+		if (game.ui_tokens) {
+			game.ui_tokens["Persian_Neutrality"] = "MPENV.png"
+			game.ui_tokens["Indian_Mutiny"] = "MINMUTA.png"
+		}
 
 		for (let event_key in prior_event_flags) {
 			game.events[event_key] = prior_event_flags[event_key]

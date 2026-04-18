@@ -448,6 +448,15 @@ exports.register = function (states, Engine, context) {
 				if (r.turn <= game.turn) {
 					log(`Delayed Reinforcement Arrives: ${data.pieces[r.piece].name}`)
 					reinforce(game, data.pieces[r.piece].name, data.pieces[r.piece].faction, r.space)
+
+					if (
+						game.events &&
+						game.events["gorlice_tarnow_return"] === r.turn &&
+						game.events["gorlice_tarnow_piece"] === r.piece
+					) {
+						delete game.events["gorlice_tarnow_return"]
+						delete game.events["gorlice_tarnow_piece"]
+					}
 				} else {
 					remaining.push(r)
 				}
