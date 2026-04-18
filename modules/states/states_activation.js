@@ -58,7 +58,6 @@ exports.register = function (states, Engine, context) {
 		find_space,
 		piece_name,
 		piece_list,
-		has_unmoved_pieces_in_space,
 		get_movement_cost,
 		has_undestroyed_fort,
 		other_faction,
@@ -171,10 +170,27 @@ exports.register = function (states, Engine, context) {
 	}
 
 	// === ACTIVATION HELPER ===
+	function get_piece_activation_supply_status(p, faction) {
+		let s = game.pieces[p]
+		if (!(s > 0 && data.spaces[s])) return "OOS"
+		return Engine.supply.get_supply_status(game, s, faction, p)
+	}
+
+	function has_unmoved_move_eligible_pieces_in_space(s, faction) {
+		return get_pieces_in_space(game, s).some((p) => !set_has(game.moved, p) && can_piece_move_in_activation(p, faction))
+	}
+
+	function has_move_activation_options_in_space(s, faction) {
+		if (has_unmoved_move_eligible_pieces_in_space(s, faction)) return true
+		if (Engine.game_utils.can_combine_in_space(game, s, faction)) return true
+		return can_space_entrench_in_activation(s)
+	}
+
 	function can_piece_participate_in_activation(p, faction) {
 		if (p < 0 || !data.pieces[p]) return false
 		if (is_not_on_map(game, p)) return false
 		if (Engine.game_utils.get_piece_effective_faction(game, p) !== faction) return false
+		if (get_piece_activation_supply_status(p, faction) === "OOS") return false
 		if (Engine.neutral.is_greek_piece(p)) {
 			return (
 				Engine.neutral.can_move_piece_for_faction(game, p, faction) ||
@@ -192,6 +208,7 @@ exports.register = function (states, Engine, context) {
 
 	function can_piece_attack_in_activation(p, s, faction) {
 		if (!can_piece_participate_in_activation(p, faction)) return false
+		if (get_piece_activation_supply_status(p, faction) === "LIMITED") return false
 		if (Engine.neutral.is_greek_piece(p) && !Engine.neutral.can_attack_piece_for_faction(game, p, faction)) return false
 		return can_activate_piece_in_space_to_attack(p, s)
 	}
@@ -199,7 +216,9 @@ exports.register = function (states, Engine, context) {
 	function can_space_entrench_in_activation(s) {
 		if (!Engine.game_utils.can_entrench_in_space(game, s, active_faction())) return false
 		if (game.entrench_attempts && set_has(game.entrench_attempts, s)) return false
-		return Engine.game_utils.get_entrenching_units_in_space(game, s, active_faction()).length > 0
+		return Engine.game_utils.get_entrenching_units_in_space(game, s, active_faction()).some((p) =>
+			can_piece_participate_in_activation(p, active_faction())
+		)
 	}
 
 	function can_selected_move_pieces_combine(selected_pieces) {
@@ -343,7 +362,7 @@ exports.register = function (states, Engine, context) {
 				let attack_cost = costs.attack
 				let unmoved_pieces = friendly_pieces.filter((p) => !set_has(game.moved, p))
 
-				let can_move = game.ops >= move_cost
+				let can_move = game.ops >= move_cost && has_move_activation_options_in_space(s, faction)
 				let can_attack = false
 				if (game.ops >= attack_cost && unmoved_pieces.length > 0) {
 					let has_adjacent_enemy = false
@@ -430,6 +449,7 @@ exports.register = function (states, Engine, context) {
 			}
 		},
 		activate_move(s) {
+			if (!has_move_activation_options_in_space(s, active_faction())) return
 			push_undo()
 			let cost = get_activation_cost(game, s, "move")
 			game.ops -= cost
@@ -439,6 +459,9 @@ exports.register = function (states, Engine, context) {
 			if (game.ops === 0) states.activate_spaces.done()
 		},
 		activate_attack(s) {
+			let faction = active_faction()
+			let unmoved_pieces = get_pieces_in_space(game, s).filter((p) => !set_has(game.moved, p))
+			if (!unmoved_pieces.some((p) => can_piece_attack_in_activation(p, s, faction))) return
 			push_undo()
 			let russo_british_mode = is_russo_british_russian_activation()
 			let romania_mode = is_romania_event_activation()
@@ -681,6 +704,7 @@ exports.register = function (states, Engine, context) {
 		},
 		combine() {
 			let s = game.where
+			if (!Engine.game_utils.can_combine_in_space(game, s, active_faction())) return
 			game.where = -1
 			game.state = "choose_move_space"
 			push_undo()
@@ -688,6 +712,7 @@ exports.register = function (states, Engine, context) {
 		},
 		entrench() {
 			let s = game.where
+			if (!can_space_entrench_in_activation(s)) return
 			game.where = -1
 			game.state = "choose_move_space"
 			push_undo()
@@ -703,7 +728,9 @@ exports.register = function (states, Engine, context) {
 	states.entrench = {
 		prompt(res) {
 			let s = game.where
-			let units = Engine.game_utils.get_entrenching_units_in_space(game, s, active_faction())
+			let units = Engine.game_utils
+				.get_entrenching_units_in_space(game, s, active_faction())
+				.filter((p) => can_piece_participate_in_activation(p, active_faction()))
 			let selected = game.entrench_pieces || []
 			res.prompt(`在 ${space_name(s)} 选择参与挖壕的单位（当前已选: ${selected.length} 个）`)
 			res.where(s)
@@ -1452,7 +1479,7 @@ exports.register = function (states, Engine, context) {
 		}
 		let initial = game.move.initial
 		delete game.move
-		if (has_unmoved_pieces_in_space(game, initial, active_faction())) {
+		if (has_unmoved_move_eligible_pieces_in_space(initial, active_faction())) {
 			game.move = {
 				initial: initial,
 				current: initial,
@@ -1461,6 +1488,10 @@ exports.register = function (states, Engine, context) {
 				touched_spaces: [initial]
 			}
 			set_next_state("choose_pieces_to_move")
+			return
+		}
+		if (Engine.game_utils.can_combine_in_space(game, initial, active_faction()) || can_space_entrench_in_activation(initial)) {
+			set_next_state("choose_move_space")
 			return
 		}
 		end_move_activation(initial)
@@ -1483,9 +1514,7 @@ exports.register = function (states, Engine, context) {
 	function next_move_activation() {
 		// Filter out activated spaces that have no movable pieces left
 		if (game.activated && game.activated.move) {
-			game.activated.move = game.activated.move.filter((s) =>
-				has_unmoved_pieces_in_space(game, s, active_faction())
-			)
+			game.activated.move = game.activated.move.filter((s) => has_move_activation_options_in_space(s, active_faction()))
 		}
 
 		if (game.activated.move && game.activated.move.length > 0) {

@@ -1695,7 +1695,7 @@ function refresh_attack_eligibility() {
 				is_active_piece = false
 			}
 			if (is_active_piece && (is_lcu(p) || is_scu(p))) {
-				if (has_attack_targets(p, faction, enemy, enemy_space_flag)) {
+				if (has_attack_targets(p, faction, enemy, enemy_space_flag) && can_activate_piece_in_space_to_attack(p, s)) {
 					set_add(game.eligible_attackers, p)
 				}
 			}

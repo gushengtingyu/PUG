@@ -801,6 +801,8 @@ module.exports = function (Engine) {
 
 	function can_activate_piece_in_space_to_attack(game, p, s, faction, get_season_fn, is_rail_connected_to_supply_fn) {
 		if (!can_piece_be_activated(p)) return false
+		let supply_status = Engine.map.get_supply_status(game, s, faction, p)
+		if (supply_status === "OOS" || supply_status === "LIMITED") return false
 		if (game.events && game.events["apis"] === game.turn && data.pieces[p].nation === "sb") return false
 		if (Engine.map.is_afghanistan(s) && !(game.events && game.events["afghan_alliance"])) return false
 		let enemy = other_faction(faction)
