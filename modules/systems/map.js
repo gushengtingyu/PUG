@@ -1136,6 +1136,14 @@ function get_stack_yildirim_count(pieces) {
 		return null
 	}
 
+	function get_region_activation_stack_block_reason(game, pieces) {
+		if (!Array.isArray(pieces) || pieces.length === 0) return "未选择单位"
+		let composition_reason = get_stack_composition_reason(game, pieces)
+		if (composition_reason) return composition_reason
+		if (get_stack_count(pieces) > 3) return "堆叠超限"
+		return null
+	}
+
 	function has_br_ru_mix(game, pieces) {
 		let has_br = pieces_count_as_any_nation_for_rule(game, pieces, ["br", "in", "anz"])
 		let ru_count = 0
@@ -1731,12 +1739,13 @@ function get_stack_yildirim_count(pieces) {
 		supply_trace_cache,
 		supply_context,
 		source_cache,
-		status_cache
+		status_cache,
+		skip_sea_sr_event_block = false
 	) {
 		if (is_caspian_sea_port(source) || is_caspian_sea_port(dest)) {
 			return can_sr_to_space(game, p, dest, faction)
 		}
-		if (is_sr_destination_blocked_by_events(game, source, dest, faction)) return false
+		if (!skip_sea_sr_event_block && is_sr_destination_blocked_by_events(game, source, dest, faction)) return false
 		if (!is_controlled_by(game, dest, faction) && !contains_friendly_pieces(game, dest, faction)) return false
 		let dest_status = get_supply_status(
 			game,
@@ -1877,7 +1886,8 @@ function get_stack_yildirim_count(pieces) {
 				supply_trace_cache,
 				supply_context,
 				source_cache,
-				status_cache
+				status_cache,
+				true
 			)) {
 				destinations.add(s)
 			}
@@ -3355,6 +3365,7 @@ function get_stack_yildirim_count(pieces) {
 		get_stack_counted_pieces,
 		get_stack_count,
 		is_stack_counted_piece,
+		get_region_activation_stack_block_reason,
 		can_move_stack_composition,
 		can_temporarily_end_move_in_space,
 		can_stack_end_in_space,

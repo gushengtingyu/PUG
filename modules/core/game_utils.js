@@ -157,12 +157,10 @@ module.exports = function (Engine) {
 		if (p < 0 || !data.pieces[p]) return false
 		let s = game.pieces[p]
 		let info = data.pieces[p]
-		if (info.type === "tribe")
-			return (
-				s > 0 &&
-				data.spaces[s] &&
-				(data.spaces[s].type === "Reserve Box" || data.spaces[s].map === "Reserve Box")
-			)
+		if (is_tribe(p)) {
+			let key = get_tribe_key_space(p)
+			return key >= 0 && s === key
+		}
 		let faction = info.faction
 		if (info.piece_class === "LCU") return s === get_lcu_reserve_box(faction) || s === RESERVE
 		return s === get_scu_reserve_box(faction) || s === RESERVE

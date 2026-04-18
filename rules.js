@@ -1592,6 +1592,35 @@ function hash_events_flags(events) {
 	return h >>> 0
 }
 
+function get_region_attack_activation_entries() {
+	let entries = []
+	let mode_map = game.region_activations && game.region_activations.attack
+	if (!mode_map) return entries
+	for (let key of Object.keys(mode_map)) {
+		let stacks = mode_map[key]
+		if (!Array.isArray(stacks) || stacks.length === 0) continue
+		entries.push({ space: Number(key), stacks })
+	}
+	return entries
+}
+
+function hash_region_attack_activations() {
+	let h = 2166136261 >>> 0
+	for (let { space, stacks } of get_region_attack_activation_entries()) {
+		h ^= (space + 1) * 131
+		h = Math.imul(h, 16777619) >>> 0
+		for (let stack of stacks) {
+			h ^= (Number(stack.cost) || 0) + 0x9e3779b9
+			h = Math.imul(h, 16777619) >>> 0
+			for (let p of stack.pieces || []) {
+				h ^= (p + 1) * 313
+				h = Math.imul(h, 16777619) >>> 0
+			}
+		}
+	}
+	return h >>> 0
+}
+
 function build_attack_eligibility_cache_key() {
 	// 说明：
 	// 1) 这是 phase-local 缓存键，目标是避免同一状态下重复执行资格全量推导。
@@ -1606,6 +1635,7 @@ function build_attack_eligibility_cache_key() {
 
 	let attacked_hash = hash_number_array(game.attacked)
 	let activated_attack_hash = hash_number_array(game.activated && game.activated.attack)
+	let region_attack_hash = hash_region_attack_activations()
 	let retreated_hash = hash_number_array(game.retreated)
 
 	let fort_destroyed = new Uint8Array(data.spaces.length)
@@ -1626,7 +1656,7 @@ function build_attack_eligibility_cache_key() {
 	let events_hash = hash_events_flags(game.events)
 	let faction_bit = game.active === AP || game.active === "AP" || game.active === "Allied Powers" ? 1 : 2
 
-	return `${faction_bit}|${pieces_hash}|${attacked_hash}|${activated_attack_hash}|${retreated_hash}|${fort_hash}|${events_hash}`
+	return `${faction_bit}|${pieces_hash}|${attacked_hash}|${activated_attack_hash}|${region_attack_hash}|${retreated_hash}|${fort_hash}|${events_hash}`
 }
 
 function build_enemy_space_flag(faction) {
@@ -1664,7 +1694,9 @@ function has_attack_targets(p, faction, enemy, enemy_space_flag = null) {
 
 function refresh_attack_eligibility() {
 	game.eligible_attackers = []
-	if (!game.activated || !game.activated.attack || game.activated.attack.length === 0) return
+	let has_normal_attack_activations = !!(game.activated && game.activated.attack && game.activated.attack.length > 0)
+	let region_attack_entries = get_region_attack_activation_entries()
+	if (!has_normal_attack_activations && region_attack_entries.length === 0) return
 
 	let cache_key = build_attack_eligibility_cache_key()
 	if (game.attack_eligibility_cache && game.attack_eligibility_cache.key === cache_key) {
@@ -1701,6 +1733,34 @@ function refresh_attack_eligibility() {
 			}
 		}
 	}
+	let filtered_region_attack = {}
+	for (let { space, stacks } of region_attack_entries) {
+		let surviving_stacks = []
+		for (let stack of stacks) {
+			let stack_has_eligible = false
+			for (let p of stack.pieces || []) {
+				if (game.pieces[p] !== space || is_not_on_map(game, p)) continue
+				if (set_has(game.attacked, p)) continue
+				if (Array.isArray(game.retreated) && set_has(game.retreated, p)) continue
+
+				let is_active_piece = Engine.game_utils.get_piece_effective_faction(game, p) === faction
+				if (Engine.neutral.is_greek_piece(p) && !Engine.neutral.can_attack_piece_for_faction(game, p, faction)) {
+					is_active_piece = false
+				}
+				if (game.events && game.events["apis"] === game.turn && data.pieces[p].nation === "sb") {
+					is_active_piece = false
+				}
+				if (!is_active_piece || (!is_lcu(p) && !is_scu(p))) continue
+				if (!has_attack_targets(p, faction, enemy, enemy_space_flag)) continue
+				if (!can_activate_piece_in_space_to_attack(p, space)) continue
+				set_add(game.eligible_attackers, p)
+				stack_has_eligible = true
+			}
+			if (stack_has_eligible) surviving_stacks.push(stack)
+		}
+		if (surviving_stacks.length > 0) filtered_region_attack[space] = surviving_stacks
+	}
+	if (game.region_activations) game.region_activations.attack = filtered_region_attack
 	let eligible_space_flag = new Uint8Array(data.spaces.length)
 	for (let p of game.eligible_attackers) {
 		let s = game.pieces[p]

@@ -868,25 +868,41 @@ module.exports = function (Engine) {
 		return get_piece_nation_groups_for_rule(game, p)
 	}
 
+	function get_attack_origin_key(game, p) {
+		let space = game.pieces[p]
+		if (!(space > 0)) return null
+		let region_attacks = game.region_activations && game.region_activations.attack
+		let stacks = region_attacks && Array.isArray(region_attacks[space]) ? region_attacks[space] : null
+		if (stacks) {
+			for (let index = 0; index < stacks.length; index++) {
+				let stack = stacks[index]
+				if (Array.isArray(stack.pieces) && set_has(stack.pieces, p)) {
+					return `R:${space}:${index}`
+				}
+			}
+		}
+		return `S:${space}`
+	}
+
 	function is_invalid_multinational_attack(game, attackers) {
 		let all_groups = new Set()
-		let pieces_by_space = {}
+		let pieces_by_origin = {}
 		for (let p of attackers) {
 			if (p === undefined || p === null) continue
 			let groups = get_multinational_attack_group(game, p)
-			let space = game.pieces[p]
-			if (!groups || groups.length === 0 || !(space > 0)) continue
+			let origin = get_attack_origin_key(game, p)
+			if (!groups || groups.length === 0 || !origin) continue
 			for (let group of groups) all_groups.add(group)
-			if (!pieces_by_space[space]) pieces_by_space[space] = []
-			pieces_by_space[space].push(p)
+			if (!pieces_by_origin[origin]) pieces_by_origin[origin] = []
+			pieces_by_origin[origin].push(p)
 		}
 
 		if (all_groups.size <= 1) return false
 
-		for (let space in pieces_by_space) {
+		for (let origin in pieces_by_origin) {
 			let cover_sets = new Set([0])
 			let group_ids = new Map()
-			for (let p of pieces_by_space[space]) {
+			for (let p of pieces_by_origin[origin]) {
 				let ids = get_multinational_attack_group(game, p).map((group) => {
 					if (!group_ids.has(group)) group_ids.set(group, group_ids.size)
 					return group_ids.get(group)
@@ -900,7 +916,7 @@ module.exports = function (Engine) {
 			for (let mask of cover_sets) {
 				let valid = true
 				for (let p of attackers) {
-					if (game.pieces[p] === Number(space)) continue
+					if (get_attack_origin_key(game, p) === origin) continue
 					let groups = get_multinational_attack_group(game, p)
 					if (!groups.some((group) => group_ids.has(group) && (mask & (1 << group_ids.get(group))) !== 0)) {
 						valid = false

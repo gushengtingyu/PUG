@@ -134,12 +134,26 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
+	function log_region_activation_group(title, mode) {
+		let entries = get_region_activation_entries(mode)
+		if (entries.length === 0) return
+		log(title)
+		for (let { space, stacks } of entries) {
+			for (let stack of stacks) {
+				let cost = Number(stack.cost) || 0
+				logi(`${space_name(space)}: ${piece_list(stack.pieces)}${cost > 1 ? ` (${cost} OPS)` : ""}`)
+			}
+		}
+	}
+
 	function log_activation_summary() {
 		let move_spaces = Array.isArray(game.activated.move) ? game.activated.move : []
 		let attack_spaces = Array.isArray(game.activated.attack) ? game.activated.attack : []
 
 		log_activation_group("MOVE", move_spaces)
 		log_activation_group("ATTACK", attack_spaces)
+		log_region_activation_group("MOVE", "move")
+		log_region_activation_group("ATTACK", "attack")
 	}
 
 	function can_temporarily_end_current_move_in_overstacked_space(space_id, stopping_pieces = null) {
@@ -178,6 +192,13 @@ exports.register = function (states, Engine, context) {
 
 	function has_unmoved_move_eligible_pieces_in_space(s, faction) {
 		return get_pieces_in_space(game, s).some((p) => !set_has(game.moved, p) && can_piece_move_in_activation(p, faction))
+	}
+
+	function has_unmoved_allowed_move_pieces_in_space(s, allowed_pieces, faction) {
+		if (!Array.isArray(allowed_pieces) || allowed_pieces.length === 0) return false
+		return allowed_pieces.some(
+			(p) => game.pieces[p] === s && !set_has(game.moved, p) && can_piece_move_in_activation(p, faction)
+		)
 	}
 
 	function has_move_activation_options_in_space(s, faction) {
@@ -219,6 +240,185 @@ exports.register = function (states, Engine, context) {
 		return Engine.game_utils.get_entrenching_units_in_space(game, s, active_faction()).some((p) =>
 			can_piece_participate_in_activation(p, active_faction())
 		)
+	}
+
+	function ensure_region_activations() {
+		if (!game.region_activations) game.region_activations = {}
+		if (!game.region_activations.move) game.region_activations.move = {}
+		if (!game.region_activations.attack) game.region_activations.attack = {}
+		return game.region_activations
+	}
+
+	function get_region_activation_mode_map(mode) {
+		return ensure_region_activations()[mode]
+	}
+
+	function get_region_activation_stacks(mode, s) {
+		let mode_map = get_region_activation_mode_map(mode)
+		return Array.isArray(mode_map[s]) ? mode_map[s] : []
+	}
+
+	function set_region_activation_stacks(mode, s, stacks) {
+		let mode_map = get_region_activation_mode_map(mode)
+		if (Array.isArray(stacks) && stacks.length > 0) mode_map[s] = stacks
+		else delete mode_map[s]
+	}
+
+	function get_region_activation_entries(mode) {
+		let entries = []
+		let mode_map = get_region_activation_mode_map(mode)
+		for (let key of Object.keys(mode_map)) {
+			let stacks = mode_map[key]
+			if (!Array.isArray(stacks) || stacks.length === 0) continue
+			entries.push({ space: Number(key), stacks })
+		}
+		return entries
+	}
+
+	function has_region_activations(mode) {
+		return get_region_activation_entries(mode).length > 0
+	}
+
+	function has_any_move_activations() {
+		return (game.activated.move && game.activated.move.length > 0) || has_region_activations("move")
+	}
+
+	function get_region_activation_stack_for_piece(mode, p) {
+		for (let { space, stacks } of get_region_activation_entries(mode)) {
+			for (let index = 0; index < stacks.length; index++) {
+				let stack = stacks[index]
+				if (Array.isArray(stack.pieces) && set_has(stack.pieces, p)) {
+					return { space, index, stack }
+				}
+			}
+		}
+		return null
+	}
+
+	function is_piece_region_activated(p) {
+		return !!get_region_activation_stack_for_piece("move", p) || !!get_region_activation_stack_for_piece("attack", p)
+	}
+
+	function get_region_activation_available_pieces(mode, s, faction) {
+		if (!Engine.map.is_region(game, s)) return []
+		return get_pieces_in_space(game, s).filter((p) => {
+			if (is_piece_region_activated(p)) return false
+			if (mode === "move") return !set_has(game.moved, p) && can_piece_move_in_activation(p, faction)
+			return !set_has(game.moved, p) && can_piece_attack_in_activation(p, s, faction)
+		})
+	}
+
+	function get_region_activation_cost(mode, s, pieces) {
+		let costs = get_activation_cost_pair(game, s, pieces)
+		return mode === "move" ? costs.move : costs.attack
+	}
+
+	function get_region_activation_attack_targets(pieces) {
+		return Engine.combat.get_legal_attackable_spaces(
+			game,
+			pieces,
+			active_faction(),
+			() => Engine.game_utils.get_season(game),
+			is_rail_connected_to_supply
+		)
+	}
+
+	function get_region_activation_block_reason(mode, s, pieces) {
+		let composition_reason = Engine.map.get_region_activation_stack_block_reason(game, pieces)
+		if (composition_reason) return composition_reason
+		for (let p of pieces) {
+			if (game.pieces[p] !== s) return "单位不在该大区"
+			if (is_piece_region_activated(p)) return "单位已激活"
+			if (mode === "move") {
+				if (set_has(game.moved, p) || !can_piece_move_in_activation(p, active_faction())) return "单位不能移动"
+			} else if (set_has(game.moved, p) || !can_piece_attack_in_activation(p, s, active_faction())) {
+				return "单位不能进攻"
+			}
+		}
+		let cost = get_region_activation_cost(mode, s, pieces)
+		if (!Number.isFinite(cost)) return "OPS不足以激活该堆叠"
+		if (cost > game.ops) return "行动点不足"
+		if (mode === "attack" && get_region_activation_attack_targets(pieces).length === 0) return "没有共同攻击目标"
+		return null
+	}
+
+	function has_region_activation_options_in_space(mode, s, faction) {
+		if (game.ops <= 0) return false
+		return get_region_activation_available_pieces(mode, s, faction).some((p) => {
+			let cost = get_region_activation_cost(mode, s, [p])
+			return Number.isFinite(cost) && cost <= game.ops
+		})
+	}
+
+	function get_region_activation_total_cost_for_space(s) {
+		let total = 0
+		for (let mode of ["move", "attack"]) {
+			for (let stack of get_region_activation_stacks(mode, s)) {
+				total += Number(stack.cost) || 0
+			}
+		}
+		return total
+	}
+
+	function update_region_activation_cost_for_space(s) {
+		if (!game.activation_cost) game.activation_cost = {}
+		let total = get_region_activation_total_cost_for_space(s)
+		if (total > 0) map_set(game.activation_cost, s, total)
+		else map_delete(game.activation_cost, s)
+	}
+
+	function add_region_activation_stack(mode, s, pieces, cost) {
+		let stacks = get_region_activation_stacks(mode, s).slice()
+		stacks.push({
+			pieces: pieces.slice().sort((a, b) => a - b),
+			cost
+		})
+		set_region_activation_stacks(mode, s, stacks)
+		update_region_activation_cost_for_space(s)
+	}
+
+	function refund_region_activations_for_space(s) {
+		let refund = get_region_activation_total_cost_for_space(s)
+		if (refund === 0) return 0
+		set_region_activation_stacks("move", s, [])
+		set_region_activation_stacks("attack", s, [])
+		update_region_activation_cost_for_space(s)
+		game.ops += refund
+		return refund
+	}
+
+	function clear_region_activation_mode(mode) {
+		let mode_map = get_region_activation_mode_map(mode)
+		for (let key of Object.keys(mode_map)) {
+			delete mode_map[key]
+		}
+	}
+
+	function prune_region_move_activations() {
+		let faction = active_faction()
+		for (let { space, stacks } of get_region_activation_entries("move")) {
+			let remaining = stacks.filter((stack) =>
+				Array.isArray(stack.pieces) &&
+				stack.pieces.some(
+					(p) => game.pieces[p] === space && !set_has(game.moved, p) && can_piece_move_in_activation(p, faction)
+				)
+			)
+			set_region_activation_stacks("move", space, remaining)
+			update_region_activation_cost_for_space(space)
+		}
+	}
+
+	function begin_region_activation_selection(mode, s) {
+		game.region_activation_selection = {
+			mode,
+			space: s,
+			pieces: []
+		}
+		game.state = "activate_region_stack"
+	}
+
+	function clear_region_activation_selection() {
+		delete game.region_activation_selection
 	}
 
 	function can_selected_move_pieces_combine(selected_pieces) {
@@ -355,16 +555,21 @@ exports.register = function (states, Engine, context) {
 			let romania_legal_set = romania_mode ? new Set(romania_legal_spaces) : null
 
 			for (let [s, friendly_pieces] of pieces_by_space) {
-				if (activated_move_set.has(s) || activated_attack_set.has(s)) continue
+				let is_region_space = Engine.map.is_region(game, s)
+				if (!is_region_space && (activated_move_set.has(s) || activated_attack_set.has(s))) continue
 
-				let costs = get_activation_cost_pair(game, s, all_pieces_by_space.get(s))
+				let costs = is_region_space ? { move: 1, attack: 1 } : get_activation_cost_pair(game, s, all_pieces_by_space.get(s))
 				let move_cost = costs.move
 				let attack_cost = costs.attack
 				let unmoved_pieces = friendly_pieces.filter((p) => !set_has(game.moved, p))
 
-				let can_move = game.ops >= move_cost && has_move_activation_options_in_space(s, faction)
+				let can_move = is_region_space
+					? has_region_activation_options_in_space("move", s, faction)
+					: game.ops >= move_cost && has_move_activation_options_in_space(s, faction)
 				let can_attack = false
-				if (game.ops >= attack_cost && unmoved_pieces.length > 0) {
+				if (is_region_space) {
+					can_attack = has_region_activation_options_in_space("attack", s, faction)
+				} else if (game.ops >= attack_cost && unmoved_pieces.length > 0) {
 					let has_adjacent_enemy = false
 					let t_adj = DEBUG_ACTIVATION_TRACE ? activation_now() : 0
 					has_adjacent_enemy = space_has_adjacent_enemy(s, faction, enemy_space_flag)
@@ -418,6 +623,18 @@ exports.register = function (states, Engine, context) {
 					deactivated_spaces.add(s)
 				}
 			}
+			for (let { space } of get_region_activation_entries("move")) {
+				if (!russo_british_mode && !deactivated_spaces.has(space)) {
+					res.action("deactivate", space)
+					deactivated_spaces.add(space)
+				}
+			}
+			for (let { space } of get_region_activation_entries("attack")) {
+				if (!deactivated_spaces.has(space)) {
+					res.action("deactivate", space)
+					deactivated_spaces.add(space)
+				}
+			}
 
 			let can_done = true
 			if (game.liberate_suez_op_required) {
@@ -449,6 +666,11 @@ exports.register = function (states, Engine, context) {
 			}
 		},
 		activate_move(s) {
+			if (Engine.map.is_region(game, s)) {
+				if (!has_region_activation_options_in_space("move", s, active_faction())) return
+				begin_region_activation_selection("move", s)
+				return
+			}
 			if (!has_move_activation_options_in_space(s, active_faction())) return
 			push_undo()
 			let cost = get_activation_cost(game, s, "move")
@@ -460,6 +682,11 @@ exports.register = function (states, Engine, context) {
 		},
 		activate_attack(s) {
 			let faction = active_faction()
+			if (Engine.map.is_region(game, s)) {
+				if (!has_region_activation_options_in_space("attack", s, faction)) return
+				begin_region_activation_selection("attack", s)
+				return
+			}
 			let unmoved_pieces = get_pieces_in_space(game, s).filter((p) => !set_has(game.moved, p))
 			if (!unmoved_pieces.some((p) => can_piece_attack_in_activation(p, s, faction))) return
 			push_undo()
@@ -491,12 +718,15 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 			push_undo()
-			let cost = map_get(game.activation_cost, s)
-			if (cost !== undefined) {
-				game.ops += cost
-
+			let total_cost_before = map_get(game.activation_cost, s) || 0
+			let region_refund = refund_region_activations_for_space(s)
+			let had_ordinary_activation = set_has(game.activated.move, s) || set_has(game.activated.attack, s)
+			if (had_ordinary_activation) {
+				let ordinary_cost = total_cost_before - region_refund
+				if (ordinary_cost <= 0) ordinary_cost = total_cost_before
 				set_delete(game.activated.move, s)
 				set_delete(game.activated.attack, s)
+				game.ops += ordinary_cost
 				map_delete(game.activation_cost, s)
 			}
 		},
@@ -526,7 +756,7 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 
-			if (game.activated.move.length > 0) {
+			if (has_any_move_activations()) {
 				game.state = "choose_move_space"
 			} else {
 				refresh_attack_eligibility()
@@ -536,6 +766,69 @@ exports.register = function (states, Engine, context) {
 					game.state = "end_operations"
 				}
 			}
+		}
+	}
+
+	states.activate_region_stack = {
+		prompt(res) {
+			let selection = game.region_activation_selection
+			if (!selection) {
+				game.state = "activate_spaces"
+				return
+			}
+			let { mode, space, pieces } = selection
+			let mode_name = mode === "move" ? "移动" : "进攻"
+			let available = get_region_activation_available_pieces(mode, space, active_faction())
+			res.where(space)
+			res.who(pieces)
+			res.prompt(`选择 ${space_name(space)} 中要${mode_name}激活的堆叠`)
+
+			for (let p of get_pieces_in_space(game, space)) {
+				if (set_has(pieces, p) || set_has(available, p)) {
+					res.piece(p)
+				}
+			}
+
+			if (pieces.length > 0) {
+				let reason = get_region_activation_block_reason(mode, space, pieces)
+				if (!reason) {
+					let cost = get_region_activation_cost(mode, space, pieces)
+					res.action("confirm")
+					res.prompt(`确认${mode_name}激活 ${piece_list(pieces)} (花费 ${cost} OPS)`)
+				}
+			}
+
+			res.action("cancel")
+		},
+		piece(p) {
+			let selection = game.region_activation_selection
+			if (!selection) return
+			let { mode, space } = selection
+			if (game.pieces[p] !== space) return
+			let available = get_region_activation_available_pieces(mode, space, active_faction())
+			if (!set_has(selection.pieces, p) && !set_has(available, p)) return
+			set_toggle(selection.pieces, p)
+		},
+		confirm() {
+			let selection = game.region_activation_selection
+			if (!selection || selection.pieces.length === 0) return
+			let { mode, space, pieces } = selection
+			let reason = get_region_activation_block_reason(mode, space, pieces)
+			if (reason) {
+				log(`${space_name(space)} 不能按所选堆叠激活：${reason}`)
+				return
+			}
+			push_undo()
+			let cost = get_region_activation_cost(mode, space, pieces)
+			game.ops -= cost
+			add_region_activation_stack(mode, space, pieces, cost)
+			clear_region_activation_selection()
+			game.state = "activate_spaces"
+			if (game.ops === 0) states.activate_spaces.done()
+		},
+		cancel() {
+			clear_region_activation_selection()
+			game.state = "activate_spaces"
 		}
 	}
 
@@ -568,6 +861,17 @@ exports.register = function (states, Engine, context) {
 				}
 				if (can_entrench_here) {
 					can_entrench = true
+				}
+			}
+			for (let { space, stacks } of get_region_activation_entries("move")) {
+				for (let stack of stacks) {
+					for (let p of stack.pieces || []) {
+						if (game.pieces[p] !== space) continue
+						if (can_piece_move_in_activation(p, active_faction()) && !set_has(game.moved, p)) {
+							res.piece(p)
+							can_move = true
+						}
+					}
 				}
 			}
 
@@ -604,7 +908,8 @@ exports.register = function (states, Engine, context) {
 			}
 		},
 		piece(p) {
-			let s = game.pieces[p]
+			let region_activation = get_region_activation_stack_for_piece("move", p)
+			let s = region_activation ? region_activation.space : game.pieces[p]
 			push_undo()
 			log_br()
 			log("Moved from " + space_name(s))
@@ -614,7 +919,8 @@ exports.register = function (states, Engine, context) {
 				current: s,
 				spaces_moved: 0,
 				pieces: [p],
-				touched_spaces: [s]
+				touched_spaces: [s],
+				allowed_activation_pieces: region_activation ? region_activation.stack.pieces.slice() : null
 			}
 			game.state = "choose_pieces_to_move"
 		},
@@ -629,6 +935,7 @@ exports.register = function (states, Engine, context) {
 			}
 			game.where = -1
 			game.activated.move = []
+			clear_region_activation_mode("move")
 
 			if (game.move_from_event) {
 				delete game.move_from_event
@@ -1165,7 +1472,10 @@ exports.register = function (states, Engine, context) {
 			res.who(game.move.pieces)
 			res.prompt(`选择从 ${space_name(s)} 移动的单位`)
 
-			let pieces = get_pieces_in_space(game, s)
+			let allowed_pieces = game.move.allowed_activation_pieces
+			let pieces = get_pieces_in_space(game, s).filter(
+				(p) => !Array.isArray(allowed_pieces) || set_has(allowed_pieces, p) || set_has(game.move.pieces, p)
+			)
 
 			let any_available = false
 			for (let p of pieces) {
@@ -1216,6 +1526,7 @@ exports.register = function (states, Engine, context) {
 		},
 		piece(p) {
 			if (game.pieces[p] !== game.move.initial) return
+			if (Array.isArray(game.move.allowed_activation_pieces) && !set_has(game.move.allowed_activation_pieces, p)) return
 			if (!can_piece_move_in_activation(p, active_faction())) return
 			if (set_has(game.moved, p)) return
 			if (game.move.pieces.length === 0) push_undo()
@@ -1472,6 +1783,9 @@ exports.register = function (states, Engine, context) {
 
 	function end_move_stack(stopping_pieces = null) {
 		let current_space = game.move.current
+		let allowed_activation_pieces = Array.isArray(game.move.allowed_activation_pieces)
+			? game.move.allowed_activation_pieces.slice()
+			: null
 		// 这里保留 PUG“每次结束当前堆叠移动都做校验”的结构，
 		// 但对“可由后续已激活单位解消的临时超堆叠”放行。
 		let reason = get_current_move_end_block_reason(current_space, stopping_pieces)
@@ -1488,18 +1802,25 @@ exports.register = function (states, Engine, context) {
 		}
 		let initial = game.move.initial
 		delete game.move
-		if (has_unmoved_move_eligible_pieces_in_space(initial, active_faction())) {
+		let has_remaining_pieces = allowed_activation_pieces
+			? has_unmoved_allowed_move_pieces_in_space(initial, allowed_activation_pieces, active_faction())
+			: has_unmoved_move_eligible_pieces_in_space(initial, active_faction())
+		if (has_remaining_pieces) {
 			game.move = {
 				initial: initial,
 				current: initial,
 				spaces_moved: 0,
 				pieces: [],
-				touched_spaces: [initial]
+				touched_spaces: [initial],
+				allowed_activation_pieces
 			}
 			set_next_state("choose_pieces_to_move")
 			return
 		}
-		if (Engine.game_utils.can_combine_in_space(game, initial, active_faction()) || can_space_entrench_in_activation(initial)) {
+		if (
+			!allowed_activation_pieces &&
+			(Engine.game_utils.can_combine_in_space(game, initial, active_faction()) || can_space_entrench_in_activation(initial))
+		) {
 			set_next_state("choose_move_space")
 			return
 		}
@@ -1525,8 +1846,9 @@ exports.register = function (states, Engine, context) {
 		if (game.activated && game.activated.move) {
 			game.activated.move = game.activated.move.filter((s) => has_move_activation_options_in_space(s, active_faction()))
 		}
+		prune_region_move_activations()
 
-		if (game.activated.move && game.activated.move.length > 0) {
+		if (has_any_move_activations()) {
 			set_next_state("choose_move_space")
 		} else {
 			if (game.move_from_event) {
