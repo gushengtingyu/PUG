@@ -200,16 +200,26 @@ edgesRaw.forEach((e) => {
 		: []
 		
 	const nationTokens = rawNations.map((n) => n.toLowerCase())
-	let nations = nationTokens.slice()
-	if (nations.includes("ap") || nations.includes("cp")) {
-		const expanded = []
-		nations.forEach((n) => {
-			if (n === "ap") apNations.forEach((v) => expanded.push(v))
-			else if (n === "cp") cpNations.forEach((v) => expanded.push(v))
-			else expanded.push(n)
-		})
-		nations = [...new Set(expanded)]
-	}
+	let nations = []
+	nationTokens.forEach((n) => {
+		if (n === "ap") {
+			apNations.forEach((v) => nations.push(v))
+		} else if (n === "cp") {
+			cpNations.forEach((v) => nations.push(v))
+		} else if (n === "arab") {
+			nations.push("ar", "ana")
+		} else if (n === "arab_and_tu") {
+			nations.push("ar", "ana", "tu", "tua")
+		} else if (n === "s") {
+			nations.push("sb")
+		} else if (n === "no_tribe") {
+			apNations.forEach((v) => { if (v !== "tr") nations.push(v) })
+			cpNations.forEach((v) => { if (v !== "tr") nations.push(v) })
+		} else {
+			nations.push(n)
+		}
+	})
+	nations = [...new Set(nations)]
 
 	let type = e.type || ""
 	let strait = null

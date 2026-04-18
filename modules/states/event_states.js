@@ -1854,7 +1854,7 @@ module.exports = function (Engine) {
 			mark_ap_invasion_event_used_this_turn(game)
 			let event = get_active_event_data(game)
 			if (event) {
-				event.reinf_to_place = ["BR VIII Corps", "ANZ ANZAC", "FR DIV #1", "FR DIV #2", "BR DIV #1"]
+				event.reinf_to_place = ["BR VIII Corps", "ANZ ANZAC", "BR DIV #4", "FR DIV #1", "FR DIV #2"]
 				event.flip_lcu_if_scu = true
 				event.beachheads_to_place = 2
 			}
@@ -1866,7 +1866,7 @@ module.exports = function (Engine) {
 			rules.log("加里波利入侵：用作增援")
 			let event = get_active_event_data(game)
 			if (event) {
-				event.reinf_to_place = ["BR VIII Corps", "ANZ ANZAC", "FR DIV #1", "FR DIV #2", "BR DIV #1"]
+				event.reinf_to_place = ["BR VIII Corps", "ANZ ANZAC", "BR DIV #4", "FR DIV #1", "FR DIV #2"]
 				event.reinf_logic = "is_ap_invasion_rein"
 				event.reinf_prompt_prefix = "加里波利入侵（增援）"
 			}
@@ -2877,12 +2877,19 @@ module.exports = function (Engine) {
 		prompt(ctx) {
 			let { game, res, rules } = ctx
 			const { Engine, active_faction, data } = rules
-			res.prompt("土耳其增援：你可以立即进行 LCU 组合。")
+			res.prompt("土耳其增援：你可以立即对此次增援的单位进行 LCU 组合。")
 
-			// Find all spaces where combinations are possible for CP
+			// 找出此次增援新加入的单位 ID
+			let new_scu_names = ["TU DIV #18", "TU-A DIV #11"]
+			let new_lcu_names = ["TU XIV Corps", "TU XV Corps", "TU XVI Corps", "TU XVII Corps", "TU-A XVIII Corps"]
+
+			let new_scus = new_scu_names.map((name) => find_piece(CP, name)).filter((id) => id >= 0)
+			let new_lcus = new_lcu_names.map((name) => find_piece(CP, name)).filter((id) => id >= 0)
+
+			// 查找所有符合条件的组合地块，且仅限于新加入的 SCU 和 LCU
 			let possible_spaces = []
 			for (let s = 1; s < data.spaces.length; s++) {
-				if (Engine.game_utils.can_combine_in_space(game, s, active_faction())) {
+				if (Engine.game_utils.can_combine_in_space(game, s, active_faction(), new_lcus, new_scus)) {
 					possible_spaces.push(s)
 				}
 			}
@@ -2901,12 +2908,25 @@ module.exports = function (Engine) {
 			game.where = s
 			game.move_from_event = true
 			game.event_next_state = "event_turkish_reinf_81_combine"
+
+			// 为通用组合状态设置限制参数
+			let new_scu_names = ["TU DIV #18", "TU-A DIV #11"]
+			let new_lcu_names = ["TU XIV Corps", "TU XV Corps", "TU XVI Corps", "TU XVII Corps", "TU-A XVIII Corps"]
+			let new_scus = new_scu_names.map((name) => find_piece(CP, name)).filter((id) => id >= 0)
+			let new_lcus = new_lcu_names.map((name) => find_piece(CP, name)).filter((id) => id >= 0)
+
+			game.combine_ctx = {
+				selected_scus: [],
+				allowed_scus: new_scus,
+				allowed_lcus: new_lcus
+			}
 			game.state = "combine_lcu"
 		},
 		done(ctx) {
 			let { game, rules } = ctx
 			delete game.move_from_event
 			delete game.event_next_state
+			delete game.combine_ctx
 			rules.goto_end_event()
 		}
 	}

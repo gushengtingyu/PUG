@@ -3317,6 +3317,7 @@ function get_stack_yildirim_count(pieces) {
 		get_default_controller,
 		get_space_controller,
 		is_controlled_by,
+		is_russia_controlled_space,
 		has_allied_control_of_balfour_spaces,
 		destroy_fort,
 		is_naval_access_space,

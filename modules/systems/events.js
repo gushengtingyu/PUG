@@ -1006,7 +1006,12 @@ module.exports = function (Engine) {
 				game.active = AP
 				let units = ["RU IV Caucasian", "RU Elite DIV #4", "RU DIV #13", "RU Cavalry #7"]
 				event.reinf_to_place = units
-				event.reinf_placement = "map"
+				event.reinf_placement = {
+					"RU IV Caucasian": "map",
+					"RU Elite DIV #4": "either",
+					"RU DIV #13": "either",
+					"RU Cavalry #7": "either"
+				}
 				event.reinf_logic = "is_ru_rein"
 				game.state = "event_place_reinforcements"
 			},
@@ -2248,7 +2253,7 @@ module.exports = function (Engine) {
 				game.active = CP
 				let units = ["TU-A DIV #13", "TU-A DIV #14", "TU-A DIV #15", "TU-A DIV #16"]
 				event.reinf_to_place = units
-				event.reinf_placement = "map"
+				event.reinf_placement = "either"
 				let reduced = !!game.events["arab_revolt"]
 				if (reduced) {
 					for (let unit of units) {
@@ -2399,7 +2404,7 @@ module.exports = function (Engine) {
 			add_rein_record: "tu",
 			name_cn: "土耳其增援",
 			effect_cn:
-				"增援: 将土耳其第14军团、土耳其第15军团、土耳其第16军团、土耳其第17军团和土耳其-阿拉伯第18军团放置在预备军格。。增援: 1个土耳其步兵师，1个土耳其-阿拉伯步兵师。可以立即进行符合条件的LCU组合。",
+				"增援: 将土耳其第14军团、土耳其第15军团、土耳其第16军团、土耳其第17军团和土耳其-阿拉伯第18军团放置在预备军格。增援: 1个土耳其步兵师，1个土耳其-阿拉伯步兵师。可以立即对这些军进行符合条件的LCU组合。",
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "turkish_reinf_81")
 				game.active = CP
@@ -2419,12 +2424,13 @@ module.exports = function (Engine) {
 					"TU XVI Corps": "reserve",
 					"TU XVII Corps": "reserve",
 					"TU-A XVIII Corps": "reserve",
-					"TU DIV #18": "map",
-					"TU-A DIV #11": "map"
+					"TU DIV #18": "either",
+					"TU-A DIV #11": "either"
 				}
 
 				event.reinf_logic = "is_tu"
 				game.state = "event_place_reinforcements"
+				event.reinf_next_state = "event_turkish_reinf_81_combine"
 			},
 			defer_end: true
 		},
@@ -2574,7 +2580,7 @@ module.exports = function (Engine) {
 				let event = start_event_data(game, ctx, "turkish_reinf_92")
 				game.active = CP
 				event.reinf_to_place = ["TU-A Infantry #1", "TU-A Infantry #2", "TU-A Infantry #3", "TU-A Infantry #4"]
-				event.reinf_placement = "map"
+				event.reinf_placement = "either"
 				event.reinf_logic = "is_tua"
 				event.reinf_next_state = "event_turkish_reinf_92_trench"
 				let reduced = !!game.events["arab_revolt"]
@@ -2788,13 +2794,13 @@ module.exports = function (Engine) {
 				let units = ["TU-A Left Wing Gp", "TU-A DIV #17", "TU XX Corps", "TU XXII Corps"]
 				event.reinf_to_place = units
 				event.reinf_placement = {
-					"TU-A Left Wing Gp": "map",
-					"TU-A DIV #17": "map",
+					"TU-A Left Wing Gp": "either",
+					"TU-A DIV #17": "either",
 					"TU XX Corps": "reserve",
 					"TU XXII Corps": "reserve"
 				}
 
-				event.reinf_logic = "is_tu"
+				event.reinf_logic = "is_tu_reinf"
 				game.state = "event_place_reinforcements"
 			},
 			defer_end: true

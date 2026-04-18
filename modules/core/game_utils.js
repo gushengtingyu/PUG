@@ -223,6 +223,7 @@ module.exports = function (Engine) {
 		if (p < 0 || !data.pieces[p]) return []
 		let info = data.pieces[p]
 		let name = info.name || ""
+		if (name === "BR ANA Arab") return ["br", "ar"]
 		if (name === "RU/PE Police North") return ["ru"]
 		if (name === "Combined BU/AH Div") return ["bu", "ah"]
 		if (name === "German 11th Army") return ["ge", "bu"]
@@ -861,7 +862,7 @@ module.exports = function (Engine) {
 		return { type: "reduced", pieces: chosen }
 	}
 
-	function can_combine_in_space(game, s, faction) {
+	function can_combine_in_space(game, s, faction, allowed_lcus = null, allowed_scus = null) {
 		const { map, supply } = Engine
 
 		let pieces = map.get_pieces_in_space(game, s)
@@ -870,6 +871,7 @@ module.exports = function (Engine) {
 		let scu_ids = pieces.filter(
 			(p) => {
 				if (!is_scu(p)) return false
+				if (allowed_scus && !set_has(allowed_scus, p)) return false
 				if (is_hq(p) || is_tribe(p)) return false
 				if (get_piece_effective_faction(game, p) !== faction) return false
 				if (set_has(game.moved, p)) return false
@@ -937,6 +939,9 @@ module.exports = function (Engine) {
 
 		// Now check if any LCU can be formed
 		let lcus = get_available_lcus_in_reserve(game, faction)
+		if (allowed_lcus) {
+			lcus = lcus.filter((lcu) => set_has(allowed_lcus, lcu))
+		}
 		if (lcus.length === 0) {
 			// [调试] 预备区无可用 LCU
 			return false

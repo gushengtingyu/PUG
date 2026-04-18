@@ -1019,6 +1019,12 @@ exports.register = function (states, Engine, context) {
 				log_activation_debug(`[调试] piece ${p} (${info.name}) is not SCU`)
 				return false
 			}
+			if (game.combine_ctx && game.combine_ctx.allowed_scus) {
+				if (!set_has(game.combine_ctx.allowed_scus, p)) {
+					log_activation_debug(`[调试] piece ${p} (${info.name}) not in allowed_scus`)
+					return false
+				}
+			}
 			if (is_hq(p)) {
 				log_activation_debug(`[调试] piece ${p} (${info.name}) is HQ`)
 				return false
@@ -1096,6 +1102,9 @@ exports.register = function (states, Engine, context) {
 		if (selected_scus.length < 2 || selected_scus.length > 3) return []
 		let faction = active_faction()
 		let lcus = Engine.game_utils.get_available_lcus_in_reserve(game, faction)
+		if (game.combine_ctx && game.combine_ctx.allowed_lcus) {
+			lcus = lcus.filter((lcu) => set_has(game.combine_ctx.allowed_lcus, lcu))
+		}
 		log_activation_debug(
 			`[调试] get_valid_lcus_for_selected_scus: faction=${faction}, reserve lcus: ${lcus.map((id) => data.pieces[id].name)}`
 		)
