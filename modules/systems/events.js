@@ -2783,7 +2783,7 @@ module.exports = function (Engine) {
 			name: "YILDRIM",
 			name_cn: "耶尔德里姆",
 			effect_cn:
-				"增援:3个德国耶尔德里姆步兵师，至任何可以连接至加利西亚的土耳其补给点。。如果法金汉HQ尚未被消灭，则还可以将其移动至存在耶尔德里姆师的地区。",
+				"增援:3个德国耶尔德里姆步兵师，至任何可以连接至加利西亚的土耳其补给点。。如果法金汉HQ尚未被消灭，则还可以将其放置到存在耶尔德里姆师的地区。",
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "yildrim")
 				game.active = CP
@@ -2791,6 +2791,7 @@ module.exports = function (Engine) {
 				event.reinf_to_place = units
 				event.reinf_placement = "map"
 				event.reinf_logic = "is_yildrim_rein"
+				event.reinf_next_state = "event_yildrim_place_falkenhayn"
 				game.state = "event_place_reinforcements"
 				game.events["yildrim"] = true
 			},

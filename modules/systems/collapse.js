@@ -85,7 +85,7 @@ module.exports = function (Engine) {
 		cp: Object.freeze({
 			immediate: Object.freeze([
 				Object.freeze({ name: "GE IX Army", space: "Galicia" }),
-				Object.freeze({ name: "GE Falkenhayn HQ", space: "Galicia", skip_if_event: "yildrim" }),
+				Object.freeze({ name: "GE Falkenhayn HQ", space: "Galicia" }),
 				Object.freeze({ name: "GE Alpenkorps", space: "Galicia", unlock_bulgaria_display: true }),
 				Object.freeze({ name: "AH VI R Corps", space: "Galicia" }),
 				Object.freeze({ name: "Combined BU/AH Div", space: "CP Reserve", bulgaria_space: "SOFIA" })

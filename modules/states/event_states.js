@@ -264,6 +264,23 @@ module.exports = function (Engine) {
 		return null
 	}
 
+	function get_yildrim_spaces(game) {
+		let spaces = new Set()
+		for (let name of ["GE Yildrim #1", "GE Yildrim #2", "GE Yildrim #3"]) {
+			let p = find_piece(CP, name)
+			if (p >= 0 && game.pieces[p] > 0) spaces.add(game.pieces[p])
+		}
+		return Array.from(spaces)
+	}
+
+	function can_place_yildrim_falkenhayn(game) {
+		let falkenhayn = find_piece(CP, "GE Falkenhayn HQ")
+		if (falkenhayn < 0) return false
+		if (Engine.game_utils.is_eliminated(game, falkenhayn)) return false
+		if (Engine.game_utils.is_removed(game, falkenhayn)) return false
+		return get_yildrim_spaces(game).length > 0
+	}
+
 	function get_event_prompt_prefix(game, fallback = "事件") {
 		let key = game && game.event_ctx ? game.event_ctx.key : null
 		if (key === "kitcheners_invasion") return "基钦纳入侵"
@@ -3328,6 +3345,37 @@ module.exports = function (Engine) {
 				}
 				rules.goto_end_event()
 			}
+		}
+	}
+
+	states.event_yildrim_place_falkenhayn = {
+		prompt(ctx) {
+			let { game, res } = ctx
+			let spaces = get_yildrim_spaces(game)
+			if (!can_place_yildrim_falkenhayn(game) || spaces.length === 0) {
+				res.prompt("耶尔德里姆：法金汉HQ当前不可放置。")
+				res.action("done")
+				return
+			}
+
+			res.prompt("耶尔德里姆：你可以选择将法金汉HQ放置到包含耶尔德里姆师的地区。")
+			for (let s of spaces) res.space(s)
+			res.action("done")
+		},
+		space(ctx) {
+			let { game, rules, arg: s } = ctx
+			if (!can_place_yildrim_falkenhayn(game)) return
+			let spaces = get_yildrim_spaces(game)
+			if (!spaces.includes(s)) return
+			let falkenhayn = find_piece(CP, "GE Falkenhayn HQ")
+			if (falkenhayn < 0) return
+			rules.push_undo()
+			game.pieces[falkenhayn] = s
+			rules.log(`耶尔德里姆：GE Falkenhayn HQ 放置到 ${rules.space_name(s)}。`)
+			rules.goto_end_event()
+		},
+		done(ctx) {
+			ctx.rules.goto_end_event()
 		}
 	}
 
