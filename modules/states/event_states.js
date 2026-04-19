@@ -38,6 +38,7 @@ module.exports = function (Engine) {
 	const MECCA = find_space("Mecca")
 	const LAMIA = find_space("Lamia")
 	const ATHENS = find_space("ATHENS")
+	const CAUCASIAN_ARMY_REFORMS_TARGET = 12
 
 	/**
 	 * 检查地块是否为丘吉尔胜出事件的合法增援地块
@@ -4127,46 +4128,53 @@ module.exports = function (Engine) {
 			let { game, res, rules } = ctx
 			let data_event = rules.get_event_data()
 			let count = data_event.count || 0
-			res.prompt(`高加索军队重组：立即消灭4个地图上/预备军格的土耳其/土耳其-阿拉伯LCU (${count}/4)`)
+			res.prompt(
+				`高加索军队重组：立即永久消灭4个土耳其/土耳其-阿拉伯LCU当量（LCU=3，步兵SCU=1；LCU限地图/军团资产格，步兵SCU限地图/预备军格） (${count}/${CAUCASIAN_ARMY_REFORMS_TARGET})`
+			)
 			let found = false
 			for (let p = 1; p < data.pieces.length; p++) {
-				let info = data.pieces[p]
-				if (info && info.faction === CP && (info.nation === "tu" || info.nation === "tua") && Engine.game_utils.is_lcu(p)) {
-					if (!Engine.game_utils.is_not_on_map(game, p) || Engine.game_utils.is_in_reserve(game, p)) {
-						res.piece(p)
-						found = true
-					}
-				}
+				if (!Engine.events.is_caucasian_army_reforms_piece_eligible(game, p)) continue
+				let cost = Engine.events.get_caucasian_army_reforms_piece_cost(p)
+				if (count + cost > CAUCASIAN_ARMY_REFORMS_TARGET) continue
+				if (!Engine.events.can_pay_caucasian_army_reforms_cost(game, count + cost, p)) continue
+				res.piece(p)
+				found = true
 			}
-			if (!found && count < 4) res.action("done")
+			if (count >= CAUCASIAN_ARMY_REFORMS_TARGET || !found) res.action("done")
 		},
 		piece(ctx) {
 			let { game, rules, arg: p } = ctx
+			if (!Engine.events.is_caucasian_army_reforms_piece_eligible(game, p)) return
+			let cost = Engine.events.get_caucasian_army_reforms_piece_cost(p)
+			let count = rules.get_event_data().count || 0
+			if (cost <= 0 || count + cost > CAUCASIAN_ARMY_REFORMS_TARGET) return
+			if (!Engine.events.can_pay_caucasian_army_reforms_cost(game, count + cost, p)) return
 			rules.push_undo()
 			let data_event = rules.get_event_data()
-			data_event.count = (data_event.count || 0) + 1
+			data_event.count = count + cost
 			rules.eliminate_piece(p, true)
-			if (data_event.count >= 4) {
+			if (data_event.count >= CAUCASIAN_ARMY_REFORMS_TARGET) {
 				start_caucasian_army_reforms_reinforcements(game)
 			}
 		},
 		done(ctx) {
 			let { game, rules } = ctx
 			rules.push_undo()
-			let data_event = rules.get_event_data()
-			if ((data_event.count || 0) >= 4 || !this.has_more(ctx)) {
+			let count = rules.get_event_data().count || 0
+			if (count >= CAUCASIAN_ARMY_REFORMS_TARGET) {
 				start_caucasian_army_reforms_reinforcements(game)
 				return
 			}
 			rules.goto_end_event()
 		},
 		has_more(ctx) {
-			let { game } = ctx
+			let { game, rules } = ctx
+			let count = rules.get_event_data().count || 0
 			for (let p = 1; p < data.pieces.length; p++) {
-				let info = data.pieces[p]
-				if (info && info.faction === CP && (info.nation === "tu" || info.nation === "tua") && Engine.game_utils.is_lcu(p)) {
-					if (!Engine.game_utils.is_not_on_map(game, p) || Engine.game_utils.is_in_reserve(game, p)) return true
-				}
+				if (!Engine.events.is_caucasian_army_reforms_piece_eligible(game, p)) continue
+				let cost = Engine.events.get_caucasian_army_reforms_piece_cost(p)
+				if (count + cost > CAUCASIAN_ARMY_REFORMS_TARGET) continue
+				if (Engine.events.can_pay_caucasian_army_reforms_cost(game, count + cost, p)) return true
 			}
 			return false
 		}

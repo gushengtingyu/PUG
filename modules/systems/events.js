@@ -66,6 +66,7 @@ module.exports = function (Engine) {
 	const LAMIA = find_space("Lamia")
 	const ATHENS = find_space("ATHENS")
 	const CYPRUS_BEACHHEADS = ["To Adana", "To Beirut", "To Haifa", "To Jaffa"].map(find_space)
+	const CAUCASIAN_ARMY_REFORMS_TARGET = 12
 
 	const WARM_WATER_PORTS = [
 		"Mugla",
@@ -224,6 +225,47 @@ module.exports = function (Engine) {
 			Object.assign(game.event_ctx.data, data)
 		}
 		return game.event_ctx.data
+	}
+
+	function get_caucasian_army_reforms_piece_cost(p) {
+		if (is_lcu(p)) return 3
+		if (!is_scu(p)) return 0
+		let badge = get_piece_badge(p)
+		return badge === "infantry" || badge === "blue" ? 1 : 0
+	}
+
+	function is_caucasian_army_reforms_piece_eligible(game, p) {
+		let info = data.pieces[p]
+		if (!info || info.faction !== CP) return false
+		if (info.nation !== "tu" && info.nation !== "tua") return false
+
+		let cost = get_caucasian_army_reforms_piece_cost(p)
+		if (cost <= 0) return false
+
+		if (Engine.game_utils.is_in_reserve(game, p)) return true
+		return !Engine.game_utils.is_not_on_map(game, p)
+	}
+
+	function can_pay_caucasian_army_reforms_cost(game, current_cost = 0, skip_piece = -1) {
+		let remaining_cost = CAUCASIAN_ARMY_REFORMS_TARGET - current_cost
+		if (remaining_cost < 0) return false
+		if (remaining_cost === 0) return true
+
+		let lcu_count = 0
+		let scu_count = 0
+		for (let p = 1; p < data.pieces.length; p++) {
+			if (p === skip_piece) continue
+			if (!is_caucasian_army_reforms_piece_eligible(game, p)) continue
+			if (is_lcu(p)) lcu_count++
+			else scu_count++
+		}
+
+		for (let lcus_to_use = 0; lcus_to_use <= Math.min(lcu_count, Math.floor(remaining_cost / 3)); lcus_to_use++) {
+			let scu_needed = remaining_cost - lcus_to_use * 3
+			if (scu_needed <= scu_count) return true
+		}
+
+		return false
 	}
 
 	function has_allied_lcu_in_verdun_restricted_zone(game) {
@@ -2859,8 +2901,12 @@ module.exports = function (Engine) {
 			name: "CAUCASIAN ARMY REFORMS",
 			name_cn: "高加索军队重组",
 			effect_cn:
-				"立即消灭4个地图上/预备军格的土耳其/土耳其-阿拉伯LCU作为代价。。增援:土耳其高加索第1军团、土耳其高加索第2军团 至安纳托利亚、高加索或者加里波利的同盟国控制区域。",
-			handler: function (game) {
+				"立即永久消灭4个土耳其/土耳其-阿拉伯LCU当量作为代价（每个LCU=3点，3个步兵SCU=1个LCU；LCU可来自地图或军团资产格，步兵SCU可来自地图或预备军格）。。增援:土耳其高加索第1军团、土耳其高加索第2军团 至安纳托利亚、高加索或者加里波利的同盟国控制区域。",
+			can_play: function (game) {
+				return can_pay_caucasian_army_reforms_cost(game)
+			},
+			handler: function (game, ctx) {
+				start_event_data(game, ctx, "caucasian_army_reforms", { count: 0 })
 				game.events["caucasian_army_reforms"] = true
 				game.active = CP
 				game.state = "event_caucasian_army_reforms_eliminate"
@@ -2973,6 +3019,9 @@ module.exports = function (Engine) {
 	exports.sync_russian_revolution_markers = sync_russian_revolution_markers
 	exports.reinforce = reinforce
 	exports.finish_event = finish_event
+	exports.get_caucasian_army_reforms_piece_cost = get_caucasian_army_reforms_piece_cost
+	exports.is_caucasian_army_reforms_piece_eligible = is_caucasian_army_reforms_piece_eligible
+	exports.can_pay_caucasian_army_reforms_cost = can_pay_caucasian_army_reforms_cost
 
 	return exports
 }
