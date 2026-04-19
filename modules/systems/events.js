@@ -54,7 +54,11 @@ module.exports = function (Engine) {
 	const BAKU = find_space("Baku")
 	const PETROVSK = find_space("Petrovsk")
 	const AP_ELIMINATED = find_space("AP Eliminated")
-	const AP_REMOVED = find_space("AP Permanently Eliminated Box")
+	const AP_REMOVED = find_space("AP Removed Box")
+	const AP_PE = find_space("AP Permanently Eliminated Box")
+	const CP_ELIMINATED = find_space("CP Eliminated")
+	const CP_REMOVED = find_space("CP Removed Box")
+	const CP_PE = find_space("CP Permanently Eliminated Box")
 	const AQABA = find_space("Aqaba")
 	const JIDDAH = find_space("Jiddah")
 	const CYPRUS = find_space("Cyprus")
@@ -1818,14 +1822,26 @@ module.exports = function (Engine) {
 			can_play: function (game) {
 				if (!game.events["lloyd_george_takes_command"]) return false
 				let capacity = 0
+				let has_hq_space = false
 				for (let s = 1; s < data.spaces.length; s++) {
-					let is_port = data.spaces[s].port
-					let is_beachhead = is_beachhead_space(game, s)
-					if ((is_port || is_beachhead) && is_controlled_by(game, s, AP)) {
+					// 使用与 is_allied_solidarity_rein 相同的地块判定逻辑
+					if (is_german_subs_blocked_port(game, s)) continue
+
+					let space = data.spaces[s]
+					let is_port = space.port
+					let is_beachhead = Engine.map.is_beachhead_space(game, s) && space.beach_for === "Lemnos"
+					let is_lemnos = s === LEMNOS
+					let is_salonika = s === SALONIKA
+
+					if ((is_port || is_beachhead || is_lemnos || is_salonika) && is_controlled_by(game, s, AP)) {
 						capacity += get_capacity(game, s)
+						if (Engine.map.get_stack_hq_count(get_pieces_in_space(game, s)) === 0) {
+							has_hq_space = true
+						}
 					}
 				}
-				return capacity >= 4
+				// 需要 2 个师的空间，且至少有一个空间能放下 HQ
+				return capacity >= 2 && has_hq_space
 			},
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "desperey")
@@ -1847,9 +1863,9 @@ module.exports = function (Engine) {
 			name: "ALLENBY",
 			name_cn: "艾伦比",
 			effect_cn:
-				"(只能在【劳合乔治接管指挥权】后打出)。增援:英国第20军团、英国第21军团。增援:2个英国步兵师，1个澳新骑兵师，1个英国骑兵师。协约国MO掷骰+1drm。",
-			can_play: function () {
-				return true
+			"(只有在【劳合乔治接管指挥权】后才能打出)。增援:英国第20军团、英国第21军团 至 预备军格。增援:2个英国步兵师，1个澳新骑兵师，1个英国骑兵师，HQ:艾伦比。增援:北阿拉伯军 至协约国控制的亚喀巴 或者 被摧毁栏。如果地图上或者预备军格存在英国精锐步兵师，则将其中一个移除游戏(派往西线)。在剩余的游戏时间内协约国MO掷骰+1drm",
+			can_play: function (game) {
+				return !!game.events["lloyd_george_takes_command"]
 			},
 			handler: function (game, ctx) {
 				game.mo_ap_modifier += 1
@@ -1875,12 +1891,15 @@ module.exports = function (Engine) {
 					"BR Allenby HQ": "map"
 				}
 				event.reinf_logic = "is_br"
+				// 增援完成后进入移除精锐师状态
+				event.reinf_next_state = "event_allenby_remove_elite"
+
 				game.state = "event_place_reinforcements"
 				if (is_controlled_by(game, AQABA, AP)) {
 					reinforce(game, "BR ANA Arab", AP, AQABA)
 				} else {
 					let arab = find_piece(AP, "BR ANA Arab")
-					if (arab >= 0) game.pieces[arab] = AP_REMOVED
+					if (arab >= 0) Engine.game_utils.remove_piece(game, arab)
 				}
 				game.events["allenby"] = true
 			},
@@ -1890,8 +1909,12 @@ module.exports = function (Engine) {
 			name: "LLOYD GEORGE TAKES COMMAND",
 			name_cn: "劳合乔治接管指挥权",
 			effect_cn: "(不能在1916年秋季回合前打出，除非联合战争状态不小于26)。增援:澳新沙漠军团 至预备军格。增援:1个英国步兵师，1个英国骑兵师。在剩余的游戏时间中，每回合获得额外1点英国补员点数，在剩余的游戏时间内协约国MO掷骰+2drm",
-			can_play: function () {
-				return true
+			can_play: function (game) {
+				let year = get_year(game)
+				let season = get_season(game)
+				let is_1916_fall_or_later = year > 1916 || (year === 1916 && (season === "Fall"))
+				let is_ws_26_or_higher = (game.combined_war || 0) >= 26
+				return is_1916_fall_or_later || is_ws_26_or_higher
 			},
 			handler: function (game, ctx) {
 				game.mo_ap_modifier += 2
@@ -2032,15 +2055,13 @@ module.exports = function (Engine) {
 				"(只有在有英国/印度的LCU存在于摧毁格栏，或者被永久移除(包括从滩头撤退)时打出。注:若协约国方只有通过调离战线被永久移除的LCU，则不能满足发动条件)(不能在【劳合乔治接管指挥权】后打出)在本回合剩余的时间内，协约国不能再记录英国补员点数。任何包括英国或者印度军队的堆叠需要耗费额外1点OP启动。",
 			can_play: function (game) {
 				if (game.events["lloyd_george_takes_command"]) return false
-				let eliminated_box = AP_ELIMINATED
-				let removed_box = AP_REMOVED
 				for (let p = 1; p < data.pieces.length; p++) {
 					let info = data.pieces[p]
 					if (!info || info.faction !== AP) continue
 					if (!is_lcu(p)) continue
 					if (info.nation !== "br" && info.nation !== "in" && info.nation !== "in-g") continue
 					let loc = game.pieces[p]
-					if (loc === eliminated_box || loc === removed_box) return true
+					if (loc === AP_ELIMINATED || loc === AP_REMOVED || loc === AP_PE) return true
 				}
 				return false
 			},
@@ -2484,7 +2505,7 @@ module.exports = function (Engine) {
 			name: "ENVER-FALKENHAYN SUMMIT",
 			name_cn: "恩维尔-法金汉首脑会议",
 			effect_cn:
-				"(只能在君士坦丁堡-加利西亚的铁路相连时打出)。增援: (保加利亚第4集团军)至任何保加利亚境内同盟国控制地区。。同盟国获得并使用最多8点战略调整点数将土耳其/土耳其-阿拉伯部队战略调整至巴尔干。**这其中至少应包含一个至加利西亚的土耳其LCU**。。每个回合损耗结算阶段，若俄国革命还未达到第4阶段，则位于加利西亚的土耳其LCU需要进行一次伤害结算，因为其在加利西亚战线对抗俄国军队经历了激烈的战斗。**进行一次掷骰来决定受到伤害的多少。**。每个夏季回合的战争状态结算阶段，若有土耳其LCU仍位于加利西亚，则由于土耳其军队在东线对抗俄国的战果，可以获得+1VP(在俄国革命阶段达到第4阶段时，无法继续获得VP)。- **(注:土耳其单位只能通过该事件进入加利西亚大区。土耳其永远不能在加利西亚重建LCU或者进行LCU组合。当能够通过己方控制地区连接至君士坦丁堡等土耳其补给源时，加利西亚的受损土耳其LCU可以接受补员)**",
+				"(只能在君士坦丁堡-加利西亚的铁路相连时打出)。增援: (保加利亚第4集团军)至任何保加利亚境内同盟国控制地区。同盟国获得并使用最多8点战略调整点数将土耳其/土耳其-阿拉伯部队战略调整至巴尔干。**这其中至少应包含一个至加利西亚的土耳其LCU**。。每个回合损耗结算阶段，若俄国革命还未达到第4阶段，则位于加利西亚的土耳其LCU需要进行一次伤害结算，因为其在加利西亚战线对抗俄国军队经历了激烈的战斗。**进行一次掷骰来决定受到伤害的多少。**。每个夏季回合的战争状态结算阶段，若有土耳其LCU仍位于加利西亚，则由于土耳其军队在东线对抗俄国的战果，可以获得+1VP(在俄国革命阶段达到第4阶段时，无法继续获得VP)。- **(注:土耳其单位只能通过该事件进入加利西亚大区。土耳其永远不能在加利西亚重建LCU或者进行LCU组合。当能够通过己方控制地区连接至君士坦丁堡等土耳其补给源时，加利西亚的受损土耳其LCU可以接受补员)**",
 			can_play: function (game) {
 				return game.events["berlin_constantinople_railway"] || game.events.berlin_baghdad
 			},
@@ -2782,7 +2803,7 @@ module.exports = function (Engine) {
 				return is_after_winter_1917 && game.events["british_war_weariness"] && game.events["kaiserschlacht"] && game.vp >= 13
 			},
 			handler: function (game, ctx) {
-				game.mo_ap_modifier -= 2
+				game.mo_ap_modifier = Math.max(0, (game.mo_ap_modifier || 0) - 2)
 				game.events["robertson"] = true
 				shift_cp_auto_victory_marker(game, -1, ctx, "罗伯逊")
 				game.active = AP

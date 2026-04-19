@@ -55,7 +55,7 @@ function createBattleGame() {
 	return { game, ruDiv3, tuDiv8, bayburt }
 }
 
-function test_german_high_command_cannot_be_reused_in_same_action() {
+test("German High Command cannot be reused in same action", () => {
 	let { game } = createBattleGame()
 	let germanHighCommand = findCardByEvent("GERMAN HIGH COMMAND CC")
 
@@ -65,10 +65,10 @@ function test_german_high_command_cannot_be_reused_in_same_action() {
 	game.cc_retained_after_use.cp[germanHighCommand] = "discard"
 
 	let firstView = rules.view(game, CP_ROLE)
-	assert((firstView.actions.play_cc || []).includes(germanHighCommand))
+	expect((firstView.actions.play_cc || []).includes(germanHighCommand)).toBe(true)
 
 	rules.action(game, CP_ROLE, "play_cc", germanHighCommand)
-	assert((game.action_state.used_ccs || []).includes(germanHighCommand))
+	expect((game.action_state.used_ccs || []).includes(germanHighCommand)).toBe(true)
 
 	// Simulate the card being retained after the first battle, then open a second battle in the same action.
 	game.cc_retained.cp = [germanHighCommand]
@@ -78,13 +78,13 @@ function test_german_high_command_cannot_be_reused_in_same_action() {
 	game.combat_cards = { attacker: [], defender: [] }
 
 	let secondView = rules.view(game, CP_ROLE)
-	assert(!(secondView.actions.play_cc || []).includes(germanHighCommand))
+	expect((secondView.actions.play_cc || []).includes(germanHighCommand)).toBe(false)
 
 	rules.action(game, CP_ROLE, "play_cc", germanHighCommand)
-	assert.deepEqual(game.combat_cards.defender, [])
-}
+	expect(game.combat_cards.defender).toEqual([])
+})
 
-function test_turkish_retreat_does_not_log_standard_no_retreat_message() {
+test("Turkish retreat does not log standard no retreat message", () => {
 	let { game, ruDiv3, tuDiv8 } = createBattleGame()
 	let logs = []
 
@@ -108,11 +108,11 @@ function test_turkish_retreat_does_not_log_standard_no_retreat_message() {
 
 	Engine.combat.end_battle_sequence(game, (msg) => logs.push(msg))
 
-	assert(!logs.includes("Attacker has no full-strength units, defenders do not retreat."))
-	assert.equal(game.state, "turkish_retreat")
-}
+	expect(logs.includes("Attacker has no full-strength units, defenders do not retreat.")).toBe(false)
+	expect(game.state).toBe("turkish_retreat")
+})
 
-function test_cancelled_battle_returns_other_ccs_to_action_availability() {
+test("Cancelled battle returns other ccs to action availability", () => {
 	let { game, ruDiv3, tuDiv8 } = createBattleGame()
 	let germanHighCommand = findCardByEvent("GERMAN HIGH COMMAND CC")
 	let sandstorms = 61
@@ -135,21 +135,11 @@ function test_cancelled_battle_returns_other_ccs_to_action_availability() {
 
 	let outcome = Engine.combat.resolve_battle_sequence(game, { log: () => {} })
 
-	assert.equal(outcome, "end")
-	assert.equal(game.battle_result.cancelled, true)
-	assert(game.hand_cp.includes(germanHighCommand))
-	assert(!game.discard_cp.includes(germanHighCommand))
-	assert(game.discard_cp.includes(sandstorms))
-	assert(!(game.action_state.used_ccs || []).includes(germanHighCommand))
-	assert((game.action_state.used_ccs || []).includes(sandstorms))
-}
-
-try {
-	test_german_high_command_cannot_be_reused_in_same_action()
-	test_turkish_retreat_does_not_log_standard_no_retreat_message()
-	test_cancelled_battle_returns_other_ccs_to_action_availability()
-	console.log("Combat action round regression tests completed.")
-} catch (error) {
-	console.error("Combat action round regression test failed:", error)
-	process.exit(1)
-}
+	expect(outcome).toBe("end")
+	expect(game.battle_result.cancelled).toBe(true)
+	expect(game.hand_cp.includes(germanHighCommand)).toBe(true)
+	expect(game.discard_cp.includes(germanHighCommand)).toBe(false)
+	expect(game.discard_cp.includes(sandstorms)).toBe(true)
+	expect((game.action_state.used_ccs || []).includes(germanHighCommand)).toBe(false)
+	expect((game.action_state.used_ccs || []).includes(sandstorms)).toBe(true)
+})

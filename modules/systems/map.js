@@ -980,9 +980,9 @@ module.exports = function (Engine) {
 
 		if (
 			is_galicia(s) &&
+			!is_galicia(game.pieces[p]) &&
 			piece_info &&
 			(piece_info.nation === "tu" || piece_info.nation === "tua") &&
-			game.pieces[p] !== s &&
 			!(game.event_ctx && game.event_ctx.key === "enver_falkenhayn_summit")
 		) {
 			return false

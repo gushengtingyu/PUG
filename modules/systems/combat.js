@@ -115,11 +115,10 @@ module.exports = function (Engine) {
 			let s = game.pieces[p]
 			if (!(s > 0) || !data.spaces[s] || data.spaces[s].area === "balkans") continue
 			if (is_lcu(p)) {
-				game.pieces[p] = Engine.game_utils.get_permanently_eliminated_box(get_piece_faction(p))
+				Engine.game_utils.eliminate_piece(game, p, null, true)
 			} else {
-				game.pieces[p] = get_removed_box(get_piece_faction(p))
+				Engine.game_utils.remove_piece(game, p)
 			}
-			if (Array.isArray(game.reduced)) set_delete(game.reduced, p)
 		}
 
 		game.no_ge_to_tu_rp_conversion = true

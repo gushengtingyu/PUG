@@ -12,6 +12,8 @@ module.exports = function (Engine) {
 		get_reserve_box_for_piece
 	} = Engine.game_utils
 
+	const { is_unlimited_stack_space } = Engine.map
+
 	const states = {}
 
 	// === Constants for Space IDs ===
@@ -625,21 +627,6 @@ module.exports = function (Engine) {
 		return 2
 	}
 
-	function reset_verdun_removed_piece_state(game, p) {
-		set_delete(game.moved, p)
-		set_delete(game.attacked, p)
-		if (game.sr_moved) set_delete(game.sr_moved, p)
-		if (game.oos) set_delete(game.oos, p)
-		if (game.entrenching) set_delete(game.entrenching, p)
-		if (game.activated) {
-			if (Array.isArray(game.activated.move)) set_delete(game.activated.move, p)
-			if (Array.isArray(game.activated.attack)) set_delete(game.activated.attack, p)
-		}
-		if (game.attack && Array.isArray(game.attack.pieces)) set_delete(game.attack.pieces, p)
-		if (game.move && Array.isArray(game.move.pieces)) set_delete(game.move.pieces, p)
-		set_delete(game.reduced, p)
-	}
-
 	function select_verdun_piece(game, rules, plan, p) {
 		if (!plan.original_spaces) plan.original_spaces = {}
 		if (!plan.selected) plan.selected = []
@@ -647,7 +634,7 @@ module.exports = function (Engine) {
 			plan.original_spaces[p] = game.pieces[p]
 		}
 		plan.selected.push(p)
-		game.pieces[p] = rules.get_removed_box(data.pieces[p].faction)
+		rules.remove_piece(p)
 		game.selected_piece = null
 	}
 
@@ -667,9 +654,6 @@ module.exports = function (Engine) {
 	function finalize_verdun_plan(game, rules) {
 		let plan = use_event(game, "verdun")
 		let awarded_vp = get_verdun_awarded_vp(plan)
-		for (let p of plan.selected || []) {
-			reset_verdun_removed_piece_state(game, p)
-		}
 		delete game.selected_piece
 		game.vp += awarded_vp
 		if (awarded_vp === 0) {
@@ -3005,7 +2989,11 @@ module.exports = function (Engine) {
 		let cost = rules.get_sr_cost(p)
 		let remaining_points = event.sr_points - cost
 		if (remaining_points < 0) return false
-		if (event.galicia_lcu_moved || is_enver_falkenhayn_turkish_lcu_to_galicia(p, s)) return true
+
+		let is_to_galicia = is_enver_falkenhayn_turkish_lcu_to_galicia(p, s)
+		if (is_to_galicia && event.galicia_lcu_moved) return false
+
+		if (event.galicia_lcu_moved || is_to_galicia) return true
 
 		let previous_space = game.pieces[p]
 		game.pieces[p] = s
@@ -3248,9 +3236,22 @@ module.exports = function (Engine) {
 
 						if (!allow_map) continue
 
-						// Stacking limit check (Rule 7.7.2)
+						// Stacking limit check (Rule 7.7.2 & 8.1.3)
 						let pieces = rules.get_pieces_in_space(game, s)
-						if (get_capacity(game, s) > 0) {
+						let p_id = find_piece(faction, unit)
+						let can_stack = false
+						if (p_id >= 0) {
+							let new_stack = [...pieces, p_id]
+							if (Engine.map.is_reserve_space(s)) {
+								can_stack = true
+							} else if (is_unlimited_stack_space(game, s)) {
+								can_stack = Engine.map.get_stack_composition_reason(game, new_stack) === null
+							} else {
+								can_stack = Engine.map.get_region_activation_stack_block_reason(game, new_stack) === null
+							}
+						}
+
+						if (can_stack) {
 							add_space_option(s)
 						} else if (allow_adjacent_overflow) {
 							// Rule 7.7.2: if full, adjacent placement allowed
@@ -3326,6 +3327,52 @@ module.exports = function (Engine) {
 				}
 				rules.goto_end_event()
 			}
+		}
+	}
+
+	states.event_allenby_remove_elite = {
+		prompt(ctx) {
+			let { game, res } = ctx
+			let candidates = []
+			for (let p = 1; p < data.pieces.length; p++) {
+				let info = data.pieces[p]
+				if (
+					info &&
+					info.faction === Engine.constants.AP &&
+					info.nation === "br" &&
+					info.piece_class === "SCU" &&
+					Engine.game_utils.get_piece_badge(p) === "blue"
+				) {
+					if (
+						!Engine.game_utils.is_removed(game, p) &&
+						!Engine.game_utils.is_eliminated(game, p) &&
+						!Engine.game_utils.is_reinforcement(game, p)
+					) {
+						candidates.push(p)
+					}
+				}
+			}
+
+			if (candidates.length === 0) {
+				res.prompt("艾伦比：没有英国精锐步兵师可以移除。")
+				res.action("done")
+			} else {
+				res.prompt("艾伦比：选择一个英国精锐步兵师移除游戏 (派往西线)。")
+				for (let p of candidates) {
+					res.piece(p)
+				}
+			}
+		},
+		piece(ctx) {
+			let { game, rules, arg: p } = ctx
+			rules.push_undo()
+			rules.remove_piece(p)
+			rules.log(`艾伦比：${data.pieces[p].name} 被移出游戏 (派往西线)。`)
+			rules.goto_end_event()
+		},
+		done(ctx) {
+			let { rules } = ctx
+			rules.goto_end_event()
 		}
 	}
 
@@ -3934,8 +3981,7 @@ module.exports = function (Engine) {
 			for (let p = 1; p < data.pieces.length; p++) {
 				let info = data.pieces[p]
 				if (info && (info.nation === "ah" || info.nation === "ge")) {
-					let s = game.pieces[p]
-					if (s === Engine.constants.ELIMINATED || s === Engine.constants.REMOVED || s === Engine.constants.AP_REMOVED || s === Engine.constants.AP_ELIMINATED) {
+					if (Engine.game_utils.is_eliminated(game, p) || Engine.game_utils.is_removed(game, p)) {
 						res.piece(p)
 					}
 				}

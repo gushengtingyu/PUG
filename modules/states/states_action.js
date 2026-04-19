@@ -271,7 +271,7 @@ exports.register = function (states, Engine, context) {
 			Engine.game_utils.get_pieces_in_reserve(game, AP),
 			Engine.game_utils.get_pieces_in_eliminated(game, AP),
 			Engine.game_utils.get_pieces_in_reinforcements(game, AP),
-			Engine.game_utils.get_pieces_in_removed(game, AP)
+			Engine.game_utils.get_pieces_in_removed_only(game, AP)
 		]
 		let result = []
 		for (let pool of pools) {

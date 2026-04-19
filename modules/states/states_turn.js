@@ -186,11 +186,12 @@ exports.register = function (states, Engine, context) {
 				let info = data.pieces[p]
 				if (info.nation === "tu" && info.piece_class === "LCU") {
 					let roll = roll_die()
-					log(`Galicia Attrition roll for ${info.name}: ${roll}`)
-					if (roll <= 2) {
+					let lf = set_has(game.reduced, p) ? info.rlf : info.lf
+					log(`Galicia Attrition roll for ${info.name}: ${roll} (LF: ${lf})`)
+					if (roll > lf) {
 						if (set_has(game.reduced, p)) {
-							log(`${info.name} eliminated in Galicia Attrition`)
-							eliminate_piece(p, true)
+							log(`${info.name} hit in Galicia Attrition (Eliminated/Replaced)`)
+							eliminate_piece(p, false)
 						} else {
 							log(`${info.name} reduced in Galicia Attrition`)
 							set_add(game.reduced, p)
@@ -802,6 +803,16 @@ exports.register = function (states, Engine, context) {
 		if (game.events["afghan_alliance"]) game.rp_rebel.af += 1
 		if (game.events["egyptian_rebellion"]) game.rp_rebel.eg += 1
 		if (game.events["indian_rebellion"]) game.rp_rebel.in += 1
+
+		if (game.events["lloyd_george_takes_command"]) {
+			game.rp_ap.br += 1
+			log("劳合乔治接管指挥权：AP 额外获得 1 BR RP。")
+		}
+
+		if (game.events["robertson"]) {
+			game.rp_ap.br = Math.max(0, game.rp_ap.br - 1)
+			log("罗伯逊：AP 减少 1 BR RP。")
+		}
 
 		goto_replacement_faction(AP)
 	}

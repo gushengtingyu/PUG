@@ -269,6 +269,9 @@ const event_rules = Object.freeze({
 	eliminate_piece(p, permanent = false) {
 		return eliminate_piece(p, permanent)
 	},
+	remove_piece(p) {
+		return remove_piece(p)
+	},
 	move_piece(arg1, arg2, arg3) {
 		if (arg1 && typeof arg1 === "object" && Array.isArray(arg1.pieces)) return move_piece(arg1, arg2, arg3)
 		return move_piece(game, arg1, arg2)
@@ -2017,6 +2020,10 @@ function eliminate_piece(p, permanent = false) {
 	return Engine.game_utils.eliminate_piece(game, p, log, permanent)
 }
 
+function remove_piece(p) {
+	return Engine.game_utils.remove_piece(game, p, log)
+}
+
 function add_rps(info) {
 	return utils_add_rps(game, info, log)
 }
@@ -2101,6 +2108,8 @@ exports.contains_enemy_pieces = contains_enemy_pieces
 exports.contains_friendly = contains_friendly
 exports.is_not_on_map = is_not_on_map
 exports.is_in_reserve = is_in_reserve
+exports.eliminate_piece = eliminate_piece
+exports.remove_piece = remove_piece
 exports.can_sr_piece = can_sr_piece
 exports.can_sr_to_space = can_sr_to_space
 exports.get_attackable_spaces = get_attackable_spaces

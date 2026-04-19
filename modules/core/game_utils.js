@@ -175,7 +175,13 @@ module.exports = function (Engine) {
 	function is_removed(game, p) {
 		if (p < 0 || !data.pieces[p]) return false
 		let s = game.pieces[p]
-		return s === get_removed_box(data.pieces[p].faction) || s === REMOVED || is_permanently_eliminated(game, p)
+		return is_removed_only(game, p) || is_permanently_eliminated(game, p)
+	}
+
+	function is_removed_only(game, p) {
+		if (p < 0 || !data.pieces[p]) return false
+		let s = game.pieces[p]
+		return s === get_removed_box(data.pieces[p].faction) || s === REMOVED
 	}
 
 	function is_permanently_eliminated(game, p) {
@@ -362,6 +368,16 @@ module.exports = function (Engine) {
 		return pieces
 	}
 
+	function get_pieces_in_removed_only(game, faction) {
+		let pieces = []
+		for (let p = 0; p < game.pieces.length; p++) {
+			if (data.pieces[p].faction === faction && is_removed_only(game, p)) {
+				pieces.push(p)
+			}
+		}
+		return pieces
+	}
+
 	function get_pieces_in_reinforcements(game, faction) {
 		let pieces = []
 		for (let p = 0; p < game.pieces.length; p++) {
@@ -468,6 +484,31 @@ module.exports = function (Engine) {
 		return scu
 	}
 
+	function reset_piece_runtime_state(game, p) {
+		set_delete(game.moved, p)
+		set_delete(game.attacked, p)
+		if (game.sr_moved) set_delete(game.sr_moved, p)
+		if (game.oos) set_delete(game.oos, p)
+		if (game.entrenching) set_delete(game.entrenching, p)
+		if (game.activated) {
+			if (Array.isArray(game.activated.move)) set_delete(game.activated.move, p)
+			if (Array.isArray(game.activated.attack)) set_delete(game.activated.attack, p)
+		}
+		if (game.attack && Array.isArray(game.attack.pieces)) set_delete(game.attack.pieces, p)
+		if (game.move && Array.isArray(game.move.pieces)) set_delete(game.move.pieces, p)
+		set_delete(game.reduced, p)
+	}
+
+	function remove_piece_from_game(game, p, log) {
+		let info = data.pieces[p]
+		if (!info) return
+		let space = game.pieces[p]
+		game.pieces[p] = get_removed_box(info.faction)
+		reset_piece_runtime_state(game, p)
+		if (log) log(`单位 ${data.pieces[p].name} 被移出游戏 (Removed)。`)
+		if (space > 0 && Engine.sync_neutral_vp_state) Engine.sync_neutral_vp_state(game, space)
+	}
+
 	function eliminate_piece(game, p, log, permanent = false) {
 		let info = data.pieces[p]
 		let space = game.pieces[p]
@@ -516,22 +557,7 @@ module.exports = function (Engine) {
 			game.pieces[p] = get_eliminated_box(info.faction)
 		}
 
-		// Reset unit state when eliminated
-		set_delete(game.moved, p)
-		set_delete(game.attacked, p)
-		if (game.sr_moved) set_delete(game.sr_moved, p)
-		if (game.oos) set_delete(game.oos, p)
-		if (game.entrenching) set_delete(game.entrenching, p)
-
-		// Also remove from active operations/selections to fix "tilted" UI issue
-		if (game.activated) {
-			if (Array.isArray(game.activated.move)) set_delete(game.activated.move, p)
-			if (Array.isArray(game.activated.attack)) set_delete(game.activated.attack, p)
-		}
-		if (game.attack && Array.isArray(game.attack.pieces)) set_delete(game.attack.pieces, p)
-		if (game.move && Array.isArray(game.move.pieces)) set_delete(game.move.pieces, p)
-
-		set_delete(game.reduced, p)
+		reset_piece_runtime_state(game, p)
 		if (space > 0 && Engine.sync_neutral_vp_state) Engine.sync_neutral_vp_state(game, space)
 
 		return replacement_scu
@@ -927,10 +953,10 @@ module.exports = function (Engine) {
 			}
 		}
 
-		// Rule 197: Turkish SCUs cannot combine in Egypt
-		if (map.is_egypt(s)) {
+		// Rule 197: Turkish SCUs cannot combine in Egypt or Galicia
+		if (map.is_egypt(s) || map.is_galicia(s)) {
 			if (scu_ids.some((p) => ["tu", "tua"].includes(data.pieces[p].nation))) {
-				// [调试] 土耳其单位不能在埃及组合
+				// [调试] 土耳其单位不能在埃及或加利西亚组合
 				return false
 			}
 		}
@@ -1014,7 +1040,12 @@ module.exports = function (Engine) {
 		get_pieces_in_reserve,
 		get_pieces_in_eliminated,
 		get_pieces_in_removed,
+		get_pieces_in_removed_only,
 		get_pieces_in_reinforcements,
+		is_permanently_eliminated,
+		is_removed_only,
+		remove_piece: remove_piece_from_game,
+		remove_piece_from_game,
 		eliminate_piece,
 		replace_lcu_with_scu,
 		add_rps,

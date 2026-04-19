@@ -10,16 +10,7 @@ function setup_combat_scenario() {
     return game;
 }
 
-function test_turkish_retreat() {
-    console.log("Running: test_turkish_retreat");
-    let game = setup_combat_scenario();
-    
-    console.log("Test completed.");
-}
-
-try {
-    test_turkish_retreat();
-} catch (e) {
-    console.error("Test failed:", e);
-    process.exit(1);
-}
+test("Turkish retreat", () => {
+    let game = rules.setup(1, "Historical", { seed: 42 });
+    // TODO: 在此处手动设置特定的战斗状态
+})

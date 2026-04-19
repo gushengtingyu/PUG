@@ -567,6 +567,7 @@ module.exports = function (Engine) {
 				rps.br -= plan.br
 				if (!(game.events && game.events["asquith_coalition"]) && game.events && game.events["kitchener"]) {
 					game.br_to_ru_rp_used = true
+					game.br_to_ru_rp_spent = (game.br_to_ru_rp_spent || 0) + plan.br
 				}
 			}
 			if (plan.ru > 0) {
