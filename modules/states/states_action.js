@@ -192,6 +192,23 @@ exports.register = function (states, Engine, context) {
 		return Engine.map.get_beachhead_spaces(game, AP)
 	}
 
+	function get_ap_supply_sources() {
+		return Engine.map.get_supply_sources_from_data(game, AP).concat(get_ap_beachheads())
+	}
+
+	function is_ottoman_port_source(s) {
+		let info = data.spaces[s]
+		return !!(info && info.port && (info.nation === "tu" || info.nation === "tua"))
+	}
+
+	function is_sea_sr_move(from, to) {
+		if (!(from > 0 && to > 0 && data.spaces[from] && data.spaces[to])) return false
+		if (from === to) return false
+		let from_is_sea_port = Engine.map.is_port(from) || Engine.map.is_beachhead_space(game, from)
+		let to_is_sea_port = Engine.map.is_port(to) || Engine.map.is_beachhead_space(game, to)
+		return from_is_sea_port && to_is_sea_port
+	}
+
 	function with_temporarily_removed_beachhead(beachhead, fn) {
 		let original = Array.isArray(game.beachheads) ? game.beachheads.slice() : []
 		if (game.beachheads) Engine.utils.set_delete(game.beachheads, beachhead)
@@ -222,6 +239,27 @@ exports.register = function (states, Engine, context) {
 		for (let p = 0; p < game.pieces.length; p++) {
 			if (!data.pieces[p]) continue
 			if (is_piece_supplied_solely_through_beachhead(p, beachhead)) result.push(p)
+		}
+		return result
+	}
+
+	function is_piece_supplied_solely_through_source(p, source) {
+		if (data.pieces[p].faction !== AP) return false
+		if (is_not_on_map(game, p) || is_in_reserve(game, p)) return false
+		if (!is_piece_on_shore_or_beachhead(p)) return false
+		let s = game.pieces[p]
+		if (!Engine.map.is_in_supply(game, s, AP, p)) return false
+		if (!Engine.map.can_trace_piece_supply_to_sources(game, p, source)) return false
+		let alternate_sources = get_ap_supply_sources().filter((candidate) => candidate !== source)
+		if (alternate_sources.length === 0) return true
+		return !Engine.map.can_trace_piece_supply_to_sources(game, p, alternate_sources)
+	}
+
+	function get_port_departure_units(port) {
+		let result = []
+		for (let p = 0; p < game.pieces.length; p++) {
+			if (!data.pieces[p]) continue
+			if (is_piece_supplied_solely_through_source(p, port)) result.push(p)
 		}
 		return result
 	}
@@ -297,13 +335,14 @@ exports.register = function (states, Engine, context) {
 			if (selected.includes(p)) continue
 			selected.push(p)
 		}
-		game.pieces[lcu] = Engine.game_utils.get_lcu_reserve_box(AP)
-		Engine.utils.set_delete(game.reduced, lcu)
+		// Rule 13.4.2: LCUs withdrawn under fire are permanently eliminated (not returned to reserve)
+		Engine.game_utils.eliminate_piece(game, lcu, log, true)
+		// Rule 13.4.2: SCUs used to break down the LCU arrive reduced
 		for (let scu of selected) {
 			game.pieces[scu] = island_base
-			Engine.utils.set_delete(game.reduced, scu)
+			Engine.utils.set_add(game.reduced, scu)
 		}
-		log(`${piece_name(lcu)} 撤离后解编至 ${space_name(island_base)}。`)
+		log(`${piece_name(lcu)} 撤离后永久消除并解编至 ${space_name(island_base)}（缩减）。`)
 		if (selected.length < needed) {
 			log(`${piece_name(lcu)} 仅找到 ${selected.length}/${needed} 个可用 SCU 进行解编。`)
 		}
@@ -320,6 +359,11 @@ exports.register = function (states, Engine, context) {
 			} else {
 				game.pieces[p] = island_base
 				log(`${piece_name(p)} 撤回至 ${space_name(island_base)}。`)
+				// Rule 13.4.2: all full-strength withdrawn units reduced; already-reduced SCUs unchanged
+				if (under_fire && !Engine.game_utils.is_piece_reduced(game, p)) {
+					Engine.utils.set_add(game.reduced, p)
+					log(`${piece_name(p)} 撤离后缩减一级。`)
+				}
 			}
 		}
 		if (under_fire) {
@@ -627,6 +671,11 @@ exports.register = function (states, Engine, context) {
 		},
 		space(s) {
 			let p = game.sr_piece
+			let from = game.pieces[p]
+			let was_sea_sr = is_sea_sr_move(from, s)
+			let from_was_non_balkan_beachhead =
+				Engine.map.is_beachhead_space(game, from) && Engine.map.is_non_balkan_beachhead(from)
+			let from_was_ottoman_port = is_ottoman_port_source(from)
 			// Move piece
 			game.pieces[p] = s
 
@@ -639,6 +688,19 @@ exports.register = function (states, Engine, context) {
 			Engine.utils.set_add(game.sr_moved, p)
 			log(`${piece_name(p)} SR 到 ${space_name(s)}`)
 			game.sr_piece = null
+
+			// Rule 13.4.2: +1 Jihad if the last AP unit drawing supply solely through
+			// a non-Balkan Beachhead or Ottoman port is sea-SR'd away.
+			if (was_sea_sr) {
+				let jihad_source_emptied =
+					(from_was_non_balkan_beachhead && get_beachhead_withdrawal_units(from).length === 0) ||
+					(from_was_ottoman_port && get_port_departure_units(from).length === 0)
+				if (jihad_source_emptied) {
+					update_jihad_level(game, 1)
+					log(`${space_name(from)} 最后一支补给部队海运撤离：Jihad +1。`)
+				}
+			}
+
 			game.state = "sr_phase"
 
 			if (game.sr === 0) goto_end_operations()

@@ -266,10 +266,14 @@ module.exports = function (Engine) {
 	function can_ap_initiate_invasion_to_beachhead(game, from, target, faction) {
 		if (faction !== AP) return false
 		if ((game.unplaced_beachheads || 0) <= 0) return false
+		// Rule 13.1.3: Beachhead markers may not be placed during Winter
+		if (game_utils.get_season(game) === "Winter") return false
 		if (!is_island_base(game, from)) return false
 		if (!is_controlled_by(game, from, AP)) return false
 		if (!can_ap_place_beachhead_marker(game, target, from)) return false
 		if (!game.move || game.move.spaces_moved > 0) return false
+		// Rule 13.2.3 STEP 2: "at least one SCU to move to it" is required to create the beachhead
+		if (!Array.isArray(game.move.pieces) || !game.move.pieces.some((mp) => is_scu(mp))) return false
 		return true
 	}
 
@@ -662,6 +666,16 @@ module.exports = function (Engine) {
 		}
 
 		conns = conns.filter((next) => connection_allowed(game, s, next, mode, faction))
+
+		// Rule 13: A potential beachhead space without a Beachhead marker is inaccessible
+		// (units cannot be there, and supply cannot trace through it). Block supply traversal
+		// into such spaces so that supply correctly fails when the marker is absent.
+		if (mode === "supply") {
+			conns = conns.filter((next) => {
+				if (!is_potential_beachhead_space(next)) return true
+				return is_beachhead_space(game, next)
+			})
+		}
 
 		if (p !== undefined && is_lcu(p)) {
 			const is_anzac_desert_corps = data.pieces[p].name === "ANZ Desert Corps"
