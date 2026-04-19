@@ -96,8 +96,12 @@ module.exports = function (Engine) {
 		return false
 	}
 
-	function has_cp_regular_in_country(game, country) {
+	function has_cp_regular_in_country(game, country, excluded_pieces = null) {
 		const { CP } = Engine.constants
+		let excluded = null
+		if (Array.isArray(excluded_pieces) && excluded_pieces.length > 0) {
+			excluded = new Set(excluded_pieces)
+		}
 		for (let s = 1; s < data.spaces.length; s++) {
 			let c = get_jihad_country_for_space(game, s)
 			if (c === country) {
@@ -105,6 +109,7 @@ module.exports = function (Engine) {
 				if (country === "Egypt" && map.is_suez_canal_space(s)) continue
 				let pieces = map.get_pieces_in_space(game, s)
 				for (let p of pieces) {
+					if (excluded && excluded.has(p)) continue
 					if (get_piece_faction(p) === CP && is_regular(p) && !is_not_on_map(game, p)) {
 						return true
 					}
@@ -230,6 +235,7 @@ module.exports = function (Engine) {
 		})
 		if (!regular_entered) return
 		if (!has_jihad_prereq(game, country)) return
+		if (has_cp_regular_in_country(game, country, pieces_moving)) return
 		game.entered_regions_this_turn.push(country)
 		helpers.log(`首次进入 ${country}，触发圣战即时叛乱检定。`)
 		trigger_jihad_rebellion(game, country, true, helpers)

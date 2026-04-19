@@ -2286,6 +2286,7 @@ combat_funcs = combat_states.register(states, Engine, {
 	get_valid_advance_spaces,
 	is_advance_stop_terrain,
 	resolve_russian_winter_offensive_advance,
+	check_immediate_jihad_rebellion_on_entry,
 	log_h1,
 	card_name,
 	card_names,

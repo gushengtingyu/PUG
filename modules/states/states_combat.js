@@ -63,6 +63,7 @@ exports.register = function (states, Engine, context) {
 		get_valid_advance_spaces,
 		is_advance_stop_terrain,
 		resolve_russian_winter_offensive_advance,
+		check_immediate_jihad_rebellion_on_entry,
 		update_jihad_level,
 		card_name,
 		AP,
@@ -2427,6 +2428,7 @@ exports.register = function (states, Engine, context) {
 		if (Engine.neutral.is_greece_neutral(game) && Engine.neutral.is_athens_space(to_space)) {
 			Engine.neutral.trigger_greece_entry(game, to_space, active_faction(), "战斗推进进入雅典", (msg) => log(msg))
 		}
+		check_immediate_jihad_rebellion_on_entry(from_space, to_space, [p])
 		return true
 	}
 
