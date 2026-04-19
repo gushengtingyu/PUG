@@ -218,7 +218,7 @@ module.exports = function (Engine) {
 	}
 
 	function get_activation_nation_group(nation) {
-		if (["br", "in", "anz", "ana", "ar", "pt", "can"].includes(nation)) return "br"
+		if (["br", "in", "anz", "ana", "ar"].includes(nation)) return "br"
 		if (["tu", "tua"].includes(nation)) return "tu"
 		return nation
 	}

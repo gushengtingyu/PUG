@@ -288,6 +288,12 @@ module.exports = function (Engine) {
 		) {
 			return game.event_ctx.data.reinf_to_place
 		}
+		if (game.event_ctx && game.event_ctx.key && game.events) {
+			let event = game.events[game.event_ctx.key]
+			if (event && Array.isArray(event.reinf_to_place) && event.reinf_to_place.length > 0) {
+				return event.reinf_to_place
+			}
+		}
 		return null
 	}
 
@@ -1574,10 +1580,7 @@ module.exports = function (Engine) {
 				let event = start_event_data(game, ctx, "british_reinf_35")
 				game.active = AP
 				event.reinf_to_place = ["BR Dunsterforce", "BR/PE SPers Rifles"]
-				event.reinf_placement = {
-					"BR Dunsterforce": "map",
-					"BR/PE SPers Rifles": "map"
-				}
+				event.reinf_placement = "either"
 				event.reinf_logic = "is_brf_35_rein"
 				game.state = "event_place_reinforcements"
 			},
@@ -1769,7 +1772,7 @@ module.exports = function (Engine) {
 			effect_cn:
 				"(只有在【阿拉伯起义】后且联合战争状态大于29时才能打出。不能在1917年冬季前打出)。阿拉伯人背弃奥斯曼帝国。在接下来的游戏时间内:土耳其-阿拉伯部队无法接受补员，不能进行土耳其-阿拉伯LCU的组合。任何包含有土耳其-阿拉伯部队的同盟国地区战斗-1drm",
 			can_play: function (game) {
-				return game.events["arab_revolt"] && game.combined_war > 29 && game.turn >= 13
+				return game.events["arab_revolt"] && game.combined_war > 29 && game.turn >= 10
 			},
 			handler: function (game) {
 				game.events["arab_desertion"] = true
@@ -2547,7 +2550,7 @@ module.exports = function (Engine) {
 			name: "ENVER-FALKENHAYN SUMMIT",
 			name_cn: "恩维尔-法金汉首脑会议",
 			effect_cn:
-				"(只能在君士坦丁堡-加利西亚的铁路相连时打出)。增援: (保加利亚第4集团军)至任何保加利亚境内同盟国控制地区。同盟国获得并使用最多8点战略调整点数将土耳其/土耳其-阿拉伯部队战略调整至巴尔干。**这其中至少应包含一个至加利西亚的土耳其LCU**。。每个回合损耗结算阶段，若俄国革命还未达到第4阶段，则位于加利西亚的土耳其LCU需要进行一次伤害结算，因为其在加利西亚战线对抗俄国军队经历了激烈的战斗。**进行一次掷骰来决定受到伤害的多少。**。每个夏季回合的战争状态结算阶段，若有土耳其LCU仍位于加利西亚，则由于土耳其军队在东线对抗俄国的战果，可以获得+1VP(在俄国革命阶段达到第4阶段时，无法继续获得VP)。- **(注:土耳其单位只能通过该事件进入加利西亚大区。土耳其永远不能在加利西亚重建LCU或者进行LCU组合。当能够通过己方控制地区连接至君士坦丁堡等土耳其补给源时，加利西亚的受损土耳其LCU可以接受补员)**",
+				"(只能在君士坦丁堡-加利西亚的铁路相连时打出)。增援:(保加利亚第4集团军)至任何保加利亚境内同盟国控制地区。同盟国获得并使用最多8点战略调整点数将土耳其/土耳其-阿拉伯部队战略调整至巴尔干。*这其中至少应包含一个至加利西亚的土耳其LCU*。每个回合损耗结算阶段，若俄国革命还未达到第4阶段，则位于加利西亚的土耳其LCU需要进行一次伤害结算，因为其在加利西亚战线对抗俄国军队经历了激烈的战斗。*进行一次掷骰来决定受到伤害的多少。**。每个夏季回合的战争状态结算阶段，若有土耳其LCU仍位于加利西亚，则由于土耳其军队在东线对抗俄国的战果，可以获得+1VP(在俄国革命阶段达到第4阶段时，无法继续获得VP)。- **(注:土耳其单位只能通过该事件进入加利西亚大区。土耳其永远不能在加利西亚重建LCU或者进行LCU组合。当能够通过己方控制地区连接至君士坦丁堡等土耳其补给源时，加利西亚的受损土耳其LCU可以接受补员)",
 			can_play: function (game) {
 				return game.events["berlin_constantinople_railway"] || game.events.berlin_baghdad
 			},
