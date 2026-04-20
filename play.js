@@ -1438,7 +1438,7 @@ function build_unique_marker(className, size) {
 	elt.my_size = size
 
 	elt.stack_bound = true
-	elt.addEventListener("mousedown", on_click_marker)
+	elt.addEventListener("click", on_click_marker)
 	elt.addEventListener("mouseenter", on_focus_marker)
 	elt.addEventListener("mouseleave", on_blur_marker)
 
@@ -1727,7 +1727,7 @@ function build_marker(list, find, new_marker, info, no_listeners = false) {
 	marker.element.className = `${info.counter} anchored`
 	marker.element.my_size = info.size
 	if (!no_listeners) {
-		marker.element.addEventListener("mousedown", on_click_marker)
+		marker.element.addEventListener("click", on_click_marker)
 		marker.element.addEventListener("mouseenter", on_focus_marker)
 		marker.element.addEventListener("mouseleave", on_blur_marker)
 	}
@@ -3013,7 +3013,7 @@ function bind_stack_interaction(elements) {
 		elt.my_stack = elements
 		if (!elt.stack_bound) {
 			elt.stack_bound = true
-			elt.addEventListener("mousedown", (e) => {
+			elt.addEventListener("click", (e) => {
 				if (e.button === 0) {
 					// 如果是算子，交给 on_click_piece 处理
 					if (elt.piece !== undefined) {
@@ -4085,8 +4085,12 @@ function update_system_markers() {
 	let ap_key = MO_AP_SPACE[view.mo_ap] || "AP MO None"
 	let cp_key = MO_CP_SPACE[view.mo_cp] || "CP MO None"
 
-	if (view.mo_ap_fulfilled) ap_key = "AP MO Made"
-	if (view.mo_cp_fulfilled) cp_key = "CP MO None"
+	if (view.mo_ap_fulfilled && view.mo_ap !== "none" && view.mo_ap !== "british_no_attack") {
+		ap_key = "AP MO Made"
+	}
+	if (view.mo_cp_fulfilled && view.mo_cp !== "none") {
+		cp_key = "CP MO None"
+	}
 
 	if (!ap_mo_marker) {
 		ap_mo_marker = build_unique_marker("marker ap mandatory_offensive", 75 * SCALE)
@@ -5259,9 +5263,9 @@ function on_click_piece(e, p) {
 const map = document.getElementById("map")
 if (map) {
 	map.addEventListener("contextmenu", (e) => e.preventDefault())
-	map.addEventListener("mousedown", (evt) => {
+	map.addEventListener("click", (evt) => {
 		if (evt.button === 0 && evt.target === map) {
-			log_stack_debug("map.mousedown.blur", evt, null)
+			log_stack_debug("map.click.blur", evt, null)
 			blur_stack()
 			hide_supply()
 		}
@@ -5310,6 +5314,7 @@ ensure_popup(
 	<li class="separator">
 	<li data-action="activate_move"> Activate to Move
 	<li data-action="activate_attack"> Activate to Attack
+	<li data-action="deactivate"> Deactivate
 `
 )
 
@@ -6144,7 +6149,7 @@ function build_space(id) {
 	elt.style.width = w + "px"
 	elt.style.height = h + "px"
 
-	elt.addEventListener("mousedown", (e) => on_click_space(e, id))
+	elt.addEventListener("click", (e) => on_click_space(e, id))
 	elt.addEventListener("mouseenter", () => on_focus_space(id))
 	elt.addEventListener("mouseleave", on_blur_space)
 
@@ -6167,7 +6172,7 @@ function build_piece(id, place) {
 	const type_class = piece.type === "tribe" ? "tribe" : ""
 	elt.className = "offmap piece anchored " + piece_class_name + " " + type_class + " " + (piece.counter || "")
 
-	elt.addEventListener("mousedown", (e) => on_click_piece(e, id))
+	elt.addEventListener("click", (e) => on_click_piece(e, id))
 	elt.addEventListener("mouseenter", (e) => on_focus_piece(e, id))
 	elt.addEventListener("mouseleave", (e) => on_blur_piece(e, id))
 
@@ -6217,7 +6222,7 @@ function build_reserve_box(id) {
 	elt.style.width = w + "px"
 	elt.style.height = h + "px"
 
-	elt.addEventListener("mousedown", (e) => on_click_space(e, id))
+	elt.addEventListener("click", (e) => on_click_space(e, id))
 	elt.addEventListener("mouseenter", (e) => on_focus_space(e, id))
 	elt.addEventListener("mouseleave", (e) => on_blur_space(e, id))
 

@@ -78,12 +78,18 @@
 		}
 	}
 
-	@media (max-width: 1299px) {
+	@media (min-width: 800px) and (max-width: 1299px) {
 		.poem {
 			margin: 0 0 30px 0;
 			border-left: 3px solid #ddd;
 			width: auto;
 			max-width: 500px;
+		}
+	}
+
+	@media (max-width: 799px) {
+		.poem {
+			display: none;
 		}
 	}
 </style>

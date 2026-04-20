@@ -2579,9 +2579,8 @@ function get_stack_yildirim_count(pieces) {
 
 		// Pre-calculate supply for non-tribes
 		for (let p = 0; p < game.pieces.length; p++) {
-			if (game.pieces[p] <= 0) continue // Off map or eliminated
+			if (is_not_on_map(game, p)) continue // Off map or in special boxes
 			if (get_piece_effective_faction(game, p) !== faction) continue
-			if (is_in_reserve(game, p)) continue // Units in reserve do not need supply
 
 			let s = game.pieces[p]
 
@@ -2749,7 +2748,7 @@ function get_stack_yildirim_count(pieces) {
 		if (space < 1 || space >= data.spaces.length || !data.spaces[space]) {
 			return cache_result("OOS")
 		}
-		if (p !== -1 && is_in_reserve(game, p)) return cache_result("FULL")
+		if (p !== -1 && is_not_on_map(game, p)) return cache_result("FULL")
 		let nation = p !== -1 ? data.pieces[p].nation : null
 		if (p !== -1) {
 			let effective_faction = get_piece_effective_faction(game, p)
