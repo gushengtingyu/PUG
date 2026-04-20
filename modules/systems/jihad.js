@@ -14,7 +14,9 @@ module.exports = function (Engine) {
 		get_piece_nation,
 		piece_name,
 		get_piece_faction,
-		is_regular
+		get_piece_effective_faction,
+		is_regular,
+		is_irregular
 	} = game_utils
 	const exports = {}
 
@@ -64,20 +66,82 @@ module.exports = function (Engine) {
 		}
 	}
 
-	function on_control_changed(game, s, previous_controller, faction, helpers = {}) {
+	function get_jihad_city_effective_owner(game, s) {
+		if (!data.spaces[s] || !data.spaces[s].jihad_city) return 0
+		const { AP, CP } = Engine.constants
+		let controller = map.get_space_controller(game, s) || 0
+		let has_ap_regular = false
+		let has_cp_regular = false
+		let has_ap_partial = false
+		let has_cp_partial = false
+
+		for (let p of map.get_pieces_in_space(game, s)) {
+			let info = data.pieces[p]
+			if (!info || info.type === "hq") continue
+			let faction = get_piece_effective_faction(game, p)
+			if (faction !== AP && faction !== CP) continue
+
+			if (is_regular(p)) {
+				if (faction === AP) has_ap_regular = true
+				else if (faction === CP) has_cp_regular = true
+				continue
+			}
+
+			if (is_irregular(p) || is_tribe(p)) {
+				if (faction === AP) has_ap_partial = true
+				else if (faction === CP) has_cp_partial = true
+			}
+		}
+
+		if (has_ap_regular && !has_cp_regular) return AP
+		if (has_cp_regular && !has_ap_regular) return CP
+		if (has_ap_partial && !has_cp_partial && controller !== AP) return AP
+		if (has_cp_partial && !has_ap_partial && controller !== CP) return CP
+		return controller
+	}
+
+	function sync_jihad_city_state(game, s, previous_override, helpers = {}) {
 		if (!data.spaces[s] || !data.spaces[s].jihad_city) return
 		const { AP, CP } = Engine.constants
 		const update_level =
 			typeof helpers.update_jihad_level === "function" ? helpers.update_jihad_level : update_jihad_level
-		if (faction === CP && previous_controller !== CP) {
-			if (!game.jihad_cities_flipped) game.jihad_cities_flipped = []
+
+		if (!Array.isArray(game.jihad_city_effective_owner)) game.jihad_city_effective_owner = []
+
+		let previous =
+			previous_override !== undefined
+				? previous_override || 0
+				: game.jihad_city_effective_owner[s] !== undefined
+					? game.jihad_city_effective_owner[s] || 0
+					: map.get_space_controller(game, s) || 0
+		let next = get_jihad_city_effective_owner(game, s) || 0
+
+		if (previous === next) {
+			game.jihad_city_effective_owner[s] = next
+			return
+		}
+
+		let delta = 0
+		if (next === CP) delta = 1
+		else if (next === AP) delta = -1
+		else if (previous === CP) delta = -1
+		else if (previous === AP) delta = 1
+
+		if (delta > 0) {
+			if (!Array.isArray(game.jihad_cities_flipped)) game.jihad_cities_flipped = []
 			if (!game.jihad_cities_flipped.includes(s)) {
 				game.jihad_cities_flipped.push(s)
 				update_level(game, 1)
 			}
-		} else if (faction === AP && previous_controller !== AP) {
+		} else if (delta < 0) {
 			update_level(game, -1)
 		}
+
+		game.jihad_city_effective_owner[s] = next
+	}
+
+	function on_control_changed(game, s, previous_controller, faction, helpers = {}) {
+		sync_jihad_city_state(game, s, previous_controller, helpers)
 	}
 
 	function get_jihad_country_for_space(game, s) {
@@ -519,6 +583,8 @@ module.exports = function (Engine) {
 
 	Object.assign(exports, {
 		update_jihad_level,
+		get_jihad_city_effective_owner,
+		sync_jihad_city_state,
 		on_control_changed,
 		get_tribe_type,
 		has_jihad_prereq,

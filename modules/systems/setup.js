@@ -450,6 +450,8 @@ module.exports = function (Engine) {
 		if (!Array.isArray(state.player_order)) state.player_order = [Engine.constants.AP, Engine.constants.CP]
 		else state.player_order = state.player_order.map(normalize_faction_token)
 		if (!Array.isArray(state.jihad_cities_flipped)) state.jihad_cities_flipped = []
+		if (!Array.isArray(state.jihad_city_effective_owner)) state.jihad_city_effective_owner = []
+		if (!Array.isArray(state.vp_partial_disruption)) state.vp_partial_disruption = []
 		if (state.tribes_to_place === undefined) state.tribes_to_place = 0
 		if (state.cp_opening_mobilization_pick_done === undefined) state.cp_opening_mobilization_pick_done = state.turn > 1
 		return state
@@ -512,6 +514,8 @@ module.exports = function (Engine) {
 			ru_revolution: 0,
 			jihad: 0,
 			jihad_cities_flipped: [],
+			jihad_city_effective_owner: [],
+			vp_partial_disruption: [],
 			russian_vp: 0,
 			combined_war: 0,
 			tribal_reserve: [],

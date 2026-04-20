@@ -1699,6 +1699,7 @@ exports.register = function (states, Engine, context) {
 		}
 		if (from_space > 0) {
 			Engine.sync_neutral_vp_state(game, from_space)
+			Engine.sync_jihad_city_state(game, from_space)
 		}
 
 		game.move.spaces_moved += step_cost
@@ -1757,6 +1758,7 @@ exports.register = function (states, Engine, context) {
 				Engine.check_persia_entry_vp_penalty(game, target, pieces_moving)
 			}
 			Engine.sync_neutral_vp_state(game, target)
+			Engine.sync_jihad_city_state(game, target)
 
 			if (is_siege_entry || creates_beachhead || should_stop_move_on_island_base(from_space, target)) {
 				end_move_stack()

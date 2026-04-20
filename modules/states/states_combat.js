@@ -2199,8 +2199,10 @@ exports.register = function (states, Engine, context) {
 					}
 					if (from > 0) {
 						Engine.sync_neutral_vp_state(game, from)
+						Engine.sync_jihad_city_state(game, from)
 					}
 					Engine.sync_neutral_vp_state(game, s)
+					Engine.sync_jihad_city_state(game, s)
 					set_delete(game.retreat_pieces, p)
 					delete game.retreat_steps_left[p]
 					set_add(game.retreated, p)
@@ -2323,8 +2325,10 @@ exports.register = function (states, Engine, context) {
 				}
 				if (from > 0) {
 					Engine.sync_neutral_vp_state(game, from)
+					Engine.sync_jihad_city_state(game, from)
 				}
 				Engine.sync_neutral_vp_state(game, s)
+				Engine.sync_jihad_city_state(game, s)
 
 				if (game.turkish_retreat_chosen_space === undefined) {
 					game.turkish_retreat_chosen_space = s
@@ -2423,8 +2427,10 @@ exports.register = function (states, Engine, context) {
 		}
 		if (from_space > 0) {
 			Engine.sync_neutral_vp_state(game, from_space)
+			Engine.sync_jihad_city_state(game, from_space)
 		}
 		Engine.sync_neutral_vp_state(game, to_space)
+		Engine.sync_jihad_city_state(game, to_space)
 		if (Engine.neutral.is_greece_neutral(game) && Engine.neutral.is_athens_space(to_space)) {
 			Engine.neutral.trigger_greece_entry(game, to_space, active_faction(), "战斗推进进入雅典", (msg) => log(msg))
 		}

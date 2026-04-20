@@ -75,6 +75,21 @@ module.exports = function (Engine) {
 		}
 	}
 
+	function is_neutral_bulgaria_display_piece(game, p) {
+		return !!(
+			Engine.neutral &&
+			typeof Engine.neutral.is_on_bulgaria_entry_display === "function" &&
+			Engine.neutral.is_on_bulgaria_entry_display(game, p) &&
+			get_piece_effective_faction(game, p) === "neutral"
+		)
+	}
+
+	function get_stack_occupying_pieces(game, s, faction) {
+		return get_pieces_in_space(game, s).filter(
+			(p) => data.pieces[p] && (data.pieces[p].faction === faction || is_neutral_bulgaria_display_piece(game, p))
+		)
+	}
+
 	function contains_enemy_pieces(game, s, faction) {
 		if (faction === undefined) faction = game.active
 		let enemy = other_faction(faction)
@@ -1193,8 +1208,9 @@ function get_stack_yildirim_count(pieces) {
 			: get_stack_end_block_reason(game, target, stopping_pieces, { ignore_stacking: true })
 		if (non_stacking_reason) return false
 
-		let friendly = get_pieces_in_space(game, target).filter((p) => get_piece_effective_faction(game, p) === faction)
-		let total = stopping_pieces_already_in_space ? friendly : [...stopping_pieces, ...friendly]
+		let occupiers = get_stack_occupying_pieces(game, target, faction)
+		let friendly = occupiers.filter((p) => get_piece_effective_faction(game, p) === faction)
+		let total = stopping_pieces_already_in_space ? occupiers : [...stopping_pieces, ...occupiers]
 		let excess = get_stack_count(total) - 3
 		if (excess <= 0) return false
 
@@ -1227,7 +1243,7 @@ function get_stack_yildirim_count(pieces) {
 			if (data.pieces[p].faction !== faction) return false
 		}
 
-		let existing = get_pieces_in_space(game, target).filter((p) => data.pieces[p].faction === faction)
+		let existing = get_stack_occupying_pieces(game, target, faction)
 
 		let total = [...pieces, ...existing]
 		if (total.some((p) => data.pieces[p].name === "GE GeoProtect") && total.length > 1) return false
@@ -1252,7 +1268,7 @@ function get_stack_yildirim_count(pieces) {
 		if (composition_reason) return composition_reason
 
 		if (!options.ignore_stacking && is_unlimited_stack_space(game, s) === false) {
-			let count = get_stack_count(friendly)
+			let count = get_stack_count(get_stack_occupying_pieces(game, s, faction))
 			if (count > 3) return "堆叠超限"
 		}
 
@@ -1279,7 +1295,7 @@ function get_stack_yildirim_count(pieces) {
 			if (data.pieces[p].faction !== faction) return "混编阵营"
 		}
 
-		let existing = get_pieces_in_space(game, target).filter((p) => data.pieces[p].faction === faction)
+		let existing = get_stack_occupying_pieces(game, target, faction)
 
 		let total = [...pieces, ...existing]
 		let composition_reason = get_stack_composition_reason(game, total)

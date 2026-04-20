@@ -581,6 +581,25 @@ module.exports = function (Engine) {
 		return !!(info && info.faction === "neutral" && info.vp > 0)
 	}
 
+	function normalize_vp_owner(owner) {
+		return owner === AP || owner === CP ? owner : 0
+	}
+
+	function get_vp_owner_contribution(game, s, owner) {
+		let vp_val = get_effective_vp_value(game, s)
+		if (vp_val <= 0) return 0
+		let default_owner = normalize_vp_owner(Engine.map.get_default_controller(game, s))
+		let normalized_owner = normalize_vp_owner(owner)
+		if (normalized_owner === default_owner) return 0
+		if (normalized_owner === AP) return -vp_val
+		if (normalized_owner === CP) return vp_val
+		return 0
+	}
+
+	function is_vp_space(game, s) {
+		return get_effective_vp_value(game, s) > 0
+	}
+
 	function check_persia_entry_vp_penalty(game, s, entered_pieces) {
 		if (!game || !Array.isArray(entered_pieces) || entered_pieces.length === 0) return
 		if (!game.events) game.events = {}
@@ -612,6 +631,12 @@ module.exports = function (Engine) {
 
 	function get_neutral_vp_partial_owner(game, s) {
 		if (!is_neutral_vp_space(s)) return 0
+		return get_vp_partial_disruptor(game, s)
+	}
+
+	function get_vp_partial_disruptor(game, s) {
+		if (!is_vp_space(game, s)) return 0
+		let controller = normalize_vp_owner(Engine.map.get_space_controller(game, s))
 		let has_ap_regular = false
 		let has_cp_regular = false
 		let has_ap_partial = false
@@ -630,29 +655,43 @@ module.exports = function (Engine) {
 				else if (faction === CP) has_cp_partial = true
 			}
 		}
-		if (has_ap_regular && !has_cp_regular) return AP
-		if (has_cp_regular && !has_ap_regular) return CP
-		if (has_ap_partial && !has_cp_partial) return AP
-		if (has_cp_partial && !has_ap_partial) return CP
-		return (game.control && game.control[s]) || 0
+		if (has_ap_regular || has_cp_regular) return 0
+		if (has_ap_partial && !has_cp_partial && controller !== AP) return AP
+		if (has_cp_partial && !has_ap_partial && controller !== CP) return CP
+		return 0
 	}
 
-	function sync_neutral_vp_state(game, s, previous_override) {
-		if (!is_neutral_vp_space(s)) return
+	function get_vp_effective_owner(game, s) {
+		return get_vp_partial_disruptor(game, s)
+	}
+
+	function sync_vp_state(game, s, previous_override) {
+		if (!is_vp_space(game, s)) return
+		if (!game.vp_partial_disruption) game.vp_partial_disruption = []
 		if (!game.neutral_vp_partial_control) game.neutral_vp_partial_control = []
-		let vp_val = (data.spaces[s] && data.spaces[s].vp) || 0
+		let vp_val = get_effective_vp_value(game, s)
 		let previous =
-			previous_override !== undefined ? previous_override || 0 : game.neutral_vp_partial_control[s] || 0
-		let next = get_neutral_vp_partial_owner(game, s) || 0
+			previous_override !== undefined
+				? normalize_vp_owner(previous_override)
+				: game.vp_partial_disruption[s] !== undefined
+					? normalize_vp_owner(game.vp_partial_disruption[s])
+					: 0
+		let next = normalize_vp_owner(get_vp_partial_disruptor(game, s))
 		if (previous === next) {
-			game.neutral_vp_partial_control[s] = next
+			game.vp_partial_disruption[s] = next
+			if (is_neutral_vp_space(s)) game.neutral_vp_partial_control[s] = next
 			return
 		}
 		if (previous === AP) game.vp += vp_val
 		else if (previous === CP) game.vp -= vp_val
 		if (next === AP) game.vp -= vp_val
 		else if (next === CP) game.vp += vp_val
-		game.neutral_vp_partial_control[s] = next
+		game.vp_partial_disruption[s] = next
+		if (is_neutral_vp_space(s)) game.neutral_vp_partial_control[s] = next
+	}
+
+	function sync_neutral_vp_state(game, s, previous_override) {
+		sync_vp_state(game, s, previous_override)
 	}
 
 	function is_ru_capture_piece(info) {
@@ -683,43 +722,24 @@ module.exports = function (Engine) {
 		return Engine.map.can_trace_supply_to_source(game, s, AP, ru_sources)
 	}
 
-	function apply_control_change(game, s, faction, previous_neutral_vp_owner) {
-		if (is_neutral_vp_space(s)) {
-			sync_neutral_vp_state(game, s, previous_neutral_vp_owner)
-			if (!game.ru_control_markers) game.ru_control_markers = []
-			if (faction === AP) {
-				if (qualifies_for_ru_vp_capture(game, s)) {
-					game.russian_vp += 1
-					if (!game.ru_control_markers.includes(s)) game.ru_control_markers.push(s)
-					Engine.log(game, `俄国部队占领VP点，俄国VP +1 (当前: ${game.russian_vp})`)
-				}
-			} else if (faction === CP) {
-				let is_ru_vp = Engine.map.is_russian_vp_space(game, s)
-				let was_ru_controlled = game.ru_control_markers.includes(s)
-				if (was_ru_controlled) {
-					game.ru_control_markers = game.ru_control_markers.filter((x) => x !== s)
-				}
-				if (is_ru_vp || was_ru_controlled) {
-					game.russian_vp -= 1
-					Engine.log(game, `同盟国占领俄国VP点，俄国VP -1 (当前: ${game.russian_vp})`)
-				}
-			}
-			return
+	function apply_control_change(game, s, faction, previous_vp_owner) {
+		if (!is_vp_space(game, s)) return
+		let delta =
+			get_vp_owner_contribution(game, s, faction) - get_vp_owner_contribution(game, s, previous_vp_owner)
+		if (delta < 0) {
+			Engine.log(game, `AP 获得 ${-delta} VP (当前VP: ${game.vp + delta})`)
+		} else if (delta > 0) {
+			Engine.log(game, `CP 获得 ${delta} VP (当前VP: ${game.vp + delta})`)
 		}
-		let vp_val = get_effective_vp_value(game, s)
-		if (vp_val <= 0) return
+		game.vp += delta
 		if (!game.ru_control_markers) game.ru_control_markers = []
 		if (faction === AP) {
-			game.vp -= vp_val
-			Engine.log(game, `AP 获得 ${vp_val} VP (当前VP: ${game.vp})`)
 			if (qualifies_for_ru_vp_capture(game, s)) {
 				game.russian_vp += 1
 				if (!game.ru_control_markers.includes(s)) game.ru_control_markers.push(s)
 				Engine.log(game, `俄国部队占领VP点，俄国VP +1 (当前: ${game.russian_vp})`)
 			}
 		} else if (faction === CP) {
-			game.vp += vp_val
-			Engine.log(game, `CP 获得 ${vp_val} VP (当前VP: ${game.vp})`)
 			let is_ru_vp = Engine.map.is_russian_vp_space(game, s)
 			let was_ru_controlled = game.ru_control_markers.includes(s)
 			if (was_ru_controlled) {
@@ -772,10 +792,14 @@ module.exports = function (Engine) {
 		on_beachhead_placed,
 		check_athens_entry,
 		check_attack_trigger,
+		is_vp_space,
 		is_neutral_vp_space,
 		check_persia_entry_vp_penalty,
+		get_vp_effective_owner,
+		sync_vp_state,
 		get_neutral_vp_partial_owner,
 		sync_neutral_vp_state,
+		get_effective_vp_value,
 		apply_control_change
 	})
 

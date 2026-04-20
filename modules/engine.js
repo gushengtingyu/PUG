@@ -159,22 +159,52 @@ const Engine = {
 		return Engine.neutral.get_neutral_vp_partial_owner(game, s)
 	},
 
+	get_effective_vp_value(game, s) {
+		if (!Engine.neutral || typeof Engine.neutral.get_effective_vp_value !== "function") return 0
+		return Engine.neutral.get_effective_vp_value(game, s)
+	},
+
+	get_vp_effective_owner(game, s) {
+		if (!Engine.neutral || typeof Engine.neutral.get_vp_effective_owner !== "function") return 0
+		return Engine.neutral.get_vp_effective_owner(game, s)
+	},
+
+	sync_vp_state(game, s, previous_override) {
+		if (!Engine.neutral || typeof Engine.neutral.sync_vp_state !== "function") return
+		Engine.neutral.sync_vp_state(game, s, previous_override)
+	},
+
 	sync_neutral_vp_state(game, s, previous_override) {
-		if (!Engine.neutral || typeof Engine.neutral.sync_neutral_vp_state !== "function") return
-		Engine.neutral.sync_neutral_vp_state(game, s, previous_override)
+		Engine.sync_vp_state(game, s, previous_override)
+	},
+
+	get_jihad_city_effective_owner(game, s) {
+		if (!Engine.jihad || typeof Engine.jihad.get_jihad_city_effective_owner !== "function") return 0
+		return Engine.jihad.get_jihad_city_effective_owner(game, s)
+	},
+
+	sync_jihad_city_state(game, s, previous_override) {
+		if (!Engine.jihad || typeof Engine.jihad.sync_jihad_city_state !== "function") return
+		Engine.jihad.sync_jihad_city_state(game, s, previous_override, {
+			update_jihad_level: (g, amount) => Engine.update_jihad_level(g, amount)
+		})
 	},
 
 	set_control(game, s, faction) {
-		const is_neutral_vp_space = Engine.is_neutral_vp_space(s)
-		let previous_neutral_vp_owner =
-			is_neutral_vp_space && game.neutral_vp_partial_control ? game.neutral_vp_partial_control[s] || 0 : 0
+		const is_vp_space = Engine.get_effective_vp_value(game, s) > 0
+		const is_jihad_city = !!(data.spaces[s] && data.spaces[s].jihad_city)
+		let previous_jihad_owner = is_jihad_city ? Engine.get_jihad_city_effective_owner(game, s) || 0 : 0
 		let current_controller =
 			Engine.map && typeof Engine.map.get_space_controller === "function"
 				? Engine.map.get_space_controller(game, s)
 				: game.control[s] || (data.spaces[s] && data.spaces[s].faction)
+		let previous_vp_owner = is_vp_space && (current_controller === constants.AP || current_controller === constants.CP) ? current_controller : 0
 		if (current_controller === faction) {
-			if (is_neutral_vp_space) {
-				Engine.sync_neutral_vp_state(game, s, previous_neutral_vp_owner)
+			if (is_vp_space) {
+				Engine.sync_vp_state(game, s)
+			}
+			if (is_jihad_city) {
+				Engine.sync_jihad_city_state(game, s, previous_jihad_owner)
 			}
 			return
 		}
@@ -184,13 +214,14 @@ const Engine = {
 				: data.spaces[s] && data.spaces[s].faction
 		game.control[s] = faction === default_controller ? null : faction
 
-		if (Engine.jihad && typeof Engine.jihad.on_control_changed === "function") {
-			Engine.jihad.on_control_changed(game, s, current_controller, faction, {
-				update_jihad_level: (g, amount) => Engine.update_jihad_level(g, amount)
-			})
+		if (is_vp_space) {
+			Engine.sync_vp_state(game, s)
+		}
+		if (is_jihad_city) {
+			Engine.sync_jihad_city_state(game, s, previous_jihad_owner)
 		}
 		if (Engine.neutral && typeof Engine.neutral.apply_control_change === "function") {
-			Engine.neutral.apply_control_change(game, s, faction, previous_neutral_vp_owner)
+			Engine.neutral.apply_control_change(game, s, faction, previous_vp_owner)
 		}
 	},
 
