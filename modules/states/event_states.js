@@ -318,10 +318,25 @@ module.exports = function (Engine) {
 		)
 	}
 
+	function is_allowed_event_beachhead_space(game, s) {
+		let invasion = get_active_event_data(game)
+		if (!invasion) return true
+		if (invasion.allowed_beachhead_area && data.spaces[s].area !== invasion.allowed_beachhead_area) {
+			return false
+		}
+		if (
+			invasion.allowed_beachhead_island_base > 0 &&
+			Engine.map.get_adjacent_island_base_for_beachhead(s) !== invasion.allowed_beachhead_island_base
+		) {
+			return false
+		}
+		return true
+	}
+
 	function get_available_beachhead_placement_spaces(game, island_base = -1) {
 		let result = []
 		for (let s = 1; s < data.spaces.length; s++) {
-			if (Engine.map.can_ap_place_beachhead_marker(game, s, island_base)) {
+			if (Engine.map.can_ap_place_beachhead_marker(game, s, island_base) && is_allowed_event_beachhead_space(game, s)) {
 				result.push(s)
 			}
 		}
@@ -1887,6 +1902,9 @@ module.exports = function (Engine) {
 				event.reinf_to_place = ["BR VIII Corps", "ANZ ANZAC", "BR DIV #4", "FR DIV #1", "FR DIV #2"]
 				event.flip_lcu_if_scu = true
 				event.beachheads_to_place = 2
+				event.allowed_beachhead_area = "gallipoli"
+				event.allowed_beachhead_island_base = LEMNOS
+				event.invasion_island_base = LEMNOS
 			}
 			game.state = "event_invasion_place_beachhead"
 		},
@@ -1982,6 +2000,7 @@ module.exports = function (Engine) {
 			let { game, rules, arg: s } = ctx
 			let event = get_active_event_data(game)
 			if (!Engine.map.can_ap_place_beachhead_marker(game, s)) return
+			if (!is_allowed_event_beachhead_space(game, s)) return
 			rules.push_undo()
 			if (!game.beachheads) game.beachheads = []
 			rules.set_add(game.beachheads, s)
