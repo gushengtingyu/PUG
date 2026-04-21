@@ -282,7 +282,6 @@ module.exports = function (Engine) {
 		if (!piece || !space) return undefined
 		if (!is_supported_neutral_nation(piece.nation)) return undefined
 
-		let blocked_port = Engine.events.is_german_subs_blocked_port(game, space_id)
 		let ap_controlled = map.is_controlled_by(game, space_id, AP)
 		let cp_controlled = map.is_controlled_by(game, space_id, CP)
 		let besieged = map.is_besieged(game, space_id)
@@ -300,16 +299,14 @@ module.exports = function (Engine) {
 				// Rule 22.2.2
 				return space_id === SOFIA && cp_controlled
 			case "gr":
-				// Rule 22.2.2, with the CND exception and blocked-port restriction.
+				// Rule 22.2.2, with the CND exception.
 				if (is_greek_cnd(p)) {
-					if (blocked_port) return false
 					return (
 						space_id === LEMNOS ||
 						(map.is_aegean_east_med_port(space_id) && space.nation === "gr" && ap_controlled && !besieged)
 					)
 				}
 				if (space.nation !== "gr" || besieged) return false
-				if (map.is_port(space_id) && blocked_port) return false
 				return map.get_pieces_in_space(game, space_id).length === 0 || ap_controlled
 			case "sb": {
 				// Rule 19.4.4 before collapse and after The Serbs Return.
@@ -319,8 +316,7 @@ module.exports = function (Engine) {
 					Engine.collapse.has_serbia_collapsed(game)
 				let serbs_return = !!(game.events && game.events["the_serbs_return"])
 				let belgrade_recaptured = BELGRADE >= 0 && map.is_controlled_by(game, BELGRADE, AP)
-				let can_use_port =
-					!blocked_port && !besieged && (space_id === LEMNOS || (space_id === SALONIKA && ap_controlled))
+				let can_use_port = !besieged && (space_id === LEMNOS || (space_id === SALONIKA && ap_controlled))
 				let can_use_serbia_cities =
 					(space_id === BELGRADE || space_id === NIS) && ap_controlled && !besieged
 

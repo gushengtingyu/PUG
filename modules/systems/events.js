@@ -354,6 +354,7 @@ module.exports = function (Engine) {
 				let space = data.spaces[s]
 				if (!space) return false
 				if (s === SALONIKA) return false
+				if (is_german_subs_blocked_port(game, s)) return false
 
 				// 1. 英国补给源 (根据 7.7.5, 即使被敌方控制也可以放置)
 				if (Engine.map.is_base_supply_source(game, s, AP, "br", true)) {
@@ -362,9 +363,6 @@ module.exports = function (Engine) {
 
 				// 2. 协约国控制的港口 (排除特定地块)
 				if ((space.port) && Engine.map.is_controlled_by(game, s, AP)) {
-					// Rule 13.3.2: 德国潜艇地中海猎袭期间，不能在特定港口增援
-					if (is_german_subs_blocked_port(game, s)) return false
-
 					// 排除 阿卡巴、吉达、萨洛尼卡、黑海港口、里海港口
 					if (s === AQABA || s === JIDDAH) return false
 					if (s === SALONIKA) return false
@@ -378,9 +376,6 @@ module.exports = function (Engine) {
 
 				// 3. 岛屿基地 (如果被协约国控制)
 				if (space.island_base && Engine.map.is_controlled_by(game, s, AP)) {
-					// Rule 13.3.2: 德国潜艇地中海猎袭期间，不能在特定港口增援
-					if (is_german_subs_blocked_port(game, s)) return false
-
 					let besieged = is_besieged(game, s)
 					if (!besieged) {
 						if (game.debug)
@@ -737,15 +732,29 @@ module.exports = function (Engine) {
 	}
 
 	/**
+	 * 检查当前是否处于德国潜艇 (German Subs) 封锁协约国增援的当回合
+	 * @param {object} game 游戏实例
+	 * @returns {boolean}
+	 */
+	function is_german_subs_reinforcement_turn(game) {
+		return !!(
+			game &&
+			game.events &&
+			game.events["german_subs"] &&
+			game.events["german_subs_turn"] === game.turn
+		)
+	}
+
+	/**
 	 * 检查地块是否受德国潜艇 (German Subs) 事件影响而被封锁
 	 * @param {object} game 游戏实例
 	 * @param {number} s 地块 ID
 	 * @returns {boolean}
 	 */
 	function is_german_subs_blocked_port(game, s) {
-		if (!game.events || !game.events["german_subs"]) return false
-		// Rule 13.3.2: German Subs in the Med prohibits sending Allied reinforcements to the E. Mediterranean or Aegean Sea,
-		// and also prevents any Allied port in those areas from serving as a Supply Source.
+		if (!is_german_subs_reinforcement_turn(game)) return false
+		// Rule 13.3.2: German Subs in the Med only blocks Allied reinforcements to the
+		// E. Mediterranean or Aegean Sea on the turn the card is played.
 		return Engine.map.is_aegean_east_med_port(s)
 	}
 
@@ -2444,13 +2453,14 @@ module.exports = function (Engine) {
 		77: {
 			name: "GERMAN SUBS IN THE MED",
 			name_cn: "地中海潜艇猎袭",
-			effect_cn: "在接下来的游戏时间里:黑海-地中海无法进行海上战略调整。协约国部队只能在雅典、萨洛尼卡、利姆诺斯岛或者任何被协约国控制的原本属于土耳其/奥匈的港口/滩头标记格获得补给。任何协约国控制下的原本属于土耳其的原本黑海补给港口无法提供补给。禁止所有的协约国海上支持。",
-			// Rule 13.3.2: event only prohibits reinforcements/SR and affects supply;
-			// it does NOT award VP. Previous code erroneously added +1 VP.
+			effect_cn:
+				"本回合内，协约国不能将增援送入东地中海或爱琴海。这同样适用于任何允许把单位直接放上地图的事件，以及作为英国增援打出的入侵牌；但不阻止作为入侵打出的入侵牌，也不阻止这些入侵附带的战略调整。",
+			// Rule 13.3.2: the reinforcement block lasts only for the turn played.
+			// The persistent flag remains because later effects care that the card has been played.
 			handler: function (game, ctx) {
 				game.events["german_subs"] = true
 				game.events["german_subs_turn"] = game.turn
-				log(game, "地中海潜艇猎袭: 禁止所有的协约国海上支持。", ctx)
+				log(game, "地中海潜艇猎袭：本回合协约国不能将增援送入东地中海或爱琴海。", ctx)
 				if (!game.ui_tokens) game.ui_tokens = {}
 				game.ui_tokens["SUB IN THE MED"] = "MUBMed.png"
 				let p = find_piece(undefined, "U_boats in the Med token")
@@ -3040,6 +3050,7 @@ module.exports = function (Engine) {
 	// ----------------------------------------------------------------
 
 	exports.is_persia_open = is_persia_open
+	exports.is_german_subs_reinforcement_turn = is_german_subs_reinforcement_turn
 	exports.is_german_subs_blocked_port = is_german_subs_blocked_port
 	exports.apply_turkish_war_weariness_rp = apply_turkish_war_weariness_rp
 	exports.is_turkish_replacement_blocked = is_turkish_replacement_blocked

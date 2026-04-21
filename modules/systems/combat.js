@@ -2899,10 +2899,7 @@ module.exports = function (Engine) {
 
 		// 5. Naval Support (PUG 11.5.3)
 		if (game.active === AP && is_naval_access_space(game, target_space)) {
-			// PUG Rule: GERMAN SUBS IN THE MED cancels Naval Support
-			if (game.events && game.events["german_subs"]) {
-				log_detail(log, "Naval Support blocked by GERMAN SUBS IN THE MED")
-			} else if (
+			if (
 				attackers.some(
 					(p) =>
 						is_lcu(p) &&

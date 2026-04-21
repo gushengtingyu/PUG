@@ -723,22 +723,14 @@ module.exports = function (Engine) {
 			} else if (nation === "br" || nation === "in" || nation === "anz") {
 				// Rule 22.2.2: BR, IN, and ANZ LCUs may be rebuilt only at AP-controlled BR Supply Sources or ports in E.Med, Aegean, or Persian Gulf.
 				if (is_controlled_by(game, s, AP) && !is_besieged(game, s)) {
-					// Rule 13.3.2: 德国潜艇地中海猎袭期间，不能在特定港口增援/重建
-					if (Engine.events.is_german_subs_blocked_port(game, s)) {
-						can_rebuild = false
-					} else {
-						if (is_base_supply_source(game, s, AP, "br", true)) can_rebuild = true
-						if (is_aegean_east_med_port(s)) can_rebuild = true
-						if (is_mesopotamia(s) && is_port(s)) can_rebuild = true // Persian Gulf ports
-					}
+					if (is_base_supply_source(game, s, AP, "br", true)) can_rebuild = true
+					if (is_aegean_east_med_port(s)) can_rebuild = true
+					if (is_mesopotamia(s) && is_port(s)) can_rebuild = true // Persian Gulf ports
 				}
 			} else if (nation === "fr" || nation === "it") {
 				// Rule 22.2.2: FR and IT units may be rebuilt at any AP-controlled port on the Aegean or E. Mediterranean.
 				if (is_controlled_by(game, s, AP) && !is_besieged(game, s) && is_aegean_east_med_port(s)) {
-					// Rule 13.3.2: 德国潜艇地中海猎袭期间，不能在特定港口增援/重建
-					if (!Engine.events.is_german_subs_blocked_port(game, s)) {
-						can_rebuild = true
-					}
+					can_rebuild = true
 				}
 			} else if (Engine.neutral && typeof Engine.neutral.can_rebuild_balkan_unit_in_space === "function") {
 				let neutral_override = Engine.neutral.can_rebuild_balkan_unit_in_space(game, p, s, faction)
@@ -747,16 +739,13 @@ module.exports = function (Engine) {
 				// Rule 22.2.2: Arab Revolt Irregular Units in Hejaz (even if CP), Aqaba, or Jiddah (if AP).
 				// ANA (Arab Northern Army) in any AP-controlled port in Syria/Palestine.
 				if (info.name && info.name.includes("ANA")) {
-					// Rule 13.3.2: 德国潜艇地中海猎袭期间，不能在特定港口增援/重建
-					if (!Engine.events.is_german_subs_blocked_port(game, s)) {
-						if (
-							get_area(s) === "syria_palestine" &&
-							is_port(s) &&
-							is_controlled_by(game, s, AP) &&
-							!is_besieged(game, s)
-						)
-							can_rebuild = true
-					}
+					if (
+						get_area(s) === "syria_palestine" &&
+						is_port(s) &&
+						is_controlled_by(game, s, AP) &&
+						!is_besieged(game, s)
+					)
+						can_rebuild = true
 				} else {
 					if (is_hejaz(s) && !is_besieged(game, s)) can_rebuild = true
 					if ((s === AQABA || s === JIDDAH) && is_controlled_by(game, s, AP) && !is_besieged(game, s)) can_rebuild = true

@@ -44,12 +44,7 @@ module.exports = function (Engine) {
 	 * 检查地块是否为丘吉尔胜出事件的合法增援地块
 	 */
 	function is_german_subs_reinforcement_turn(game) {
-		return !!(
-			game &&
-			game.events &&
-			game.events["german_subs"] &&
-			game.events["german_subs_turn"] === game.turn
-		)
+		return Engine.events.is_german_subs_reinforcement_turn(game)
 	}
 
 	function is_churchill_reinf_space(ctx, s) {

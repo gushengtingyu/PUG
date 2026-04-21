@@ -1726,11 +1726,6 @@ function get_stack_yildirim_count(pieces) {
 			is_sea_sr_port_space(game, dest)
 		if (!is_sea_sr) return false
 
-		if (faction === AP && game.events && game.events["german_subs"]) {
-			if (is_aegean_east_med_port(dest) || (data.spaces[dest] && data.spaces[dest].area === "gallipoli")) {
-				return true
-			}
-		}
 		if (game.events && game.events["royal_navy_blockade"] && faction === CP) {
 			let is_source_port = is_sea_sr_port_space(game, source)
 			let is_dest_port = is_sea_sr_port_space(game, dest)
@@ -2454,16 +2449,12 @@ function get_stack_yildirim_count(pieces) {
 				if (is_sudan_and_darfur(s) || is_india(s)) return true
 				// Island Bases (Lemnos, Cyprus)
 				if (is_island_base(game, s) && is_controlled_by(game, s, AP)) {
-					// Rule 13.3.2: German Subs in the Med blocks island bases from providing supply ONLY for Reinforcement/SR
-					return !(for_placement_or_sr && Engine.events.is_german_subs_blocked_port(game, s));
+					return true
 				}
 			}
 
 			// Port Supply Sources (14.1.4)
 			if (info.port && is_controlled_by(game, s, AP)) {
-				// Rule 13.3.2: German Subs in the Med blocks ports from providing supply ONLY for Reinforcement/SR
-				if (for_placement_or_sr && Engine.events.is_german_subs_blocked_port(game, s)) return false
-
 				if (is_mediterranean_port(s) || is_persian_gulf_port(game, s)) {
 					return true
 				}
@@ -2479,8 +2470,6 @@ function get_stack_yildirim_count(pieces) {
 					(Engine.neutral.is_greece_neutral(game) && game.events && game.events["salonika_is_port"] && info.name === "Salonika")
 				) {
 					if (info.name === "Salonika") {
-						// Rule 13.3.2: German Subs in the Med blocks ports from providing supply ONLY for Reinforcement/SR
-						if (for_placement_or_sr && Engine.events.is_german_subs_blocked_port(game, s)) return false
 						return true
 					}
 				}
@@ -2593,8 +2582,6 @@ function get_stack_yildirim_count(pieces) {
 		let ports = []
 		for (let s of get_supply_eligible_space_ids()) {
 			if ((data.spaces[s].port && is_controlled_by(game, s, AP)) || is_beachhead_space(game, s)) {
-				if (for_placement_or_sr && data.spaces[s].port && Engine.events.is_german_subs_blocked_port(game, s))
-					continue
 				ports.push(s)
 			}
 		}
