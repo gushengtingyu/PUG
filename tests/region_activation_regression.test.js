@@ -1,7 +1,8 @@
 const rules = require("../rules.js")
 const Engine = require("../modules/engine.js")
 
-const { CP } = Engine.constants
+const { AP, CP } = Engine.constants
+const AP_ROLE = rules.roles[0]
 const CP_ROLE = rules.roles[1]
 
 function setupGame(seed, scenario = "Historical") {
@@ -171,4 +172,51 @@ test("旧局里没有顺序号的大区激活，追加后取消会先回退新�
 	expect(game.ops).toBe(2)
 	expect(game.region_activations.move[galicia]).toHaveLength(1)
 	expect(game.region_activations.move[galicia][0].pieces).toEqual(gePieces.slice().sort((a, b) => a - b))
+})
+
+test("大区进攻第一次确认后，仍可继续追加第二组 attack stack", () => {
+	let game = setupGame(2026042212, "Historical")
+	let shiraz = findSpace("Shiraz")
+	let isfahan = findSpace("Isfahan")
+	let brPieces = [
+		findPiece(AP, "BR DIV #1"),
+		findPiece(AP, "BR DIV #2"),
+		findPiece(AP, "BR DIV #3"),
+		findPiece(AP, "BR DIV #4"),
+		findPiece(AP, "BR DIV #5"),
+		findPiece(AP, "BR DIV #6")
+	]
+	let cpDefender = Engine.data.pieces.findIndex(
+		(info, idx) => idx > 0 && info && info.faction === CP && info.piece_class === "SCU" && info.type !== "hq"
+	)
+
+	for (let p of brPieces) game.pieces[p] = shiraz
+	game.pieces[cpDefender] = isfahan
+	game.active = AP
+	game.state = "activate_spaces"
+	game.ops = 2
+	game.card_ops = 2
+	game.activated = { move: [], attack: [] }
+	game.activation_cost = {}
+	game.region_activations = { move: {}, attack: {} }
+	game.moved = []
+	game.attacked = []
+	game.retreated = []
+
+	rules.action(game, AP_ROLE, "activate_attack", shiraz)
+	for (let p of brPieces.slice(0, 3)) rules.action(game, AP_ROLE, "piece", p)
+	rules.action(game, AP_ROLE, "confirm")
+
+	let secondView = rules.view(game, AP_ROLE)
+	expect(secondView.actions.activate_attack || []).toContain(shiraz)
+	expect(secondView.actions.deactivate || []).toContain(shiraz)
+
+	rules.action(game, AP_ROLE, "activate_attack", shiraz)
+	for (let p of brPieces.slice(3)) rules.action(game, AP_ROLE, "piece", p)
+	rules.action(game, AP_ROLE, "confirm")
+
+	expect(game.ops).toBe(0)
+	expect(game.region_activations.attack[shiraz]).toHaveLength(2)
+	expect(game.region_activations.attack[shiraz][0].pieces).toEqual(brPieces.slice(0, 3))
+	expect(game.region_activations.attack[shiraz][1].pieces).toEqual(brPieces.slice(3))
 })

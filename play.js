@@ -5341,6 +5341,20 @@ function get_space_click_intent(s) {
 	if (Array.isArray(view.actions.space) && view.actions.space.includes(s)) {
 		return { type: "send_space" }
 	}
+	const can_continue_region_attack =
+		Array.isArray(view.activated?.attack) &&
+		view.activated.attack.includes(s) &&
+		is_action("activate_attack", s)
+	if (can_continue_region_attack) {
+		return { type: "send_action", action: "activate_attack" }
+	}
+	const can_continue_region_move =
+		Array.isArray(view.activated?.move) &&
+		view.activated.move.includes(s) &&
+		is_action("activate_move", s)
+	if (can_continue_region_move) {
+		return { type: "send_action", action: "activate_move" }
+	}
 	for (let action in view.actions) {
 		if (!Array.isArray(view.actions[action]) || !view.actions[action].includes(s)) {
 			continue
@@ -5533,17 +5547,6 @@ function get_piece_click_dispatch(p) {
 	const retreat_piece_noun = get_action_noun("retreat_pieces", p)
 	if (retreat_piece_noun !== undefined) {
 		return { action: "piece", noun: retreat_piece_noun, source: "retreat_pieces" }
-	}
-	if (!view.actions) {
-		return null
-	}
-	// "card" action refers to playing a card from hand, should not be matched for piece clicking!
-	for (let action in view.actions) {
-		if (action === "card" || action === "play_cc") continue
-		const action_noun = get_action_noun(action, p)
-		if (action_noun !== undefined) {
-			return { action, noun: action_noun, source: action }
-		}
 	}
 	return null
 }
