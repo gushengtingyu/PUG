@@ -1195,6 +1195,14 @@ function get_stack_yildirim_count(pieces) {
 
 	function get_region_activation_stack_block_reason(game, pieces) {
 		if (!Array.isArray(pieces) || pieces.length === 0) return "未选择单位"
+		// Rule 16.1: HQs and Heavy Artillery must be stacked with a friendly Combat Unit
+		// to operate. A region activation stack consisting solely of HQ/HA is illegal,
+		// and also previously produced a 0-OPS cost via ceil(0/3)=0 (BUG 1).
+		let has_combat_unit = pieces.some((p) => {
+			let key = get_stack_special_key(p)
+			return key !== "hq" && key !== "H"
+		})
+		if (!has_combat_unit) return "堆叠必须至少包含一个战斗单位（HQ/重炮不能单独激活）"
 		let composition_reason = get_stack_composition_reason(game, pieces)
 		if (composition_reason) return composition_reason
 		if (get_stack_count(pieces) > 3) return "堆叠超限"
@@ -3251,12 +3259,11 @@ function get_stack_yildirim_count(pieces) {
 		if (is_region(game, s)) {
 			base_cost = Math.ceil(active_count / 3)
 		}
-		if (has_hq) {
-			if (game.card_ops !== 3 && game.card_ops !== 4) {
-				return Infinity
-			}
-			return base_cost
-		}
+		// PUG rules 7.2 and 16.0 do not impose a "HQ requires a 3 or 4 OPS card" restriction
+		// (that is a Paths of Glory rule). HQs simply count as their nationality for activation
+		// cost (rule 7.2.2), so they flow through the normal group_count calculation below.
+		// Special cross-nationality HQs (Falkenhayn/Mackensen/d'Espèrey per rules 16.3.2/16.3.4)
+		// collapse group_count to 1 via special_hq_command.
 		if (special_hq_command) {
 			return base_cost
 		}

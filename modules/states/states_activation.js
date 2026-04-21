@@ -845,6 +845,8 @@ exports.register = function (states, Engine, context) {
 					let cost = get_region_activation_cost(mode, space, pieces)
 					res.action("confirm")
 					res.prompt(`确认${mode_name}激活 ${piece_list(pieces)} (花费 ${cost} OPS)`)
+				} else {
+					res.prompt(`${space_name(space)} 不能按当前选择${mode_name}激活：${reason}`)
 				}
 			}
 
