@@ -517,6 +517,7 @@ module.exports = function (Engine) {
 		if (log) log(`单位 ${data.pieces[p].name} 被移出游戏 (Removed)。`)
 		if (space > 0 && Engine.sync_neutral_vp_state) Engine.sync_neutral_vp_state(game, space)
 		if (space > 0 && Engine.sync_jihad_city_state) Engine.sync_jihad_city_state(game, space)
+		if (space > 0 && Engine.sync_region_control) Engine.sync_region_control(game, space)
 	}
 
 	function eliminate_piece(game, p, log, permanent = false) {
@@ -570,6 +571,7 @@ module.exports = function (Engine) {
 		reset_piece_runtime_state(game, p)
 		if (space > 0 && Engine.sync_neutral_vp_state) Engine.sync_neutral_vp_state(game, space)
 		if (space > 0 && Engine.sync_jihad_city_state) Engine.sync_jihad_city_state(game, space)
+		if (space > 0 && Engine.sync_region_control) Engine.sync_region_control(game, space)
 
 		return replacement_scu
 	}

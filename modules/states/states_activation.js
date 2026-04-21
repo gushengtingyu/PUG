@@ -367,22 +367,68 @@ exports.register = function (states, Engine, context) {
 		else map_delete(game.activation_cost, s)
 	}
 
+	function next_region_activation_order() {
+		let order = Number(game.region_activation_order) || 0
+		order += 1
+		game.region_activation_order = order
+		return order
+	}
+
+	function get_region_activation_stack_order(stack, index) {
+		let order = Number(stack && stack.order)
+		if (Number.isFinite(order)) return order
+		return index + 1
+	}
+
+	function ensure_region_activation_order_counter() {
+		let max_order = Number(game.region_activation_order)
+		if (!Number.isFinite(max_order)) max_order = 0
+		for (let mode of ["move", "attack"]) {
+			let mode_map = get_region_activation_mode_map(mode)
+			for (let key of Object.keys(mode_map)) {
+				let stacks = mode_map[key]
+				if (!Array.isArray(stacks)) continue
+				for (let index = 0; index < stacks.length; index++) {
+					max_order = Math.max(max_order, get_region_activation_stack_order(stacks[index], index))
+				}
+			}
+		}
+		game.region_activation_order = max_order
+		return max_order
+	}
+
 	function add_region_activation_stack(mode, s, pieces, cost) {
+		ensure_region_activation_order_counter()
 		let stacks = get_region_activation_stacks(mode, s).slice()
 		stacks.push({
 			pieces: pieces.slice().sort((a, b) => a - b),
-			cost
+			cost,
+			order: next_region_activation_order()
 		})
 		set_region_activation_stacks(mode, s, stacks)
 		update_region_activation_cost_for_space(s)
 	}
 
-	function refund_region_activations_for_space(s) {
-		let refund = get_region_activation_total_cost_for_space(s)
-		if (refund === 0) return 0
-		set_region_activation_stacks("move", s, [])
-		set_region_activation_stacks("attack", s, [])
+	function refund_last_region_activation_for_space(s) {
+		let latest = null
+		for (let mode of ["move", "attack"]) {
+			let stacks = get_region_activation_stacks(mode, s)
+			for (let index = 0; index < stacks.length; index++) {
+				let stack = stacks[index]
+				let order = get_region_activation_stack_order(stack, index)
+				if (!latest || order > latest.order) {
+					latest = { mode, index, order }
+				}
+			}
+		}
+		if (!latest) return 0
+
+		let stacks = get_region_activation_stacks(latest.mode, s).slice()
+		let [removed] = stacks.splice(latest.index, 1)
+		set_region_activation_stacks(latest.mode, s, stacks)
 		update_region_activation_cost_for_space(s)
+
+		let refund = Number(removed && removed.cost) || 0
 		game.ops += refund
 		return refund
 	}
@@ -718,8 +764,12 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 			push_undo()
+			if (Engine.map.is_region(game, s)) {
+				refund_last_region_activation_for_space(s)
+				return
+			}
 			let total_cost_before = map_get(game.activation_cost, s) || 0
-			let region_refund = refund_region_activations_for_space(s)
+			let region_refund = 0
 			let had_ordinary_activation = set_has(game.activated.move, s) || set_has(game.activated.attack, s)
 			if (had_ordinary_activation) {
 				let ordinary_cost = total_cost_before - region_refund
@@ -1700,6 +1750,7 @@ exports.register = function (states, Engine, context) {
 		if (from_space > 0) {
 			Engine.sync_neutral_vp_state(game, from_space)
 			Engine.sync_jihad_city_state(game, from_space)
+			Engine.sync_region_control(game, from_space)
 		}
 
 		game.move.spaces_moved += step_cost
@@ -1749,7 +1800,9 @@ exports.register = function (states, Engine, context) {
 
 			if (!has_undestroyed_fort(game, target, other_faction(active_faction())) && !is_gallipoli(target)) {
 				if (!is_controlled_by(game, target, active_faction())) {
-					if (pieces_moving.some((p) => data.pieces[p].type === "regular")) {
+					let enemy_holds_contested_region =
+						!!data.spaces[target]?.region && Engine.map.contains_enemy_pieces(game, target, active_faction())
+					if (pieces_moving.some((p) => data.pieces[p].type === "regular") && !enemy_holds_contested_region) {
 						set_control(game, target, active_faction())
 					}
 				}
@@ -1757,6 +1810,7 @@ exports.register = function (states, Engine, context) {
 			if (Engine.check_persia_entry_vp_penalty) {
 				Engine.check_persia_entry_vp_penalty(game, target, pieces_moving)
 			}
+			Engine.sync_region_control(game, target)
 			Engine.sync_neutral_vp_state(game, target)
 			Engine.sync_jihad_city_state(game, target)
 

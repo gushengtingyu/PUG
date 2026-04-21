@@ -2020,8 +2020,11 @@ exports.register = function (states, Engine, context) {
 		space(s) {
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
+				let from = game.pieces[p]
 				log(`${data.pieces[p].name} retreats to ${data.spaces[s].name} (towards Tiflis).`)
 				game.pieces[p] = s
+				if (from > 0) Engine.sync_region_control(game, from)
+				Engine.sync_region_control(game, s)
 				set_delete(game.save_tiflis_pieces, p)
 				game.selected_piece = null
 			}
@@ -2200,7 +2203,9 @@ exports.register = function (states, Engine, context) {
 					if (from > 0) {
 						Engine.sync_neutral_vp_state(game, from)
 						Engine.sync_jihad_city_state(game, from)
+						Engine.sync_region_control(game, from)
 					}
+					Engine.sync_region_control(game, s)
 					Engine.sync_neutral_vp_state(game, s)
 					Engine.sync_jihad_city_state(game, s)
 					set_delete(game.retreat_pieces, p)
@@ -2326,7 +2331,9 @@ exports.register = function (states, Engine, context) {
 				if (from > 0) {
 					Engine.sync_neutral_vp_state(game, from)
 					Engine.sync_jihad_city_state(game, from)
+					Engine.sync_region_control(game, from)
 				}
+				Engine.sync_region_control(game, s)
 				Engine.sync_neutral_vp_state(game, s)
 				Engine.sync_jihad_city_state(game, s)
 
@@ -2414,10 +2421,12 @@ exports.register = function (states, Engine, context) {
 		resolve_russian_winter_offensive_advance(game, p, to_space, log)
 		if (!combat.has_undestroyed_fort(game, to_space, other_faction(active_faction()))) {
 			if (!Engine.map.is_controlled_by(game, to_space, active_faction())) {
-				if (active_faction() === CP && Engine.map.is_russian_vp_space(game, to_space)) {
+				let enemy_holds_contested_region =
+					!!data.spaces[to_space]?.region && Engine.map.contains_enemy_pieces(game, to_space, active_faction())
+				if (!enemy_holds_contested_region && active_faction() === CP && Engine.map.is_russian_vp_space(game, to_space)) {
 					game.captured_russian_vp_in_advance = true
 				}
-				if (data.pieces[p].type === "regular") {
+				if (data.pieces[p].type === "regular" && !enemy_holds_contested_region) {
 					set_control(game, to_space, active_faction())
 				}
 			}
@@ -2428,7 +2437,9 @@ exports.register = function (states, Engine, context) {
 		if (from_space > 0) {
 			Engine.sync_neutral_vp_state(game, from_space)
 			Engine.sync_jihad_city_state(game, from_space)
+			Engine.sync_region_control(game, from_space)
 		}
+		Engine.sync_region_control(game, to_space)
 		Engine.sync_neutral_vp_state(game, to_space)
 		Engine.sync_jihad_city_state(game, to_space)
 		if (Engine.neutral.is_greece_neutral(game) && Engine.neutral.is_athens_space(to_space)) {

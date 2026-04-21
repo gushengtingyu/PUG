@@ -419,6 +419,7 @@ module.exports = function (Engine) {
 		if (state.mo_cp_cancelled === undefined) state.mo_cp_cancelled = false
 		if (state.ru_revolution === undefined) state.ru_revolution = 0
 		if (state.jihad === undefined) state.jihad = 0
+		if (state.vp === undefined) state.vp = 10
 		if (state.russian_vp === undefined) state.russian_vp = 0
 		state.combined_war = Math.min(40, Math.max(0, (state.war_status_ap || 0) + (state.war_status_cp || 0)))
 		if (!Array.isArray(state.tribal_reserve)) state.tribal_reserve = []
@@ -436,6 +437,36 @@ module.exports = function (Engine) {
 				if (legal && state.control[s] === Engine.constants.CP) {
 					state.control[s] = legal
 				}
+			}
+		}
+		if (Engine.map && Engine.game_utils) {
+			for (let s = 1; s < data.spaces.length; s++) {
+				let info = data.spaces[s]
+				if (!info || !info.region) continue
+				let has_ap = false
+				let has_cp = false
+				for (let p of Engine.map.get_pieces_in_space(state, s)) {
+					let faction = Engine.game_utils.get_piece_effective_faction(state, p)
+					if (faction === Engine.constants.AP) has_ap = true
+					else if (faction === Engine.constants.CP) has_cp = true
+					if (has_ap && has_cp) break
+				}
+				if ((has_ap && has_cp) || (!has_ap && !has_cp)) continue
+
+				let desired = has_ap ? Engine.constants.AP : Engine.constants.CP
+				let current = Engine.map.get_space_controller(state, s)
+				if (current === desired) continue
+
+				let previous_vp_owner =
+					Engine.get_effective_vp_value(state, s) > 0 &&
+					(current === Engine.constants.AP || current === Engine.constants.CP)
+						? current
+						: 0
+				let previous_jihad_owner = info.jihad_city ? Engine.get_jihad_city_effective_owner(state, s) || 0 : 0
+				let default_controller = Engine.map.get_default_controller(state, s)
+				state.control[s] = desired === default_controller ? null : desired
+				Engine.sync_vp_state(state, s, previous_vp_owner)
+				if (info.jihad_city) Engine.sync_jihad_city_state(state, s, previous_jihad_owner)
 			}
 		}
 		if (!Array.isArray(state.ap_actions)) state.ap_actions = Array(7).fill(null)

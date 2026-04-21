@@ -234,8 +234,10 @@ function move_piece(target_game, p, s) {
 				Engine.check_persia_entry_vp_penalty(game, s, [p])
 			}
 			if (from > 0) {
+				Engine.sync_region_control(game, from)
 				Engine.sync_neutral_vp_state(game, from)
 			}
+			Engine.sync_region_control(game, s)
 			Engine.sync_neutral_vp_state(game, s)
 		}
 

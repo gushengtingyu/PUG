@@ -812,6 +812,7 @@ module.exports = function (Engine) {
 					Engine.check_persia_entry_vp_penalty(game, space, [p])
 				}
 				Engine.sync_neutral_vp_state(game, space)
+				Engine.sync_region_control(game, space)
 			}
 
 			// Rule 19.2.1: Entering neutral Athens triggers Greek entry

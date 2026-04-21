@@ -96,3 +96,79 @@ test("大区内分别激活的 GE 与 AH 堆叠不会被视为同一来源参加
 
 	expect(Engine.combat.is_invalid_multinational_attack(game, [gePieces[0], ahPieces[0]])).toBe(false)
 })
+
+test("大区取消激活只回退最后一次追加的堆叠", () => {
+	let game = setupGame(2026042210, "Historical")
+	let { galicia, gePieces, ahPieces } = setupGaliciaPieces(game)
+
+	game.events.bulgaria = 1
+	game.active = CP
+	game.state = "activate_spaces"
+	game.ops = 3
+	game.card_ops = 3
+	game.activated = { move: [], attack: [] }
+	game.activation_cost = {}
+	game.region_activations = { move: {}, attack: {} }
+	game.moved = []
+	game.attacked = []
+	game.retreated = []
+
+	rules.action(game, CP_ROLE, "activate_move", galicia)
+	for (let p of gePieces) rules.action(game, CP_ROLE, "piece", p)
+	rules.action(game, CP_ROLE, "confirm")
+
+	rules.action(game, CP_ROLE, "activate_move", galicia)
+	for (let p of ahPieces) rules.action(game, CP_ROLE, "piece", p)
+	rules.action(game, CP_ROLE, "confirm")
+
+	expect(game.ops).toBe(1)
+	expect(game.region_activations.move[galicia]).toHaveLength(2)
+	expect(game.activation_cost[galicia]).toBe(2)
+
+	rules.action(game, CP_ROLE, "deactivate", galicia)
+
+	expect(game.ops).toBe(2)
+	expect(game.region_activations.move[galicia]).toHaveLength(1)
+	expect(game.region_activations.move[galicia][0].pieces).toEqual(gePieces.slice().sort((a, b) => a - b))
+	expect(game.activation_cost[galicia]).toBe(1)
+
+	rules.action(game, CP_ROLE, "deactivate", galicia)
+
+	expect(game.ops).toBe(3)
+	expect(game.region_activations.move[galicia]).toBeUndefined()
+	expect(game.activation_cost[galicia]).toBeUndefined()
+})
+
+test("旧局里没有顺序号的大区激活，追加后取消会先回退新堆叠", () => {
+	let game = setupGame(2026042211, "Historical")
+	let { galicia, gePieces, ahPieces } = setupGaliciaPieces(game)
+
+	game.events.bulgaria = 1
+	game.active = CP
+	game.state = "activate_spaces"
+	game.ops = 2
+	game.card_ops = 2
+	game.activated = { move: [], attack: [] }
+	game.activation_cost = { [galicia]: 1 }
+	game.region_activations = {
+		move: {
+			[galicia]: [{ pieces: gePieces.slice().sort((a, b) => a - b), cost: 1 }]
+		},
+		attack: {}
+	}
+	game.moved = []
+	game.attacked = []
+	game.retreated = []
+
+	rules.action(game, CP_ROLE, "activate_move", galicia)
+	for (let p of ahPieces) rules.action(game, CP_ROLE, "piece", p)
+	rules.action(game, CP_ROLE, "confirm")
+
+	expect(game.region_activations.move[galicia]).toHaveLength(2)
+
+	rules.action(game, CP_ROLE, "deactivate", galicia)
+
+	expect(game.ops).toBe(2)
+	expect(game.region_activations.move[galicia]).toHaveLength(1)
+	expect(game.region_activations.move[galicia][0].pieces).toEqual(gePieces.slice().sort((a, b) => a - b))
+})

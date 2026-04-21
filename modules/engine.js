@@ -190,6 +190,33 @@ const Engine = {
 		})
 	},
 
+	sync_region_control(game, s) {
+		let info = data.spaces[s]
+		if (!info || !info.region) return
+		if (!Engine.map || typeof Engine.map.get_pieces_in_space !== "function") return
+		if (!Engine.game_utils || typeof Engine.game_utils.get_piece_effective_faction !== "function") return
+
+		let has_ap = false
+		let has_cp = false
+		for (let p of Engine.map.get_pieces_in_space(game, s)) {
+			let faction = Engine.game_utils.get_piece_effective_faction(game, p)
+			if (faction === constants.AP) has_ap = true
+			else if (faction === constants.CP) has_cp = true
+			if (has_ap && has_cp) return
+		}
+		if (!has_ap && !has_cp) return
+
+		let desired = has_ap ? constants.AP : constants.CP
+		let current_controller =
+			Engine.map && typeof Engine.map.get_space_controller === "function"
+				? Engine.map.get_space_controller(game, s)
+				: game.control[s] || info.faction
+
+		if (current_controller !== desired) {
+			Engine.set_control(game, s, desired)
+		}
+	},
+
 	set_control(game, s, faction) {
 		if (
 			Engine.map &&
