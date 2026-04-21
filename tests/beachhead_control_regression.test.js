@@ -87,3 +87,31 @@ test("Beirut 滩头上的 AP SCU 在 attack 阶段可以选择进攻 Beirut", ()
 	let targetView = rules.view(game, AP_ROLE)
 	expect(targetView.actions.space || []).toContain(beirut)
 })
+
+test("Besika Bay 的 beachhead 单位可以激活并进攻 Kum Kale 空堡", () => {
+	let game = setupGame(2026042205)
+	let besikaBay = findSpace("Besika Bay")
+	let kumKale = findSpace("Kum Kale")
+	let attacker = Engine.game_utils.find_piece(AP, "BR DIV #4")
+
+	for (let p = 0; p < game.pieces.length; p++) {
+		if (game.pieces[p] === besikaBay || game.pieces[p] === kumKale) game.pieces[p] = 0
+	}
+
+	rules.set_add(game.beachheads, besikaBay)
+	game.pieces[attacker] = besikaBay
+	game.active = AP
+	game.state = "activate_spaces"
+	game.ops = 1
+	game.card_ops = 1
+	game.activated = { move: [], attack: [] }
+	game.region_activations = { move: {}, attack: {} }
+	game.activation_cost = { move: 0, attack: 0 }
+	game.attacked = []
+	game.retreated = []
+
+	let activationView = rules.view(game, AP_ROLE)
+	expect(activationView.actions.activate_attack || []).toContain(besikaBay)
+
+	expect(rules.get_attackable_spaces([attacker])).toContain(kumKale)
+})

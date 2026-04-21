@@ -475,14 +475,16 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function space_has_adjacent_enemy(s, faction, enemy_space_flag = null) {
-		let info = data.spaces[s]
-		if (!info || !Array.isArray(info.connections)) return false
-		for (let n of info.connections) {
+		if (!data.spaces[s]) return false
+		let enemy = other_faction(faction)
+		let attack_neighbors = get_connected_spaces(game, s, null, faction, undefined, "attack")
+		for (let n of attack_neighbors) {
 			if (enemy_space_flag) {
 				if (enemy_space_flag[n] === 1) return true
 			} else if (Engine.map.contains_enemy_pieces(game, n, faction)) {
 				return true
 			}
+			if (has_undestroyed_fort(game, n, enemy)) return true
 		}
 		return false
 	}
