@@ -808,7 +808,35 @@ exports.view = function (state, current) {
 					: 0,
 			lcu_limit_ap: get_lcu_limit_for(game, AP),
 			lcu_limit_cp: get_lcu_limit_for(game, CP),
-			activated: game.activated,
+			activated: (() => {
+				// Merge region_activations into a view-only `activated` so the map shows
+				// move/attack markers on regions with partial stack activations. Without this,
+				// Galicia/etc. look "un-activated" after the first stack is confirmed, which
+				// makes players click the region again and accidentally hit Deactivate.
+				let base = game.activated || { move: [], attack: [] }
+				let merged_move = Array.isArray(base.move) ? base.move.slice() : []
+				let merged_attack = Array.isArray(base.attack) ? base.attack.slice() : []
+				let ra = game.region_activations || {}
+				if (ra.move) {
+					for (let key of Object.keys(ra.move)) {
+						let stacks = ra.move[key]
+						if (Array.isArray(stacks) && stacks.length > 0) {
+							let space_id = Number(key)
+							if (!merged_move.includes(space_id)) merged_move.push(space_id)
+						}
+					}
+				}
+				if (ra.attack) {
+					for (let key of Object.keys(ra.attack)) {
+						let stacks = ra.attack[key]
+						if (Array.isArray(stacks) && stacks.length > 0) {
+							let space_id = Number(key)
+							if (!merged_attack.includes(space_id)) merged_attack.push(space_id)
+						}
+					}
+				}
+				return { move: merged_move, attack: merged_attack }
+			})(),
 			activation_cost: game.activation_cost,
 			move: game.move
 				? { pieces: game.move.pieces ? game.move.pieces.slice() : [] }
