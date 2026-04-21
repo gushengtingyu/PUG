@@ -603,28 +603,16 @@ module.exports = function (Engine) {
 	function check_persia_entry_vp_penalty(game, s, entered_pieces) {
 		if (!game || !Array.isArray(entered_pieces) || entered_pieces.length === 0) return
 		if (!game.events) game.events = {}
-		let in_revolution = game.events["russian_revolution"] >= 1
-		let space = data.spaces[s] || {}
+		// Rule 19.6.3 (bullet 2): The first time RU units enter Arabistan, +1 VP penalty.
+		// This is the only explicit sphere-entry VP penalty in the rulebook; the mirror
+		// direction (BR/FR/IN/IT/ANZ into Russian sphere) is handled by bullet 1's hard
+		// prohibition in can_enter_region and requires no VP penalty.
 		if (!game.events["russian_british_sphere_penalty"]) {
 			let has_russian_entry = entered_pieces.some((p) => Engine.game_utils.piece_counts_as_nation_for_rule(game, p, "ru"))
 			if (Engine.map.is_arabistan(s) && has_russian_entry) {
 				game.events["russian_british_sphere_penalty"] = true
 				game.vp += 1
 				Engine.log(game, "帝国间的猜忌：俄国部队首次进入阿拉伯斯坦，CP +1 VP。")
-			}
-		}
-		if (!game.events["ap_russian_sphere_penalty"] && !in_revolution) {
-			let has_ap_entry = entered_pieces.some((p) =>
-				["br", "fr", "in", "it", "anz"].some((nation) => Engine.game_utils.piece_counts_as_nation_for_rule(game, p, nation))
-			)
-			let region = String(space.region || "").toLowerCase()
-			let in_three_persian_regions =
-				region === "east persia" || region === "central persia" || region === "south persia"
-			let is_neutral_persia_outside_three = Engine.map.is_persia(s) && space.nation === "pe" && !in_three_persian_regions
-			if ((Engine.map.is_azerbaijan(s) || is_neutral_persia_outside_three) && has_ap_entry) {
-				game.events["ap_russian_sphere_penalty"] = true
-				game.vp += 1
-				Engine.log(game, "AP非俄军首次进入阿塞拜疆或中立波斯，+1 VP。")
 			}
 		}
 	}

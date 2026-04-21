@@ -1083,6 +1083,18 @@ module.exports = function (Engine) {
 			if (!events.is_persia_open(game) && data.pieces[p].nation !== "pe") return false
 		}
 
+		// Rule 19.6.3 (bullet 1): BR/FR/IN/IT/ANZ units may not enter Neutral Persia or Azerbaijan
+		// prior to the Russian Revolution. Persian Cordon (region_limit "P") is exempt.
+		if (is_azerbaijan(s) || is_neutral_persia_space(s)) {
+			let revolution_started = !!(game.events && game.events["russian_revolution"] >= 1)
+			if (!revolution_started && piece_info && piece_info.region_limit !== "P") {
+				let nation = piece_info.nation
+				if (nation === "br" || nation === "fr" || nation === "in" || nation === "it" || nation === "anz") {
+					return false
+				}
+			}
+		}
+
 		if (is_lcu(p)) {
 			if (data.spaces[s].terrain === "desert") {
 				// Rule 9.3: Desert Movement Restrictions for LCUs.
