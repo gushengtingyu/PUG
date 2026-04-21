@@ -426,6 +426,18 @@ module.exports = function (Engine) {
 		if (state.god_save_the_tsar === undefined) state.god_save_the_tsar = 0
 		if (state.ge_to_tu_rp_used === undefined) state.ge_to_tu_rp_used = 0
 		if (!Array.isArray(state.beachheads)) state.beachheads = []
+		if (Engine.map && typeof Engine.map.is_potential_beachhead_space === "function") {
+			for (let s = 1; s < data.spaces.length; s++) {
+				if (!Engine.map.is_potential_beachhead_space(s)) continue
+				let legal =
+					typeof Engine.map.get_legal_beachhead_controller === "function"
+						? Engine.map.get_legal_beachhead_controller(state, s)
+						: null
+				if (legal && state.control[s] === Engine.constants.CP) {
+					state.control[s] = legal
+				}
+			}
+		}
 		if (!Array.isArray(state.ap_actions)) state.ap_actions = Array(7).fill(null)
 		if (!Array.isArray(state.cp_actions)) state.cp_actions = Array(7).fill(null)
 		if (state.where === undefined) state.where = -1

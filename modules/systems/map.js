@@ -433,6 +433,15 @@ module.exports = function (Engine) {
 
 	// --- Control Logic ---
 
+	function get_legal_beachhead_controller(game, s) {
+		let info = data.spaces[s]
+		if (!info || !info.beach_for) return null
+		if (info.beach_for === "Cyprus" && !(game && game.events && game.events["egyptian_coup"])) {
+			return "neutral"
+		}
+		return AP
+	}
+
 	function get_default_controller(game, s) {
 		let info = data.spaces[s]
 		if (!info) return null
@@ -446,6 +455,13 @@ module.exports = function (Engine) {
 	}
 
 	function get_space_controller(game, s) {
+		if (is_potential_beachhead_space(s)) {
+			let legal = get_legal_beachhead_controller(game, s)
+			if (game.control && (game.control[s] === AP || game.control[s] === "neutral")) {
+				return game.control[s]
+			}
+			return legal
+		}
 		if (game.control && (game.control[s] === AP || game.control[s] === CP || game.control[s] === "neutral")) {
 			return game.control[s]
 		}
@@ -2683,6 +2699,10 @@ function get_stack_yildirim_count(pieces) {
 			projection_ap[s] = ap_supply.full.has(s) ? 1 : 0
 			projection_cp[s] = cp_supply.full.has(s) ? 1 : 0
 
+			if (is_potential_beachhead_space(s) && !is_beachhead_space(game, s)) {
+				continue
+			}
+
 			// Cyprus (Rule 14.2.10) is always in supply if no coup
 			if (!(game.events && game.events["egyptian_coup"]) && (info.name === "Cyprus" || info.beach_for === "Cyprus")) {
 				continue
@@ -3353,6 +3373,7 @@ function get_stack_yildirim_count(pieces) {
 		is_galicia,
 		is_russia,
 		get_area,
+		get_legal_beachhead_controller,
 		get_default_controller,
 		get_space_controller,
 		is_controlled_by,

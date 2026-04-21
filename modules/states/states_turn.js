@@ -223,6 +223,7 @@ exports.register = function (states, Engine, context) {
 		// Rule 14.3.3: OOS spaces change control
 		if (game.oos_spaces && game.oos_spaces.length > 0) {
 			for (let s of game.oos_spaces) {
+				if (Engine.map.is_potential_beachhead_space(s)) continue
 				// Rule 14.3.3: Does not apply to neutral spaces or intact friendly forts
 				let faction = Engine.map.get_space_controller(game, s)
 				if ((faction === AP || faction === CP) && !Engine.map.has_undestroyed_fort(game, s, faction)) {

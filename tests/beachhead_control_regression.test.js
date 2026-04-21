@@ -1,0 +1,57 @@
+const rules = require("../rules.js")
+const Engine = require("../modules/engine.js")
+
+const { AP, CP } = Engine.constants
+
+function setupGame(seed, scenario = "Historical") {
+	return rules.setup(seed, scenario, { seven_hand_size: false, no_supply_warnings: false })
+}
+
+function findSpace(name) {
+	let space = Engine.game_utils.find_space(name)
+	if (space < 0) throw new Error(`找不到地块: ${name}`)
+	return space
+}
+
+test("未建立 marker 的 beachhead 不会进入断补翻控制链路", () => {
+	let game = setupGame(2026042101)
+	let suvlaBay = findSpace("Suvla Bay")
+
+	expect(Engine.map.is_beachhead_space(game, suvlaBay)).toBe(false)
+	expect(Engine.map.get_space_controller(game, suvlaBay)).toBe(AP)
+
+	Engine.map.check_supply(game)
+
+	expect(game.oos_spaces || []).not.toContain(suvlaBay)
+	expect(Engine.map.get_space_controller(game, suvlaBay)).toBe(AP)
+})
+
+test("运行时不能把 beachhead 写成 CP 控制", () => {
+	let game = setupGame(2026042102)
+	let suvlaBay = findSpace("Suvla Bay")
+	let toAdana = findSpace("To Adana")
+
+	Engine.set_control(game, suvlaBay, CP)
+	Engine.set_control(game, toAdana, CP)
+
+	expect(Engine.map.get_space_controller(game, suvlaBay)).toBe(AP)
+	expect(Engine.map.get_space_controller(game, toAdana)).toBe("neutral")
+	expect(game.control[suvlaBay]).toBe(AP)
+	expect(game.control[toAdana]).toBe("neutral")
+})
+
+test("旧坏档里的 beachhead CP 控制会在加载归一化时被清洗", () => {
+	let game = setupGame(2026042103)
+	let suvlaBay = findSpace("Suvla Bay")
+	let toAdana = findSpace("To Adana")
+
+	game.control[suvlaBay] = CP
+	game.control[toAdana] = CP
+
+	Engine.setup.normalize_game(game)
+
+	expect(game.control[suvlaBay]).toBe(AP)
+	expect(game.control[toAdana]).toBe("neutral")
+	expect(Engine.map.get_space_controller(game, suvlaBay)).toBe(AP)
+	expect(Engine.map.get_space_controller(game, toAdana)).toBe("neutral")
+})

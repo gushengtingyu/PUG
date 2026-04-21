@@ -191,6 +191,17 @@ const Engine = {
 	},
 
 	set_control(game, s, faction) {
+		if (
+			Engine.map &&
+			typeof Engine.map.is_potential_beachhead_space === "function" &&
+			Engine.map.is_potential_beachhead_space(s) &&
+			faction === constants.CP
+		) {
+			faction =
+				typeof Engine.map.get_legal_beachhead_controller === "function"
+					? Engine.map.get_legal_beachhead_controller(game, s)
+					: constants.AP
+		}
 		const is_vp_space = Engine.get_effective_vp_value(game, s) > 0
 		const is_jihad_city = !!(data.spaces[s] && data.spaces[s].jihad_city)
 		let previous_jihad_owner = is_jihad_city ? Engine.get_jihad_city_effective_owner(game, s) || 0 : 0
