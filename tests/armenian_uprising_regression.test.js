@@ -56,7 +56,7 @@ test("Armenian Uprising event and Van control behavior", () => {
 	let initialRuVp = game.russian_vp
 	Engine.sync_neutral_vp_state(game, van)
 
-	expect(game.vp).toBe(initialVp)
+	expect(game.vp).toBe(initialVp - 1)
 	expect(game.russian_vp).toBe(initialRuVp)
 	expect((game.partial_cp_control_markers || []).includes(van)).toBe(false)
 	expect((game.ru_control_markers || []).includes(van)).toBe(false)

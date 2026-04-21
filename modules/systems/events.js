@@ -81,6 +81,20 @@ module.exports = function (Engine) {
 		"Kuwait",
 		"Smyrna"
 	].map(find_space)
+	const ARMENIAN_UPRISING_BLUE_A_SPACES = [
+		"Yozgat",
+		"Sivas",
+		"Kayseri",
+		"Harput",
+		"Diyarbekir",
+		"Mus",
+		"Bitlis",
+		"Van",
+		"Erzurum",
+		"Alexandretta",
+		"Erevan",
+		"Trabzon"
+	]
 
 	function get_grand_duke_to_tiflis_vacant_azerbaijan_spaces(game) {
 		let spaces = []
@@ -697,6 +711,11 @@ module.exports = function (Engine) {
 			if (pieces.length === 0 || is_controlled_by(game, s, CP)) options.push(s)
 		}
 		return options
+	}
+
+	function get_armenian_uprising_blue_a_spaces() {
+		// Event-local strict source: use curated blue-A list only.
+		return ARMENIAN_UPRISING_BLUE_A_SPACES.map(find_space).filter((s) => s > 0)
 	}
 
 	function is_ap_invasion_event_used_this_turn(game) {
@@ -1526,10 +1545,20 @@ module.exports = function (Engine) {
 			can_play: function (game) {
 				return game.events["pan_turkism"]
 			},
-			handler: function (game) {
+			handler: function (game, ctx) {
 				game.vp -= 1
 				game.events["armenian_uprising"] = true
-			}
+				game.active = AP
+				game.armenian_uprising_markers = []
+				start_event_data(game, ctx, "armenian_uprising_32", {
+					unit_name: "Armenian Uprising",
+					blue_a_spaces: get_armenian_uprising_blue_a_spaces(),
+					markers_to_place: 3,
+					marker_spaces: []
+				})
+				game.state = "event_armenian_uprising_unit"
+			},
+			defer_end: true
 		},
 		33: {
 			name: "ASQUITH/LLOYD GEORGE COALITION",
