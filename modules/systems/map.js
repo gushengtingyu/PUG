@@ -1287,6 +1287,11 @@ function get_stack_yildirim_count(pieces) {
 		let friendly = get_pieces_in_space(game, s).filter((p) => get_piece_effective_faction(game, p) === faction)
 		if (friendly.length === 0) return null
 
+		// Rule 9.2.3: Units may move through but not end their Movement in a space containing an Attack marker.
+		if (game.activated && Array.isArray(game.activated.attack) && game.activated.attack.includes(s)) {
+			return "不能在进攻激活格结束移动"
+		}
+
 		// Rule 17.1.4: Tribe Movement Range
 		for (let p of friendly) {
 			if (!is_space_in_tribal_range(p, s)) return "部落活动范围限制"
@@ -1311,6 +1316,11 @@ function get_stack_yildirim_count(pieces) {
 		if (!pieces || pieces.length === 0) return "无移动单位"
 		if (!Engine.neutral.can_end_move_in_neutral_greece(game, pieces[0], target, data.pieces[pieces[0]].faction))
 			return "中立希腊移动限制"
+
+		// Rule 9.2.3: Units may move through but not end their Movement in a space containing an Attack marker.
+		if (game.activated && Array.isArray(game.activated.attack) && game.activated.attack.includes(target)) {
+			return "不能在进攻激活格结束移动"
+		}
 
 		for (let p of pieces) {
 			if (!is_space_in_tribal_range(p, target)) return "部落活动范围限制"
