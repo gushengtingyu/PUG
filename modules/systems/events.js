@@ -2414,12 +2414,12 @@ module.exports = function (Engine) {
 		77: {
 			name: "GERMAN SUBS IN THE MED",
 			name_cn: "地中海潜艇猎袭",
-			effect_cn: "在接下来的游戏时间里:黑海-地中海无法进行海上战略调整。协约国部队只能在雅典、萨洛尼卡、利姆诺斯岛或者任何被协约国控制的原本属于土耳其/奥匈的港口/滩头标记格获得补给。任何协约国控制下的原本属于土耳其的原本黑海补给港口无法提供补给。禁止所有的协约国海上支持。+1VP",
+			effect_cn: "在接下来的游戏时间里:黑海-地中海无法进行海上战略调整。协约国部队只能在雅典、萨洛尼卡、利姆诺斯岛或者任何被协约国控制的原本属于土耳其/奥匈的港口/滩头标记格获得补给。任何协约国控制下的原本属于土耳其的原本黑海补给港口无法提供补给。禁止所有的协约国海上支持。",
+			// Rule 13.3.2: event only prohibits reinforcements/SR and affects supply;
+			// it does NOT award VP. Previous code erroneously added +1 VP.
 			handler: function (game, ctx) {
 				game.events["german_subs"] = true
 				game.events["german_subs_turn"] = game.turn
-				game.vp += 1
-				log(game, "地中海潜艇猎袭: CP +1 VP", ctx)
 				log(game, "地中海潜艇猎袭: 禁止所有的协约国海上支持。", ctx)
 				if (!game.ui_tokens) game.ui_tokens = {}
 				game.ui_tokens["SUB IN THE MED"] = "MUBMed.png"
