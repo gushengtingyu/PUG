@@ -2,6 +2,7 @@ const rules = require("../rules.js")
 const Engine = require("../modules/engine.js")
 
 const { AP, CP } = Engine.constants
+const AP_ROLE = rules.roles[0]
 
 function setupGame(seed, scenario = "Historical") {
 	return rules.setup(seed, scenario, { seven_hand_size: false, no_supply_warnings: false })
@@ -54,4 +55,35 @@ test("旧坏档里的 beachhead CP 控制会在加载归一化时被清洗", () 
 	expect(game.control[toAdana]).toBe("neutral")
 	expect(Engine.map.get_space_controller(game, suvlaBay)).toBe(AP)
 	expect(Engine.map.get_space_controller(game, toAdana)).toBe("neutral")
+})
+
+test("Beirut 滩头上的 AP SCU 在 attack 阶段可以选择进攻 Beirut", () => {
+	let game = setupGame(2026042104)
+	let toBeirut = findSpace("To Beirut")
+	let beirut = findSpace("Beirut")
+	let cyprus = findSpace("Cyprus")
+	let attacker = Engine.data.pieces.findIndex((piece) => piece && piece.faction === AP && piece.lf === 1)
+	let defender = Engine.data.pieces.findIndex((piece) => piece && piece.faction === CP && piece.lf === 1)
+
+	game.active = AP
+	game.state = "attack"
+	game.events.egyptian_coup = true
+	game.control[cyprus] = AP
+	game.beachheads = [toBeirut]
+	game.activated = { move: [], attack: [toBeirut] }
+	game.region_activations = { move: {}, attack: {} }
+	game.attacked = []
+	game.retreated = []
+	delete game.attack
+	delete game.attack_eligibility_cache
+
+	game.pieces[attacker] = toBeirut
+	game.pieces[defender] = beirut
+
+	let attackView = rules.view(game, AP_ROLE)
+	expect(attackView.actions.piece || []).toContain(attacker)
+
+	game = rules.action(game, AP_ROLE, "piece", attacker)
+	let targetView = rules.view(game, AP_ROLE)
+	expect(targetView.actions.space || []).toContain(beirut)
 })

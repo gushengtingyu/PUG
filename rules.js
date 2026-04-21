@@ -87,6 +87,7 @@ const {
 	is_tribe,
 	is_island_base,
 	is_beachhead_space,
+	get_piece_connected_spaces_for_rule,
 	is_controlled_by,
 	get_pieces_in_space,
 	set_debug_log,
@@ -1677,7 +1678,7 @@ function build_enemy_space_flag(faction) {
 function has_attack_targets(p, faction, enemy, enemy_space_flag = null) {
 	if (Array.isArray(game.retreated) && set_has(game.retreated, p)) return false
 	let s = game.pieces[p]
-	let adj = get_connected_spaces(game, s, data.pieces[p].nation, data.pieces[p].faction, p)
+	let adj = get_piece_connected_spaces_for_rule(game, s, p, "attack")
 	for (let t of adj) {
 		let has_enemy = enemy_space_flag ? enemy_space_flag[t] === 1 : contains_enemy_pieces(game, t, faction)
 		if (has_enemy) {
