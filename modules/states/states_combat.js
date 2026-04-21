@@ -2145,7 +2145,7 @@ exports.register = function (states, Engine, context) {
 					piece,
 					game.attack ? [game.attack.space] : [],
 					remaining_steps,
-					true // ignore_stacking
+					false // obey stacking limit; overstack retreat destination is illegal
 				)
 				valid = combat.apply_retreat_priorities(game, piece, valid)
 
@@ -2247,7 +2247,7 @@ exports.register = function (states, Engine, context) {
 					piece,
 					snapshot.retreat_space !== undefined ? [snapshot.retreat_space] : [],
 					game.retreat_steps_left[piece] || 1,
-					true // ignore_stacking
+					false // obey stacking limit; overstack retreat destination is illegal
 				)
 
 				// Rule 6.1.7: Must retreat to a single adjacent space that is not enemy-occupied and does not contain a fortress.

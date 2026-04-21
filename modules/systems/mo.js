@@ -371,14 +371,33 @@ module.exports = function (Engine) {
 
 	function try_fulfill_enver_mo(game, mo_key, fulfilled_key, ctx, log, step) {
 		if (game[fulfilled_key] || !game[mo_key] || !check_mo_criteria(game, game[mo_key], ctx)) return false
+
+		// Prevent same attack from fulfilling multiple MOs if they are the same,
+		// and track fulfillment within a single attack sequence (declaration -> resolution).
+		if (game.attack) {
+			if (!game.attack.mo_fulfilled_indices) game.attack.mo_fulfilled_indices = []
+			if (game.attack.mo_fulfilled_indices.includes(step)) return false
+		}
+
 		game[fulfilled_key] = true
+		if (game.attack) {
+			game.attack.mo_fulfilled_indices.push(step)
+		}
+
 		if (log) log(`同盟国恩维尔攻势 #${step} (${mo_name(game[mo_key])}) 已完成。`)
 		return true
 	}
 
 	function handle_enver_mo_fulfillment(game, ctx, log) {
 		const fulfilled_1_now = try_fulfill_enver_mo(game, "mo_cp_1", "mo_cp_1_fulfilled", ctx, log, 1)
-		const can_fulfill_second_in_this_attack = !(fulfilled_1_now && game.mo_cp_1 === game.mo_cp_2)
+
+		// Rule 5.2: If the second MO is the same as the first, each MO must be fulfilled by a separate attack.
+		// We also prevent fulfilling both in one attack if they are different but both met, 
+		// if the first one was already fulfilled by this same attack in a previous call (e.g. declaration).
+		let already_fulfilled_1_by_this_attack = game.attack && game.attack.mo_fulfilled_indices && game.attack.mo_fulfilled_indices.includes(1)
+		
+		const can_fulfill_second_in_this_attack = !((fulfilled_1_now || already_fulfilled_1_by_this_attack) && game.mo_cp_1 === game.mo_cp_2)
+		
 		if (can_fulfill_second_in_this_attack) {
 			try_fulfill_enver_mo(game, "mo_cp_2", "mo_cp_2_fulfilled", ctx, log, 2)
 		}

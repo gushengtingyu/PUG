@@ -455,6 +455,15 @@ module.exports = function (Engine) {
 			set_delete(game.attack.pieces, lcu)
 			set_add(game.attack.pieces, scu)
 		}
+		if (game.attacked && set_has(game.attacked, lcu)) {
+			set_add(game.attacked, scu)
+		}
+		if (game.moved && set_has(game.moved, lcu)) {
+			set_add(game.moved, scu)
+		}
+		if (game.retreated && set_has(game.retreated, lcu)) {
+			set_add(game.retreated, scu)
+		}
 		if (
 			game.battle_result &&
 			game.battle_result.retreating_units &&
