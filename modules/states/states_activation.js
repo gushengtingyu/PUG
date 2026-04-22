@@ -1780,7 +1780,13 @@ exports.register = function (states, Engine, context) {
 			if (creates_beachhead) {
 				if (!game.beachheads) game.beachheads = []
 				set_add(game.beachheads, target)
-				game.unplaced_beachheads--
+				let consumed_pending =
+					Engine.events &&
+					typeof Engine.events.consume_pending_ap_invasion === "function" &&
+					Engine.events.consume_pending_ap_invasion(game, from_space, target)
+				if (!consumed_pending) {
+					game.unplaced_beachheads--
+				}
 				Engine.neutral.on_beachhead_placed(game, target, active_faction())
 				log(`Beachhead placed at ${space_name(target)}.`)
 			}

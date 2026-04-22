@@ -785,6 +785,7 @@ exports.view = function (state, current) {
 			reduced: game.reduced,
 			forts: game.forts,
 			beachheads: game.beachheads,
+			unplaced_beachheads: game.unplaced_beachheads || 0,
 			trenches: game.trenches,
 			trenches_2: game.trenches_2,
 			action_round: game.action_round,

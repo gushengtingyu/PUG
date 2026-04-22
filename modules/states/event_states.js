@@ -333,6 +333,23 @@ module.exports = function (Engine) {
 		return result
 	}
 
+	function queue_pending_ap_invasion(game, rules, override = null) {
+		let invasion = override || get_active_event_data(game)
+		if (!invasion) return
+		let count = Number(invasion.beachheads_to_place) || 0
+		if (count <= 0) return
+		Engine.events.add_pending_ap_invasion(game, {
+			key: game && game.event_ctx ? game.event_ctx.key : "ap_invasion",
+			label: get_event_prompt_prefix(game, "海上入侵"),
+			count,
+			allowed_beachhead_area: invasion.allowed_beachhead_area || null,
+			allowed_beachhead_island_base: invasion.allowed_beachhead_island_base || 0,
+			invasion_island_base: invasion.invasion_island_base || 0
+		})
+		rules.log(`${get_event_prompt_prefix(game, "海上入侵")}：${count} 个滩头标记进入预备。`)
+		delete invasion.beachheads_to_place
+	}
+
 	function get_gallipoli_invasion_lcus(game, rules) {
 		let invasion = get_active_event_data(game)
 		let island_base = invasion && invasion.invasion_island_base
@@ -401,8 +418,21 @@ module.exports = function (Engine) {
 
 	function finish_gallipoli_invasion(game, rules) {
 		let invasion = get_active_event_data(game)
+		queue_pending_ap_invasion(game, rules, invasion)
 		if (invasion) delete invasion.flip_lcu_if_scu
 		if (invasion) delete invasion.invasion_island_base
+		if (invasion) delete invasion.allowed_beachhead_area
+		if (invasion) delete invasion.allowed_beachhead_island_base
+		rules.goto_end_event()
+	}
+
+	function finish_salonika_invasion(game, rules) {
+		let invasion = get_active_event_data(game)
+		queue_pending_ap_invasion(game, rules, invasion)
+		if (invasion) delete invasion.allow_sr_to_island
+		if (invasion) delete invasion.invasion_island_base
+		if (invasion) delete invasion.allowed_beachhead_area
+		if (invasion) delete invasion.allowed_beachhead_island_base
 		rules.goto_end_event()
 	}
 
@@ -1870,7 +1900,7 @@ module.exports = function (Engine) {
 				event.allowed_beachhead_island_base = LEMNOS
 				event.invasion_island_base = LEMNOS
 			}
-			game.state = "event_invasion_place_beachhead"
+			game.state = "event_invasion_place_units_island"
 		},
 		reinforcement(ctx) {
 			let { game, rules } = ctx
@@ -1905,7 +1935,7 @@ module.exports = function (Engine) {
 				event.allow_sr_to_island = 3
 				event.beachheads_to_place = 1
 			}
-			game.state = "event_invasion_place_beachhead"
+			game.state = "event_invasion_place_units_island"
 		},
 		reinforcement(ctx) {
 			let { game, rules } = ctx
@@ -2200,17 +2230,12 @@ module.exports = function (Engine) {
 			sr_count--
 			if (invasion) invasion.allow_sr_to_island = sr_count
 			if (sr_count <= 0) {
-				if (invasion) delete invasion.allow_sr_to_island
-				if (invasion) delete invasion.invasion_island_base
-				rules.goto_end_event()
+				finish_salonika_invasion(game, rules)
 			}
 		},
 		done(ctx) {
 			let { game, rules } = ctx
-			let invasion = get_active_event_data(game)
-			if (invasion) delete invasion.allow_sr_to_island
-			if (invasion) delete invasion.invasion_island_base
-			rules.goto_end_event()
+			finish_salonika_invasion(game, rules)
 		}
 	}
 

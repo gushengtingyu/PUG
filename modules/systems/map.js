@@ -279,7 +279,15 @@ module.exports = function (Engine) {
 
 	function can_ap_initiate_invasion_to_beachhead(game, from, target, faction) {
 		if (faction !== AP) return false
-		if ((game.unplaced_beachheads || 0) <= 0) return false
+		let pending_invasion =
+			Engine.events && typeof Engine.events.find_matching_pending_ap_invasion === "function"
+				? Engine.events.find_matching_pending_ap_invasion(game, from, target)
+				: null
+		let generic_reserve =
+			Engine.events && typeof Engine.events.get_generic_ap_beachhead_reserve_count === "function"
+				? Engine.events.get_generic_ap_beachhead_reserve_count(game)
+				: game.unplaced_beachheads || 0
+		if (!pending_invasion && generic_reserve <= 0) return false
 		// Rule 13.1.3: Beachhead markers may not be placed during Winter
 		if (game_utils.get_season(game) === "Winter") return false
 		if (!is_island_base(game, from)) return false

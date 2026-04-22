@@ -115,3 +115,94 @@ test("Besika Bay 的 beachhead 单位可以激活并进攻 Kum Kale 空堡", () 
 
 	expect(rules.get_attackable_spaces([attacker])).toContain(kumKale)
 })
+
+test("Gallipoli build-up 完成后将滩头保留在预备而不是立即上图", () => {
+	let game = setupGame(2026042206)
+	let lemnos = findSpace("Lemnos")
+	let besikaBay = findSpace("Besika Bay")
+
+	game.active = AP
+	game.state = "event_gallipoli_invasion_flip"
+	game.event_ctx = {
+		key: "gallipoli_invasion",
+		data: {
+			beachheads_to_place: 2,
+			allowed_beachhead_area: "gallipoli",
+			allowed_beachhead_island_base: lemnos,
+			invasion_island_base: lemnos,
+			flip_lcu_if_scu: true
+		}
+	}
+
+	game = rules.action(game, AP_ROLE, "done")
+
+	expect(game.beachheads || []).not.toContain(besikaBay)
+	expect(game.unplaced_beachheads).toBe(2)
+	expect(game.pending_ap_invasions).toEqual(
+		expect.arrayContaining([
+			expect.objectContaining({
+				key: "gallipoli_invasion",
+				count: 2,
+				allowed_beachhead_area: "gallipoli",
+				allowed_beachhead_island_base: lemnos,
+				invasion_island_base: lemnos
+			})
+		])
+	)
+})
+
+test("Pending invasion 只能在匹配的岛屿基地和海滩创建滩头，并在登陆时消耗预备标记", () => {
+	let game = setupGame(2026042207)
+	let lemnos = findSpace("Lemnos")
+	let besikaBay = findSpace("Besika Bay")
+	let toBeirut = findSpace("To Beirut")
+	let attacker = Engine.game_utils.find_piece(AP, "BR DIV #4")
+
+	game.pieces[attacker] = lemnos
+	game.pending_ap_invasions = [
+		{
+			key: "gallipoli_invasion",
+			count: 1,
+			allowed_beachhead_area: "gallipoli",
+			allowed_beachhead_island_base: lemnos,
+			invasion_island_base: lemnos
+		}
+	]
+	game.unplaced_beachheads = 1
+	game.move = { spaces_moved: 0, pieces: [attacker] }
+
+	expect(Engine.map.can_ap_initiate_invasion_to_beachhead(game, lemnos, besikaBay, AP)).toBe(true)
+	expect(Engine.map.can_ap_initiate_invasion_to_beachhead(game, lemnos, toBeirut, AP)).toBe(false)
+	expect(Engine.events.consume_pending_ap_invasion(game, lemnos, besikaBay)).toBe(true)
+	expect(game.unplaced_beachheads).toBe(0)
+	expect(game.pending_ap_invasions || []).toHaveLength(0)
+})
+
+test("Salonika build-up 完成后会把滩头约束保存到预备队列", () => {
+	let game = setupGame(2026042208)
+	let lemnos = findSpace("Lemnos")
+
+	game.active = AP
+	game.state = "event_salonika_invasion_sr"
+	game.event_ctx = {
+		key: "salonika_invasion",
+		data: {
+			beachheads_to_place: 1,
+			invasion_island_base: lemnos,
+			allow_sr_to_island: 0
+		}
+	}
+
+	game = rules.action(game, AP_ROLE, "done")
+
+	expect(game.unplaced_beachheads).toBe(1)
+	expect(game.pending_ap_invasions).toEqual(
+		expect.arrayContaining([
+			expect.objectContaining({
+				key: "salonika_invasion",
+				count: 1,
+				invasion_island_base: lemnos
+			})
+		])
+	)
+})

@@ -716,6 +716,76 @@ module.exports = function (Engine) {
 		return !!(game && game.events && game.events["ap_invasion_event"] === game.turn)
 	}
 
+	function ensure_pending_ap_invasions(game) {
+		if (!Array.isArray(game.pending_ap_invasions)) game.pending_ap_invasions = []
+		return game.pending_ap_invasions
+	}
+
+	function get_pending_ap_invasion_reserved_count(game) {
+		return ensure_pending_ap_invasions(game).reduce((sum, entry) => {
+			let count = Number(entry && entry.count) || 0
+			return count > 0 ? sum + count : sum
+		}, 0)
+	}
+
+	function get_generic_ap_beachhead_reserve_count(game) {
+		return Math.max(0, (game.unplaced_beachheads || 0) - get_pending_ap_invasion_reserved_count(game))
+	}
+
+	function add_pending_ap_invasion(game, entry) {
+		if (!entry || typeof entry !== "object") return null
+		let count = Number(entry.count) || 0
+		if (count <= 0) return null
+		let invasion = {
+			key: entry.key || "ap_invasion",
+			label: entry.label || "AP Invasion",
+			count,
+			allowed_beachhead_area: entry.allowed_beachhead_area || null,
+			allowed_beachhead_island_base: entry.allowed_beachhead_island_base || 0,
+			invasion_island_base: entry.invasion_island_base || 0
+		}
+		ensure_pending_ap_invasions(game).push(invasion)
+		game.unplaced_beachheads = (game.unplaced_beachheads || 0) + count
+		return invasion
+	}
+
+	function matches_pending_ap_invasion(entry, from, target) {
+		if (!entry || (Number(entry.count) || 0) <= 0) return false
+		if (!(from > 0) || !(target > 0) || !data.spaces[target]) return false
+		if (entry.invasion_island_base > 0 && from !== entry.invasion_island_base) return false
+		if (
+			entry.allowed_beachhead_island_base > 0 &&
+			Engine.map.get_adjacent_island_base_for_beachhead(target) !== entry.allowed_beachhead_island_base
+		) {
+			return false
+		}
+		return !(entry.allowed_beachhead_area && data.spaces[target].area !== entry.allowed_beachhead_area)
+	}
+
+	function find_matching_pending_ap_invasion(game, from, target) {
+		for (let entry of ensure_pending_ap_invasions(game)) {
+			if (matches_pending_ap_invasion(entry, from, target)) return entry
+		}
+		return null
+	}
+
+	function consume_pending_ap_invasion(game, from, target) {
+		let list = ensure_pending_ap_invasions(game)
+		for (let i = 0; i < list.length; i++) {
+			let entry = list[i]
+			if (!matches_pending_ap_invasion(entry, from, target)) continue
+			entry.count = Math.max(0, (Number(entry.count) || 0) - 1)
+			game.unplaced_beachheads = Math.max(0, (game.unplaced_beachheads || 0) - 1)
+			if (entry.count <= 0) list.splice(i, 1)
+			return true
+		}
+		return false
+	}
+
+	function clear_pending_ap_invasions(game) {
+		game.pending_ap_invasions = []
+	}
+
 	function has_available_cyprus_beachhead(game) {
 		return CYPRUS_BEACHHEADS.some((s) => Engine.map.can_ap_place_beachhead_marker(game, s, CYPRUS))
 	}
@@ -2970,6 +3040,7 @@ module.exports = function (Engine) {
 				log(game, "无限制潜艇战: AP +1 VP", ctx)
 				game.events["unrestricted_submarine_warfare"] = true
 				game.unplaced_beachheads = 0
+				clear_pending_ap_invasions(game)
 			}
 		},
 		109: {
@@ -3051,6 +3122,11 @@ module.exports = function (Engine) {
 	exports.is_persia_open = is_persia_open
 	exports.is_german_subs_reinforcement_turn = is_german_subs_reinforcement_turn
 	exports.is_german_subs_blocked_port = is_german_subs_blocked_port
+	exports.get_generic_ap_beachhead_reserve_count = get_generic_ap_beachhead_reserve_count
+	exports.add_pending_ap_invasion = add_pending_ap_invasion
+	exports.find_matching_pending_ap_invasion = find_matching_pending_ap_invasion
+	exports.consume_pending_ap_invasion = consume_pending_ap_invasion
+	exports.clear_pending_ap_invasions = clear_pending_ap_invasions
 	exports.apply_turkish_war_weariness_rp = apply_turkish_war_weariness_rp
 	exports.is_turkish_replacement_blocked = is_turkish_replacement_blocked
 	exports.ensure_cp_auto_victory_marker = ensure_cp_auto_victory_marker

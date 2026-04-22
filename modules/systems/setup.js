@@ -427,6 +427,16 @@ module.exports = function (Engine) {
 		if (state.god_save_the_tsar === undefined) state.god_save_the_tsar = 0
 		if (state.ge_to_tu_rp_used === undefined) state.ge_to_tu_rp_used = 0
 		if (!Array.isArray(state.beachheads)) state.beachheads = []
+		if (!Array.isArray(state.pending_ap_invasions)) state.pending_ap_invasions = []
+		state.pending_ap_invasions = state.pending_ap_invasions
+			.map((entry) => ({
+				...entry,
+				count: Number(entry && entry.count) || 0
+			}))
+			.filter((entry) => entry.count > 0)
+		if (state.unplaced_beachheads === undefined) state.unplaced_beachheads = 0
+		let pending_beachheads = state.pending_ap_invasions.reduce((sum, entry) => sum + (entry.count || 0), 0)
+		state.unplaced_beachheads = Math.max(state.unplaced_beachheads || 0, pending_beachheads)
 		if (Engine.map && typeof Engine.map.is_potential_beachhead_space === "function") {
 			for (let s = 1; s < data.spaces.length; s++) {
 				if (!Engine.map.is_potential_beachhead_space(s)) continue

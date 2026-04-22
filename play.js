@@ -1446,6 +1446,33 @@ function build_unique_marker(className, size) {
 	return elt
 }
 
+function ensure_reserve_beachhead_marker(index) {
+	if (!reserve_beachhead_markers[index]) {
+		let marker = build_unique_marker("marker beachhead", 75 * SCALE)
+		marker.marker = { name: `Beachhead Reserve #${index + 1}` }
+		reserve_beachhead_markers[index] = marker
+	}
+	return reserve_beachhead_markers[index]
+}
+
+function update_reserve_beachhead_markers() {
+	const count = Math.max(0, view?.unplaced_beachheads || 0)
+	const rec = layout ? layout["box_ap_reserve_beachhead"] : null
+	for (let marker of reserve_beachhead_markers) {
+		if (marker) marker.style.display = "none"
+	}
+	if (!rec || count <= 0) return
+	const [cx, cy] = layout_center(rec)
+	for (let i = 0; i < count; i++) {
+		let marker = ensure_reserve_beachhead_marker(i)
+		let dx = Math.min(i, 4) * 8
+		let dy = Math.min(i, 4) * 6
+		marker.style.display = "block"
+		marker.style.left = `${cx - marker.my_size / 2 + dx}px`
+		marker.style.top = `${cy - marker.my_size / 2 + dy}px`
+	}
+}
+
 const SCALE = 1
 
 const style_dims = {
@@ -2028,6 +2055,7 @@ const MO_CP_SPACE = {
 let ap_mo_marker = null
 let cp_mo_marker = null
 let ap_mo_modifier_marker = null
+let reserve_beachhead_markers = []
 let ui_frame_state = null
 let prev_map_piece_locations = null
 let prev_map_snapshot = null
@@ -4137,6 +4165,7 @@ function update_system_markers() {
 	layout_marker_stack(ru_revolution_stacks, (i) => (i === 0 ? "RU Rev" : `RU Rev${i}`))
 	layout_marker_stack(lcu_limit_ap_stacks, (i) => `LCU_limit_AP${i}`)
 	layout_marker_stack(lcu_limit_cp_stacks, (i) => `LCU_limit_CP${i}`)
+	update_reserve_beachhead_markers()
 }
 
 /**
