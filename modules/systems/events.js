@@ -456,8 +456,7 @@ module.exports = function (Engine) {
 				check_reinforcement_space(game, s, AP, (space, s) => {
 					const name = space.name
 					if (["Odessa", "TIFLIS", "Central Asia", "Petrovsk"].includes(name)) return true
-					if (name === "Trabzon" && game.vps && game.vps[s] === "ru") return true
-					return false
+					return !!(name === "Trabzon" && game.vps && game.vps[s] === "ru");
 				})
 		},
 		is_arab_revolt_rein: {
@@ -1336,7 +1335,7 @@ module.exports = function (Engine) {
 			},
 			handler: function (game, ctx) {
 				game.events["grand_duke_to_tiflis"] = game.turn
-				let event = null
+				let event
 				if (ctx && typeof ctx.start_event === "function") {
 					event = ctx.start_event("grand_duke_to_tiflis")
 				} else {
@@ -2212,7 +2211,7 @@ module.exports = function (Engine) {
 				game.active = CP
 				let units = ["TU Elite DIV #9", "TU Elite DIV #10", "TU Cavalry #5"]
 				event.reinf_to_place = units
-				event.reinf_placement = "map"
+				event.reinf_placement = "either"
 				game.rp_cp.tu += 1
 				game.events["pan_turkism"] = true
 				event.reinf_logic = "is_tu"

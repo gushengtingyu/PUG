@@ -319,13 +319,8 @@ module.exports = function (Engine) {
 		if (invasion.allowed_beachhead_area && data.spaces[s].area !== invasion.allowed_beachhead_area) {
 			return false
 		}
-		if (
-			invasion.allowed_beachhead_island_base > 0 &&
-			Engine.map.get_adjacent_island_base_for_beachhead(s) !== invasion.allowed_beachhead_island_base
-		) {
-			return false
-		}
-		return true
+		return !(invasion.allowed_beachhead_island_base > 0 &&
+			Engine.map.get_adjacent_island_base_for_beachhead(s) !== invasion.allowed_beachhead_island_base);
 	}
 
 	function get_available_beachhead_placement_spaces(game, island_base = -1) {
@@ -366,13 +361,6 @@ module.exports = function (Engine) {
 			else full_options.push(i)
 		}
 		return full_options.length > 0 ? full_options : reduced_options
-	}
-
-	function can_gallipoli_lcu_flip_now(game, rules, p) {
-		if (!rules.is_lcu(p)) return false
-		if (!Engine.game_utils.is_piece_reduced(game, p)) return false
-		if (!get_gallipoli_invasion_lcus(game, rules).includes(p)) return false
-		return get_gallipoli_flip_options(game, rules, p).length > 0
 	}
 
 	function can_gallipoli_scu_sr_to_reserve(game, rules, p) {
@@ -478,14 +466,13 @@ module.exports = function (Engine) {
 
 	function create_verdun_plan(game) {
 		let pool = build_verdun_pool(game)
-		let plan = {
+		return {
 			pool,
 			selected: [],
 			original_spaces: {},
 			partial: create_verdun_requirement(pool, 2, 1),
 			full: create_verdun_requirement(pool, 4, 0)
 		}
-		return plan
 	}
 
 	function get_verdun_selection_summary(plan, pending_piece = null) {
@@ -529,16 +516,11 @@ module.exports = function (Engine) {
 
 	function is_verdun_requirement_satisfied(plan, requirement, pending_piece = null) {
 		let summary = get_verdun_selection_summary(plan, pending_piece)
-		if (
-			summary.count >= requirement.target &&
+		return summary.count >= requirement.target &&
 			summary.br_count >= requirement.br_min &&
 			summary.br_anz_count >= requirement.br_anz_min &&
 			summary.br_anz_in_count >= requirement.br_anz_in_min &&
-			summary.elite_count >= requirement.elite_min
-		) {
-			return true
-		}
-		return false
+			summary.elite_count >= requirement.elite_min;
 	}
 
 	function can_finish_verdun_requirement(plan, requirement, pending_piece = null) {
@@ -664,19 +646,6 @@ module.exports = function (Engine) {
 		plan.selected.push(p)
 		rules.remove_piece(p)
 		game.selected_piece = null
-	}
-
-	function unselect_verdun_piece(game, plan, p) {
-		if (plan.original_spaces && plan.original_spaces[p] !== undefined) {
-			game.pieces[p] = plan.original_spaces[p]
-			delete plan.original_spaces[p]
-		}
-		if (plan.selected) {
-			plan.selected = plan.selected.filter((id) => id !== p)
-		}
-		if (game.selected_piece === p) {
-			game.selected_piece = null
-		}
 	}
 
 	function finalize_verdun_plan(game, rules) {
@@ -3980,7 +3949,7 @@ module.exports = function (Engine) {
 		let { game, rules } = ctx
 		let plan = use_event(game, "verdun")
 		if (!plan.pool) {
-			plan = rules.start_event("verdun", create_verdun_plan(game))
+			rules.start_event("verdun", create_verdun_plan(game))
 		}
 		rules.push_undo()
 		finalize_verdun_plan(game, rules)
@@ -4062,8 +4031,7 @@ module.exports = function (Engine) {
 				game.vp -= vps_to_deduct
 				rules.log(`拯救保加利亚：- ${vps_to_deduct} VP`)
 			}
-			let galicia = rules.find_space("Galicia")
-			game.pieces[p] = galicia
+			game.pieces[p] = rules.find_space("Galicia")
 			if (!rules.set_has(game.reduced, p)) rules.set_add(game.reduced, p)
 			rules.log(`拯救保加利亚：${data.pieces[p].name} 减损面放置在 Galicia`)
 		},
@@ -4228,17 +4196,6 @@ module.exports = function (Engine) {
 				return
 			}
 			rules.goto_end_event()
-		},
-		has_more(ctx) {
-			let { game, rules } = ctx
-			let count = rules.get_event_data().count || 0
-			for (let p = 1; p < data.pieces.length; p++) {
-				if (!Engine.events.is_caucasian_army_reforms_piece_eligible(game, p)) continue
-				let cost = Engine.events.get_caucasian_army_reforms_piece_cost(p)
-				if (count + cost > CAUCASIAN_ARMY_REFORMS_TARGET) continue
-				if (Engine.events.can_pay_caucasian_army_reforms_cost(game, count + cost, p)) return true
-			}
-			return false
 		}
 	}
 

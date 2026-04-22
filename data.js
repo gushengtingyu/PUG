@@ -4155,11 +4155,13 @@ var data = {
 		"area": "persia",
 		"connections": [
 			133,
+			172,
 			174
 		],
 		"rail_connections": [],
 		"connection_types": {
 			"133": "",
+			"172": "",
 			"174": "green"
 		}
 	},
@@ -4531,11 +4533,13 @@ var data = {
 		"faction": "cp",
 		"area": "gallipoli",
 		"connections": [
-			79
+			79,
+			178
 		],
 		"rail_connections": [],
 		"connection_types": {
-			"79": ""
+			"79": "",
+			"178": ""
 		}
 	},
 	{
@@ -4595,11 +4599,13 @@ var data = {
 		"area": "persia",
 		"tribal_activity_grid": "Bakhtiari",
 		"connections": [
+			151,
 			174,
 			201
 		],
 		"rail_connections": [],
 		"connection_types": {
+			"151": "",
 			"174": "green",
 			"201": "green"
 		}
@@ -4711,11 +4717,13 @@ var data = {
 		"port": 1,
 		"area": "gallipoli",
 		"connections": [
+			169,
 			187,
 			191
 		],
 		"rail_connections": [],
 		"connection_types": {
+			"169": "",
 			"187": "",
 			"191": "strait"
 		},
@@ -5218,6 +5226,7 @@ var data = {
 			180,
 			187,
 			188,
+			204,
 			218
 		],
 		"rail_connections": [],
@@ -5225,6 +5234,7 @@ var data = {
 			"180": "",
 			"187": "",
 			"188": "",
+			"204": "",
 			"218": ""
 		}
 	},
@@ -5344,11 +5354,13 @@ var data = {
 		"area": "gallipoli",
 		"connections": [
 			188,
+			199,
 			218
 		],
 		"rail_connections": [],
 		"connection_types": {
 			"188": "",
+			"199": "",
 			"210": "strait",
 			"218": ""
 		},
@@ -17829,6 +17841,16 @@ var data = {
 		"connections": [],
 		"rail_connections": [],
 		"connection_types": {}
+	},
+	{
+		"id": 1297,
+		"name": "box_ap_reserve_beachhead",
+		"x": 1116,
+		"y": 2152,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
 	}
 ],
 	edges: [
@@ -19843,6 +19865,18 @@ var data = {
 		"b": 244,
 		"nations": "arab",
 		"type": "green"
+	},
+	{
+		"a": 151,
+		"b": 172
+	},
+	{
+		"a": 199,
+		"b": 204
+	},
+	{
+		"a": 169,
+		"b": 178
 	}
 ], // Keep raw edges for reference if needed, or structured adj
 	pieces: [
@@ -27812,6 +27846,14 @@ var data = {
 		"y": 2735,
 		"w": 44,
 		"h": 44
+	},
+	{
+		"id": 152,
+		"key": "box_ap_reserve_beachhead",
+		"x": 1116,
+		"y": 2152,
+		"w": 44,
+		"h": 44
 	}
 ]
 }
@@ -28474,7 +28516,8 @@ data.space_name = {
 	"box_ap_eliminated_fr_scu": 1293,
 	"box_ap_eliminated_ro_lcu": 1294,
 	"box_ap_eliminated_ro_scu": 1295,
-	"box_ap_eliminated_other": 1296
+	"box_ap_eliminated_other": 1296,
+	"box_ap_reserve_beachhead": 1297
 }
 
 if (typeof module === 'object') {

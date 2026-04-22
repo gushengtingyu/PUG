@@ -573,9 +573,7 @@ module.exports = function (Engine) {
 			if (result === "resolved") continue
 
 			result = maybe_offer_romanian_collapse(game)
-			if (result === "interactive") return true
-
-			return false
+			return result === "interactive";
 		}
 	}
 

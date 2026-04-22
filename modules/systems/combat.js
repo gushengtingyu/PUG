@@ -713,8 +713,7 @@ module.exports = function (Engine) {
 		let adj = get_piece_connected_spaces_for_rule(game, space, p)
 		let has_valid_space = adj.some((s) => {
 			if (contains_enemy_pieces(game, s, CP)) return false
-			if (has_undestroyed_fort(game, s, AP) || has_undestroyed_fort(game, s, CP)) return false
-			return true
+			return !(has_undestroyed_fort(game, s, AP) || has_undestroyed_fort(game, s, CP));
 		})
 		if (!has_valid_space) return false
 
@@ -789,12 +788,10 @@ module.exports = function (Engine) {
 				if (common_targets.length === 0) return []
 			} else {
 				let target_set = new Set(targets)
-				let filtered_targets = current_common_targets.filter((t) => target_set.has(t))
-				common_targets = filtered_targets
+				common_targets = current_common_targets.filter((t) => target_set.has(t))
 				if (common_targets.length === 0) return []
 			}
 		}
-
 		return common_targets || []
 	}
 
@@ -1370,10 +1367,7 @@ module.exports = function (Engine) {
 				return true
 			}
 		}
-		if (game.cc_jafar_pasha_retreat) {
-			return true
-		}
-		return false
+		return !!game.cc_jafar_pasha_retreat;
 	}
 
 	function resolve_battle_sequence(game, context) {
@@ -2216,7 +2210,7 @@ module.exports = function (Engine) {
 		}
 	}
 
-	function finish_turkish_retreat(game, log_fn) {
+	function finish_turkish_retreat(game) {
 		let retreat_space = game.turkish_retreat_space ?? game.attack?.space
 		let attacker_retreated = !!game.turkish_retreat_attacker_retreated
 		game.retreat_steps_left = null
@@ -2267,15 +2261,6 @@ module.exports = function (Engine) {
 
 	function get_cp_defenders(game, defenders) {
 		return defenders.filter((p) => get_piece_effective_faction(game, p) === CP)
-	}
-
-	function get_turkish_retreat_units(game, defenders) {
-		let cp_defenders = get_cp_defenders(game, defenders)
-		let mandatory = cp_defenders.filter(
-			(p) => (get_piece_nation(p) === "tu" || get_piece_nation(p) === "tua") && get_piece_class(p) === "SCU"
-		)
-		let optional = cp_defenders.filter((p) => !mandatory.includes(p))
-		return { mandatory, optional }
 	}
 
 	function get_turkish_retreat_space(game, defenders) {
@@ -2887,13 +2872,12 @@ module.exports = function (Engine) {
 		if (!attempt_flank) {
 			let attacking_spaces_count = new Set(attackers.map((p) => game.pieces[p])).size
 			if (attacking_spaces_count >= 2) {
-				let has_lcu_val = attackers.some((p) => is_lcu(p))
-				let is_river_def_val = is_river_defense(game)
-				let trench_level = has_trench(game, target_space)
+				attackers.some((p) => is_lcu(p))
+				is_river_defense(game)
+				has_trench(game, target_space)
 				let defenders_in_space = defenders
-				let has_fort_val = has_undestroyed_fort(game, target_space, defender_faction)
-				let is_besieged_val = is_besieged(game, target_space) && defenders_in_space.length > 0
-				let empty_fort_val = has_fort_val && defenders_in_space.length === 0 && !is_besieged_val
+				has_undestroyed_fort(game, target_space, defender_faction)
+				is_besieged(game, target_space) && defenders_in_space.length > 0
 			}
 		}
 
@@ -3117,12 +3101,10 @@ module.exports = function (Engine) {
 		}
 
 		// Resolve Fire (Sequential or Simultaneous)
-		let att_losses = 0
+		let att_losses
 		let def_losses = 0
 		let att_table_type = att_table === fire_table.lcu ? "lcu" : "scu"
 		let def_table_type = def_table === fire_table.lcu ? "lcu" : "scu"
-
-		let fmt_shift_total = (n) => (n > 0 ? `+${n}` : `${n}`)
 		let fmt_shift_factors = (factors) => (factors.length > 0 ? factors.join("，") : "无")
 		log(`**火力列位移：**`)
 		log(`>> 进攻方：${fmt_shift_factors(att_shift_factors)}`)
@@ -3288,7 +3270,7 @@ module.exports = function (Engine) {
 			advance_with_reduced = true // Rule 12.8.3: AP may advance with reduced units
 			let cp_defenders = get_cp_defenders(game, defenders)
 			let mandatory = []
-			let optional = []
+			let optional
 
 			// Rule 12.3:
 			// If Allies win, all CP units in space must retreat 1.
@@ -3489,7 +3471,7 @@ module.exports = function (Engine) {
 					!(Array.isArray(game.retreated) && set_has(game.retreated, p))
 			)
 			let mandatory = []
-			let optional = []
+			let optional
 
 			if (result.retreat_needed && result.retreating_faction === CP) {
 				mandatory = cp_defenders

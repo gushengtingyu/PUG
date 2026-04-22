@@ -150,3 +150,4 @@ id,key,x,y,w,h
 149,box_ap_eliminated_ro_lcu,1699,2735,44,44
 150,box_ap_eliminated_ro_scu,1780,2735,44,44
 151,box_ap_eliminated_other,1855,2735,44,44
+152,box_ap_reserve_beachhead,1116,2152,44,44

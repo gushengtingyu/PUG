@@ -919,7 +919,6 @@ module.exports = function (Engine) {
 		)
 
 		if (scu_ids.length < 2) {
-			// [调试] SCU 数量不足或不符合条件
 			return false
 		}
 
@@ -928,7 +927,7 @@ module.exports = function (Engine) {
 		if (terrain === "desert") {
 			// Need railway to supply source
 			if (!map.is_rail_connected_to_supply(game, s, faction)) {
-				// [调试] 沙漠地区且无铁路连接补给源
+				// 沙漠地区且无铁路连接补给源
 				return false
 			}
 		}
@@ -946,14 +945,14 @@ module.exports = function (Engine) {
 		let area = map.get_restricted_area(s)
 		if (area) {
 			if (!map.is_rail_connected_to_supply(game, s, faction)) {
-				// [调试] 受限区域且无铁路连接补给源
+				// 受限区域且无铁路连接补给源
 				return false
 			}
 			// LCU limit (Rule 9.8.3)
 			let limit = map.get_lcu_limit_for(game, faction)
 			let current_count = map.count_lcu_in_area(game, area, faction)
 			if (current_count >= limit) {
-				// [调试] 达到 LCU 限制
+				// 达到 LCU 限制
 				return false
 			}
 		}
@@ -961,7 +960,7 @@ module.exports = function (Engine) {
 		// Rule 197: Turkish/TU-Arab and Bulgarian SCUs cannot combine in swamp
 		if (terrain === "swamp") {
 			if (scu_ids.some((p) => ["tu", "tua", "bu"].includes(data.pieces[p].nation))) {
-				// [调试] 土耳其/阿拉伯/保加利亚单位不能在沼泽组合
+				// 土耳其/阿拉伯/保加利亚单位不能在沼泽组合
 				return false
 			}
 		}
@@ -969,7 +968,7 @@ module.exports = function (Engine) {
 		// Rule 197: Turkish SCUs cannot combine in Egypt or Galicia
 		if (map.is_egypt(s) || map.is_galicia(s)) {
 			if (scu_ids.some((p) => ["tu", "tua"].includes(data.pieces[p].nation))) {
-				// [调试] 土耳其单位不能在埃及或加利西亚组合
+				// 土耳其单位不能在埃及或加利西亚组合
 				return false
 			}
 		}
@@ -980,7 +979,7 @@ module.exports = function (Engine) {
 			lcus = lcus.filter((lcu) => set_has(allowed_lcus, lcu))
 		}
 		if (lcus.length === 0) {
-			// [调试] 预备区无可用 LCU
+			// 预备区无可用 LCU
 			return false
 		}
 
@@ -988,7 +987,7 @@ module.exports = function (Engine) {
 			if (get_combination_options_for_lcu(game, lcu, scu_ids, s)) return true
 		}
 
-		// [调试] 无匹配的 LCU 组合选项
+		// 无匹配的 LCU 组合选项
 		return false
 	}
 

@@ -1027,8 +1027,7 @@ exports.register = function (states, Engine, context) {
 	function can_discard_during_draw_phase(c) {
 		let card = data.cards[c]
 		if (!card) return false
-		if (card.cc) return true
-		return false
+		return !!card.cc;
 	}
 
 	states.draw_cards_phase = {

@@ -1091,7 +1091,6 @@ exports.register = function (states, Engine, context) {
 			if (game.surprise.remaining <= 0) {
 				delete game.surprise
 				resolve_battle_sequence()
-				return
 			}
 		},
 		done() {
@@ -1524,7 +1523,6 @@ exports.register = function (states, Engine, context) {
 			if (options.length === 0 && !fort_can_be_destroyed) {
 				res.prompt(`战斗结算: ${space_name(game.attack.space)}（无可分配损失）`)
 				res.action("done")
-				return
 			}
 		},
 		destroy_fort() {
@@ -1631,7 +1629,6 @@ exports.register = function (states, Engine, context) {
 			if (options.length === 0) {
 				res.prompt(`战斗结算: ${space_name(game.attack.space)} (剩余伤害不足以导致减员)`)
 				res.action("done")
-				return
 			}
 		},
 		piece(p) {
@@ -1746,7 +1743,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function finish_turkish_retreat() {
-		combat.finish_turkish_retreat(game, log)
+		combat.finish_turkish_retreat(game)
 		if (game.state === "attack" && !game.attack) {
 			check_event_next_state()
 		}
@@ -2519,7 +2516,7 @@ exports.register = function (states, Engine, context) {
 					}
 				}
 			}
-			let selectable = res.get_action("piece")
+			res.get_action("piece")
 			res.where(game.advance_space)
 			res.who(game.advance_pieces)
 		},
@@ -2575,8 +2572,7 @@ exports.register = function (states, Engine, context) {
 				let is_heavy_arty = Engine.game_utils.is_heavy_arty(uid)
 				let is_yildirim = data.pieces[uid].symbol === "Y" && data.pieces[uid].nation === "ge"
 				if (is_hq || is_heavy_arty) return false
-				if (is_yildirim && !game.advance_yildirim_used) return false
-				return true
+				return !(is_yildirim && !game.advance_yildirim_used);
 			})
 			let limit_reached = (game.advance_count || 0) >= (game.advance_limit || 3)
 
@@ -2590,20 +2586,14 @@ exports.register = function (states, Engine, context) {
 				if ((game.retreat_distance || 1) > 1 && selectable_follow.length > 0) {
 					game.advance_follow_mode = true
 					game.selected_piece = null
-					return
 				}
-				return
 			} else if (limit_reached) {
 				let allowed = game.advance_pieces.filter((uid) => {
 					if (data.pieces[uid].type === "hq") return true
 					if (Engine.game_utils.is_heavy_arty(uid)) return true
-					if (
-						!game.advance_yildirim_used &&
+					return !game.advance_yildirim_used &&
 						data.pieces[uid].symbol === "Y" &&
-						data.pieces[uid].nation === "ge"
-					)
-						return true
-					return false
+						data.pieces[uid].nation === "ge";
 				})
 				if (allowed.length === 0) {
 					let selectable_follow = (game.advance_follow_pieces || []).filter(
@@ -2612,9 +2602,7 @@ exports.register = function (states, Engine, context) {
 					if ((game.retreat_distance || 1) > 1 && selectable_follow.length > 0) {
 						game.advance_follow_mode = true
 						game.selected_piece = null
-						return
 					}
-					return
 				}
 			}
 		},

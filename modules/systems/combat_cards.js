@@ -118,7 +118,7 @@ module.exports = function (Engine) {
 		if (attacker_faction === undefined || attacker_faction === null) {
 			attacker_faction = attackers.length > 0 ? get_piece_effective_faction(game, attackers[0]) : null
 		}
-		let pieces = []
+		let pieces
 		if (attacker_faction !== null && faction === attacker_faction) {
 			pieces = attackers
 		} else {
@@ -409,8 +409,7 @@ module.exports = function (Engine) {
 	}
 
 	function can_play_german_high_command(game) {
-		if (!can_play_in_standard_cc_window(game, CP)) return false
-		return true
+		return can_play_in_standard_cc_window(game, CP);
 	}
 
 	function can_play_save_tiflis(game) {

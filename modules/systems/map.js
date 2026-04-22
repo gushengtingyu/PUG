@@ -274,8 +274,7 @@ module.exports = function (Engine) {
 		let island_base = get_adjacent_island_base_for_beachhead(target)
 		if (island_base <= 0 || !is_island_base(game, island_base)) return false
 		if (!is_controlled_by(game, island_base, AP)) return false
-		if (required_island_base > 0 && island_base !== required_island_base) return false
-		return true
+		return !(required_island_base > 0 && island_base !== required_island_base);
 	}
 
 	function can_ap_initiate_invasion_to_beachhead(game, from, target, faction) {
@@ -288,8 +287,7 @@ module.exports = function (Engine) {
 		if (!can_ap_place_beachhead_marker(game, target, from)) return false
 		if (!game.move || game.move.spaces_moved > 0) return false
 		// Rule 13.2.3 STEP 2: "at least one SCU to move to it" is required to create the beachhead
-		if (!Array.isArray(game.move.pieces) || !game.move.pieces.some((mp) => is_scu(mp))) return false
-		return true
+		return !(!Array.isArray(game.move.pieces) || !game.move.pieces.some((mp) => is_scu(mp)));
 	}
 
 	function is_region(game, s) {
@@ -1099,8 +1097,7 @@ module.exports = function (Engine) {
 			if (data.spaces[s].terrain === "desert") {
 				// Rule 9.3: Desert Movement Restrictions for LCUs.
 				let faction = data.pieces[p].faction
-				let sources = get_supply_sources_from_data(game, faction)
-				if (!is_connected_by_rail(game, s, faction, sources)) {
+				if (!is_rail_connected_to_supply(game, s, faction)) {
 					return false
 				}
 			}
@@ -1758,8 +1755,7 @@ function get_stack_yildirim_count(pieces) {
 		if (source_caspian || dest_caspian) {
 			if (!source_caspian || !dest_caspian) return false
 		}
-		if (is_sr_destination_blocked_by_events(game, source, dest, faction)) return false
-		return true
+		return !is_sr_destination_blocked_by_events(game, source, dest, faction);
 	}
 
 	function build_sr_path_reachable_spaces(game, p, source, faction) {
@@ -1831,8 +1827,7 @@ function get_stack_yildirim_count(pieces) {
 		)
 		if (!is_supply_status_in_supply(dest_status)) return false
 		if (!can_enter_region(game, p, dest)) return false
-		if (!can_stack_end_in_space(game, dest, [p])) return false
-		return true
+		return can_stack_end_in_space(game, dest, [p]);
 	}
 
 	function get_sr_destinations(game, p, faction) {
@@ -2390,8 +2385,7 @@ function get_stack_yildirim_count(pieces) {
 		if (!info || s <= 0) return false
 		if (info.type === "generated_gap") return false
 		if (info.type === "reinforcement" || info.type === "ui") return false
-		if (info.map === "Reserve Box") return false
-		return true
+		return info.map !== "Reserve Box";
 	}
 
 	function get_supply_eligible_space_ids() {
@@ -3051,6 +3045,11 @@ function get_stack_yildirim_count(pieces) {
 	}
 
 	function is_rail_connected_to_supply(game, s, faction) {
+		if (!data.spaces[s]) return false
+		// Rule 9.7.3 / 9.8.2 / 13.3.3 / 14.1.6:
+		// The space itself must actually sit on a usable rail line. A desert/restricted
+		// space that is merely a supply source or port, but has no rail exit, does not qualify.
+		if (get_rail_connections(game, s, faction).length === 0) return false
 		let sources = get_supply_sources_from_data(game, faction)
 		if (faction === AP) {
 			sources = sources.concat(game.beachheads || [])
@@ -3142,8 +3141,7 @@ function get_stack_yildirim_count(pieces) {
 					// Rule 180: Desert LCU must have rail supply
 					if (data.spaces[s].terrain === "desert") {
 						let faction = data.pieces[p].faction
-						let sources = get_supply_sources_from_data(game, faction)
-						if (!is_connected_by_rail(game, s, faction, sources)) {
+						if (!is_rail_connected_to_supply(game, s, faction)) {
 							violations.push({
 								space: s,
 								rule: "Rule 180: Desert LCU must have rail connection to supply source"

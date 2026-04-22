@@ -220,8 +220,7 @@ exports.register = function (states, Engine, context) {
 	function is_piece_on_shore_or_beachhead(p) {
 		let s = game.pieces[p]
 		if (s <= 0 || !data.spaces[s]) return false
-		if (Engine.map.is_island_base(game, s)) return false
-		return true
+		return !Engine.map.is_island_base(game, s);
 	}
 
 	function is_piece_supplied_solely_through_beachhead(p, beachhead) {
