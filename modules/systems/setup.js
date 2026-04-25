@@ -499,6 +499,7 @@ module.exports = function (Engine) {
 				let has_ap = false
 				let has_cp = false
 				for (let p of Engine.map.get_pieces_in_space(state, s)) {
+					if (Engine.game_utils.is_tribe(p)) continue
 					let faction = Engine.game_utils.get_piece_effective_faction(state, p)
 					if (faction === Engine.constants.AP) has_ap = true
 					else if (faction === Engine.constants.CP) has_cp = true
