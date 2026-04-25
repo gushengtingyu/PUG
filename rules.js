@@ -1143,6 +1143,116 @@ states.acknowledge_mo_results = {
 	}
 }
 
+states.retreat_choice_cc_cp = {
+	prompt(res) {
+		res.prompt("回援第比利斯：打出战斗卡，或跳过")
+		// 必须在这里向 UI 声明此卡可以作为战斗卡打出，否则 UI 无法点击
+		if (Engine.combat_cards.can_play_combat_card(res.game, Engine.combat.CC_CP_SAVE_TIFLIS)) {
+			res.action("play_cc", Engine.combat.CC_CP_SAVE_TIFLIS)
+		}
+		res.action("skip")
+	},
+	play_cc(card) {
+		if (card === Engine.combat.CC_CP_SAVE_TIFLIS) {
+			game.events["save_tiflis"] = game.turn
+			
+			let played_from_retained = false
+			if (game.cc_retained && game.cc_retained.cp && set_has(game.cc_retained.cp, card)) {
+				set_delete(game.cc_retained.cp, card)
+				played_from_retained = true
+			} else {
+				set_delete(game.hand_cp, card)
+			}
+			
+			if (!game.combat_cards) game.combat_cards = { attacker: [], defender: [] }
+			if (!game.combat_cards.attacker) game.combat_cards.attacker = []
+			set_add(game.combat_cards.attacker, card)
+			
+			if (!played_from_retained) {
+				set_add(game.removed_cp, card) // 《回援第比利斯》打出后移出游戏
+			}
+			
+			if (!game.combat_cards_effected) game.combat_cards_effected = []
+			set_add(game.combat_cards_effected, card)
+			
+			log("同盟国打出战斗卡：回援第比利斯")
+			game.retreat_choice_cc_cp_done = true
+			combat.end_battle_sequence(game, log)
+		}
+	},
+	skip() {
+		game.retreat_choice_cc_cp_done = true
+		combat.end_battle_sequence(game, log)
+	}
+}
+
+states.save_tiflis_retreat = {
+	prompt(res) {
+		if (!game.save_tiflis_pieces || game.save_tiflis_pieces.length === 0) {
+			res.prompt("回援第比利斯：所有受影响的单位已处理完毕。")
+			res.action("next")
+			return
+		}
+		res.prompt("回援第比利斯：选择一个受影响的俄国单位向第比利斯方向撤退一格。")
+		for (let p of game.save_tiflis_pieces) {
+			res.piece(p)
+		}
+	},
+	piece(p) {
+		game.save_tiflis_active_piece = p
+		game.state = "save_tiflis_retreat_space"
+	},
+	next() {
+		game.active = CP
+		combat.end_battle_sequence(game, log)
+	}
+}
+
+states.save_tiflis_retreat_space = {
+	prompt(res) {
+		res.prompt("回援第比利斯：选择撤退目标（必须距离第比利斯更近）。")
+		let p = game.save_tiflis_active_piece
+		let s = game.pieces[p]
+		let current_dist = Engine.map.get_distance(s, 12) // 12是第比利斯(TIFLIS)的地块ID
+		let valid_spaces = Engine.combat.get_valid_retreat_spaces(game, p, [], 1, true)
+		let can_retreat = false
+		
+		for (let next_s of valid_spaces) {
+			if (Engine.map.get_distance(next_s, 12) < current_dist) {
+				res.space(next_s)
+				can_retreat = true
+			}
+		}
+		
+		if (!can_retreat) {
+			res.prompt("回援第比利斯：该单位无法合法向第比利斯方向撤退。")
+			res.action("cannot_retreat")
+		} else {
+			res.action("cancel")
+		}
+	},
+	space(s) {
+		let p = game.save_tiflis_active_piece
+		move_piece(game, p, s)
+		log(`${piece_name(p)} 向第比利斯方向撤退至 ${space_name(s)}。`)
+		set_delete(game.save_tiflis_pieces, p)
+		delete game.save_tiflis_active_piece
+		game.state = "save_tiflis_retreat"
+	},
+	cannot_retreat() {
+		let p = game.save_tiflis_active_piece
+		log(`${piece_name(p)} 无法向第比利斯合法撤退。`)
+		set_delete(game.save_tiflis_pieces, p)
+		delete game.save_tiflis_active_piece
+		game.save_tiflis_failed = true // 记录撤退失败，触发同盟国允许挺进的规则
+		game.state = "save_tiflis_retreat"
+	},
+	cancel() {
+		delete game.save_tiflis_active_piece
+		game.state = "save_tiflis_retreat"
+	}
+}
+
 // Action phase functions moved to states_action.js
 
 function update_war_status(faction, amount) {

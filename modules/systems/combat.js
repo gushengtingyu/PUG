@@ -427,6 +427,8 @@ module.exports = function (Engine) {
 		game.state = "attack"
 		delete game.battle_result
 		delete game.battle_resolution_applied
+		delete game.battle_resolution_side_effects_applied
+		delete game.retreat_choice_cc_cp_done
 		clear_turkish_retreat_state(game)
 		clear_catastrophic_attack_state(game)
 	}
@@ -1567,6 +1569,8 @@ module.exports = function (Engine) {
 		let result = resolve_battle(game, log_fn)
 
 		delete game.battle_resolution_applied
+		delete game.battle_resolution_side_effects_applied
+		delete game.retreat_choice_cc_cp_done
 		game.battle_result = result
 
 		// Check Mandated Offensive Fulfillment
@@ -1880,99 +1884,119 @@ module.exports = function (Engine) {
 		game.attack.attacker = attacker_faction
 		game.attack.defender = defender_faction
 		if (!game.battle_resolution_applied) {
-			check_fort_destruction(game, log_fn, target_space, defender_faction)
-
-			retain_winning_combat_cards(game, result, log_fn)
-
-			// Rule 16.2.2: HQ Bonus or Penalty
-			if (result.used_hqs) {
-				let winner = null
-				if (result.defender_losses > result.attacker_losses) winner = game.active
-				else if (result.attacker_losses > result.defender_losses) winner = other_faction(game.active)
-
-				if (winner) {
-					// Attacker HQs
-					for (let p of result.used_hqs.attacker) {
-						if (winner === game.active) {
-							if (is_piece_reduced(game, p)) {
-								log_fn(`Rule 16.2.2: Winning HQ ${data.pieces[p].name} flipped to full strength.`)
-								restore_piece(game, p)
-							}
-							if (data.pieces[p].name.includes("Army of Islam")) {
-								let space = data.spaces[target_space]
-								if (space.tribal) {
-									log_fn(`Rule 16.3.5: Army of Islam won in a tribal space, +1 TU RP bonus.`)
-									game.tu_rp_bonus = (game.tu_rp_bonus || 0) + 1
+			if (!game.battle_resolution_side_effects_applied) {
+				check_fort_destruction(game, log_fn, target_space, defender_faction)
+	
+				retain_winning_combat_cards(game, result, log_fn)
+	
+				// Rule 16.2.2: HQ Bonus or Penalty
+				if (result.used_hqs) {
+					let winner = null
+					if (result.defender_losses > result.attacker_losses) winner = game.active
+					else if (result.attacker_losses > result.defender_losses) winner = other_faction(game.active)
+	
+					if (winner) {
+						// Attacker HQs
+						for (let p of result.used_hqs.attacker) {
+							if (winner === game.active) {
+								if (is_piece_reduced(game, p)) {
+									log_fn(`Rule 16.2.2: Winning HQ ${data.pieces[p].name} flipped to full strength.`)
+									restore_piece(game, p)
 								}
-							}
-						} else {
-							log_fn(`Rule 16.2.2: Losing HQ ${data.pieces[p].name} loses 1 step.`)
-							if (is_piece_reduced(game, p)) {
-								eliminate_piece(game, p, log_fn, true)
+								if (data.pieces[p].name.includes("Army of Islam")) {
+									let space = data.spaces[target_space]
+									if (space.tribal) {
+										log_fn(`Rule 16.3.5: Army of Islam won in a tribal space, +1 TU RP bonus.`)
+										game.tu_rp_bonus = (game.tu_rp_bonus || 0) + 1
+									}
+								}
 							} else {
-								reduce_piece(game, p)
+								log_fn(`Rule 16.2.2: Losing HQ ${data.pieces[p].name} loses 1 step.`)
+								if (is_piece_reduced(game, p)) {
+									eliminate_piece(game, p, log_fn, true)
+								} else {
+									reduce_piece(game, p)
+								}
 							}
 						}
-					}
-					for (let p of result.used_hqs.defender) {
-						if (winner === other_faction(game.active)) {
-							if (is_piece_reduced(game, p)) {
-								log_fn(`Rule 16.2.2: Winning HQ ${data.pieces[p].name} flipped to full strength.`)
-								restore_piece(game, p)
-							}
-							if (data.pieces[p].name.includes("Army of Islam")) {
-								let space = data.spaces[target_space]
-								if (space.tribal) {
-									log_fn(`Rule 16.3.5: Army of Islam won in a tribal space, +1 TU RP bonus.`)
-									game.tu_rp_bonus = (game.tu_rp_bonus || 0) + 1
+						for (let p of result.used_hqs.defender) {
+							if (winner === other_faction(game.active)) {
+								if (is_piece_reduced(game, p)) {
+									log_fn(`Rule 16.2.2: Winning HQ ${data.pieces[p].name} flipped to full strength.`)
+									restore_piece(game, p)
 								}
-							}
-						} else {
-							log_fn(`Rule 16.2.2: Losing HQ ${data.pieces[p].name} loses 1 step.`)
-							if (is_piece_reduced(game, p)) {
-								eliminate_piece(game, p, log_fn, true)
+								if (data.pieces[p].name.includes("Army of Islam")) {
+									let space = data.spaces[target_space]
+									if (space.tribal) {
+										log_fn(`Rule 16.3.5: Army of Islam won in a tribal space, +1 TU RP bonus.`)
+										game.tu_rp_bonus = (game.tu_rp_bonus || 0) + 1
+									}
+								}
 							} else {
-								reduce_piece(game, p)
+								log_fn(`Rule 16.2.2: Losing HQ ${data.pieces[p].name} loses 1 step.`)
+								if (is_piece_reduced(game, p)) {
+									eliminate_piece(game, p, log_fn, true)
+								} else {
+									reduce_piece(game, p)
+								}
 							}
 						}
 					}
 				}
-			}
-
-			if (result.used_arty && result.used_arty.attacker) {
-				for (let p of result.used_arty.attacker) {
-					if (is_piece_reduced(game, p)) {
-						log_fn(`Rule 16.4: Heavy Artillery ${data.pieces[p].name} removed after second use.`)
-						eliminate_piece(game, p, log_fn, true)
-					} else {
-						log_fn(`Rule 16.4: Heavy Artillery ${data.pieces[p].name} flips after first use.`)
-						reduce_piece(game, p)
-					}
-				}
-			}
-
-			const check_12_6_8 = (space, faction) => {
-				let pieces = get_pieces_in_space(game, space).filter(
-					(p) => get_piece_effective_faction(game, p) === faction
-				)
-				if (pieces.length > 0) {
-					let combat_units = pieces.filter((p) => !is_hq(p) && !is_heavy_arty(p))
-					if (combat_units.length === 0) {
-						let hqs = pieces.filter((p) => is_hq(p) || is_heavy_arty(p))
-						for (let p of hqs) {
-							log_fn(
-								`Rule 12.6.8: ${data.pieces[p].name} is eliminated because no combat units remain in its space.`
-							)
+	
+				if (result.used_arty && result.used_arty.attacker) {
+					for (let p of result.used_arty.attacker) {
+						if (is_piece_reduced(game, p)) {
+							log_fn(`Rule 16.4: Heavy Artillery ${data.pieces[p].name} removed after second use.`)
 							eliminate_piece(game, p, log_fn, true)
+						} else {
+							log_fn(`Rule 16.4: Heavy Artillery ${data.pieces[p].name} flips after first use.`)
+							reduce_piece(game, p)
 						}
 					}
 				}
+	
+				const check_12_6_8 = (space, faction) => {
+					let pieces = get_pieces_in_space(game, space).filter(
+						(p) => get_piece_effective_faction(game, p) === faction
+					)
+					if (pieces.length > 0) {
+						let combat_units = pieces.filter((p) => !is_hq(p) && !is_heavy_arty(p))
+						if (combat_units.length === 0) {
+							let hqs = pieces.filter((p) => is_hq(p) || is_heavy_arty(p))
+							for (let p of hqs) {
+								log_fn(
+									`Rule 12.6.8: ${data.pieces[p].name} is eliminated because no combat units remain in its space.`
+								)
+								eliminate_piece(game, p, log_fn, true)
+							}
+						}
+					}
+				}
+	
+				check_12_6_8(target_space, defender_faction)
+				if (game.attack.from) {
+					for (let s of game.attack.from) {
+						check_12_6_8(s, game.active)
+					}
+				}
+				
+				game.battle_resolution_side_effects_applied = true
 			}
 
-			check_12_6_8(target_space, defender_faction)
-			if (game.attack.from) {
-				for (let s of game.attack.from) {
-					check_12_6_8(s, game.active)
+			if (!game.retreat_choice_cc_cp_done && attacker_faction === CP && defender_faction === AP) {
+				let has_save_tiflis = (game.hand_cp && game.hand_cp.includes(CC_CP_SAVE_TIFLIS)) || 
+				                      (game.cc_retained && game.cc_retained.cp && game.cc_retained.cp.includes(CC_CP_SAVE_TIFLIS));
+				if (has_save_tiflis) {
+					let saved_state = game.state;
+					game.state = "retreat_choice_cc_cp";
+					let can_play = Engine.combat_cards.can_play_combat_card(game, CC_CP_SAVE_TIFLIS);
+					game.state = saved_state;
+					if (can_play) {
+						game.active = CP;
+						game.state = "retreat_choice_cc_cp";
+						return;
+					}
 				}
 			}
 

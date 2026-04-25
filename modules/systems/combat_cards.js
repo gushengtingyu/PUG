@@ -421,16 +421,14 @@ module.exports = function (Engine) {
 
 		// Turkish LCU must be the attacker
 		let has_tu_lcu_attacker = attacker_has_piece(game, (p) => {
-			let p_data = data.pieces[p]
-			return p_data.nation === "tu" && game_utils.is_lcu(p)
+			return (piece_counts_as_nation_for_rule(game, p, "tu") || piece_counts_as_nation_for_rule(game, p, "tua")) && game_utils.is_lcu(p)
 		})
 		if (!has_tu_lcu_attacker) return false
 
 		// Russian LCU must be the defender
 		let defenders = get_space_pieces(game, game.attack.space).filter((p) => data.pieces[p].faction === AP)
 		let has_ru_lcu_defender = defenders.some((p) => {
-			let p_data = data.pieces[p]
-			return p_data.nation === "ru" && game_utils.is_lcu(p)
+			return piece_counts_as_nation_for_rule(game, p, "ru") && game_utils.is_lcu(p)
 		})
 		if (!has_ru_lcu_defender) return false
 
