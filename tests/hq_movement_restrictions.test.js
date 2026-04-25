@@ -62,6 +62,19 @@ test("HQ and Heavy Artillery cannot end Movement without a friendly Combat Unit"
 			})
 		])
 	)
+
+	let region = findSpace("Galicia")
+	game.pieces[hq] = region
+	game.control[region] = CP
+	game.events.bulgaria = 1
+	expect(Engine.map.check_rule_violations(game)).toEqual(
+		expect.arrayContaining([
+			expect.objectContaining({
+				space: region,
+				rule: "Rule 16.1: HQ/Heavy Artillery must stack with a friendly Combat Unit"
+			})
+		])
+	)
 })
 
 test("Movement cannot leave an HQ or Heavy Artillery behind without a Combat Unit", () => {

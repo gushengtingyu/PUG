@@ -20,7 +20,9 @@ module.exports = function (Engine) {
 		is_scu,
 		is_tribe,
 		is_irregular,
+		is_regular,
 		is_hq,
+		is_heavy_arty,
 		is_in_reserve,
 		is_not_on_map,
 		get_piece_nations_for_rule,
@@ -1209,6 +1211,7 @@ module.exports = function (Engine) {
 		"HQ/Heavy Artillery must enter enemy-controlled spaces with a friendly Combat Unit"
 	const HQ_HEAVY_ARTILLERY_DEPARTURE_REASON =
 		"HQ/Heavy Artillery cannot be left without a friendly Combat Unit"
+	const IGNORE_HQ_HEAVY_ARTILLERY_SUPPORT = { ignore_hq_heavy_artillery_support: true }
 
 	function get_unique_pieces(pieces) {
 		let unique = []
@@ -1223,14 +1226,11 @@ module.exports = function (Engine) {
 	}
 
 	function is_hq_or_heavy_artillery_piece(p) {
-		let key = get_stack_special_key(p)
-		return key === "hq" || key === "H"
+		return is_hq(p) || is_heavy_arty(p) || (data.pieces[p] && data.pieces[p].symbol === "H")
 	}
 
 	function is_hq_heavy_artillery_escort_piece(p) {
-		let info = data.pieces[p]
-		if (!info || is_hq_or_heavy_artillery_piece(p)) return false
-		return info.type === "regular" || info.type === "irregular" || info.type === "tribe"
+		return is_regular(p) || is_irregular(p) || is_tribe(p)
 	}
 
 	function get_hq_heavy_artillery_support_reason(pieces) {
@@ -1998,7 +1998,7 @@ function get_stack_yildirim_count(pieces) {
 		let status = get_supply_status(game, s, faction, p, true)
 		if (!is_supply_status_in_supply(status)) return false
 		if (!can_enter_region(game, p, s)) return false
-		if (!can_stack_end_in_space(game, s, [p], { ignore_hq_heavy_artillery_support: true })) return false
+		if (!can_stack_end_in_space(game, s, [p], IGNORE_HQ_HEAVY_ARTILLERY_SUPPORT)) return false
 		let full_sources = get_full_supply_sources_for_unit(game, p, true)
 		if (full_sources.includes(s)) return true
 		if (data.spaces[s].terrain === DESERT) {
@@ -2127,7 +2127,7 @@ function get_stack_yildirim_count(pieces) {
 		)
 		if (!is_supply_status_in_supply(dest_status)) return false
 		if (!can_enter_region(game, p, dest)) return false
-		return can_stack_end_in_space(game, dest, [p], { ignore_hq_heavy_artillery_support: true });
+		return can_stack_end_in_space(game, dest, [p], IGNORE_HQ_HEAVY_ARTILLERY_SUPPORT)
 	}
 
 	function get_sr_destinations(game, p, faction) {
@@ -2324,7 +2324,7 @@ function get_stack_yildirim_count(pieces) {
 		let dest_status = get_supply_status(game, s, faction, p, true)
 		if (!is_supply_status_in_supply(dest_status)) return false
 		if (!can_enter_region(game, p, s)) return false
-		if (!can_stack_end_in_space(game, s, [p], { ignore_hq_heavy_artillery_support: true })) return false
+		if (!can_stack_end_in_space(game, s, [p], IGNORE_HQ_HEAVY_ARTILLERY_SUPPORT)) return false
 
 		let rail_only = info.piece_class === "LCU"
 		if (has_sr_path(game, p, source, s, faction, rail_only)) return true
@@ -3313,8 +3313,21 @@ function get_stack_yildirim_count(pieces) {
 
 		// 1. General Stacking Limit (Rule 8.1.1: max 3 counted pieces)
 		for (let s = 1; s < data.spaces.length; s++) {
-			if (is_unlimited_stack_space(game, s)) continue
 			let pieces = pieces_by_space[s]
+
+			if (!is_reserve_space(s)) {
+				for (let faction of [AP, CP]) {
+					let friendly = pieces.filter((p) => get_piece_effective_faction(game, p) === faction)
+					if (get_hq_heavy_artillery_support_reason(friendly)) {
+						violations.push({
+							space: s,
+							rule: "Rule 16.1: HQ/Heavy Artillery must stack with a friendly Combat Unit"
+						})
+					}
+				}
+			}
+
+			if (is_unlimited_stack_space(game, s)) continue
 			let count = get_stack_count(pieces)
 			if (count > 3) {
 				violations.push({ space: s, rule: "Rule 8.1.1: More than 3 counted combat units in space" })
@@ -3322,16 +3335,6 @@ function get_stack_yildirim_count(pieces) {
 
 			let hqs = get_stack_hq_count(pieces)
 			if (hqs > 1) violations.push({ space: s, rule: "Rule 8.1.3: Multiple HQs in space" })
-
-			for (let faction of [AP, CP]) {
-				let friendly = pieces.filter((p) => get_piece_effective_faction(game, p) === faction)
-				if (get_hq_heavy_artillery_support_reason(friendly)) {
-					violations.push({
-						space: s,
-						rule: "Rule 16.1: HQ/Heavy Artillery must stack with a friendly Combat Unit"
-					})
-				}
-			}
 
 			// Rule 8.2.2: No BR/RU mix
 			if (has_br_ru_mix(game, pieces)) {
