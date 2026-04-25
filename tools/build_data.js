@@ -211,7 +211,7 @@ edgesRaw.forEach((e) => {
 		} else if (n === "arab_and_tu") {
 			nations.push("ar", "ana", "tu", "tua")
 		} else if (n === "s") {
-			nations.push("sb")
+			nations.push("tr")
 		} else if (n === "no_tribe") {
 			apNations.forEach((v) => { if (v !== "tr") nations.push(v) })
 			cpNations.forEach((v) => { if (v !== "tr") nations.push(v) })
