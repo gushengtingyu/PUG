@@ -1,0 +1,781 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<title>PUG 增援板编辑器 v3.0</title>
+		<style>
+			:root {
+				--bg-color: #1e1e1e;
+				--panel-bg: #252526;
+				--header-bg: #2d2d30;
+				--text-color: #cccccc;
+				--accent-color: #007acc;
+				--accent-hover: #0098ff;
+				--border-color: #3e3e42;
+				--input-bg: #3c3c3c;
+				--item-hover: #2a2d2e;
+				--item-selected: #37373d;
+				--danger: #e51400;
+				--success: #388e3c;
+			}
+			* {
+				box-sizing: border-box;
+			}
+			body {
+				margin: 0;
+				padding: 0;
+				font-family: "Segoe UI", Tahoma, sans-serif;
+				background: var(--bg-color);
+				color: var(--text-color);
+				display: flex;
+				height: 100vh;
+				overflow: hidden;
+			}
+
+			/* 侧边栏样式 */
+			#sidebar {
+				width: 320px;
+				background: var(--panel-bg);
+				border-right: 1px solid var(--border-color);
+				display: flex;
+				flex-direction: column;
+				flex-shrink: 0;
+				z-index: 100;
+			}
+			.sidebar-header {
+				padding: 15px;
+				background: var(--header-bg);
+				border-bottom: 1px solid var(--border-color);
+			}
+			.sidebar-content {
+				flex: 1;
+				overflow-y: auto;
+				padding: 15px;
+				display: flex;
+				flex-direction: column;
+			}
+
+			/* 搜索框 */
+			.search-container {
+				margin-bottom: 15px;
+				position: relative;
+			}
+			#search-input {
+				padding-left: 30px;
+			}
+			.search-icon {
+				position: absolute;
+				left: 10px;
+				top: 50%;
+				transform: translateY(-50%);
+				opacity: 0.5;
+			}
+
+			/* 属性编辑区 */
+			.prop-group {
+				margin-bottom: 15px;
+			}
+			.prop-group label {
+				display: block;
+				font-size: 11px;
+				margin-bottom: 4px;
+				color: #888;
+				text-transform: uppercase;
+			}
+			input,
+			select {
+				background: var(--input-bg);
+				color: #fff;
+				border: 1px solid var(--border-color);
+				padding: 6px 8px;
+				width: 100%;
+				border-radius: 3px;
+				font-size: 13px;
+			}
+			input:focus {
+				border-color: var(--accent-color);
+				outline: none;
+			}
+
+			.btn-row {
+				display: flex;
+				gap: 8px;
+				margin-top: 10px;
+			}
+			button {
+				flex: 1;
+				background: var(--accent-color);
+				color: white;
+				border: none;
+				padding: 8px;
+				cursor: pointer;
+				border-radius: 3px;
+				font-size: 13px;
+				transition: background 0.2s;
+			}
+			button:hover {
+				background: var(--accent-hover);
+			}
+			button.secondary {
+				background: #444;
+			}
+			button.danger {
+				background: #600;
+			}
+			button.danger:hover {
+				background: var(--danger);
+			}
+
+			/* 开关样式 */
+			.switch-row {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				margin-bottom: 15px;
+				padding: 8px;
+				background: #2d2d30;
+				border-radius: 4px;
+			}
+			.switch {
+				position: relative;
+				display: inline-block;
+				width: 40px;
+				height: 20px;
+			}
+			.switch input {
+				opacity: 0;
+				width: 0;
+				height: 0;
+			}
+			.slider {
+				position: absolute;
+				cursor: pointer;
+				top: 0;
+				left: 0;
+				right: 0;
+				bottom: 0;
+				background-color: #555;
+				transition: 0.4s;
+				border-radius: 20px;
+			}
+			.slider:before {
+				position: absolute;
+				content: "";
+				height: 14px;
+				width: 14px;
+				left: 3px;
+				bottom: 3px;
+				background-color: white;
+				transition: 0.4s;
+				border-radius: 50%;
+			}
+			input:checked + .slider {
+				background-color: var(--accent-color);
+			}
+			input:checked + .slider:before {
+				transform: translateX(20px);
+			}
+
+			/* 列表区域 */
+			.list-header {
+				padding: 10px 15px;
+				background: var(--header-bg);
+				border-top: 1px solid var(--border-color);
+				border-bottom: 1px solid var(--border-color);
+				font-size: 12px;
+				font-weight: bold;
+				display: flex;
+				justify-content: space-between;
+			}
+			#list {
+				flex: 1;
+				overflow-y: auto;
+				background: #1e1e1e;
+			}
+			.item {
+				padding: 10px 15px;
+				border-bottom: 1px solid var(--border-color);
+				cursor: pointer;
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+			}
+			.item:hover {
+				background: var(--item-hover);
+			}
+			.item.selected {
+				background: var(--item-selected);
+				border-left: 3px solid var(--accent-color);
+			}
+			.item-main {
+				font-weight: 500;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+				max-width: 180px;
+			}
+			.item-sub {
+				font-size: 11px;
+				color: #777;
+				margin-top: 2px;
+			}
+
+			/* 主画布区 */
+			#viewport {
+				flex: 1;
+				position: relative;
+				overflow: hidden;
+				background: #111;
+				cursor: crosshair;
+			}
+			#canvas-container {
+				position: absolute;
+				transform-origin: 0 0;
+				user-select: none;
+			}
+			#board-img {
+				display: block;
+				pointer-events: none;
+			}
+
+			.marker {
+				position: absolute;
+				width: 44px;
+				height: 44px;
+				border: 2px solid rgba(255, 255, 0, 0.8);
+				background: rgba(255, 255, 0, 0.15);
+				transform: translate(-50%, -50%);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-weight: bold;
+				color: #fff;
+				text-shadow: 0 0 3px #000;
+				pointer-events: auto;
+				z-index: 10;
+				transition: border-color 0.2s;
+			}
+			.marker.draggable {
+				cursor: move;
+			}
+			.marker:hover {
+				border-color: #fff;
+				background: rgba(255, 255, 255, 0.2);
+			}
+			.marker.selected {
+				border-color: #00ff00;
+				background: rgba(0, 255, 0, 0.2);
+				box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+				z-index: 20;
+			}
+			.marker::after {
+				content: attr(data-card);
+				font-size: 12px;
+			}
+
+			/* 状态条 */
+			.status-bar {
+				position: absolute;
+				bottom: 20px;
+				left: 340px;
+				background: rgba(0, 0, 0, 0.7);
+				padding: 8px 15px;
+				border-radius: 20px;
+				font-size: 12px;
+				pointer-events: none;
+				display: flex;
+				gap: 20px;
+				backdrop-filter: blur(5px);
+				border: 1px solid var(--border-color);
+			}
+
+			#toast {
+				position: fixed;
+				bottom: 80px;
+				left: 50%;
+				transform: translateX(-50%);
+				background: rgba(0, 0, 0, 0.85);
+				color: #fff;
+				padding: 10px 25px;
+				border-radius: 30px;
+				font-size: 14px;
+				font-weight: 500;
+				pointer-events: none;
+				opacity: 0;
+				transition: opacity 0.3s, transform 0.3s;
+				z-index: 2000;
+				border: 1px solid var(--accent-color);
+				box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+			}
+			#toast.show {
+				opacity: 1;
+				transform: translate(-50%, -10px);
+			}
+
+			kbd {
+				background: #444;
+				padding: 2px 5px;
+				border-radius: 3px;
+				font-family: monospace;
+				margin: 0 2px;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="sidebar">
+			<div class="sidebar-header">
+				<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px">
+					<h3 style="margin: 0; font-size: 16px">增援板编辑器 v3.0</h3>
+					<button id="header-save-btn" style="flex: none; padding: 4px 12px; font-size: 12px; font-weight: bold" title="保存修改 (Ctrl+S)">
+						💾 保存
+					</button>
+				</div>
+				<select id="board-select">
+					<option value="APReinforcements.png">Allied (AP) Board</option>
+					<option value="CPReinforcements.png">Central (CP) Board</option>
+				</select>
+			</div>
+
+			<div class="sidebar-content">
+				<!-- 搜索板块 -->
+				<div class="search-container">
+					<span class="search-icon">🔍</span>
+					<input type="text" id="search-input" placeholder="搜索名称或卡牌号..." />
+				</div>
+
+				<!-- 可拖拽开关 -->
+				<div class="switch-row">
+					<span style="font-size: 13px">启用算子拖拽</span>
+					<label class="switch">
+						<input type="checkbox" id="drag-toggle" checked />
+						<span class="slider"></span>
+					</label>
+				</div>
+
+				<div id="edit-panel" style="display: none">
+					<div class="prop-group">
+						<label>ID / Card Number</label>
+						<div style="display: flex; gap: 5px">
+							<input type="number" id="edit-id" placeholder="ID" style="flex: 1" />
+							<input type="number" id="edit-card" placeholder="Card #" style="flex: 1" />
+						</div>
+					</div>
+					<div class="prop-group">
+						<label>Description Name</label>
+						<input type="text" id="edit-name" placeholder="e.g. ANZAC Reinf. 1" />
+					</div>
+					<div class="prop-group">
+						<label>Position (X, Y)</label>
+						<div style="display: flex; gap: 5px">
+							<input type="number" id="edit-x" style="flex: 1" />
+							<input type="number" id="edit-y" style="flex: 1" />
+						</div>
+					</div>
+					<div class="prop-group">
+						<label>Side / Type</label>
+						<div style="display: flex; gap: 5px">
+							<select id="edit-side" style="flex: 1">
+								<option value="ap">AP</option>
+								<option value="cp">CP</option>
+							</select>
+							<input type="text" value="reinforcement" readonly style="flex: 1; opacity: 0.5" />
+						</div>
+					</div>
+					<div class="btn-row">
+						<button id="delete-btn" class="danger">Delete</button>
+					</div>
+					<hr style="border: 0; border-top: 1px solid var(--border-color); margin: 15px 0" />
+				</div>
+
+				<div class="prop-group">
+					<button id="add-btn" class="secondary" style="margin-bottom: 8px">+ New Slot (Center)</button>
+					<button id="save-btn">Save to reinforcements.csv</button>
+				</div>
+				<p style="font-size: 11px; color: #666; line-height: 1.4; margin: 0">
+					* 更改实时同步。保存后需运行 build_data.js。
+				</p>
+			</div>
+
+			<div class="list-header">
+				<span>LOCATIONS</span>
+				<span id="count-label">0</span>
+			</div>
+			<div id="list"></div>
+		</div>
+
+		<div id="viewport">
+			<div id="canvas-container">
+				<img id="board-img" src="/pieces/APReinforcements.png" />
+				<div id="markers-layer"></div>
+			</div>
+
+			<div class="status-bar">
+				<span>Zoom: <span id="zoom-label">100%</span></span>
+				<span><kbd>Space + Drag</kbd> Pan</span>
+				<span><kbd>Click</kbd> Add/Select</span>
+				<span id="drag-hint"><kbd>Drag</kbd> Move</span>
+				<span><kbd>Ctrl+S</kbd> Save</span>
+			</div>
+		</div>
+
+		<div id="toast">保存成功</div>
+
+		<script>
+			let reinforcements = []
+			let reinforcementHeaders = ["id", "card", "name", "x", "y", "side", "type"]
+			let selectedId = null
+			let scale = 1
+			let panX = 0
+			let panY = 0
+			const API_BASE = location.origin && location.origin !== "null" ? location.origin : "http://localhost:8082"
+
+			const viewport = document.getElementById("viewport")
+			const container = document.getElementById("canvas-container")
+			const img = document.getElementById("board-img")
+			const markersLayer = document.getElementById("markers-layer")
+			const listEl = document.getElementById("list")
+			const boardSelect = document.getElementById("board-select")
+			const dragToggle = document.getElementById("drag-toggle")
+			const searchInput = document.getElementById("search-input")
+
+			// --- 数据处理 ---
+			function parseCSVLine(line) {
+				const values = []
+				let current = ""
+				let inQuotes = false
+				for (let i = 0; i < line.length; i++) {
+					const char = line[i]
+					if (char === '"') {
+						if (inQuotes && line[i + 1] === '"') {
+							current += '"'
+							i++
+						} else {
+							inQuotes = !inQuotes
+						}
+					} else if (char === "," && !inQuotes) {
+						values.push(current.trim())
+						current = ""
+					} else {
+						current += char
+					}
+				}
+				values.push(current.trim())
+				return values
+			}
+
+			function buildCSVLine(values) {
+				return values
+					.map((value) => {
+						const text = String(value ?? "")
+						if (text.includes(",") || text.includes('"') || text.includes("\n") || text.includes("\r")) {
+							return `"${text.replace(/"/g, '""')}"`
+						}
+						return text
+					})
+					.join(",")
+			}
+
+			async function loadData() {
+				try {
+					const res = await fetch(`${API_BASE}/csv/reinforcements.csv?t=${Date.now()}`)
+					const text = await res.text()
+					reinforcements = parseCSV(text)
+					updateUI()
+				} catch (e) {
+					console.error("Load failed", e)
+				}
+			}
+
+			function parseCSV(text) {
+				const lines = text.split(/\r?\n/).filter((l) => l.trim())
+				if (lines.length === 0) {
+					reinforcementHeaders = ["id", "card", "name", "x", "y", "side", "type"]
+					return []
+				}
+				reinforcementHeaders = parseCSVLine(lines[0]).map((h) => h.trim())
+				return lines.slice(1).map((line) => {
+					const values = parseCSVLine(line)
+					const obj = {}
+					reinforcementHeaders.forEach((h, i) => (obj[h] = values[i] ?? ""))
+					return obj
+				})
+			}
+
+			function updateUI() {
+				renderList()
+				renderMarkers()
+				document.getElementById("count-label").innerText = reinforcements.length
+			}
+
+			function renderList() {
+				listEl.innerHTML = ""
+				const currentSide = boardSelect.value.startsWith("AP") ? "ap" : "cp"
+				const searchTerm = searchInput.value.toLowerCase()
+
+				reinforcements
+					.filter((r) => r.side === currentSide)
+					.filter((r) => r.name.toLowerCase().includes(searchTerm) || r.card.includes(searchTerm))
+					.sort((a, b) => parseInt(a.id) - parseInt(b.id))
+					.forEach((r) => {
+						const div = document.createElement("div")
+						div.className = `item ${selectedId == r.id ? "selected" : ""}`
+						div.innerHTML = `
+                        <div class="item-main" title="${r.name}">${r.name}</div>
+                    `
+						div.onclick = (e) => {
+							e.stopPropagation()
+							selectItem(r.id)
+							jumpToMarker(r)
+						}
+						listEl.appendChild(div)
+					})
+			}
+
+			function renderMarkers() {
+				markersLayer.innerHTML = ""
+				const currentSide = boardSelect.value.startsWith("AP") ? "ap" : "cp"
+				const canDrag = dragToggle.checked
+
+				reinforcements
+					.filter((r) => r.side === currentSide)
+					.forEach((r) => {
+						const m = document.createElement("div")
+						m.className = `marker ${selectedId == r.id ? "selected" : ""} ${canDrag ? "draggable" : ""}`
+						m.style.left = r.x + "px"
+						m.style.top = r.y + "px"
+						m.setAttribute("data-card", r.card)
+						m.onmousedown = (e) => {
+							if (canDrag) startDragMarker(e, r.id)
+							else {
+								e.stopPropagation()
+								selectItem(r.id)
+							}
+						}
+						m.onclick = (e) => {
+							e.stopPropagation()
+							selectItem(r.id)
+						}
+						markersLayer.appendChild(m)
+					})
+
+				document.getElementById("drag-hint").style.opacity = canDrag ? "1" : "0.3"
+			}
+
+			function selectItem(id) {
+				selectedId = id
+				const r = reinforcements.find((x) => x.id == id)
+				const panel = document.getElementById("edit-panel")
+				if (r) {
+					panel.style.display = "block"
+					document.getElementById("edit-id").value = r.id
+					document.getElementById("edit-card").value = r.card
+					document.getElementById("edit-name").value = r.name
+					document.getElementById("edit-x").value = r.x
+					document.getElementById("edit-y").value = r.y
+					document.getElementById("edit-side").value = r.side
+				} else {
+					panel.style.display = "none"
+				}
+				updateUI()
+			}
+
+			function jumpToMarker(r) {
+				const rect = viewport.getBoundingClientRect()
+				scale = 1.2
+				panX = rect.width / 2 - Number(r.x) * scale
+				panY = rect.height / 2 - Number(r.y) * scale
+				applyTransform()
+			}
+
+			// --- 交互逻辑 ---
+
+			// 缩放
+			viewport.onwheel = (e) => {
+				e.preventDefault()
+				const delta = e.deltaY > 0 ? 0.9 : 1.1
+				const newScale = Math.min(Math.max(0.2, scale * delta), 4)
+				const rect = viewport.getBoundingClientRect()
+				const mouseX = e.clientX - rect.left
+				const mouseY = e.clientY - rect.top
+				panX = mouseX - (mouseX - panX) * (newScale / scale)
+				panY = mouseY - (mouseY - panY) * (newScale / scale)
+				scale = newScale
+				applyTransform()
+			}
+
+			// 平移
+			let isPanning = false
+			let lastMouseX, lastMouseY
+			let isSpaceDown = false
+			window.onkeydown = (e) => {
+				if (e.code === "Space") isSpaceDown = true
+				if (e.ctrlKey && e.key === "s") {
+					e.preventDefault()
+					saveData()
+				}
+			}
+			window.onkeyup = (e) => {
+				if (e.code === "Space") isSpaceDown = false
+			}
+
+			function showToast(msg, duration = 2000) {
+				const toast = document.getElementById("toast")
+				toast.innerText = msg
+				toast.classList.add("show")
+				setTimeout(() => toast.classList.remove("show"), duration)
+			}
+
+			async function saveData() {
+				const headers = reinforcementHeaders.length
+					? reinforcementHeaders
+					: ["id", "card", "name", "x", "y", "side", "type"]
+				const csvRows = [buildCSVLine(headers)]
+
+				reinforcements.forEach((r) => {
+					const row = headers.map((h) => r[h] ?? "")
+					csvRows.push(buildCSVLine(row))
+				})
+
+				const csv = csvRows.join("\n")
+
+				try {
+					const res = await fetch(`${API_BASE}/api/save`, {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ reinforcements: csv })
+					})
+					if (res.ok) showToast("✅ 保存成功！")
+					else showToast("❌ 保存失败")
+				} catch (e) {
+					showToast("❌ 网络错误")
+				}
+			}
+
+			viewport.onmousedown = (e) => {
+				if (isSpaceDown || e.button === 1) {
+					isPanning = true
+					lastMouseX = e.clientX
+					lastMouseY = e.clientY
+					viewport.style.cursor = "grabbing"
+				} else if (e.target === viewport || e.target === img) {
+					const rect = container.getBoundingClientRect()
+					const x = Math.round((e.clientX - rect.left) / scale)
+					const y = Math.round((e.clientY - rect.top) / scale)
+					addNew(x, y)
+				}
+			}
+
+			function addNew(x, y) {
+				const currentSide = boardSelect.value.startsWith("AP") ? "ap" : "cp"
+				const newId = Math.max(0, ...reinforcements.map((r) => parseInt(r.id))) + 1
+				const newItem = {}
+				reinforcementHeaders.forEach((header) => {
+					newItem[header] = ""
+				})
+				newItem.id = newId.toString()
+				newItem.card = "0"
+				newItem.name = "New Slot"
+				newItem.x = x.toString()
+				newItem.y = y.toString()
+				newItem.side = currentSide
+				newItem.type = "reinforcement"
+				reinforcements.push(newItem)
+				selectItem(newId)
+			}
+
+			// Marker 拖拽
+			let draggingMarkerId = null
+			function startDragMarker(e, id) {
+				if (isSpaceDown) return
+				e.stopPropagation()
+				draggingMarkerId = id
+				selectItem(id)
+			}
+
+			window.onmousemove = (e) => {
+				if (isPanning) {
+					panX += e.clientX - lastMouseX
+					panY += e.clientY - lastMouseY
+					lastMouseX = e.clientX
+					lastMouseY = e.clientY
+					applyTransform()
+				} else if (draggingMarkerId) {
+					const rect = container.getBoundingClientRect()
+					const x = Math.round((e.clientX - rect.left) / scale)
+					const y = Math.round((e.clientY - rect.top) / scale)
+					const r = reinforcements.find((i) => i.id == draggingMarkerId)
+					if (r) {
+						r.x = x.toString()
+						r.y = y.toString()
+						document.getElementById("edit-x").value = x
+						document.getElementById("edit-y").value = y
+						renderMarkers()
+					}
+				}
+			}
+
+			window.onmouseup = () => {
+				isPanning = false
+				draggingMarkerId = null
+				viewport.style.cursor = "crosshair"
+				renderList()
+			}
+
+			function applyTransform() {
+				container.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`
+				document.getElementById("zoom-label").innerText = Math.round(scale * 100) + "%"
+			}
+
+			// --- 搜索功能 ---
+			searchInput.oninput = () => renderList()
+
+			// --- 拖拽开关 ---
+			dragToggle.onchange = () => renderMarkers()
+
+			// --- 自动同步属性 ---
+			;["edit-id", "edit-card", "edit-name", "edit-x", "edit-y", "edit-side"].forEach((id) => {
+				document.getElementById(id).oninput = () => {
+					if (!selectedId) return
+					const r = reinforcements.find((x) => x.id == selectedId)
+					if (r) {
+						const field = id.replace("edit-", "")
+						r[field] = document.getElementById(id).value
+						if (field === "id") selectedId = r.id
+						updateUI()
+					}
+				}
+			})
+
+			document.getElementById("delete-btn").onclick = () => {
+				reinforcements = reinforcements.filter((r) => r.id != selectedId)
+				selectedId = null
+				updateUI()
+				document.getElementById("edit-panel").style.display = "none"
+			}
+
+			boardSelect.onchange = () => {
+				img.src = `/pieces/${boardSelect.value}`
+				const currentSide = boardSelect.value.startsWith("AP") ? "ap" : "cp"
+				selectedId = null
+				panX = 0
+				panY = 0
+				scale = 1
+				applyTransform()
+				selectItem(null)
+			}
+
+			document.getElementById("save-btn").onclick = saveData
+			document.getElementById("header-save-btn").onclick = saveData
+
+			document.getElementById("add-btn").onclick = () => {
+				const rect = viewport.getBoundingClientRect()
+				const x = Math.round((rect.width / 2 - panX) / scale)
+				const y = Math.round((rect.height / 2 - panY) / scale)
+				addNew(x, y)
+			}
+
+			loadData()
+			applyTransform()
+		</script>
+	</body>
+</html>

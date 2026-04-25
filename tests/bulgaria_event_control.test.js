@@ -1,0 +1,131 @@
+const rules = require("../rules.js")
+const Engine = require("../modules/engine.js")
+
+const { AP, CP } = Engine.constants
+
+function setupGame(seed, scenario = "Historical") {
+	return rules.setup(seed, scenario, { seven_hand_size: false, no_supply_warnings: false })
+}
+
+function findPiece(faction, name) {
+	let piece = Engine.game_utils.find_piece(faction, name)
+	if (piece < 0) throw new Error(`找不到单位: ${name}`)
+	return piece
+}
+
+function findSpace(name) {
+	let space = Engine.game_utils.find_space(name)
+	if (space < 0) throw new Error(`找不到地块: ${name}`)
+	return space
+}
+
+test("Bulgaria 入场单位会在开局预摆到展示位，但事件前保持锁定", () => {
+	let game = setupGame(2026041620, "Historical")
+	let romaniaEvent = Engine.events.get_event_by_id(29)
+	let helpAndSaveYou = Engine.events.get_event_by_id(95)
+	let buArmy = findPiece(CP, "BU 1 Army")
+	let geArmy = findPiece(CP, "German 11th Army")
+	let ahCorps = findPiece(CP, "AH VIII Corps")
+	let sbArmy = findPiece(AP, "SB 1 Army")
+	let sbReserve = findPiece(AP, "SB DIV #5")
+	let geReserve = findPiece(CP, "GE DIV #1")
+
+	expect(game.pieces[buArmy]).toBe(findSpace("Vidin"))
+	expect(game.pieces[geArmy]).toBe(findSpace("Galicia"))
+	expect(game.pieces[ahCorps]).toBe(findSpace("Galicia"))
+	expect(game.pieces[sbArmy]).toBe(findSpace("BELGRADE"))
+	expect(game.pieces[sbReserve]).toBe(findSpace("AP Reserve"))
+	expect(game.pieces[geReserve]).toBe(findSpace("CP Reserve"))
+
+	expect(Engine.game_utils.get_piece_effective_faction(game, buArmy)).toBe("neutral")
+	expect(Engine.game_utils.get_piece_effective_faction(game, geArmy)).toBe("neutral")
+	expect(Engine.game_utils.get_piece_effective_faction(game, sbArmy)).toBe("neutral")
+	expect(Engine.game_utils.has_scu_in_reserve(game, "ge")).toBe(false)
+	expect(Engine.game_utils.has_scu_in_reserve(game, "sb")).toBe(false)
+	expect(Engine.game_utils.get_pieces_in_reserve(game, CP)).not.toContain(geReserve)
+	expect(Engine.game_utils.get_pieces_in_reserve(game, AP)).not.toContain(sbReserve)
+	expect(romaniaEvent.can_play(game)).toBe(false)
+	expect(helpAndSaveYou.can_play(game)).toBe(false)
+})
+
+test("Bulgaria 事件会原地解锁预摆单位，并立即切换保加利亚与塞尔维亚控制", () => {
+	let game = setupGame(2026041621, "Historical")
+	let event = Engine.events.get_event_by_id(88)
+	let romaniaEvent = Engine.events.get_event_by_id(29)
+	let helpAndSaveYou = Engine.events.get_event_by_id(95)
+	let sofia = findSpace("SOFIA")
+	let belgrade = findSpace("BELGRADE")
+	let vidin = findSpace("Vidin")
+	let galicia = findSpace("Galicia")
+	let rustchuk = findSpace("Rustchuk")
+	let buArmy = findPiece(CP, "BU 1 Army")
+	let bu3Army = findPiece(CP, "BU 3 Army")
+	let geArmy = findPiece(CP, "German 11th Army")
+	let ahCorps = findPiece(CP, "AH VIII Corps")
+	let sbArmy = findPiece(AP, "SB 1 Army")
+
+	let initialVp = game.vp
+
+	event.handler(game)
+
+	expect(Engine.map.get_space_controller(game, sofia)).toBe(CP)
+	expect(Engine.map.get_space_controller(game, belgrade)).toBe(AP)
+	expect(game.pieces[buArmy]).toBe(vidin)
+	expect(game.pieces[bu3Army]).toBe(rustchuk)
+	expect(game.pieces[geArmy]).toBe(galicia)
+	expect(game.pieces[ahCorps]).toBe(galicia)
+	expect(game.pieces[sbArmy]).toBe(belgrade)
+	expect(Engine.game_utils.get_piece_effective_faction(game, buArmy)).toBe(CP)
+	expect(Engine.game_utils.get_piece_effective_faction(game, geArmy)).toBe(CP)
+	expect(Engine.game_utils.get_piece_effective_faction(game, sbArmy)).toBe(AP)
+	expect(Engine.map.is_in_supply(game, vidin, CP, buArmy)).toBe(true)
+	expect(Engine.map.is_in_supply(game, galicia, CP, geArmy)).toBe(true)
+	expect(Engine.game_utils.has_scu_in_reserve(game, "ge")).toBe(true)
+	expect(Engine.game_utils.has_scu_in_reserve(game, "sb")).toBe(true)
+	expect(romaniaEvent.can_play(game)).toBe(true)
+	expect(helpAndSaveYou.can_play(game)).toBe(true)
+	expect(game.vp).toBe(initialVp)
+})
+
+test("Bull's Eye 清理不会误动 Bulgaria 展示板上的中立预摆单位", () => {
+	let game = setupGame(2026041711, "Historical")
+	let geArmy = findPiece(CP, "German 11th Army")
+	let ahDiv = findPiece(CP, "AH DIV #4")
+	let buArmy = findPiece(CP, "BU 1 Army")
+	let sbArmy = findPiece(AP, "SB 1 Army")
+
+	expect(Engine.game_utils.get_piece_effective_faction(game, geArmy)).toBe("neutral")
+	expect(Engine.game_utils.get_piece_effective_faction(game, buArmy)).toBe("neutral")
+	expect(Engine.game_utils.get_piece_effective_faction(game, sbArmy)).toBe("neutral")
+
+	Engine.events.bulls_eye_cleanup_scus(game)
+
+	expect(game.pieces[geArmy]).toBe(findSpace("Galicia"))
+	expect(game.pieces[ahDiv]).toBe(findSpace("Galicia"))
+	expect(game.pieces[buArmy]).toBe(findSpace("Vidin"))
+	expect(game.pieces[sbArmy]).toBe(findSpace("BELGRADE"))
+})
+
+test("Bulgaria event can place BU 3 Army in Rustchuk after Romania has entered", () => {
+	let game = setupGame(2026042419, "Historical")
+	let bulgariaCard = 88
+	let bu3Army = findPiece(CP, "BU 3 Army")
+	let rustchuk = findSpace("Rustchuk")
+
+	game.active = CP
+	game.state = "play_card"
+	game.hand_cp.push(bulgariaCard)
+	game.events.romania = true
+
+	game = rules.action(game, rules.roles[1], "play_event", bulgariaCard)
+	expect(game.state).toBe("event_bulgaria_place_3rd_army")
+	expect(game.pieces[bu3Army]).not.toBe(rustchuk)
+
+	let view = rules.view(game, rules.roles[1])
+	expect(view.actions.space || []).toContain(rustchuk)
+
+	game = rules.action(game, rules.roles[1], "space", rustchuk)
+
+	expect(game.pieces[bu3Army]).toBe(rustchuk)
+	expect(game.state).toBe("confirm_event")
+})

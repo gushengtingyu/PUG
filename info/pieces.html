@@ -1,0 +1,367 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>PUG 算子图鉴</title>
+		<style>
+			:root {
+				--ap-color: lightcoral;
+				--cp-color: lightsteelblue;
+				--neutral-color: #9e9e9e;
+				--ap-bg-color: #efebe0;
+				--cp-bg-color: #e3ecf1;
+			}
+			body {
+				font-family: "Microsoft YaHei", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+				background-color: #f5f7f9;
+				margin: 0;
+				padding: 20px;
+				color: #333;
+			}
+			h1 {
+				text-align: center;
+				color: #2c3e50;
+				margin-bottom: 30px;
+				border-bottom: 2px solid #ddd;
+				padding-bottom: 10px;
+			}
+			.container {
+				max-width: 1600px;
+				margin: 0 auto;
+			}
+			.nation-section {
+				margin-bottom: 40px;
+			}
+			.nation-title {
+				font-size: 1.5em;
+				font-weight: bold;
+				margin-bottom: 15px;
+				padding-left: 10px;
+				border-left: 5px solid #333;
+				background: #eee;
+				padding: 8px 15px;
+				border-radius: 4px;
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+			}
+			.nation-title .faction-tag {
+				font-size: 0.6em;
+				padding: 3px 8px;
+				border-radius: 12px;
+				color: #333;
+				text-transform: uppercase;
+				font-weight: bold;
+			}
+			.faction-ap {
+				background-color: var(--ap-color);
+			}
+			.faction-cp {
+				background-color: var(--cp-color);
+			}
+			.faction-neutral {
+				background-color: var(--neutral-color);
+			}
+
+			.pieces-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+				gap: 15px;
+			}
+			.piece-card {
+				background: white;
+				border-radius: 8px;
+				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+				overflow: hidden;
+				transition:
+					transform 0.2s,
+					box-shadow 0.2s;
+				border: 1px solid #e0e0e0;
+				display: flex;
+				flex-direction: column;
+			}
+			.piece-card.faction-ap {
+				background-color: var(--ap-bg-color);
+			}
+			.piece-card.faction-cp {
+				background-color: var(--cp-bg-color);
+			}
+			.piece-card:hover {
+				transform: translateY(-5px);
+				box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+			}
+			.piece-header {
+				padding: 12px;
+				background: rgba(0, 0, 0, 0.03);
+				border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+			}
+			.piece-name {
+				font-weight: bold;
+				font-size: 1.05em;
+				color: #2c3e50;
+			}
+			.piece-type {
+				font-size: 0.8em;
+				color: #7f8c8d;
+				background: #ecf0f1;
+				padding: 2px 6px;
+				border-radius: 4px;
+			}
+			.piece-body {
+				display: flex;
+				padding: 12px 10px;
+				flex-grow: 1;
+			}
+			.piece-images {
+				flex: 0 0 90px;
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+				align-items: center;
+				justify-content: center;
+			}
+			.img-container {
+				text-align: center;
+				width: 100%;
+			}
+			.img-container img {
+				width: 45px;
+				height: 45px;
+				border: 1px solid #ddd;
+				border-radius: 4px;
+				background: #fff;
+				box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
+			}
+			.img-label {
+				font-size: 0.65em;
+				color: #999;
+				margin-top: 2px;
+				display: block;
+			}
+			.piece-stats {
+				flex: 1;
+				padding-left: 10px;
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+				gap: 8px;
+			}
+			.stat-group {
+				border-left: 3px solid #eee;
+				padding-left: 10px;
+			}
+			.stat-group.reduced {
+				border-left-color: #ffccbc;
+			}
+			.stat-group.full {
+				border-left-color: #c8e6c9;
+			}
+			.stat-label {
+				font-size: 0.75em;
+				color: #7f8c8d;
+				text-transform: uppercase;
+				letter-spacing: 0.5px;
+				margin-bottom: 2px;
+				display: block;
+			}
+			.stat-value {
+				font-family: "Consolas", "Monaco", monospace;
+				font-weight: bold;
+				font-size: 1.25em;
+				color: #34495e;
+			}
+			.stat-value.na {
+				color: #bdc3c7;
+				font-style: italic;
+				font-size: 1em;
+			}
+
+			#loading {
+				text-align: center;
+				font-size: 1.2em;
+				padding: 50px;
+				color: #666;
+			}
+
+			/* Nation colors */
+			.nation-ah {
+				border-left-color: #6d4c41;
+			}
+			.nation-anz {
+				border-left-color: #1565c0;
+			}
+			.nation-ar {
+				border-left-color: #2e7d32;
+			}
+			.nation-br {
+				border-left-color: #0d47a1;
+			}
+			.nation-bu {
+				border-left-color: #2e7d32;
+			}
+			.nation-fr {
+				border-left-color: #1a237e;
+			}
+			.nation-ge {
+				border-left-color: #212121;
+			}
+			.nation-gr {
+				border-left-color: #0277bd;
+			}
+			.nation-in {
+				border-left-color: #ef6c00;
+			}
+			.nation-it {
+				border-left-color: #2e7d32;
+			}
+			.nation-ro {
+				border-left-color: #c62828;
+			}
+			.nation-ru {
+				border-left-color: #b71c1c;
+			}
+			.nation-sb {
+				border-left-color: #1565c0;
+			}
+			.nation-tu {
+				border-left-color: #d32f2f;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<h1>Pursuit of Glory - 算子图鉴</h1>
+			<div id="loading">正在加载算子数据...</div>
+			<div id="content"></div>
+		</div>
+
+		<script src="../data.js"></script>
+		<script>
+			const nationNames = {
+				ah: "奥匈帝国 (Austria-Hungary)",
+				anz: "澳新军团 (ANZAC)",
+				ar: "阿拉伯 (Arab)",
+				br: "英国 (Great Britain)",
+				bu: "保加利亚 (Bulgaria)",
+				fr: "法国 (France)",
+				ge: "德国 (Germany)",
+				gr: "希腊 (Greece)",
+				in: "印度 (India)",
+				it: "意大利 (Italy)",
+				ro: "罗马尼亚 (Romania)",
+				ru: "俄国 (Russia)",
+				sb: "塞尔维亚 (Serbia)",
+				tu: "奥斯曼土耳其 (Ottoman Empire)",
+				pe: "波斯 (Persia)",
+				tr: "部落 (Tribes)",
+				Re: "起义军 (Rebels)",
+				geo: "格鲁吉亚 (Georgia)",
+				arm: "亚美尼亚 (Armenia)"
+			}
+
+			const factionNames = {
+				ap: "协约国 (Allied Powers)",
+				cp: "同盟国 (Central Powers)",
+				neutral: "中立 (Neutral)"
+			}
+
+			function render() {
+				const loading = document.getElementById("loading")
+				const content = document.getElementById("content")
+
+				if (!window.data || !window.data.pieces) {
+					loading.innerText = "无法加载 data.js，请确保文件路径正确。"
+					return
+				}
+
+				loading.style.display = "none"
+
+				// Group pieces by nation
+				const grouped = {}
+				data.pieces.forEach((p) => {
+					if (!p.id) return // Skip index 0
+					if (!grouped[p.nation]) {
+						grouped[p.nation] = []
+					}
+					grouped[p.nation].push(p)
+				})
+
+				// Sort nations
+				const sortedNations = Object.keys(grouped).sort()
+
+				sortedNations.forEach((nation) => {
+					const pieces = grouped[nation]
+					const firstPiece = pieces[0]
+					const faction = firstPiece.faction
+
+					const section = document.createElement("div")
+					section.className = "nation-section"
+
+					const title = document.createElement("div")
+					title.className = `nation-title nation-${nation}`
+					title.innerHTML = `
+						<span>${nationNames[nation] || nation.toUpperCase()}</span>
+						<span class="faction-tag faction-${faction}">${factionNames[faction]}</span>
+					`
+					section.appendChild(title)
+
+					const grid = document.createElement("div")
+					grid.className = "pieces-grid"
+
+					pieces.forEach((p) => {
+						const card = document.createElement("div")
+						card.className = `piece-card faction-${p.faction}`
+
+						const s = (v) => (v === null || v === undefined ? "?" : v)
+						const fullStats = `${s(p.cf)}-${s(p.lf)}-${s(p.mf)}`
+						const reducedStats = p.rcf !== undefined ? `${s(p.rcf)}-${s(p.rlf)}-${s(p.rmf)}` : "N/A"
+
+						card.innerHTML = `
+							<div class="piece-header">
+								<span class="piece-name">${p.name}</span>
+								<span class="piece-type">${p.type}</span>
+							</div>
+							<div class="piece-body">
+								<div class="piece-images">
+									<div class="img-container">
+										<img src="../pieces/${p.image_full}" alt="${p.name}">
+										<span class="img-label">满编</span>
+									</div>
+									${
+										p.image_reduced
+											? `
+									<div class="img-container">
+										<img src="../pieces/${p.image_reduced}" alt="${p.name} (R)">
+										<span class="img-label">残编</span>
+									</div>
+									`
+											: ""
+									}
+								</div>
+								<div class="piece-stats">
+									<div class="stat-group full">
+										<span class="stat-label">满编 (Full)</span>
+										<span class="stat-value">${fullStats}</span>
+									</div>
+									<div class="stat-group reduced">
+										<span class="stat-label">残编 (Reduced)</span>
+										<span class="stat-value ${reducedStats === "N/A" ? "na" : ""}">${reducedStats}</span>
+									</div>
+								</div>
+							</div>
+						`
+						grid.appendChild(card)
+					})
+
+					section.appendChild(grid)
+					content.appendChild(section)
+				})
+			}
+
+			window.onload = render
+		</script>
+	</body>
+</html>

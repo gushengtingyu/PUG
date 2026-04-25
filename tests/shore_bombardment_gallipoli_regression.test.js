@@ -1,0 +1,76 @@
+const rules = require("../rules.js")
+const data = require("../data.js")
+
+const AP_ROLE = rules.roles[0]
+const AP = rules.AP
+const CP = rules.CP
+const SHORE_BOMBARDMENT = 4
+
+function findSpace(name) {
+	let s = data.spaces.findIndex((info, idx) => idx > 0 && info && info.name === name)
+	if (s < 0) throw new Error(`Missing space: ${name}`)
+	return s
+}
+
+function findPiece(name) {
+	let p = data.pieces.findIndex((info, idx) => idx > 0 && info && info.name === name)
+	if (p < 0) throw new Error(`Missing piece: ${name}`)
+	return p
+}
+
+function createCcWindowGame({ attackerSpace, defenderSpace, state }) {
+	let game = rules.setup(1, "Historical", { seed: 42 })
+	let apPiece = findPiece("RU DIV #3")
+	let cpPiece = findPiece("TU DIV #8")
+
+	for (let p = 0; p < game.pieces.length; p++) game.pieces[p] = 0
+
+	game.pieces[apPiece] = attackerSpace
+	game.pieces[cpPiece] = defenderSpace
+	game.active = AP
+	game.state = state
+	game.hand_ap = [SHORE_BOMBARDMENT]
+	game.hand_cp = []
+	game.combat_cards = { attacker: [], defender: [] }
+	game.attack = {
+		space: defenderSpace,
+		pieces: [apPiece],
+		attacker: AP,
+		defender: CP
+	}
+
+	return game
+}
+
+test("Shore Bombardment can be played for battles in Gallipoli", () => {
+	let game = createCcWindowGame({
+		attackerSpace: findSpace("Bergaz"),
+		defenderSpace: findSpace("Canakkale"),
+		state: "play_cc_attacker"
+	})
+
+	let view = rules.view(game, AP_ROLE)
+	expect(view.actions.play_cc || []).toContain(SHORE_BOMBARDMENT)
+})
+
+test("Shore Bombardment can be played when defending in Gallipoli", () => {
+	let game = createCcWindowGame({
+		attackerSpace: findSpace("Bandirma"),
+		defenderSpace: findSpace("Gallipoli"),
+		state: "play_cc_defender"
+	})
+
+	let view = rules.view(game, AP_ROLE)
+	expect(view.actions.play_cc || []).toContain(SHORE_BOMBARDMENT)
+})
+
+test("Shore Bombardment remains unavailable for inland battles", () => {
+	let game = createCcWindowGame({
+		attackerSpace: findSpace("Oltu"),
+		defenderSpace: findSpace("Bayburt"),
+		state: "play_cc_attacker"
+	})
+
+	let view = rules.view(game, AP_ROLE)
+	expect(view.actions.play_cc || []).not.toContain(SHORE_BOMBARDMENT)
+})

@@ -1,0 +1,155 @@
+id,key,x,y,w,h
+1,AP MO RU,3165,2393,75,75
+2,AP MO No Attack,3242,2392,75,75
+3,AP MO BR/IN/ANZ,3318,2392,75,75
+4,AP MO Meso/Persia,3395,2392,75,75
+5,AP MO None,3473,2392,75,75
+6,AP MO Balkans,3550,2393,75,75
+7,AP MO Egypt,3626,2392,75,75
+8,AP MO Made,3702,2392,75,75
+9,APMO+0,3390,2267,75,75
+10,APMO+1,3461,2267,75,75
+11,APMO+2,3532,2267,75,75
+12,APMO+3,3603,2267,75,75
+13,APMO+4,3676,2267,75,75
+14,CP MO RU,1391,147,75,75
+15,CP MO BR/IN/ANZ,1464,147,75,75
+16,CP MO TU,1537,147,75,75
+17,CP MO Enver,1610,147,75,75
+18,CP MO None,1681,147,75,75
+19,GR 0,70,2405,75,75
+20,GR 1,157,2405,75,75
+21,GR 2,243,2405,75,75
+22,GR 3,330,2405,75,75
+23,GR 4,417,2405,75,75
+24,GR 5,503,2405,75,75
+25,GR 6,590,2405,75,75
+26,GR 7,677,2405,75,75
+27,GR 8,70,2505,75,75
+28,GR 9,157,2505,75,75
+29,GR 10,244,2505,75,75
+30,GR 11,330,2505,75,75
+31,GR 12,417,2505,75,75
+32,GR 13,503,2505,75,75
+33,GR 14,590,2505,75,75
+34,GR 15,677,2505,75,75
+35,GR 16,764,2505,75,75
+36,GR 17,70,2603,75,75
+37,GR 18,157,2603,75,75
+38,GR 19,243,2603,75,75
+39,GR 20,330,2603,75,75
+40,GR 21,417,2603,75,75
+41,GR 22,503,2603,75,75
+42,GR 23,590,2603,75,75
+43,GR 24,676,2603,75,75
+44,GR 25,763,2603,75,75
+45,GR 26,849,2603,75,75
+46,GR 27,70,2706,75,75
+47,GR 28,157,2705,75,75
+48,GR 29,243,2705,75,75
+49,GR 30,330,2705,75,75
+50,GR 31,417,2705,75,75
+51,GR 32,503,2705,75,75
+52,GR 33,590,2705,75,75
+53,GR 34,677,2705,75,75
+54,GR 35,764,2705,75,75
+55,GR 36,850,2705,75,75
+56,GR 37,937,2705,75,75
+57,GR 38,1023,2705,75,75
+58,GR 39,1110,2705,75,75
+59,GR 40,1197,2705,75,75
+60,RU Rev,2800,73,75,75
+61,RU Rev1,2871,73,75,75
+62,RU Rev2,2942,73,75,75
+63,RU Rev3,3014,73,75,75
+64,RU Rev4,3085,73,75,75
+65,Turn 1,3837,2345,75,75
+66,Turn 2,3837,2435,75,75
+67,Turn 3,3973,2435,75,75
+68,Turn 4,4111,2435,75,75
+69,Turn 5,4248,2435,75,75
+70,Turn 6,3837,2527,75,75
+71,Turn 7,3973,2527,75,75
+72,Turn 8,4111,2527,75,75
+73,Turn 9,4248,2527,75,75
+74,Turn 10,3837,2619,75,75
+75,Turn 11,3973,2619,75,75
+76,Turn 12,4111,2619,75,75
+77,Turn 13,4248,2619,75,75
+78,Turn 14,3837,2710,75,75
+79,Turn 15,3973,2710,75,75
+80,Turn 16,4111,2710,75,75
+81,Turn 17,4248,2710,75,75
+82,neutral_gr_UI,150,958,200,160
+83,neutral_bu_UI,530,414,200,160
+84,neutral_ro_UI,694,127,200,160
+85,LCU_limit_AP1,2681,1916,75,75
+86,LCU_limit_AP2,2753,1916,75,75
+87,LCU_limit_AP3,2824,1916,75,75
+88,LCU_limit_CP1,2681,2024,75,75
+89,LCU_limit_CP2,2752,2024,75,75
+90,LCU_limit_CP3,2826,2024,75,75
+91,C.Asia_Revolt,4103,296,75,75
+92,Afghan_Alliance,4093,689,75,75
+93,Indian_Mutiny,4245,983,75,75
+94,Persian_Neutrality,3876,762,75,75
+95,CP Air Superiority,1219,1654,75,75
+96,GE RPs TO TU,1328,1654,75,75
+97,BR RPs TO RU,799,2139,75,75
+98,AP Air Superiority,910,2139,75,75
+99,RU Amphib Assault Allowed,1019,2139,75,75
+100,Cyprus Allowed,1570,1566,75,75
+101,Egypt Uprising,1497,2128,75,75
+102,Sinai Railroad,1792,2131,75,75
+103,neutral_SB_UI,80,325,200,160
+104,SUB IN THE MED,700,1256,75,75
+1000,box_cp_corps_assets_tu_lcu,808,1760,44,44
+1001,box_cp_corps_assets_tua_lcu,927,1760,44,44
+1100,box_cp_reserve_tu_scu,1055,1680,44,44
+1101,box_cp_reserve_tua_scu,1145,1680,44,44
+1102,box_cp_reserve_bu_scu,1055,1800,44,44
+1103,box_cp_reserve_ge_scu,1145,1800,44,44
+1104,box_cp_reserve_ah_scu,1240,1800,44,44
+1105,box_cp_reserve_minor_scu,1340,1800,44,44
+1200,box_cp_eliminated_tu_lcu,2155,85,44,44
+1201,box_cp_eliminated_tu_scu,2155,148,44,44
+1202,box_cp_eliminated_tua_lcu,2238,85,44,44
+1203,box_cp_eliminated_tua_scu,2238,148,44,44
+1204,box_cp_eliminated_bu_lcu,2320,85,44,44
+1205,box_cp_eliminated_bu_scu,2320,150,44,44
+1206,box_cp_eliminated_ge_lcu,2155,212,44,44
+1207,box_cp_eliminated_ge_scu,2155,275,44,44
+1208,box_cp_eliminated_ah_lcu,2238,212,44,44
+1209,box_cp_eliminated_ah_scu,2238,275,44,44
+1210,box_cp_eliminated_minor,2238,212,44,44
+1211,box_cp_eliminated_tr,2155,275,44,44
+2000,box_ap_corps_assets_ru_lcu,1230,1995,44,44
+2001,box_ap_corps_assets_br_lcu,1230,2080,44,44
+2002,box_ap_corps_assets_in_lcu,1340,1995,44,44
+2003,box_ap_corps_assets_fr_lcu,1340,2080,44,44
+2004,box_ap_corps_assets_anz_lcu,1230,2160,44,44
+2100,box_ap_reserve_ru_scu,815,1995,44,44
+2101,box_ap_reserve_br_scu,815,2065,44,44
+2102,box_ap_reserve_in_scu,910,1995,44,44
+2103,box_ap_reserve_anz_scu,910,2065,44,44
+2104,box_ap_reserve_sb_scu,1005,1995,44,44
+2105,box_ap_reserve_ro_scu,1005,2065,44,44
+2106,box_ap_reserve_fr_scu,1095,1995,44,44
+2107,box_ap_reserve_other_scu,1095,2065,44,44
+2108,box_ap_reserve_beachhead,1115,2160,44,44
+2200,box_ap_eliminated_ru_lcu,1548,2615,44,44
+2201,box_ap_eliminated_ru_scu,1548,2675,44,44
+2202,box_ap_eliminated_br_lcu,1624,2615,44,44
+2203,box_ap_eliminated_br_scu,1624,2675,44,44
+2204,box_ap_eliminated_anz_lcu,1699,2615,44,44
+2205,box_ap_eliminated_anz_scu,1699,2675,44,44
+2206,box_ap_eliminated_in_lcu,1780,2615,44,44
+2207,box_ap_eliminated_in_scu,1780,2675,44,44
+2208,box_ap_eliminated_sb_lcu,1855,2615,44,44
+2209,box_ap_eliminated_sb_scu,1855,2675,44,44
+2210,box_ap_eliminated_fr_lcu,1548,2735,44,44
+2211,box_ap_eliminated_fr_scu,1624,2735,44,44
+2212,box_ap_eliminated_ro_lcu,1699,2735,44,44
+2213,box_ap_eliminated_ro_scu,1780,2735,44,44
+2214,box_ap_eliminated_other,1855,2735,44,44
+

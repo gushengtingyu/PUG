@@ -1,0 +1,28 @@
+{
+	"compilerOptions": {
+		"target": "ES2021",
+		"module": "Node16",
+		"moduleResolution": "node16",
+		"lib": ["ES2021", "DOM"],
+		"allowJs": true,
+		"checkJs": true,
+		"noEmit": true,
+		"strict": false,
+		"skipLibCheck": true,
+		"types": ["node", "vitest/globals"],
+		"forceConsistentCasingInFileNames": true,
+		"maxNodeModuleJsDepth": 0
+	},
+	"include": ["rules.js", "modules/**/*.js", "data.d.ts"],
+	"exclude": [
+		"node_modules",
+		"data.js",
+		"alpine.js",
+		"play.js",
+		"layout.js",
+		"vitest.config.js",
+		"tests/**/*.js",
+		"tools/**/*.js",
+		"eslint.config.js"
+	]
+}

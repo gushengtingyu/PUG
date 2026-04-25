@@ -1,0 +1,2410 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<title>PUG 地图编辑器 v3.1（地点与连接）</title>
+		<style>
+			/* 启动方式: 运行 d:\PUG\pursuit-of-glory\start_map_editor.bat */
+			:root {
+				--bg-color: #1e1e1e;
+				--panel-bg: rgba(30, 30, 30, 0.95);
+				--text-color: #e0e0e0;
+				--accent-color: #007acc;
+				--border-color: #444;
+				--danger-color: #d32f2f;
+				--success-color: #388e3c;
+				--input-bg: #2d2d2d;
+			}
+			body {
+				margin: 0;
+				padding: 0;
+				overflow: hidden;
+				font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+				background: var(--bg-color);
+				color: var(--text-color);
+				display: flex;
+			}
+
+			#viewport {
+				flex: 1;
+				position: relative;
+				height: 100vh;
+				overflow: hidden;
+				cursor: crosshair;
+				background: #111;
+			}
+
+			#map-container {
+				position: absolute;
+				top: 0;
+				left: 0;
+				transform-origin: 0 0;
+			}
+
+			#map-img {
+				display: block;
+				pointer-events: none;
+			}
+			#canvas-layer {
+				position: absolute;
+				top: 0;
+				left: 0;
+				pointer-events: none;
+				z-index: 1;
+			}
+			#dots-layer {
+				position: absolute;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				pointer-events: none;
+				z-index: 2;
+			}
+
+			/* Sidebar (Left) */
+			#sidebar {
+				width: 320px;
+				height: 100vh;
+				background: var(--panel-bg);
+				border-right: 1px solid var(--border-color);
+				display: flex;
+				flex-direction: column;
+				z-index: 100;
+			}
+
+			#tab-spaces {
+				display: flex;
+				flex-direction: column;
+				height: 100%;
+				overflow: hidden;
+			}
+
+			#search-box {
+				padding: 10px;
+				border-bottom: 1px solid var(--border-color);
+			}
+			.input-row {
+				display: flex;
+				gap: 6px;
+				align-items: center;
+			}
+			#search-input {
+				width: 100%;
+				padding: 6px;
+				background: var(--input-bg);
+				border: 1px solid #555;
+				color: white;
+				border-radius: 4px;
+			}
+
+			#space-list {
+				flex: 1;
+				overflow-y: auto;
+				padding: 5px;
+				min-height: 0;
+			}
+			#filter-stats {
+				padding: 6px 10px;
+				font-size: 10px;
+				color: #9aa0a6;
+				border-bottom: 1px solid var(--border-color);
+			}
+			#filter-box {
+				padding: 8px 10px;
+				border-bottom: 1px solid var(--border-color);
+				display: flex;
+				gap: 6px;
+				flex-wrap: wrap;
+			}
+			#filter-box select {
+				flex: 1;
+				min-width: 90px;
+				background: var(--input-bg);
+				border: 1px solid #555;
+				color: #ddd;
+				padding: 4px;
+				border-radius: 3px;
+				font-size: 11px;
+			}
+			.list-item {
+				padding: 4px 8px;
+				cursor: pointer;
+				font-size: 12px;
+				border-radius: 3px;
+				display: flex;
+				justify-content: space-between;
+			}
+			.list-item:hover {
+				background: rgba(255, 255, 255, 0.1);
+			}
+			.list-item.active {
+				background: var(--accent-color);
+				color: white;
+			}
+			.list-item .id {
+				color: #888;
+				margin-right: 5px;
+				min-width: 25px;
+				display: inline-block;
+			}
+			.list-item.active .id {
+				color: #ddd;
+			}
+
+			/* Floating Controls (Right) */
+			#controls {
+				position: fixed;
+				top: 10px;
+				right: 10px;
+				width: 420px;
+				background: var(--panel-bg);
+				padding: 12px;
+				border-radius: 8px;
+				box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+				backdrop-filter: blur(5px);
+				z-index: 1000;
+				border: 1px solid rgba(255, 255, 255, 0.1);
+				max-height: 95vh;
+				overflow-y: auto;
+			}
+
+			h3 {
+				margin: 0 0 6px 0;
+				font-size: 16px;
+				border-bottom: 1px solid var(--border-color);
+				padding-bottom: 4px;
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+			}
+
+			.control-group {
+				margin-bottom: 8px;
+				padding: 8px;
+				background: rgba(0, 0, 0, 0.2);
+				border-radius: 4px;
+				border: 1px solid #333;
+			}
+			.control-group legend {
+				font-size: 13px;
+				color: #aaa;
+				font-weight: bold;
+				padding: 0 4px;
+			}
+			.control-row {
+				display: flex;
+				gap: 8px;
+				margin-bottom: 4px;
+				align-items: center;
+			}
+			.control-row:last-child {
+				margin-bottom: 0;
+			}
+
+			fieldset {
+				border: 1px solid #444;
+				margin: 0 0 6px 0;
+				padding: 6px;
+				border-radius: 4px;
+			}
+			legend {
+				display: none;
+			}
+
+			.compact-inputs {
+				display: flex;
+				gap: 4px;
+			}
+			.compact-inputs input {
+				min-width: 0;
+				flex: 1;
+			}
+
+			.toggle-btn {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				font-size: 12px;
+				cursor: pointer;
+				user-select: none;
+				padding: 4px 8px;
+				background: #333;
+				border-radius: 12px;
+				border: 1px solid #555;
+				transition: all 0.2s;
+				white-space: nowrap;
+			}
+			.toggle-btn:hover {
+				background: #444;
+			}
+			.toggle-btn input {
+				margin: 0;
+			}
+			.toggle-btn.checked {
+				background: var(--accent-color);
+				border-color: var(--accent-color);
+				color: white;
+			}
+
+			button {
+				background: #3a3a3a;
+				color: white;
+				border: 1px solid #555;
+				padding: 8px 14px;
+				border-radius: 4px;
+				cursor: pointer;
+				transition: all 0.1s;
+				font-size: 14px;
+			}
+			button.ghost {
+				background: transparent;
+				border-color: #555;
+				color: #bbb;
+			}
+			button:hover {
+				background: #4a4a4a;
+				border-color: #777;
+			}
+			button.active {
+				background: var(--accent-color);
+				border-color: var(--accent-color);
+			}
+			button.danger {
+				background: rgba(211, 47, 47, 0.3);
+				border-color: var(--danger-color);
+			}
+			button.primary {
+				background: var(--success-color);
+				border-color: var(--success-color);
+			}
+
+			.btn-row {
+				display: flex;
+				gap: 8px;
+				margin-bottom: 4px;
+				flex-wrap: wrap;
+			}
+			.btn-full {
+				width: 100%;
+				margin-bottom: 4px;
+			}
+
+			input[type="text"],
+			input[type="number"],
+			select,
+			textarea {
+				width: 100%;
+				background: var(--input-bg);
+				border: 1px solid #555;
+				color: #ddd;
+				padding: 6px;
+				border-radius: 3px;
+				font-family: monospace;
+				font-size: 14px;
+				box-sizing: border-box;
+			}
+			input:focus,
+			select:focus {
+				border-color: var(--accent-color);
+				outline: none;
+			}
+
+			.prop-row {
+				display: flex;
+				align-items: center;
+				margin-bottom: 6px;
+			}
+			.prop-label {
+				width: 80px;
+				font-size: 14px;
+				color: #bbb;
+			}
+			.prop-input {
+				flex: 1;
+			}
+
+			/* Space Markers */
+			.space-dot {
+				position: absolute;
+				width: 8px;
+				height: 8px;
+				background: #ccc;
+				border: 1px solid rgba(0, 0, 0, 0.5);
+				border-radius: 50%;
+				transform: translate(-50%, -50%);
+				z-index: 10;
+				cursor: pointer;
+				pointer-events: auto;
+				box-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+			}
+			/* Terrain Styles */
+			.space-dot.terrain-mountain {
+				background: #a1887f;
+				border-radius: 0;
+				width: 10px;
+				height: 10px;
+				transform: translate(-50%, -50%) rotate(45deg);
+				border: 1px solid #3e2723;
+			}
+			.space-dot.terrain-desert {
+				background: #fdd835;
+				border: 1px solid #fbc02d;
+			}
+			.space-dot.terrain-swamp {
+				background: #4caf50;
+				border: 1px solid #1b5e20;
+			}
+			.space-dot.terrain-forest {
+				background: #2e7d32;
+				border: 1px solid #1b5e20;
+			}
+			.space-dot.terrain-clear {
+				background: #e57373;
+				border: 1px solid #b71c1c;
+			}
+
+			.space-dot:hover {
+				z-index: 100;
+				transform: translate(-50%, -50%) scale(1.5);
+				box-shadow: 0 0 5px white;
+			}
+			.space-dot.terrain-mountain:hover {
+				transform: translate(-50%, -50%) rotate(45deg) scale(1.5);
+			}
+
+			.space-dot.selected {
+				background: #00e5ff !important;
+				border-color: white !important;
+				box-shadow:
+					0 0 8px #00e5ff,
+					0 0 2px black;
+				z-index: 100;
+				transform: translate(-50%, -50%) scale(1.3);
+			}
+			.space-dot.terrain-mountain.selected {
+				transform: translate(-50%, -50%) rotate(45deg) scale(1.3);
+			}
+			.space-dot.batch-selected {
+				box-shadow:
+					0 0 8px #ffd54f,
+					0 0 2px black;
+				border-color: #ffd54f !important;
+			}
+			.space-dot.selected.batch-selected {
+				box-shadow:
+					0 0 8px #00e5ff,
+					0 0 12px #ffd54f,
+					0 0 2px black;
+			}
+
+			#selection-box {
+				position: absolute;
+				border: 1px dashed #ffd54f;
+				background: rgba(255, 213, 79, 0.2);
+				pointer-events: none;
+				display: none;
+				z-index: 20;
+			}
+
+			.space-label {
+				position: absolute;
+				pointer-events: none;
+				background: rgba(0, 0, 0, 0.7);
+				padding: 2px 4px;
+				border-radius: 2px;
+				font-size: 10px;
+				color: white;
+				white-space: nowrap;
+				transform: translate(10px, -50%);
+				display: none;
+				z-index: 30;
+				text-shadow: 0 1px 2px black;
+			}
+			.space-dot:hover + .space-label,
+			.space-dot.selected + .space-label,
+			.show-all-labels .space-label {
+				display: block;
+			}
+
+			/* Indicators */
+			.indicator {
+				position: absolute;
+				font-size: 10px;
+				color: white;
+				font-weight: bold;
+				pointer-events: none;
+				text-shadow: 0 0 2px black;
+			}
+			.indicator.vp {
+				color: gold;
+				transform: translate(-12px, -12px);
+			}
+			.indicator.tribe {
+				color: #ff5722;
+				transform: translate(4px, 4px);
+				font-size: 9px;
+				background: rgba(0, 0, 0, 0.5);
+				padding: 0 2px;
+				border-radius: 2px;
+			}
+			.indicator.jihad {
+				color: #7c4dff;
+				transform: translate(-12px, 4px);
+				font-size: 9px;
+				background: rgba(0, 0, 0, 0.5);
+				padding: 0 2px;
+				border-radius: 2px;
+			}
+
+			#toast {
+				position: fixed;
+				bottom: 20px;
+				left: 50%;
+				transform: translateX(-50%);
+				background: rgba(0, 0, 0, 0.8);
+				color: white;
+				padding: 8px 16px;
+				border-radius: 20px;
+				font-size: 12px;
+				pointer-events: none;
+				opacity: 0;
+				transition: opacity 0.3s;
+				z-index: 2000;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="sidebar">
+			<div id="tab-spaces">
+				<div id="search-box">
+					<div class="input-row">
+						<input
+							type="text"
+							id="search-input"
+							placeholder="搜索地点 ID 或名称..."
+							oninput="filterSpaces()"
+						/>
+						<button class="ghost" onclick="clearFilters()">清空</button>
+					</div>
+				</div>
+				<div id="filter-box">
+					<select id="filter-faction" onchange="filterSpaces()">
+						<option value="">全部阵营</option>
+					</select>
+					<select id="filter-nation" onchange="filterSpaces()">
+						<option value="">全部国家</option>
+					</select>
+				</div>
+				<div id="filter-stats">地点：0 / 0</div>
+				<div id="space-list">
+					<!-- List Items Generated Here -->
+				</div>
+			</div>
+		</div>
+
+		<div id="viewport">
+			<div id="map-container">
+				<img id="map-img" src="" alt="地图" />
+				<canvas id="canvas-layer"></canvas>
+				<div id="dots-layer"></div>
+			</div>
+			<div id="selection-box"></div>
+		</div>
+
+		<div id="controls">
+			<h3>
+				<span>🛠️ PUG 地图编辑器</span>
+				<div style="font-size: 10px; color: #888" id="status-text">就绪</div>
+			</h3>
+
+			<!-- GLOBAL TOOLBAR -->
+			<div class="control-group">
+				<div class="control-row">
+					<button id="btn-move" class="active" onclick="setMode('move')" style="flex: 1">✋ 移动 (M)</button>
+					<button id="btn-connect" onclick="setMode('connect')" style="flex: 1">🔗 连线 (C)</button>
+					<button id="btn-rect-center" onclick="setMode('rect-center')" style="flex: 1">🎯 获取中心点</button>
+				</div>
+				<div class="control-row">
+					<button onclick="addSpace()" class="primary" style="flex: 1">➕ 新增</button>
+					<button onclick="saveDiff()" class="primary" style="flex: 1" title="保存修改到服务器">
+						💾 保存
+					</button>
+				</div>
+				<div class="control-row">
+					<button onclick="reloadLatest()" class="ghost" style="flex: 1">🔄 重载数据</button>
+				</div>
+				<div class="control-row" style="justify-content: space-between">
+					<label
+						class="toggle-btn checked"
+						id="lbl-draggable"
+						onclick="toggleDraggable(event)"
+						style="flex: 1; justify-content: center"
+					>
+						<input type="checkbox" id="chk-draggable" checked style="display: none" /> 🔓 可拖拽
+					</label>
+				</div>
+				<div class="control-row" style="margin-top: 6px">
+					<select id="batch-area" class="prop-input" style="flex: 1">
+						<option value="">(批量清空 area)</option>
+						<option value="balkans">balkans</option>
+						<option value="egypt">egypt</option>
+						<option value="anatolia">anatolia</option>
+						<option value="caucasus">caucasus</option>
+						<option value="georgia">georgia</option>
+						<option value="azerbaijan">azerbaijan</option>
+						<option value="sinai">sinai</option>
+						<option value="gallipoli">gallipoli</option>
+						<option value="syria_palestine">syria_palestine</option>
+						<option value="mesopotamia">mesopotamia</option>
+						<option value="persia">persia</option>
+						<option value="arabistan">arabistan</option>
+						<option value="afghanistan">afghanistan</option>
+						<option value="central_asia">central_asia</option>
+						<option value="india">india</option>
+						<option value="russia">russia</option>
+					</select>
+					<button onclick="applyBatchArea()" style="flex: 1">🧩 批量设 Area</button>
+				</div>
+				<div class="control-row" style="font-size: 11px; color: #aaa; justify-content: space-between">
+					<span id="batch-selection-count">框选: 0</span>
+					<button class="ghost" onclick="clearBatchSelection()" style="padding: 4px 8px; font-size: 11px">
+						清空框选
+					</button>
+				</div>
+				<div style="font-size: 10px; color: #888; text-align: center">Shift + 左键拖拽框选</div>
+				<div
+					id="connect-hint"
+					style="margin-top: 4px; font-size: 10px; color: #aaa; display: none; text-align: center"
+				></div>
+
+				<div
+					id="connect-controls"
+					style="display: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid #444"
+				>
+					<div style="font-size: 12px; color: #ccc; margin-bottom: 4px">默认连线类型:</div>
+					<div class="btn-row">
+						<button
+							id="btn-type-normal"
+							onclick="setConnectType('')"
+							class="active"
+							style="flex: 1; padding: 4px; font-size: 12px"
+						>
+							普通
+						</button>
+						<button
+							id="btn-type-green"
+							onclick="setConnectType('green')"
+							style="flex: 1; padding: 4px; font-size: 12px; color: #4caf50"
+						>
+							绿色
+						</button>
+						<button
+							id="btn-type-strait"
+							onclick="setConnectType('strait')"
+							style="flex: 1; padding: 4px; font-size: 12px; color: #2196f3"
+						>
+							海峡
+						</button>
+						<button
+							id="btn-type-rail"
+							onclick="setConnectType('rail')"
+							style="flex: 1; padding: 4px; font-size: 12px; color: #ffc107"
+						>
+							铁路
+						</button>
+					</div>
+					<button
+						onclick="resetConnectState()"
+						class="btn-full ghost"
+						style="margin-top: 4px; font-size: 12px"
+					>
+						🚫 重置选中状态
+					</button>
+				</div>
+			</div>
+
+			<!-- SPACE PROPERTIES PANEL -->
+			<div id="props-panel" style="display: none">
+				<datalist id="nation-list">
+					<option value="br">英国 (BR)</option>
+					<option value="tu">土耳其 (TU)</option>
+					<option value="ru">俄国 (RU)</option>
+					<option value="ge">德国 (GE)</option>
+					<option value="au">奥匈 (AU)</option>
+					<option value="fr">法国 (FR)</option>
+					<option value="it">意大利 (IT)</option>
+					<option value="bg">保加利亚 (BG)</option>
+					<option value="ro">罗马尼亚 (RO)</option>
+					<option value="gr">希腊 (GR)</option>
+					<option value="sr">塞尔维亚 (SR)</option>
+					<option value="montenegro">黑山 (Montenegro)</option>
+					<option value="persia">波斯 (Persia)</option>
+				</datalist>
+
+				<fieldset>
+					<div class="control-row">
+						<input
+							type="text"
+							id="prop-id"
+							readonly
+							style="width: 40px; background: #222; border: none; color: #888; text-align: center"
+							title="ID"
+						/>
+						<input
+							type="text"
+							id="prop-name"
+							class="prop-input"
+							placeholder="名称"
+							onchange="updateProp('name', this.value)"
+							style="flex: 2"
+						/>
+					</div>
+					<div class="control-row">
+						<select
+							id="prop-map"
+							class="prop-input"
+							onchange="updateProp('map', this.value)"
+							style="flex: 1"
+						>
+							<option value="asia">Asia (大地图)</option>
+							<option value="gallipoli">Gallipoli</option>
+							<option value="Reserve Box">Reserve Box</option>
+						</select>
+					</div>
+					<div class="control-row">
+						<div class="compact-inputs" style="flex: 1">
+							<span style="font-size: 10px; color: #888; align-self: center">XY:</span>
+							<input type="number" id="prop-x" placeholder="X" onchange="updateProp('x', this.value)" />
+							<input type="number" id="prop-y" placeholder="Y" onchange="updateProp('y', this.value)" />
+						</div>
+						<div class="compact-inputs" style="flex: 1">
+							<span style="font-size: 10px; color: #888; align-self: center">WH:</span>
+							<input type="number" id="prop-w" placeholder="W" onchange="updateProp('w', this.value)" />
+							<input type="number" id="prop-h" placeholder="H" onchange="updateProp('h', this.value)" />
+						</div>
+					</div>
+				</fieldset>
+
+				<fieldset>
+					<div class="control-row">
+						<input
+							type="text"
+							id="prop-nation"
+							class="prop-input"
+							list="nation-list"
+							placeholder="国家"
+							onchange="updateProp('nation', this.value)"
+							style="flex: 1"
+						/>
+						<select
+							id="prop-faction"
+							class="prop-input"
+							onchange="updateProp('faction', this.value)"
+							style="flex: 1"
+						>
+							<option value="">(无阵营)</option>
+							<option value="ap">协约 (AP)</option>
+							<option value="cp">同盟 (CP)</option>
+							<option value="neutral">中立</option>
+						</select>
+					</div>
+					<div class="control-row">
+						<select
+							id="prop-terrain"
+							class="prop-input"
+							onchange="updateProp('terrain', this.value)"
+							style="flex: 1"
+						>
+							<option value="">(平原/空地)</option>
+							<option value="mountain">⛰️ 山地</option>
+							<option value="desert">☀️ 沙漠</option>
+							<option value="swamp">💧 沼泽</option>
+							<option value="forest">🌲 森林</option>
+						</select>
+						<select
+							id="prop-port"
+							class="prop-input"
+							onchange="updateProp('port', this.value)"
+							style="flex: 1"
+						>
+							<option value="">(无港口)</option>
+							<option value="1">⚓ CP 港口</option>
+							<option value="2">⚓ AP 港口</option>
+						</select>
+					</div>
+				</fieldset>
+
+				<fieldset>
+					<div class="control-row">
+						<div class="compact-inputs" style="flex: 0.8">
+							<span style="font-size: 10px; color: #888; align-self: center">VP:</span>
+							<input type="number" id="prop-vp" placeholder="0" onchange="updateProp('vp', this.value)" />
+						</div>
+						<div class="compact-inputs" style="flex: 0.8">
+							<span style="font-size: 10px; color: #888; align-self: center">Fort:</span>
+							<input
+								type="number"
+								id="prop-fort"
+								placeholder="0"
+								onchange="updateProp('fort', this.value)"
+							/>
+						</div>
+						<label
+							class="toggle-btn"
+							id="lbl-capital"
+							onclick="togglePropCheck('capital')"
+							style="flex: 0.6; justify-content: center; padding: 2px 4px; font-size: 11px"
+						>
+							<input type="checkbox" id="prop-capital" style="display: none" /> 首都
+						</label>
+						<label
+							class="toggle-btn"
+							id="lbl-jihad_city"
+							onclick="togglePropCheck('jihad_city')"
+							style="flex: 0.6; justify-content: center; padding: 2px 4px; font-size: 11px"
+						>
+							<input type="checkbox" id="prop-jihad_city" style="display: none" /> 圣战
+						</label>
+					</div>
+				</fieldset>
+
+				<fieldset>
+					<div class="control-row">
+						<select
+							id="prop-region"
+							class="prop-input"
+							onchange="updateProp('region', this.value)"
+							style="flex: 1"
+						>
+							<option value="">(无大区)</option>
+							<option value="Galicia">加利西亚 (Galicia)</option>
+							<option value="Odessa">敖德萨 (Odessa)</option>
+							<option value="Petrovsk">彼得罗夫斯克 (Petrovsk)</option>
+							<option value="India">印度 (India)</option>
+							<option value="Central Asia">中亚 (Central Asia)</option>
+							<option value="Hejaz">汉志 (Hejaz)</option>
+							<option value="Afghanistan">阿富汗 (Afghanistan)</option>
+							<option value="Sudan and Darfur">苏丹 (Sudan)</option>
+							<option value="Baluchistan">俾路支 (Baluchistan)</option>
+							<option value="East Persia">波斯东部</option>
+							<option value="Central Persia">波斯中部</option>
+							<option value="South Persia">波斯南部</option>
+						</select>
+						<select
+							id="prop-area"
+							class="prop-input"
+							onchange="updateProp('area', this.value)"
+							style="flex: 1"
+						>
+							<option value="">(无区域)</option>
+							<option value="balkans">巴尔干</option>
+							<option value="egypt">埃及</option>
+							<option value="anatolia">安纳托利亚</option>
+							<option value="caucasus">高加索</option>
+							<option value="georgia">格鲁吉亚</option>
+							<option value="sinai">西奈</option>
+							<option value="gallipoli">加里波利</option>
+							<option value="syria_palestine">叙利亚/巴勒斯坦</option>
+							<option value="mesopotamia">美索不达米亚</option>
+							<option value="azerbaijan">阿塞拜疆</option>
+							<option value="arabistan">阿拉伯斯坦</option>
+							<option value="persia">大波斯</option>
+							<option value="afghanistan">阿富汗</option>
+							<option value="central_asia">中亚</option>
+							<option value="india">印度</option>
+							<option value="russia">俄罗斯</option>
+						</select>
+					</div>
+					<div class="control-row">
+						<input
+							type="text"
+							id="prop-island-base"
+							class="prop-input"
+							placeholder="岛屿基地 ID"
+							onchange="updateProp('island_base', this.value)"
+							style="flex: 1"
+						/>
+						<input
+							type="text"
+							id="prop-beach-for"
+							class="prop-input"
+							placeholder="海滩归属 ID"
+							onchange="updateProp('beach_for', this.value)"
+							style="flex: 1"
+						/>
+					</div>
+					<div class="control-row">
+						<select
+							id="prop-tribal-activity-grid"
+							class="prop-input"
+							onchange="updateProp('tribal_activity_grid', this.value)"
+							style="flex: 1"
+						>
+							<option value="">(非部落活动格)</option>
+						</select>
+					</div>
+				</fieldset>
+
+				<button class="danger btn-full" onclick="deleteSelected()">🗑️ 删除地点</button>
+			</div>
+
+			<!-- CONNECTIONS PANEL -->
+			<div id="conns-group" style="display: none; margin-top: 10px">
+				<fieldset>
+					<div
+						id="conns-list"
+						style="
+							max-height: 300px;
+							overflow-y: auto;
+							font-size: 14px;
+							border: 1px solid #444;
+							border-radius: 4px;
+							padding: 6px;
+							background: rgba(0, 0, 0, 0.2);
+							margin-bottom: 8px;
+						"
+					>
+						<!-- List items will be injected here -->
+					</div>
+
+					<div
+						id="conn-props"
+						style="display: none; border-top: 1px solid #444; padding-top: 8px; margin-top: 8px"
+					>
+						<div class="control-row">
+							<span style="font-size: 13px; color: #888; width: 50px">类型</span>
+							<select
+								id="conn-type"
+								class="prop-input"
+								onchange="updateEdgeProp('type', this.value)"
+								style="flex: 1"
+							>
+								<option value="">普通 (Normal)</option>
+								<option value="green">绿色 (Green)</option>
+								<option value="strait">海峡 (Strait)</option>
+								<option value="rail">铁路 (Rail)</option>
+								<option value="conditional_rail">条件铁路 (Cond. Rail)</option>
+							</select>
+						</div>
+						<div class="control-row">
+							<span style="font-size: 13px; color: #888; width: 50px">跨越</span>
+							<select
+								id="conn-crossing"
+								class="prop-input"
+								onchange="updateEdgeProp('crossing', this.value)"
+								style="flex: 1"
+							>
+								<option value="">无跨越限制</option>
+								<option value="1">双向跨越 (Both)</option>
+								<option value="2">单向 A->B</option>
+								<option value="3">单向 B->A</option>
+							</select>
+						</div>
+						<div class="control-row">
+							<span style="font-size: 13px; color: #888; width: 50px">国家</span>
+							<input
+								type="text"
+								id="conn-nations"
+								class="prop-input"
+								placeholder="限制国家 (如 br)"
+								onchange="updateEdgeProp('nations', this.value)"
+								style="flex: 1"
+							/>
+						</div>
+						<div class="control-row">
+							<span style="font-size: 13px; color: #888; width: 50px">Flags</span>
+							<input
+								type="text"
+								id="conn-flags"
+								class="prop-input"
+								placeholder="Flags (id; event...)"
+								onchange="updateEdgeProp('flags', this.value)"
+								style="flex: 1"
+							/>
+						</div>
+						<button class="danger btn-full" style="margin-top: 8px" onclick="deleteSelectedEdge()">
+							🗑️ 删除连接
+						</button>
+					</div>
+				</fieldset>
+			</div>
+		</div>
+
+		<div id="toast">提示</div>
+
+		<script>
+			// --- GLOBAL STATE ---
+			let spaces = []
+			let edges = []
+			let selectedSpace = null
+			let mode = "move"
+			let connectAnchor = null
+			let currentConnectType = ""
+
+			let selectedEdge = null // Add this line
+			let selectedSpaceIds = new Set()
+			let isBoxSelecting = false
+			let boxStartMapPoint = null
+			let boxStartScreenPoint = null
+			let boxAppendMode = false
+
+			let isRectSelecting = false
+			let rectStartMapPoint = null
+			let rectStartScreenPoint = null
+
+			// Viewport
+			let vScale = 1.0
+			let vX = 0,
+				vY = 0
+			let isPanning = false,
+				startPanX = 0,
+				startPanY = 0
+
+			// DOM Elements
+			const viewport = document.getElementById("viewport")
+			const mapContainer = document.getElementById("map-container")
+			const canvas = document.getElementById("canvas-layer")
+			const ctx = canvas.getContext("2d")
+			const dotsLayer = document.getElementById("dots-layer")
+			const mapImg = document.getElementById("map-img")
+			const spaceListEl = document.getElementById("space-list")
+			const selectionBox = document.getElementById("selection-box")
+
+			// Configuration
+			let mapLoadQueue = []
+			let nudgeStep = 1
+			const mapModeLabel = "英文地图"
+			let baseSpacesById = new Map()
+			let baseEdgesByKey = new Map()
+			let currentStatus = "就绪"
+			let dataInfoText = ""
+
+			// --- DATA LOADING ---
+
+			// Embedded Default Data (Minimal fallback)
+			const defaultSpacesCSV = `id,map,name,x,y,w,h,nation,faction,terrain,vp,fort,port,capital,region,island_base,beach_for,area,tribal_activity_grid,jihad_city
+1,pug,Kronstadt,525,91,,,,,,,,,,,,,,,,,`
+			const defaultEdgesCSV = `a,b,nations,type,crossing,flags
+1,5,,rail,,`
+
+			function getCSVHeaders(csv) {
+				if (!csv) return []
+				if (csv.charCodeAt(0) === 0xfeff) {
+					csv = csv.slice(1)
+				}
+				const firstLine = csv.trim().split(/\r?\n/)[0] || ""
+				return parseCSVLine(firstLine)
+			}
+
+			function parseCSV(csv) {
+				if (csv.charCodeAt(0) === 0xfeff) {
+					csv = csv.slice(1)
+				}
+				const lines = csv.trim().split(/\r?\n/)
+				const headers = parseCSVLine(lines[0])
+
+				return lines
+					.slice(1)
+					.map((line) => {
+						if (!line.trim()) return null
+						const values = parseCSVLine(line)
+						const obj = {}
+						headers.forEach((h, i) => (obj[h] = values[i] || ""))
+						return obj
+					})
+					.filter((x) => x)
+			}
+
+			function parseCSVLine(line) {
+				const values = []
+				let current = ""
+				let inQuotes = false
+				for (let i = 0; i < line.length; i++) {
+					const char = line[i]
+					if (char === '"') {
+						inQuotes = !inQuotes
+					} else if (char === "," && !inQuotes) {
+						values.push(current.trim())
+						current = ""
+					} else {
+						current += char
+					}
+				}
+				values.push(current.trim())
+				return values.map((v) => v.replace(/^"(.*)"$/, "$1"))
+			}
+
+			async function initData() {
+				applyEnglishMap()
+
+				try {
+					const fetchOpts = { cache: "no-store" }
+					const [sRes, eRes, pRes] = await Promise.all([
+						fetch("/csv/spaces.csv?t=" + Date.now(), fetchOpts),
+						fetch("/csv/edges.csv?t=" + Date.now(), fetchOpts),
+						fetch("/csv/pieces.csv?t=" + Date.now(), fetchOpts)
+					])
+
+					if (sRes.ok && eRes.ok) {
+						const sText = await sRes.text()
+						const eText = await eRes.text()
+
+						const spaceHeaders = getCSVHeaders(sText)
+						const requiredSpaceHeaders = [
+							"id",
+							"map",
+							"name",
+							"x",
+							"y",
+							"w",
+							"h",
+							"nation",
+							"faction",
+							"terrain",
+							"vp",
+							"fort",
+							"port",
+							"capital",
+							"region",
+							"island_base",
+							"beach_for",
+							"area",
+							"tribal_activity_grid",
+							"jihad_city"
+						]
+						const missingHeaders = requiredSpaceHeaders.filter((h) => !spaceHeaders.includes(h))
+						if (missingHeaders.length) {
+							throw new Error("spaces.csv 缺少列: " + missingHeaders.join(", "))
+						}
+
+						spaces = parseCSV(sText).map((s) => ({
+							...s,
+							x: parseInt(s.x) || 0,
+							y: parseInt(s.y) || 0,
+							w: s.w || "",
+							h: s.h || "",
+							id: parseInt(s.id)
+						}))
+
+						edges = parseCSV(eText).map((e) => ({
+							...e,
+							a: parseInt(e.a),
+							b: parseInt(e.b)
+						}))
+
+						// Build Tribe Options from pieces.csv
+						if (pRes.ok) {
+							const pText = await pRes.text()
+							const pieces = parseCSV(pText)
+							const tribeSelect = document.getElementById("prop-tribal-activity-grid")
+							const tribes = new Set()
+							pieces.forEach((p) => {
+								if (p.type === "tribe") {
+									// Extract base name (e.g. "Kurds" from "Kurds #1")
+									let name = p.name.split(" #")[0]
+									tribes.add(name)
+								}
+							})
+							Array.from(tribes)
+								.sort()
+								.forEach((t) => {
+									const opt = document.createElement("option")
+									opt.value = t
+									opt.textContent = t
+									tribeSelect.appendChild(opt)
+								})
+						}
+
+						dataInfoText = `数据:${spaces.length}/${edges.length} ${new Date().toLocaleTimeString()}`
+						setStatus("数据已加载")
+						showToast(`已加载 ${spaces.length} 个地点，${edges.length} 条连接`)
+					} else {
+						throw new Error("未找到服务器数据")
+					}
+				} catch (err) {
+					console.warn("Using embedded default data", err)
+					spaces = parseCSV(defaultSpacesCSV).map((s) => ({
+						...s,
+						x: parseInt(s.x),
+						y: parseInt(s.y),
+						id: parseInt(s.id)
+					}))
+					edges = parseCSV(defaultEdgesCSV).map((e) => ({ ...e, a: parseInt(e.a), b: parseInt(e.b) }))
+					dataInfoText = "内置数据"
+					setStatus("数据加载失败")
+					showToast("数据加载失败，当前使用内置数据")
+				}
+
+				try {
+					captureBaseline()
+					buildFilterOptions()
+					filterSpaces()
+					render()
+				} catch (e) {
+					console.error("Initialization error:", e)
+					showToast("初始化错误: " + e.message)
+				}
+			}
+
+			function resizeCanvas() {
+				if (!mapImg.naturalWidth) return
+				canvas.width = mapImg.naturalWidth
+				canvas.height = mapImg.naturalHeight
+				mapContainer.style.width = mapImg.naturalWidth + "px"
+				mapContainer.style.height = mapImg.naturalHeight + "px"
+			}
+
+			function drawArrow(ctx, p1, p2, forward) {
+				const midX = (p1.x + p2.x) / 2
+				const midY = (p1.y + p2.y) / 2
+				const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x)
+				const arrowAngle = forward ? angle : angle + Math.PI
+
+				const headLen = 12
+				ctx.beginPath()
+				// Move to tip
+				const tipX = midX + (headLen / 2) * Math.cos(arrowAngle)
+				const tipY = midY + (headLen / 2) * Math.sin(arrowAngle)
+
+				ctx.moveTo(tipX, tipY)
+				ctx.lineTo(
+					tipX - headLen * Math.cos(arrowAngle - Math.PI / 6),
+					tipY - headLen * Math.sin(arrowAngle - Math.PI / 6)
+				)
+				ctx.moveTo(tipX, tipY)
+				ctx.lineTo(
+					tipX - headLen * Math.cos(arrowAngle + Math.PI / 6),
+					tipY - headLen * Math.sin(arrowAngle + Math.PI / 6)
+				)
+
+				ctx.strokeStyle = "#ff00ff" // Magenta for direction
+				ctx.lineWidth = 2
+				ctx.setLineDash([])
+				ctx.stroke()
+			}
+
+			// --- RENDERING ---
+
+			function render() {
+				ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+				// Draw Edges
+				edges.forEach((e) => {
+					const sA = spaces.find((s) => s.id === e.a)
+					const sB = spaces.find((s) => s.id === e.b)
+					if (sA && sB) {
+						ctx.beginPath()
+						ctx.moveTo(sA.x, sA.y)
+						ctx.lineTo(sB.x, sB.y)
+						const type = (e.type || "").toLowerCase()
+						const crossing = e.crossing || ""
+						const isCrossing = crossing === "1" || crossing === "2" || crossing === "3"
+
+						let color = "rgba(255,255,255,0.7)" // Normal
+						let width = 1
+						let dash = []
+
+						if (type === "green") {
+							color = "#1db954"
+							width = 2
+						} else if (type === "strait") {
+							color = "#4aa3ff"
+							width = 2
+							dash = [6, 4]
+						} else if (type === "rail" || type === "conditional_rail") {
+							color = "#f4d03f"
+							width = 2
+							dash = [4, 4]
+						}
+
+						if (isCrossing) {
+							if (type === "" || type === "normal") {
+								color = "#00ffff"
+								dash = [2, 2]
+							}
+						}
+
+						ctx.strokeStyle = color
+						ctx.lineWidth = width
+						ctx.setLineDash(dash)
+						ctx.stroke()
+
+						// Draw direction arrow if needed
+						if (crossing === "2" || crossing === "3") {
+							drawArrow(ctx, sA, sB, crossing === "2")
+						}
+					}
+				})
+
+				// Render Dots
+				dotsLayer.innerHTML = ""
+				spaces.forEach((s) => {
+					const dot = document.createElement("div")
+					let classes = ["space-dot"]
+
+					// Terrain styling
+					if (s.terrain) classes.push("terrain-" + s.terrain.toLowerCase())
+					else classes.push("terrain-clear")
+
+					if (selectedSpace && selectedSpace.id === s.id) classes.push("selected")
+					if (selectedSpaceIds.has(s.id)) classes.push("batch-selected")
+
+					dot.className = classes.join(" ")
+					dot.style.left = s.x + "px"
+					dot.style.top = s.y + "px"
+
+					// Indicators
+					if (parseInt(s.vp) > 0) {
+						const ind = document.createElement("div")
+						ind.className = "indicator vp"
+						ind.textContent = "★" + s.vp
+						dot.appendChild(ind)
+					}
+					if (parseInt(s.fort) > 0) {
+						const ind = document.createElement("div")
+						ind.className = "indicator fort"
+						ind.textContent = "☖" + s.fort
+						ind.style.transform = "translate(-12px, 4px)"
+						ind.style.color = "#ff8a65"
+						dot.appendChild(ind)
+					}
+					if (s.tribal_activity_grid) {
+						const ind = document.createElement("div")
+						ind.className = "indicator tribe"
+						ind.textContent = "T"
+						dot.appendChild(ind)
+					}
+					if (s.jihad_city === "1" || s.jihad_city === "true") {
+						const ind = document.createElement("div")
+						ind.className = "indicator jihad"
+						ind.textContent = "J"
+						dot.appendChild(ind)
+					}
+
+					// Event handlers
+					dot.onmousedown = (e) => handleDotDown(e, s)
+					dot.onclick = (e) => handleDotClick(e, s)
+
+					// Label
+					const label = document.createElement("div")
+					label.className = "space-label"
+					label.textContent = `${s.id}: ${s.name}`
+					label.style.left = s.x + "px"
+					label.style.top = s.y + "px"
+
+					dotsLayer.appendChild(dot)
+					dotsLayer.appendChild(label)
+				})
+			}
+
+			function updateProp(key, value) {
+				if (!selectedSpace) return
+				if (["x", "y"].includes(key)) {
+					const num = parseInt(value)
+					selectedSpace[key] = Number.isNaN(num) ? 0 : num
+				} else if (["w", "h"].includes(key)) {
+					const num = parseInt(value)
+					selectedSpace[key] = Number.isNaN(num) || num === 0 ? "" : num
+				} else if (["vp", "fort"].includes(key)) {
+					// Allow empty string to mean 0 or not set, but generally store as number or string
+					const num = parseInt(value)
+					selectedSpace[key] = Number.isNaN(num) || num === 0 ? "" : value.toString()
+					// Re-render immediately to show indicator update
+				} else {
+					selectedSpace[key] = value
+				}
+				render()
+				updateListEntry(selectedSpace)
+				if (key === "faction" || key === "nation") {
+					buildFilterOptions()
+				}
+				// Don't toast for every keystroke
+			}
+
+			function updateListEntry(s) {
+				// Update list item text if name changes
+				const item = document.getElementById("list-item-" + s.id)
+				if (item) {
+					item.querySelector(".name").textContent = s.name
+				}
+			}
+
+			function filterSpaces() {
+				const term = document.getElementById("search-input").value.toLowerCase()
+				const factionFilter = document.getElementById("filter-faction").value
+				const nationFilter = document.getElementById("filter-nation").value
+				spaceListEl.innerHTML = ""
+
+				const sorted = [...spaces].sort((a, b) => a.id - b.id)
+
+				let visibleCount = 0
+				sorted.forEach((s) => {
+					const matchesTerm =
+						!term || s.id.toString().includes(term) || (s.name && s.name.toLowerCase().includes(term))
+					const matchesFaction = !factionFilter || (s.faction || "") === factionFilter
+					const matchesNation = !nationFilter || (s.nation || "") === nationFilter
+					if (matchesTerm && matchesFaction && matchesNation) {
+						visibleCount++
+						const div = document.createElement("div")
+						div.className = "list-item"
+						div.id = "list-item-" + s.id
+						if (selectedSpace && selectedSpace.id === s.id) div.classList.add("active")
+						div.innerHTML = `<span class="id">${s.id}</span><span class="name">${s.name || "(未命名)"}</span>`
+						div.onclick = () => selectSpace(s.id, true)
+						spaceListEl.appendChild(div)
+					}
+				})
+				const stats = document.getElementById("filter-stats")
+				if (stats) stats.textContent = `地点：${visibleCount} / ${sorted.length}`
+			}
+
+			function buildFilterOptions() {
+				const factionSelect = document.getElementById("filter-faction")
+				const nationSelect = document.getElementById("filter-nation")
+				const factions = Array.from(new Set(spaces.map((s) => s.faction).filter((v) => v)))
+				const nations = Array.from(new Set(spaces.map((s) => s.nation).filter((v) => v)))
+				const currentFaction = factionSelect.value
+				const currentNation = nationSelect.value
+				factionSelect.innerHTML = '<option value="">全部阵营</option>'
+				nationSelect.innerHTML = '<option value="">全部国家</option>'
+				factions.forEach((f) => {
+					const opt = document.createElement("option")
+					opt.value = f
+					opt.textContent = f
+					factionSelect.appendChild(opt)
+				})
+				nations.forEach((n) => {
+					const opt = document.createElement("option")
+					opt.value = n
+					opt.textContent = n
+					nationSelect.appendChild(opt)
+				})
+				if (currentFaction) factionSelect.value = currentFaction
+				if (currentNation) nationSelect.value = currentNation
+			}
+
+			function clearFilters() {
+				const search = document.getElementById("search-input")
+				const factionSelect = document.getElementById("filter-faction")
+				const nationSelect = document.getElementById("filter-nation")
+				if (search) search.value = ""
+				if (factionSelect) factionSelect.value = ""
+				if (nationSelect) nationSelect.value = ""
+				filterSpaces()
+			}
+
+			function selectSpace(id, zoomTo = false) {
+				const s = spaces.find((x) => x.id === id)
+				if (!s) return
+
+				selectedSpace = s
+				if (connectAnchor && mode === "connect") {
+					// Handling connection logic elsewhere, but here we update UI
+				} else {
+					connectAnchor = s // Auto-anchor for connect mode
+				}
+
+				// Update Form
+				document.getElementById("props-panel").style.display = "block"
+				document.getElementById("prop-id").value = s.id
+				document.getElementById("prop-map").value = s.map || ""
+				document.getElementById("prop-name").value = s.name || ""
+				document.getElementById("prop-x").value = s.x || 0
+				document.getElementById("prop-y").value = s.y || 0
+				document.getElementById("prop-terrain").value = s.terrain || ""
+				document.getElementById("prop-nation").value = s.nation || ""
+				document.getElementById("prop-faction").value = s.faction || ""
+				document.getElementById("prop-vp").value = s.vp || ""
+				document.getElementById("prop-fort").value = s.fort || ""
+				document.getElementById("prop-capital").checked = s.capital === "1"
+				document.getElementById("prop-jihad_city").checked = s.jihad_city === "1"
+				document.getElementById("prop-port").value = s.port || ""
+				document.getElementById("prop-region").value = s.region || ""
+				document.getElementById("prop-area").value = s.area || ""
+				document.getElementById("prop-island-base").value = s.island_base || ""
+				document.getElementById("prop-beach-for").value = s.beach_for || ""
+				document.getElementById("prop-tribal-activity-grid").value = s.tribal_activity_grid || ""
+				document.getElementById("prop-w").value = s.w || ""
+				document.getElementById("prop-h").value = s.h || ""
+				syncToggleLabel("capital")
+				syncToggleLabel("jihad_city")
+
+				// Update List Highlight
+				document.querySelectorAll(".list-item").forEach((el) => el.classList.remove("active"))
+				const item = document.getElementById("list-item-" + s.id)
+				if (item) {
+					item.classList.add("active")
+					item.scrollIntoView({ block: "nearest" })
+				}
+
+				// Clear edge selection when changing space
+				selectedEdge = null
+				document.getElementById("conn-props").style.display = "none"
+
+				updateConnectionsPanel()
+				render()
+
+				if (zoomTo) {
+					// Center view on space
+					const rect = viewport.getBoundingClientRect()
+					vX = rect.width / 2 - s.x * vScale
+					vY = rect.height / 2 - s.y * vScale
+					updateTransform()
+				}
+			}
+
+			function updateConnectionsPanel() {
+				const grp = document.getElementById("conns-group")
+				if (!selectedSpace) {
+					grp.style.display = "none"
+					return
+				}
+				grp.style.display = "block"
+				const list = document.getElementById("conns-list")
+				list.innerHTML = ""
+
+				// Find all edges connected to this space
+				const conns = edges.filter((e) => e.a === selectedSpace.id || e.b === selectedSpace.id)
+
+				if (conns.length === 0) {
+					list.innerHTML =
+						'<div style="color:#888; text-align:center; padding:8px; font-size:11px;">无连接 (按 C 连线)</div>'
+					return
+				}
+
+				conns.forEach((edge) => {
+					const otherId = edge.a === selectedSpace.id ? edge.b : edge.a
+					const other = spaces.find((s) => s.id === otherId)
+					const name = other ? other.name || `Space ${otherId}` : `Unknown ${otherId}`
+
+					const div = document.createElement("div")
+					div.style.display = "flex"
+					div.style.justifyContent = "space-between"
+					div.style.alignItems = "center"
+					div.style.padding = "4px 6px"
+					div.style.borderBottom = "1px solid #444"
+					div.style.cursor = "pointer"
+					div.style.borderRadius = "3px"
+					div.style.marginBottom = "2px"
+
+					const isSelected = selectedEdge === edge
+					div.style.background = isSelected ? "var(--accent-color)" : "rgba(255,255,255,0.05)"
+					div.style.color = isSelected ? "white" : "#ccc"
+
+					if (!isSelected) {
+						div.onmouseover = () => {
+							if (selectedEdge !== edge) div.style.background = "rgba(255,255,255,0.1)"
+						}
+						div.onmouseout = () => {
+							if (selectedEdge !== edge) div.style.background = "rgba(255,255,255,0.05)"
+						}
+					}
+
+					div.onclick = (e) => {
+						if (e.target.tagName === "BUTTON") return
+						selectEdge(edge)
+					}
+
+					let typeLabel = "普"
+					let typeColor = "#ccc"
+					let textColor = "#000"
+
+					if (edge.type === "green") {
+						typeLabel = "绿"
+						typeColor = "#4caf50"
+					} else if (edge.type === "strait") {
+						typeLabel = "海"
+						typeColor = "#2196f3"
+					} else if (edge.type === "rail" || edge.type === "conditional_rail") {
+						typeLabel = "铁"
+						typeColor = "#ffc107"
+					}
+
+					let crossingIconHtml = ""
+					let smallDirIcon = "↔"
+
+					if (edge.crossing) {
+						let iconChar = "↔"
+						if (edge.crossing === "1") iconChar = "↔"
+						else if (edge.crossing === "2") {
+							iconChar = selectedSpace.id === edge.a ? "➜" : "📥"
+						} else if (edge.crossing === "3") {
+							iconChar = selectedSpace.id === edge.a ? "📥" : "➜"
+						}
+						crossingIconHtml = `<div style="font-size:28px; margin-right:12px; min-width:30px; text-align:center; line-height:1; color:var(--accent-color);">${iconChar}</div>`
+						smallDirIcon = ""
+					}
+
+					const badge = `<span style="font-size:11px; display:inline-block; width:18px; text-align:center; border-radius:2px; background:${typeColor}; color:${textColor}; font-weight:bold; margin-right:6px;">${typeLabel}</span>`
+
+					div.innerHTML = `
+            <div style="display:flex; align-items:center; flex:1; overflow:hidden;">
+                ${crossingIconHtml}
+                <div style="display:flex; flex-direction:column; overflow:hidden; flex:1;">
+                    <div style="display:flex; align-items:center; margin-bottom:2px;">
+                        ${badge}
+                        <span style="font-weight:bold; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${name}">${name}</span>
+                    </div>
+                    <span style="font-size:12px; opacity:0.7; font-family:monospace;">${smallDirIcon ? smallDirIcon + " " : ""}#${otherId}</span>
+                </div>
+            </div>
+            <div style="display:flex; gap:6px;">
+                <button class="ghost" style="padding:4px 8px; font-size:12px; border:1px solid #555;" onclick="event.stopPropagation(); selectSpace(${otherId}, true);" title="跳转到该点">🚀</button>
+                <button class="danger" style="padding:4px 8px; font-size:12px; border:1px solid #d32f2f;" onclick="event.stopPropagation(); deleteEdgeDirectly(${edges.indexOf(edge)});" title="删除连接">✕</button>
+            </div>
+        `
+					list.appendChild(div)
+				})
+			}
+
+			function deleteEdgeDirectly(index) {
+				if (index >= 0 && index < edges.length) {
+					if (!confirm("确定删除这条连接吗？")) return
+					const edge = edges[index]
+					edges.splice(index, 1)
+					if (selectedEdge === edge) {
+						selectedEdge = null
+						document.getElementById("conn-props").style.display = "none"
+					}
+					updateConnectionsPanel()
+					render()
+					saveDiff()
+					showToast("连接已删除")
+				}
+			}
+
+			function selectEdge(edge) {
+				selectedEdge = edge
+				updateConnectionsPanel() // Re-render list to show highlight
+
+				// Show props
+				const p = document.getElementById("conn-props")
+				p.style.display = "block"
+
+				document.getElementById("conn-type").value = edge.type || ""
+				document.getElementById("conn-nations").value = edge.nations || ""
+				document.getElementById("conn-flags").value = edge.flags || ""
+				// Update Crossing Options with Names
+				const sA = spaces.find((s) => s.id === edge.a)
+				const sB = spaces.find((s) => s.id === edge.b)
+				const nameA = sA ? sA.name || sA.id : edge.a
+				const nameB = sB ? sB.name || sB.id : edge.b
+
+				const sel = document.getElementById("conn-crossing")
+				// Save current value to restore selection after text update (though value doesn't change)
+				const currentVal = edge.crossing || ""
+
+				// Update options text to be explicit about direction
+				// Option 0: None, 1: Both, 2: A->B, 3: B->A
+				if (sel.options.length >= 4) {
+					sel.options[2].text = `2: ${nameA} ➜ ${nameB}`
+					sel.options[3].text = `3: ${nameB} ➜ ${nameA}`
+				}
+
+				sel.value = currentVal
+			}
+
+			function updateEdgeProp(key, value) {
+				if (!selectedEdge) return
+				selectedEdge[key] = value
+				saveDiff() // Auto-save
+				render()
+				updateConnectionsPanel()
+			}
+
+			function deleteSelectedEdge() {
+				if (!selectedEdge) return
+				const idx = edges.indexOf(selectedEdge)
+				if (idx >= 0) {
+					edges.splice(idx, 1)
+					selectedEdge = null
+					document.getElementById("conn-props").style.display = "none"
+					updateConnectionsPanel()
+					render()
+					saveDiff()
+					showToast("连接已删除")
+				}
+			}
+
+			// --- INTERACTION ---
+
+			function handleDotDown(e, s) {
+				if (e.button !== 0) return
+				if (mode === "move") {
+					clearBatchSelection()
+					const draggable = document.getElementById("chk-draggable")
+					if (draggable && !draggable.checked) {
+						// If not draggable, just select, do not drag
+						selectSpace(s.id)
+						e.stopPropagation()
+						return
+					}
+
+					if (selectedSpace && selectedSpace.id === s.id) {
+						isDraggingDot = true
+						dragDot = s
+					} else {
+						selectSpace(s.id)
+						// Do not start drag immediately on selection switch
+						// But if we want to allow drag-on-select if draggable is on?
+						// The original code only allowed drag if already selected.
+						// Let's keep original behavior but add the check.
+					}
+					e.stopPropagation()
+				}
+			}
+
+			function handleDotClick(e, s) {
+				e.stopPropagation()
+
+				if (mode === "connect" && connectAnchor && connectAnchor.id !== s.id) {
+					// Toggle connection
+					const existingIdx = edges.findIndex(
+						(edge) =>
+							(edge.a === connectAnchor.id && edge.b === s.id) ||
+							(edge.a === s.id && edge.b === connectAnchor.id)
+					)
+
+					if (existingIdx >= 0) {
+						edges.splice(existingIdx, 1)
+						showToast("连接已移除")
+					} else {
+						edges.push({
+							a: connectAnchor.id,
+							b: s.id,
+							type: currentConnectType,
+							crossing: "",
+							nations: "",
+							flags: ""
+						})
+						showToast("已连接")
+					}
+					render()
+					updateConnectionsPanel()
+				} else if (mode === "connect") {
+					selectSpace(s.id)
+					showToast("已选中起点：" + s.name)
+				}
+			}
+
+			let isDraggingDot = false
+			let dragDot = null
+
+			function updateBatchSelectionCount() {
+				const el = document.getElementById("batch-selection-count")
+				if (el) el.textContent = `框选: ${selectedSpaceIds.size}`
+			}
+
+			function clearBatchSelection() {
+				selectedSpaceIds.clear()
+				updateBatchSelectionCount()
+				render()
+			}
+
+			function toMapPoint(clientX, clientY) {
+				const rect = viewport.getBoundingClientRect()
+				const sx = clientX - rect.left
+				const sy = clientY - rect.top
+				return {
+					x: Math.round((sx - vX) / vScale),
+					y: Math.round((sy - vY) / vScale)
+				}
+			}
+
+			function toViewportPoint(clientX, clientY) {
+				const rect = viewport.getBoundingClientRect()
+				return {
+					x: clientX - rect.left,
+					y: clientY - rect.top
+				}
+			}
+
+			function updateSelectionBox(start, end) {
+				const left = Math.min(start.x, end.x)
+				const top = Math.min(start.y, end.y)
+				const width = Math.abs(end.x - start.x)
+				const height = Math.abs(end.y - start.y)
+				selectionBox.style.left = left + "px"
+				selectionBox.style.top = top + "px"
+				selectionBox.style.width = width + "px"
+				selectionBox.style.height = height + "px"
+				selectionBox.style.display = "block"
+			}
+
+			function hideSelectionBox() {
+				selectionBox.style.display = "none"
+			}
+
+			function applyBoxSelection(start, end, append) {
+				const minX = Math.min(start.x, end.x)
+				const maxX = Math.max(start.x, end.x)
+				const minY = Math.min(start.y, end.y)
+				const maxY = Math.max(start.y, end.y)
+				if (!append) selectedSpaceIds.clear()
+				for (const s of spaces) {
+					if (s.x >= minX && s.x <= maxX && s.y >= minY && s.y <= maxY) {
+						selectedSpaceIds.add(s.id)
+					}
+				}
+				updateBatchSelectionCount()
+				render()
+			}
+
+			function applyBatchArea() {
+				if (!selectedSpaceIds.size) {
+					showToast("请先框选地点")
+					return
+				}
+				const area = (document.getElementById("batch-area").value || "").trim()
+				let changed = 0
+				for (const s of spaces) {
+					if (!selectedSpaceIds.has(s.id)) continue
+					const before = s.area || ""
+					if (before === area) continue
+					s.area = area
+					changed++
+				}
+				if (selectedSpace && selectedSpaceIds.has(selectedSpace.id)) {
+					document.getElementById("prop-area").value = selectedSpace.area || ""
+				}
+				render()
+				showToast(`已批量更新 ${changed} 个地点`)
+			}
+
+			window.addEventListener("mousemove", (e) => {
+				if (isDraggingDot && dragDot) {
+					const rect = viewport.getBoundingClientRect()
+					const mx = e.clientX - rect.left
+					const my = e.clientY - rect.top
+					dragDot.x = Math.round((mx - vX) / vScale)
+					dragDot.y = Math.round((my - vY) / vScale)
+					render()
+				} else if (isBoxSelecting && boxStartScreenPoint) {
+					const p = toViewportPoint(e.clientX, e.clientY)
+					updateSelectionBox(boxStartScreenPoint, p)
+				} else if (isRectSelecting && rectStartScreenPoint) {
+					const p = toViewportPoint(e.clientX, e.clientY)
+					updateSelectionBox(rectStartScreenPoint, p)
+				} else if (isPanning) {
+					vX = e.clientX - startPanX
+					vY = e.clientY - startPanY
+					updateTransform()
+				}
+			})
+
+			viewport.addEventListener("mousedown", (e) => {
+				if (mode === "move" && e.button === 0 && e.shiftKey) {
+					e.preventDefault()
+					boxStartMapPoint = toMapPoint(e.clientX, e.clientY)
+					boxStartScreenPoint = toViewportPoint(e.clientX, e.clientY)
+					boxAppendMode = e.ctrlKey || e.metaKey
+					isBoxSelecting = true
+					updateSelectionBox(boxStartScreenPoint, boxStartScreenPoint)
+					return
+				}
+				if (mode === "rect-center" && e.button === 0) {
+					e.preventDefault()
+					rectStartMapPoint = toMapPoint(e.clientX, e.clientY)
+					rectStartScreenPoint = toViewportPoint(e.clientX, e.clientY)
+					isRectSelecting = true
+					updateSelectionBox(rectStartScreenPoint, rectStartScreenPoint)
+					return
+				}
+				if (e.button === 1 || (e.button === 0 && e.getModifierState("Space"))) {
+					isPanning = true
+					startPanX = e.clientX - vX
+					startPanY = e.clientY - vY
+				}
+			})
+
+			window.addEventListener("mouseup", (e) => {
+				if (isBoxSelecting && boxStartMapPoint) {
+					const p = toMapPoint(e.clientX, e.clientY)
+					applyBoxSelection(boxStartMapPoint, p, boxAppendMode)
+					hideSelectionBox()
+					isBoxSelecting = false
+					boxStartMapPoint = null
+					boxStartScreenPoint = null
+				}
+				if (isRectSelecting && rectStartMapPoint) {
+					const p = toMapPoint(e.clientX, e.clientY)
+					const midX = Math.round((rectStartMapPoint.x + p.x) / 2)
+					const midY = Math.round((rectStartMapPoint.y + p.y) / 2)
+					const width = Math.abs(rectStartMapPoint.x - p.x)
+					const height = Math.abs(rectStartMapPoint.y - p.y)
+
+					console.log(`Rect: [${rectStartMapPoint.x}, ${rectStartMapPoint.y}] to [${p.x}, ${p.y}]`)
+					console.log(`Center: ${midX}, ${midY}, Size: ${width}x${height}`)
+
+					hideSelectionBox()
+					isRectSelecting = false
+					rectStartMapPoint = null
+					rectStartScreenPoint = null
+
+					// Show result in a way that's easy to copy
+					const result = `中心点: ${midX}, ${midY} (宽:${width} 高:${height})`
+					showToast(result)
+					// Also alert so it can be copied easily
+					setTimeout(() => {
+						const copyStr = `${midX}, ${midY}`
+						if (confirm(`${result}\n\n是否将坐标 "${copyStr}" 复制到剪贴板？`)) {
+							navigator.clipboard.writeText(copyStr).then(() => {
+								showToast("已复制到剪贴板")
+							})
+						}
+					}, 100)
+				}
+				const snapEl = document.getElementById("chk-snap")
+				if (isDraggingDot && dragDot && snapEl && snapEl.checked) {
+					performSmartSnap(dragDot)
+				}
+				isDraggingDot = false
+				isPanning = false
+			})
+
+			// Zoom
+			viewport.addEventListener("wheel", (e) => {
+				e.preventDefault()
+				const zoomIntensity = 0.1
+				const direction = e.deltaY > 0 ? -1 : 1
+				const oldScale = vScale
+				let newScale = vScale + direction * zoomIntensity * vScale
+				newScale = Math.max(0.1, Math.min(newScale, 5.0))
+
+				const rect = viewport.getBoundingClientRect()
+				const mx = e.clientX - rect.left
+				const my = e.clientY - rect.top
+
+				vX = mx - (mx - vX) * (newScale / oldScale)
+				vY = my - (my - vY) * (newScale / oldScale)
+				vScale = newScale
+				updateTransform()
+			})
+
+			function updateTransform() {
+				mapContainer.style.transform = `translate(${vX}px, ${vY}px) scale(${vScale})`
+			}
+
+			function zoomBy(delta) {
+				const rect = viewport.getBoundingClientRect()
+				const mx = rect.width / 2
+				const my = rect.height / 2
+				const oldScale = vScale
+				let newScale = vScale + delta * vScale
+				newScale = Math.max(0.1, Math.min(newScale, 5.0))
+				vX = mx - (mx - vX) * (newScale / oldScale)
+				vY = my - (my - vY) * (newScale / oldScale)
+				vScale = newScale
+				updateTransform()
+			}
+
+			function resetView() {
+				vScale = 1
+				vX = 0
+				vY = 0
+				updateTransform()
+			}
+
+			function fitMapToViewport() {
+				if (!mapImg.naturalWidth || !mapImg.naturalHeight) return
+				const rect = viewport.getBoundingClientRect()
+				const scale = Math.min(rect.width / mapImg.naturalWidth, rect.height / mapImg.naturalHeight)
+				vScale = Math.max(0.1, Math.min(scale, 5.0))
+				vX = (rect.width - mapImg.naturalWidth * vScale) / 2
+				vY = (rect.height - mapImg.naturalHeight * vScale) / 2
+				updateTransform()
+			}
+
+			// --- UTILS ---
+
+			function toggleDraggable(e) {
+				e.preventDefault()
+				const chk = document.getElementById("chk-draggable")
+				chk.checked = !chk.checked
+				const lbl = document.getElementById("lbl-draggable")
+
+				if (chk.checked) {
+					lbl.classList.add("checked")
+					// Find the text node or create it
+					// The structure is <input> text
+					// We can verify if lastChild is text node
+					if (lbl.lastChild.nodeType === 3) {
+						lbl.lastChild.textContent = " 🔓 可拖拽"
+					} else {
+						lbl.appendChild(document.createTextNode(" 🔓 可拖拽"))
+					}
+				} else {
+					lbl.classList.remove("checked")
+					if (lbl.lastChild.nodeType === 3) {
+						lbl.lastChild.textContent = " 🔒 锁定"
+					} else {
+						lbl.appendChild(document.createTextNode(" 🔒 锁定"))
+					}
+				}
+			}
+
+			function togglePropCheck(key) {
+				const chk = document.getElementById("prop-" + key)
+				chk.checked = !chk.checked
+				let val = chk.checked ? "1" : ""
+				updateProp(key, val)
+
+				const lbl = document.getElementById("lbl-" + key)
+				if (chk.checked) lbl.classList.add("checked")
+				else lbl.classList.remove("checked")
+			}
+
+			function syncToggleLabel(key) {
+				const chk = document.getElementById("prop-" + key)
+				const lbl = document.getElementById("lbl-" + key)
+				if (!chk || !lbl) return
+				if (chk.checked) lbl.classList.add("checked")
+				else lbl.classList.remove("checked")
+			}
+
+			window.addEventListener("keydown", (e) => {
+				if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA")
+					return
+
+				if (e.key.toLowerCase() === "m") setMode("move")
+				if (e.key.toLowerCase() === "c") setMode("connect")
+				if (e.key.toLowerCase() === "d") setMode("rect-center")
+
+				if (e.key === "ArrowLeft") nudgeSelected(-1, 0)
+				if (e.key === "ArrowRight") nudgeSelected(1, 0)
+				if (e.key === "ArrowUp") nudgeSelected(0, -1)
+				if (e.key === "ArrowDown") nudgeSelected(0, 1)
+
+				if (e.key === "Delete" || e.key === "Backspace") deleteSelected()
+				if (e.key === "Escape") {
+					if (mode === "connect") resetConnectState()
+					setMode("move")
+				}
+			})
+
+			function setMode(m) {
+				mode = m
+				document.getElementById("btn-move").className = m === "move" ? "active" : ""
+				document.getElementById("btn-connect").className = m === "connect" ? "active" : ""
+				document.getElementById("btn-rect-center").className = m === "rect-center" ? "active" : ""
+				let label = "未知"
+				if (m === "move") label = "移动"
+				if (m === "connect") label = "连线"
+				if (m === "rect-center") label = "获取中心点"
+
+				const hint = document.getElementById("connect-hint")
+				const connectControls = document.getElementById("connect-controls")
+				if (hint) hint.style.display = m === "connect" ? "block" : "none"
+				if (connectControls) connectControls.style.display = m === "connect" ? "block" : "none"
+				showToast("模式：" + label)
+			}
+
+			function resetConnectState() {
+				connectAnchor = null
+				selectedSpace = null
+				selectedEdge = null
+				setConnectType("") // Reset type to default
+				document.getElementById("props-panel").style.display = "none"
+				document.getElementById("conns-group").style.display = "none"
+				updateConnectionsPanel()
+				render()
+				showToast("已重置连线状态")
+			}
+
+			function setConnectType(t) {
+				currentConnectType = t
+				document.getElementById("btn-type-normal").className = t === "" ? "active" : ""
+				document.getElementById("btn-type-green").className = t === "green" ? "active" : ""
+				document.getElementById("btn-type-strait").className = t === "strait" ? "active" : ""
+				document.getElementById("btn-type-rail").className = t === "rail" ? "active" : ""
+			}
+
+			function addSpace() {
+				const id = spaces.length > 0 ? Math.max(...spaces.map((s) => s.id)) + 1 : 1
+				// Center of view
+				const rect = viewport.getBoundingClientRect()
+				const x = Math.round((rect.width / 2 - vX) / vScale)
+				const y = Math.round((rect.height / 2 - vY) / vScale)
+
+				const newSpace = {
+					id: id,
+					map: "asia",
+					name: "新地点 " + id,
+					x: x,
+					y: y,
+					w: "",
+					h: "",
+					nation: "",
+					faction: "",
+					terrain: "",
+					vp: "",
+					fort: "",
+					port: "",
+					capital: "",
+					region: "",
+					island_base: "",
+					beach_for: "",
+					area: "",
+					tribal_activity_grid: "",
+					jihad_city: ""
+				}
+				spaces.push(newSpace)
+				buildFilterOptions()
+				filterSpaces()
+				selectSpace(id)
+				showToast("已新增地点：" + id)
+			}
+
+			function deleteSelected() {
+				if (!selectedSpace) return
+				if (!confirm("删除 " + selectedSpace.name + "？")) return
+
+				const id = selectedSpace.id
+				spaces = spaces.filter((s) => s.id !== id)
+				edges = edges.filter((e) => e.a !== id && e.b !== id)
+				selectedSpaceIds.delete(id)
+				updateBatchSelectionCount()
+
+				selectedSpace = null
+				render()
+				buildFilterOptions()
+				filterSpaces()
+				document.getElementById("props-panel").style.display = "none" // Or clear fields
+				showToast("已删除")
+			}
+
+			function performSmartSnap(s) {
+				try {
+					if (!window.pixelCtx && mapImg.complete) {
+						const c = document.createElement("canvas")
+						c.width = mapImg.naturalWidth
+						c.height = mapImg.naturalHeight
+						const cx = c.getContext("2d")
+						cx.drawImage(mapImg, 0, 0)
+						window.pixelCtx = cx
+					}
+
+					if (window.pixelCtx) {
+						const range = 25 // Search radius
+						// Ensure bounds
+						const sx = Math.max(0, Math.min(mapImg.naturalWidth - range, s.x - range))
+						const sy = Math.max(0, Math.min(mapImg.naturalHeight - range, s.y - range))
+						const w = range * 2
+						const h = range * 2
+
+						const imgData = window.pixelCtx.getImageData(sx, sy, w, h)
+						const data = imgData.data
+
+						let sumX = 0,
+							sumY = 0,
+							count = 0
+
+						for (let y = 0; y < h; y++) {
+							for (let x = 0; x < w; x++) {
+								const i = (y * w + x) * 4
+								const r = data[i]
+								const g = data[i + 1]
+								const b = data[i + 2]
+								// Detect dark pixels (map lines/circles)
+								// Simple threshold: if brightness < 100
+								if ((r + g + b) / 3 < 100) {
+									sumX += x
+									sumY += y
+									count++
+								}
+							}
+						}
+
+						if (count > 10) {
+							// Found enough dark pixels
+							const avgX = sumX / count
+							const avgY = sumY / count
+
+							// New snapped position
+							const newX = Math.round(sx + avgX)
+							const newY = Math.round(sy + avgY)
+
+							if (Math.abs(newX - s.x) > 1 || Math.abs(newY - s.y) > 1) {
+								s.x = newX
+								s.y = newY
+								render()
+								showToast("已吸附到特征点")
+							}
+						}
+					}
+				} catch (e) {
+					console.warn("Snap error", e)
+				}
+			}
+
+			function autoSnapSelected() {
+				if (selectedSpace) performSmartSnap(selectedSpace)
+			}
+
+			function showToast(msg) {
+				const t = document.getElementById("toast")
+				t.textContent = msg
+				t.style.opacity = 1
+				setTimeout(() => (t.style.opacity = 0), 2000)
+			}
+
+			function setStatus(text) {
+				const el = document.getElementById("status-text")
+				currentStatus = text
+				if (el) {
+					el.textContent = `${text} | ${mapModeLabel}${dataInfoText ? " | " + dataInfoText : ""}`
+				}
+			}
+
+			function loadMapUrls(urls) {
+				mapLoadQueue = urls.filter(Boolean)
+
+				if (!mapLoadQueue.length) {
+					showToast("无有效地图地址")
+					setStatus("无地图地址")
+					return
+				}
+
+				setStatus("地图加载中...")
+
+				if (location.protocol !== "file:") {
+					mapImg.crossOrigin = "Anonymous"
+				} else {
+					mapImg.removeAttribute("crossOrigin")
+				}
+
+				mapImg.onload = () => {
+					resizeCanvas()
+					render()
+					filterSpaces()
+					fitMapToViewport()
+					setStatus("地图已加载")
+					showToast("英文地图加载成功")
+				}
+
+				mapImg.onerror = (e) => {
+					const next = mapLoadQueue.shift()
+					if (next) {
+						mapImg.src = next
+					} else {
+						showToast("地图加载失败，请检查资源")
+						setStatus("地图加载失败")
+					}
+				}
+
+				const first = mapLoadQueue.shift()
+				mapImg.src = first
+			}
+
+			function buildEnglishMapUrls() {
+				const urls = []
+				const origin = location.origin && location.origin !== "null" ? location.origin : ""
+
+				const addPaths = (name) => {
+					if (origin) urls.push(`${origin}/${name}`)
+					urls.push(`../${name}`)
+					urls.push(name)
+				}
+				addPaths("map.EN.jpg")
+
+				return [...new Set(urls)]
+			}
+
+			function applyEnglishMap() {
+				const urls = buildEnglishMapUrls()
+				loadMapUrls(urls)
+			}
+
+			function reloadMap() {
+				applyEnglishMap()
+			}
+
+			function toggleLabels() {
+				if (document.getElementById("chk-labels").checked) document.body.classList.add("show-all-labels")
+				else document.body.classList.remove("show-all-labels")
+			}
+
+			function updateNudgeStep(val) {
+				const num = parseInt(val)
+				nudgeStep = Number.isNaN(num) || num <= 0 ? 1 : num
+				const input = document.getElementById("nudge-step")
+				if (input) input.value = nudgeStep
+			}
+
+			function nudgeSelected(dx, dy) {
+				if (!selectedSpace) return
+				const step = nudgeStep || 1
+				selectedSpace.x += dx * step
+				selectedSpace.y += dy * step
+				render()
+			}
+
+			function centerOnSelected() {
+				if (!selectedSpace) return
+				const rect = viewport.getBoundingClientRect()
+				vX = rect.width / 2 - selectedSpace.x * vScale
+				vY = rect.height / 2 - selectedSpace.y * vScale
+				updateTransform()
+			}
+
+			// --- PERSISTENCE ---
+
+			function captureBaseline() {
+				baseSpacesById = new Map(spaces.map((s) => [s.id, { ...s }]))
+				baseEdgesByKey = new Map(
+					edges.map((e) => {
+						const key = Math.min(e.a, e.b) + "-" + Math.max(e.a, e.b)
+						return [key, { ...e }]
+					})
+				)
+			}
+
+			function computeDiff() {
+				// ... Logic similar to original computeDiff ...
+				// Simplified for this implementation:
+				const addedSpaces = [],
+					updatedSpaces = [],
+					deletedSpaces = []
+				const addedEdges = [],
+					updatedEdges = [],
+					deletedEdges = []
+
+				// Spaces
+				const currentIds = new Set(spaces.map((s) => s.id))
+				spaces.forEach((s) => {
+					const base = baseSpacesById.get(s.id)
+					if (!base) addedSpaces.push(s)
+					else {
+						let changed = false
+						for (let k in s) {
+							if (JSON.stringify(s[k]) !== JSON.stringify(base[k])) changed = true
+						}
+						if (changed) updatedSpaces.push(s)
+					}
+				})
+				baseSpacesById.forEach((v, k) => {
+					if (!currentIds.has(k)) deletedSpaces.push(v)
+				})
+
+				// Edges (Simplified key check)
+				const getEdgeKey = (e) => Math.min(e.a, e.b) + "-" + Math.max(e.a, e.b)
+				const currentEdgeKeys = new Set(edges.map(getEdgeKey))
+
+				edges.forEach((e) => {
+					const key = getEdgeKey(e)
+					const base = baseEdgesByKey.get(key)
+					if (!base) addedEdges.push(e)
+					else if (JSON.stringify(e) !== JSON.stringify(base)) updatedEdges.push(e)
+				})
+				baseEdgesByKey.forEach((v, k) => {
+					if (!currentEdgeKeys.has(k)) deletedEdges.push(v)
+				})
+
+				return {
+					spaces: { added: addedSpaces, updated: updatedSpaces, deleted: deletedSpaces },
+					edges: { added: addedEdges, updated: updatedEdges, deleted: deletedEdges }
+				}
+			}
+
+			async function saveDiff() {
+				const invalidSpaces = spaces.filter(
+					(s) =>
+						!s.id ||
+						Number.isNaN(parseInt(s.id)) ||
+						Number.isNaN(parseInt(s.x)) ||
+						Number.isNaN(parseInt(s.y))
+				)
+				if (invalidSpaces.length) {
+					showToast("保存失败：存在无效地点数据")
+					return
+				}
+				const diff = computeDiff()
+				if ([...Object.values(diff.spaces), ...Object.values(diff.edges)].every((arr) => arr.length === 0)) {
+					showToast("没有需要保存的改动")
+					return
+				}
+
+				try {
+					const res = await fetch("/api/save-diff", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify(diff)
+					})
+					if (res.ok) {
+						showToast("保存成功")
+						captureBaseline()
+					} else {
+						showToast("保存失败")
+					}
+				} catch (e) {
+					showToast("错误：" + e.message)
+				}
+			}
+
+			async function reloadLatest() {
+				showToast("正在重新加载数据...")
+				await initData()
+			}
+
+			// Init
+			// Check if running on file:// protocol and warn user
+			if (location.protocol === "file:") {
+				const msg =
+					"警告：您正在直接打开 HTML 文件 (file://)。\n\n为了正常加载 CSV 数据和使用完整功能，请务必通过本地服务器访问：\nhttp://localhost:8082/tools/map_editor.html"
+				alert(msg)
+				showToast("请使用 localhost 服务器运行以加载数据")
+				setStatus("离线模式 (file://)")
+			}
+
+			initData()
+
+			viewport.addEventListener("click", (e) => {
+				if (
+					e.target === viewport ||
+					e.target === mapContainer ||
+					e.target === canvas ||
+					e.target === dotsLayer
+				) {
+					if (mode !== "connect") {
+						selectedSpace = null
+						document.getElementById("props-panel").style.display = "none"
+						updateConnectionsPanel()
+						render()
+					}
+				}
+			})
+
+			window.addEventListener("keydown", (e) => {
+				const tag = ((e.target && e.target.tagName) || "").toLowerCase()
+				if (tag === "input" || tag === "textarea" || tag === "select" || e.target.isContentEditable) return
+				if (e.key === "m" || e.key === "M") setMode("move")
+				if (e.key === "c" || e.key === "C") setMode("connect")
+				if (e.key === "Delete") deleteSelected()
+				if ((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "S")) {
+					e.preventDefault()
+					saveDiff()
+				}
+				if (selectedSpace) {
+					const step = nudgeStep * (e.shiftKey ? 5 : 1)
+					if (e.key === "ArrowUp") {
+						selectedSpace.y -= step
+						render()
+					}
+					if (e.key === "ArrowDown") {
+						selectedSpace.y += step
+						render()
+					}
+					if (e.key === "ArrowLeft") {
+						selectedSpace.x -= step
+						render()
+					}
+					if (e.key === "ArrowRight") {
+						selectedSpace.x += step
+						render()
+					}
+				}
+			})
+		</script>
+	</body>
+</html>

@@ -1,0 +1,1100 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>PUG 单位标注</title>
+		<style>
+			:root {
+				--bg: #0f1216;
+				--panel: #171b21;
+				--panel-2: #1f2530;
+				--text: #e6e8ee;
+				--muted: #9aa3b2;
+				--accent: #5aa9ff;
+				--danger: #ff6b6b;
+				--ok: #5de1a5;
+				--border: #2a3240;
+				--card-w: 300px;
+				--img-size: 84px;
+			}
+			* {
+				box-sizing: border-box;
+			}
+			body {
+				margin: 0;
+				font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+				background: var(--bg);
+				color: var(--text);
+				padding-top: 130px; /* Offset for sticky header */
+			}
+			header {
+				position: fixed;
+				top: 0;
+				left: 0;
+				right: 0;
+				z-index: 110;
+				padding: 12px 20px;
+				border-bottom: 1px solid var(--border);
+				background: var(--panel);
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+			}
+			header h1 {
+				margin: 0;
+				font-size: 18px;
+			}
+			header p {
+				margin: 0;
+				color: var(--muted);
+				font-size: 12px;
+			}
+			.toolbar {
+				position: fixed;
+				top: 50px;
+				left: 0;
+				right: 0;
+				z-index: 100;
+				display: flex;
+				flex-wrap: wrap;
+				gap: 10px;
+				padding: 10px 20px;
+				background: var(--panel-2);
+				border-bottom: 1px solid var(--border);
+				align-items: center;
+				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+			}
+			.toolbar .group {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				border-right: 1px solid var(--border);
+				padding-right: 10px;
+				margin-right: 4px;
+			}
+			.toolbar .group:last-child {
+				border-right: none;
+			}
+			.toolbar input,
+			.toolbar select {
+				background: #0e1217;
+				color: var(--text);
+				border: 1px solid var(--border);
+				border-radius: 6px;
+				padding: 6px 10px;
+				font-size: 13px;
+			}
+			.toolbar button {
+				background: var(--accent);
+				color: #061423;
+				border: none;
+				padding: 6px 12px;
+				border-radius: 6px;
+				cursor: pointer;
+				font-weight: 600;
+				font-size: 13px;
+				transition: opacity 0.2s;
+			}
+			.toolbar button:hover {
+				opacity: 0.9;
+			}
+			.toolbar button.secondary {
+				background: #2a3240;
+				color: var(--text);
+			}
+			.toolbar button.danger {
+				background: var(--danger);
+				color: white;
+			}
+			.toolbar .status {
+				margin-left: auto;
+				font-size: 12px;
+				color: var(--muted);
+				background: #0004;
+				padding: 4px 8px;
+				border-radius: 4px;
+			}
+			.toolbar .toggle {
+				display: inline-flex;
+				align-items: center;
+				gap: 4px;
+				font-size: 12px;
+				color: var(--muted);
+				padding: 2px 4px;
+				border-radius: 4px;
+				background: #0e1217;
+				border: 1px solid var(--border);
+			}
+			.toolbar .toggle input {
+				margin: 0;
+			}
+
+			/* Image Size Controls */
+			.size-control {
+				display: flex;
+				background: #0e1217;
+				border-radius: 6px;
+				border: 1px solid var(--border);
+				overflow: hidden;
+			}
+			.size-control button {
+				background: transparent;
+				color: var(--muted);
+				border: none;
+				padding: 4px 10px;
+				border-radius: 0;
+				font-weight: normal;
+			}
+			.size-control button.active {
+				background: var(--accent);
+				color: #061423;
+				font-weight: bold;
+			}
+
+			.grid {
+				padding: 20px;
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(var(--card-w), 1fr));
+				gap: 16px;
+			}
+			/* Size variants */
+			.grid.size-sm {
+				--card-w: 240px;
+				--img-size: 64px;
+			}
+			.grid.size-md {
+				--card-w: 300px;
+				--img-size: 100px;
+			}
+			.grid.size-lg {
+				--card-w: 400px;
+				--img-size: 160px;
+			}
+
+			.card {
+				position: relative;
+				background: var(--panel);
+				border: 1px solid var(--border);
+				border-radius: 10px;
+				padding: 12px;
+				display: flex;
+				flex-direction: column;
+				gap: 10px;
+				transition: all 0.2s ease;
+				cursor: pointer;
+			}
+			.card:hover {
+				border-color: #4a5a70;
+				transform: translateY(-2px);
+				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+			}
+			.card.dirty {
+				border-color: var(--accent);
+				box-shadow: 0 0 0 1px rgba(90, 169, 255, 0.4);
+			}
+			.card.selected {
+				border-color: var(--ok);
+				background: #1a2a24;
+			}
+			.card.selected::before {
+				content: "✓";
+				position: absolute;
+				top: -8px;
+				right: -8px;
+				background: var(--ok);
+				color: #061423;
+				width: 20px;
+				height: 20px;
+				border-radius: 50%;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-weight: bold;
+				font-size: 12px;
+				box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+			}
+
+			.card-main {
+				display: flex;
+				gap: 12px;
+			}
+			.card img {
+				width: var(--img-size);
+				height: var(--img-size);
+				object-fit: contain;
+				background: #0c0f14;
+				border-radius: 8px;
+				border: 1px solid var(--border);
+				flex-shrink: 0;
+			}
+			.card-info {
+				flex: 1;
+				min-width: 0;
+			}
+			.card h3 {
+				margin: 0 0 4px;
+				font-size: 14px;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+			.meta {
+				display: flex;
+				gap: 6px;
+				flex-wrap: wrap;
+				font-size: 11px;
+				color: var(--muted);
+				margin-bottom: 6px;
+			}
+			.meta span {
+				background: #2a3240;
+				padding: 1px 4px;
+				border-radius: 3px;
+			}
+
+			.controls {
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+				border-top: 1px solid var(--border);
+				padding-top: 10px;
+			}
+			.field {
+				display: flex;
+				gap: 6px;
+				align-items: center;
+				font-size: 12px;
+			}
+			.field label {
+				width: 60px;
+				color: var(--muted);
+				flex-shrink: 0;
+			}
+			.field select {
+				flex: 1;
+				background: #0e1217;
+				color: var(--text);
+				border: 1px solid var(--border);
+				border-radius: 6px;
+				padding: 4px 8px;
+				font-size: 12px;
+			}
+			.flags {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+				gap: 4px;
+				font-size: 11px;
+			}
+			.flags label {
+				display: flex;
+				gap: 4px;
+				align-items: center;
+				background: #121720;
+				border: 1px solid var(--border);
+				border-radius: 4px;
+				padding: 2px 4px;
+				cursor: pointer;
+				user-select: none;
+			}
+			.flags label:hover {
+				background: #1a2430;
+			}
+			.flags input {
+				margin: 0;
+			}
+
+			/* Help section toggle */
+			#helpSection {
+				display: none;
+				position: fixed;
+				top: 130px;
+				left: 20px;
+				right: 20px;
+				z-index: 150;
+				background: var(--panel);
+				border: 1px solid var(--border);
+				border-radius: 12px;
+				box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+				padding: 20px;
+			}
+			#helpSection.show {
+				display: block;
+			}
+			.help-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+				gap: 16px;
+			}
+			.help-card {
+				background: #10141a;
+				border: 1px solid var(--border);
+				border-radius: 8px;
+				padding: 12px;
+				font-size: 12px;
+				color: var(--muted);
+				line-height: 1.5;
+			}
+			.help-card strong {
+				color: var(--accent);
+				display: block;
+				margin-bottom: 4px;
+			}
+
+			.toast {
+				position: fixed;
+				bottom: 24px;
+				right: 24px;
+				background: var(--panel-2);
+				border: 1px solid var(--accent);
+				color: var(--text);
+				padding: 12px 20px;
+				border-radius: 8px;
+				font-size: 14px;
+				box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+				z-index: 1000;
+				opacity: 0;
+				transform: translateY(10px);
+				transition: all 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+				pointer-events: none;
+			}
+			.toast.show {
+				opacity: 1;
+				transform: translateY(0);
+			}
+
+			/* Batch Toolbar */
+			#batchBar {
+				display: none;
+				background: var(--ok);
+				color: #061423;
+				padding: 8px 20px;
+				position: fixed;
+				bottom: 0;
+				left: 0;
+				right: 0;
+				z-index: 200;
+				align-items: center;
+				gap: 15px;
+				font-weight: bold;
+				box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
+			}
+			#batchBar.show {
+				display: flex;
+			}
+			#batchBar button {
+				background: #061423;
+				color: white;
+				border: none;
+				padding: 4px 12px;
+				border-radius: 4px;
+				cursor: pointer;
+				font-size: 12px;
+			}
+			.field.numeric {
+				flex: 1;
+				min-width: 40px;
+			}
+			.field.numeric input {
+				width: 100%;
+				background: #0e1217;
+				color: var(--text);
+				border: 1px solid var(--border);
+				border-radius: 4px;
+				padding: 2px 4px;
+				font-size: 11px;
+				text-align: center;
+			}
+			.stats-row {
+				display: flex;
+				gap: 4px;
+				margin-top: 4px;
+				align-items: center;
+			}
+			.stats-label {
+				font-size: 10px;
+				color: var(--muted);
+				width: 40px;
+				flex-shrink: 0;
+			}
+			.img-container {
+				display: flex;
+				flex-direction: column;
+				gap: 4px;
+				align-items: center;
+				width: var(--img-size);
+			}
+			.img-dim {
+				font-size: 9px;
+				color: var(--muted);
+			}
+			.img-reduced {
+				width: calc(var(--img-size) * 0.7) !important;
+				height: calc(var(--img-size) * 0.7) !important;
+			}
+		</style>
+	</head>
+	<body>
+		<header>
+			<div>
+				<h1>单位图片标注</h1>
+				<p>Pieces Tagging Tool - PUG v1.1</p>
+			</div>
+			<div style="display: flex; gap: 10px; align-items: center">
+				<button onclick="toggleHelp()" class="secondary" style="padding: 4px 8px; font-size: 11px">
+					帮助 (?)
+				</button>
+				<button id="btnReload" class="secondary">重新加载</button>
+				<button id="btnDownload" class="secondary">下载 CSV</button>
+				<button id="btnSave">保存 (Ctrl+S)</button>
+			</div>
+		</header>
+
+		<div class="toolbar">
+			<div class="group">
+				<input id="search" placeholder="搜索 (/) " style="width: 200px" />
+				<select id="filterFaction">
+					<option value="">阵营: 全部</option>
+					<option value="ap">AP</option>
+					<option value="cp">CP</option>
+					<option value="neutral">Neutral</option>
+					<option value="marker">Marker</option>
+				</select>
+				<select id="filterType">
+					<option value="">类型: 全部</option>
+				</select>
+			</div>
+
+			<div class="group">
+				<span style="font-size: 12px; color: var(--muted)">尺寸:</span>
+				<div class="size-control">
+					<button onclick="setSize('sm')" id="size-sm">小</button>
+					<button onclick="setSize('md')" id="size-md" class="active">中</button>
+					<button onclick="setSize('lg')" id="size-lg">大</button>
+				</div>
+			</div>
+
+			<div class="group">
+				<button onclick="selectAll()" class="secondary" style="font-size: 11px">全选</button>
+				<button onclick="clearSelection()" class="secondary" style="font-size: 11px">清除选择</button>
+			</div>
+
+			<div class="group">
+				<label class="toggle"><input id="filterMissingClass" type="checkbox" />缺性质</label>
+				<label class="toggle"><input id="filterMissingSymbol" type="checkbox" />缺标记</label>
+				<label class="toggle"><input id="filterMissingRegion" type="checkbox" />缺地区</label>
+			</div>
+
+			<span id="status" class="status">准备就绪</span>
+		</div>
+
+		<div id="helpSection">
+			<div style="display: flex; justify-content: space-between; margin-bottom: 15px">
+				<h2 style="margin: 0">快捷键说明</h2>
+				<button onclick="toggleHelp()" class="secondary">关闭</button>
+			</div>
+			<div class="help-grid">
+				<div class="help-card">
+					<strong>通用操作</strong>
+					• / : 聚焦搜索框<br />
+					• ? : 显示/隐藏帮助<br />
+					• Ctrl + S : 保存修改<br />
+					• Esc : 取消选择
+				</div>
+				<div class="help-card">
+					<strong>属性说明: 性质 (type)</strong>
+					影响补给、控制权、SR、恶劣天气等规则差异。正规(regular)/非正规(irregular)/部落(tribal)/总部(hq)。
+				</div>
+				<div class="help-card">
+					<strong>属性说明: 级别 (piece_class)</strong>
+					LCU (大单位) / SCU (小单位)。
+				</div>
+				<div class="help-card">
+					<strong>属性说明: symbol</strong>
+					圆点=不可补员且不可重建；三角=可补补员但不可重建。
+				</div>
+				<div class="help-card">
+					<strong>批量操作</strong>
+					点击卡片进入选择模式。底部出现的绿色工具栏可对选中单位批量设置属性。
+				</div>
+			</div>
+		</div>
+
+		<div id="grid" class="grid size-md"></div>
+
+		<div id="batchBar">
+			<span id="batchCount">已选择 0 个单位</span>
+			<select id="batchType">
+				<option value="">批量设置性质...</option>
+				<option value="regular">正规</option>
+				<option value="irregular">非正规</option>
+				<option value="tribal">部落</option>
+				<option value="hq">HQ</option>
+			</select>
+			<select id="batchClass">
+				<option value="">批量设置级别...</option>
+				<option value="LCU">LCU</option>
+				<option value="SCU">SCU</option>
+			</select>
+			<select id="batchSymbol">
+				<option value="">批量设置标记...</option>
+				<option value="none">普通</option>
+				<option value="dot">圆点</option>
+				<option value="triangle">三角</option>
+			</select>
+			<select id="batchRegion">
+				<option value="">批量设置地区限制...</option>
+				<option value="none">无限制</option>
+				<option value="B">B 巴尔干</option>
+				<option value="I">I 印度</option>
+				<option value="P">P 波斯</option>
+			</select>
+			<button onclick="applyBatch()">应用修改</button>
+			<button
+				onclick="clearSelection()"
+				style="background: transparent; color: #061423; border: 1px solid #061423"
+			>
+				取消
+			</button>
+		</div>
+
+		<div id="toast" class="toast"></div>
+
+		<script>
+			const NEW_FIELDS = ["type", "piece_class", "symbol", "region_limit", "badge", "cf", "lf", "mf", "rcf", "rlf", "rmf"]
+			const TYPE_OPTIONS = [
+				{ value: "", label: "-" },
+				{ value: "regular", label: "正规" },
+				{ value: "irregular", label: "非正规" },
+				{ value: "tribal", label: "部落" },
+				{ value: "hq", label: "HQ" }
+			]
+			const PIECE_CLASS_OPTIONS = [
+				{ value: "", label: "-" },
+				{ value: "LCU", label: "LCU (大单位)" },
+				{ value: "SCU", label: "SCU (小单位)" }
+			]
+			const SYMBOL_OPTIONS = [
+				{ value: "", label: "-" },
+				{ value: "none", label: "普通" },
+				{ value: "dot", label: "圆点" },
+				{ value: "triangle", label: "三角" }
+			]
+			const REGION_OPTIONS = [
+				{ value: "", label: "-" },
+				{ value: "none", label: "无限制" },
+				{ value: "B", label: "B 巴尔干" },
+				{ value: "I", label: "I 印度" },
+				{ value: "P", label: "P 波斯" }
+			]
+			const BADGE_OPTIONS = [
+				{ value: "", label: "-" },
+				{ value: "infantry", label: "步兵" },
+				{ value: "blue", label: "蓝色" },
+				{ value: "yellow", label: "黄色" },
+				{ value: "cavalry", label: "骑兵" },
+				{ value: "camel", label: "骆驼兵" },
+				{ value: "armor_brigade", label: "装甲旅" }
+			]
+
+			let headers = []
+			let rows = []
+			let filtered = []
+			let dirtyCount = 0
+			let selectedIds = new Set()
+			let currentImgSize = "md"
+
+			const grid = document.getElementById("grid")
+			const searchEl = document.getElementById("search")
+			const filterFaction = document.getElementById("filterFaction")
+			const filterType = document.getElementById("filterType")
+			const filterMissingClass = document.getElementById("filterMissingClass")
+			const filterMissingSymbol = document.getElementById("filterMissingSymbol")
+			const filterMissingRegion = document.getElementById("filterMissingRegion")
+			const statusEl = document.getElementById("status")
+			const toastEl = document.getElementById("toast")
+			const batchBar = document.getElementById("batchBar")
+			const batchCount = document.getElementById("batchCount")
+
+			function showToast(message) {
+				toastEl.textContent = message
+				toastEl.classList.add("show")
+				setTimeout(() => toastEl.classList.remove("show"), 2500)
+			}
+
+			function toggleHelp() {
+				document.getElementById("helpSection").classList.toggle("show")
+			}
+
+			function setSize(size) {
+				currentImgSize = size
+				grid.className = `grid size-${size}`
+				document.querySelectorAll(".size-control button").forEach((b) => b.classList.remove("active"))
+				document.getElementById(`size-${size}`).classList.add("active")
+			}
+
+			function toggleSelect(id, event) {
+				// Prevent selection when clicking on inputs/selects
+				if (
+					event &&
+					(event.target.tagName === "SELECT" ||
+						event.target.tagName === "INPUT" ||
+						event.target.tagName === "LABEL" ||
+						event.target.tagName === "SPAN")
+				) {
+					return
+				}
+
+				if (selectedIds.has(id)) {
+					selectedIds.delete(id)
+				} else {
+					selectedIds.add(id)
+				}
+				updateBatchBar()
+				render()
+			}
+
+			function selectAll() {
+				filtered.forEach((r) => selectedIds.add(r.id))
+				updateBatchBar()
+				render()
+			}
+
+			function clearSelection() {
+				selectedIds.clear()
+				updateBatchBar()
+				render()
+			}
+
+			function updateBatchBar() {
+				if (selectedIds.size > 0) {
+					batchBar.classList.add("show")
+					batchCount.textContent = `已选择 ${selectedIds.size} 个单位`
+				} else {
+					batchBar.classList.remove("show")
+				}
+			}
+
+			function applyBatch() {
+				const uType = document.getElementById("batchType").value
+				const uClass = document.getElementById("batchClass").value
+				const symbol = document.getElementById("batchSymbol").value
+				const region = document.getElementById("batchRegion").value
+
+				let changed = 0
+				rows.forEach((row) => {
+					if (selectedIds.has(row.id)) {
+						let updated = false
+						if (uType) {
+							row.type = uType
+							updated = true
+						}
+						if (uClass) {
+							row.piece_class = uClass
+							updated = true
+						}
+						if (symbol) {
+							row.symbol = symbol
+							updated = true
+						}
+						if (region) {
+							row.region_limit = region
+							updated = true
+						}
+						if (updated && !row._dirty) {
+							row._dirty = true
+							dirtyCount++
+						}
+						changed++
+					}
+				})
+
+				showToast(`已应用批量修改到 ${changed} 个单位`)
+				clearSelection()
+				updateStatus()
+				render()
+			}
+
+			function parseCSV(text) {
+				if (!text) return { headers: [], rows: [] }
+				if (text.charCodeAt(0) === 0xfeff) text = text.slice(1)
+				const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0)
+				if (lines.length === 0) return { headers: [], rows: [] }
+
+				// Handle CSV with possible commas inside quotes (though pieces.csv usually simple)
+				const h = lines[0].split(",").map((v) => v.trim())
+				const r = lines.slice(1).map((line) => {
+					const values = line.split(",")
+					const obj = {}
+					h.forEach((key, i) => (obj[key] = (values[i] ?? "").trim()))
+					return obj
+				})
+				return { headers: h, rows: r }
+			}
+
+			function buildCSV(h, r) {
+				let out = h.join(",") + "\n"
+				r.forEach((row) => {
+					out += h.map((key) => row[key] ?? "").join(",") + "\n"
+				})
+				return out
+			}
+
+			function markDirty(row) {
+				if (!row._dirty) {
+					row._dirty = true
+					dirtyCount++
+				}
+				updateStatus()
+				// Partial render only for efficiency? No, render is fast enough for ~200 units
+				render()
+			}
+
+			function updateStatus() {
+				const missing = countMissing()
+				const dirtyText = dirtyCount > 0 ? `未保存更改 ${dirtyCount} 条` : "准备就绪"
+				statusEl.textContent = `${dirtyText} | 缺性质 ${missing.type} · 缺级别 ${missing.pieceClass} · 缺标记 ${missing.symbol} · 缺地区 ${missing.region}`
+			}
+
+			function countMissing() {
+				let type = 0
+				let pieceClass = 0
+				let symbol = 0
+				let region = 0
+				rows.forEach((row) => {
+					if (!row.type) type++
+					if (!row.piece_class) pieceClass++
+					if (!row.symbol) symbol++
+					if (!row.region_limit) region++
+				})
+				return { type, pieceClass, symbol, region }
+			}
+
+			function render() {
+				grid.innerHTML = ""
+				filtered.forEach((row) => {
+					const isSelected = selectedIds.has(row.id)
+					const card = document.createElement("div")
+					card.className = "card" + (row._dirty ? " dirty" : "") + (isSelected ? " selected" : "")
+					card.onclick = (e) => toggleSelect(row.id, e)
+
+					const cardMain = document.createElement("div")
+					cardMain.className = "card-main"
+
+					// Images Container
+					const imagesContainer = document.createElement("div")
+					imagesContainer.className = "img-container"
+
+					const imgFull = document.createElement("img")
+					const imgFullName = row.image_full || ""
+					imgFull.src = imgFullName ? `/pieces/${imgFullName}` : ""
+					imgFull.alt = row.name || "full"
+
+					const dimFull = document.createElement("div")
+					dimFull.className = "img-dim"
+					imgFull.onload = () => {
+						dimFull.textContent = `${imgFull.naturalWidth}x${imgFull.naturalHeight}`
+					}
+
+					imagesContainer.appendChild(imgFull)
+					imagesContainer.appendChild(dimFull)
+
+					if (row.image_reduced) {
+						const imgRed = document.createElement("img")
+						imgRed.className = "img-reduced"
+						imgRed.src = `/pieces/${row.image_reduced}`
+						imgRed.alt = "reduced"
+
+						const dimRed = document.createElement("div")
+						dimRed.className = "img-dim"
+						imgRed.onload = () => {
+							dimRed.textContent = `${imgRed.naturalWidth}x${imgRed.naturalHeight}`
+						}
+
+						imagesContainer.appendChild(imgRed)
+						imagesContainer.appendChild(dimRed)
+					}
+
+					const info = document.createElement("div")
+					info.className = "card-info"
+
+					const title = document.createElement("div")
+					title.className = "card-title"
+					title.textContent = `${row.id || ""} ${row.name || ""}`
+
+					const meta = document.createElement("div")
+					meta.className = "meta"
+					meta.innerHTML = `<span>${(row.faction || "").toUpperCase()}</span> <span>${row.nation || ""}</span> <span>${row.type || ""}</span> <span>${row.piece_class || ""}</span>`
+
+					info.appendChild(title)
+					info.appendChild(meta)
+					cardMain.appendChild(imagesContainer)
+					cardMain.appendChild(info)
+
+					const controls = document.createElement("div")
+					controls.className = "controls"
+
+					// Unit Type
+					const fType = document.createElement("div")
+					fType.className = "field"
+					fType.innerHTML = `<label>性质</label>`
+					const sType = document.createElement("select")
+					TYPE_OPTIONS.forEach((opt) => {
+						const o = document.createElement("option")
+						o.value = opt.value
+						o.textContent = opt.label
+						if (opt.value === (row.type || "")) o.selected = true
+						sType.appendChild(o)
+					})
+					sType.onchange = (e) => {
+						row.type = e.target.value
+						markDirty(row)
+					}
+					fType.appendChild(sType)
+
+					// Piece Class
+					const fClass = document.createElement("div")
+					fClass.className = "field"
+					fClass.innerHTML = `<label>级别</label>`
+					const sClass = document.createElement("select")
+					PIECE_CLASS_OPTIONS.forEach((opt) => {
+						const o = document.createElement("option")
+						o.value = opt.value
+						o.textContent = opt.label
+						if (opt.value === (row.piece_class || "")) o.selected = true
+						sClass.appendChild(o)
+					})
+					sClass.onchange = (e) => {
+						row.piece_class = e.target.value
+						markDirty(row)
+					}
+					fClass.appendChild(sClass)
+
+					// Symbol
+					const fSymbol = document.createElement("div")
+					fSymbol.className = "field"
+					fSymbol.innerHTML = `<label>标记</label>`
+					const sSymbol = document.createElement("select")
+					SYMBOL_OPTIONS.forEach((opt) => {
+						const o = document.createElement("option")
+						o.value = opt.value
+						o.textContent = opt.label
+						if (opt.value === (row.symbol || "")) o.selected = true
+						sSymbol.appendChild(o)
+					})
+					sSymbol.onchange = (e) => {
+						row.symbol = e.target.value
+						markDirty(row)
+					}
+					fSymbol.appendChild(sSymbol)
+
+					// Region Limit
+					const fRegion = document.createElement("div")
+					fRegion.className = "field"
+					fRegion.innerHTML = `<label>地区</label>`
+					const sRegion = document.createElement("select")
+					REGION_OPTIONS.forEach((opt) => {
+						const o = document.createElement("option")
+						o.value = opt.value
+						o.textContent = opt.label
+						if (opt.value === (row.region_limit || "")) o.selected = true
+						sRegion.appendChild(o)
+					})
+					sRegion.onchange = (e) => {
+						row.region_limit = e.target.value
+						markDirty(row)
+					}
+					fRegion.appendChild(sRegion)
+
+					// Badge
+					const fBadge = document.createElement("div")
+					fBadge.className = "field"
+					fBadge.innerHTML = `<label>兵牌</label>`
+					const sBadge = document.createElement("select")
+					BADGE_OPTIONS.forEach((opt) => {
+						const o = document.createElement("option")
+						o.value = opt.value
+						o.textContent = opt.label
+						if (opt.value === (row.badge || "")) o.selected = true
+						sBadge.appendChild(o)
+					})
+					sBadge.onchange = (e) => {
+						row.badge = e.target.value
+						markDirty(row)
+					}
+					fBadge.appendChild(sBadge)
+
+					// Stats Full
+					const statsFull = document.createElement("div")
+					statsFull.className = "stats-row"
+					statsFull.innerHTML = `<div class="stats-label">全强(F/S/M)</div>`
+					;["cf", "lf", "mf"].forEach((f) => {
+						const field = document.createElement("div")
+						field.className = "field numeric"
+						const input = document.createElement("input")
+						input.type = "text"
+						input.value = row[f] || ""
+						input.onchange = (e) => {
+							row[f] = e.target.value
+							markDirty(row)
+						}
+						field.appendChild(input)
+						statsFull.appendChild(field)
+					})
+
+					// Stats Reduced
+					const statsRed = document.createElement("div")
+					statsRed.className = "stats-row"
+					statsRed.innerHTML = `<div class="stats-label">残强(F/S/M)</div>`
+					;["rcf", "rlf", "rmf"].forEach((f) => {
+						const field = document.createElement("div")
+						field.className = "field numeric"
+						const input = document.createElement("input")
+						input.type = "text"
+						input.value = row[f] || ""
+						input.onchange = (e) => {
+							row[f] = e.target.value
+							markDirty(row)
+						}
+						field.appendChild(input)
+						statsRed.appendChild(field)
+					})
+
+					controls.appendChild(fType)
+					controls.appendChild(fClass)
+					controls.appendChild(fSymbol)
+					controls.appendChild(fRegion)
+					controls.appendChild(fBadge)
+					controls.appendChild(statsFull)
+					controls.appendChild(statsRed)
+
+					card.appendChild(cardMain)
+					card.appendChild(controls)
+					grid.appendChild(card)
+				})
+			}
+
+			function applyFilters() {
+				const keyword = searchEl.value.trim().toLowerCase()
+				const faction = filterFaction.value
+				const type = filterType.value
+				const needType = filterMissingClass.checked
+				const needSymbol = filterMissingSymbol.checked
+				const needRegion = filterMissingRegion.checked
+				filtered = rows.filter((row) => {
+					if (faction && (row.faction || "").toLowerCase() !== faction) return false
+					if (type && (row.type || "").toLowerCase() !== type) return false
+					if (needType && row.type) return false
+					if (needSymbol && row.symbol) return false
+					if (needRegion && row.region_limit) return false
+					if (!keyword) return true
+					const hay = [row.id, row.name, row.nation, row.type, row.piece_class].join(" ").toLowerCase()
+					return hay.includes(keyword)
+				})
+				render()
+			}
+
+			function buildTypeOptions() {
+				const set = new Set()
+				rows.forEach((r) => {
+					if (r.type) set.add(r.type.toLowerCase())
+				})
+				filterType.innerHTML = '<option value="">类型: 全部</option>'
+				Array.from(set.values())
+					.sort()
+					.forEach((t) => {
+						const opt = document.createElement("option")
+						opt.value = t
+						opt.textContent = t
+						filterType.appendChild(opt)
+					})
+			}
+
+			async function loadPieces() {
+				statusEl.textContent = "加载中..."
+				const res = await fetch("/csv/pieces.csv?t=" + Date.now())
+				if (!res.ok) {
+					statusEl.textContent = "加载失败"
+					return
+				}
+				const text = await res.text()
+				const parsed = parseCSV(text)
+				headers = parsed.headers
+				NEW_FIELDS.forEach((f) => {
+					if (!headers.includes(f)) headers.push(f)
+				})
+				rows = parsed.rows.map((r) => ({ ...r }))
+				dirtyCount = 0
+				buildTypeOptions()
+				applyFilters()
+				updateStatus()
+				showToast(`已加载 ${rows.length} 个单位`)
+			}
+
+			async function savePieces() {
+				const csv = buildCSV(headers, rows)
+				statusEl.textContent = "写入中..."
+				const res = await fetch("/api/save", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ pieces: csv })
+				})
+				if (!res.ok) {
+					statusEl.textContent = "写入失败"
+					showToast("写入失败")
+					return
+				}
+				rows.forEach((r) => (r._dirty = false))
+				dirtyCount = 0
+				updateStatus()
+				render()
+				showToast("已写入 pieces.csv")
+			}
+
+			function downloadCSV() {
+				const csv = buildCSV(headers, rows)
+				const blob = new Blob([csv], { type: "text/csv;charset=utf-8" })
+				const url = URL.createObjectURL(blob)
+				const a = document.createElement("a")
+				a.href = url
+				a.download = "pieces_tagged.csv"
+				a.click()
+				URL.revokeObjectURL(url)
+				showToast("已下载 CSV")
+			}
+
+			// Keybindings
+			window.addEventListener("keydown", (e) => {
+				if (e.ctrlKey && e.key === "s") {
+					e.preventDefault()
+					savePieces()
+				}
+				if (e.key === "/") {
+					if (document.activeElement !== searchEl) {
+						e.preventDefault()
+						searchEl.focus()
+					}
+				}
+				if (e.key === "?") {
+					toggleHelp()
+				}
+				if (e.key === "Escape") {
+					clearSelection()
+					document.getElementById("helpSection").classList.remove("show")
+				}
+			})
+
+			document.getElementById("btnReload").onclick = loadPieces
+			document.getElementById("btnDownload").onclick = downloadCSV
+			document.getElementById("btnSave").onclick = savePieces
+			searchEl.oninput = applyFilters
+			filterFaction.onchange = applyFilters
+			filterType.onchange = applyFilters
+			filterMissingClass.onchange = applyFilters
+			filterMissingSymbol.onchange = applyFilters
+			filterMissingRegion.onchange = applyFilters
+
+			loadPieces()
+		</script>
+	</body>
+</html>

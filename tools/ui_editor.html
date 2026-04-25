@@ -1,0 +1,1393 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<title>PUG UI 编辑器</title>
+		<style>
+			:root {
+				--bg-color: #1e1e1e;
+				--panel-bg: #252526;
+				--text-color: #cccccc;
+				--accent-color: #007acc;
+				--accent-hover: #0098ff;
+				--border-color: #3e3e42;
+				--danger-color: #d32f2f;
+				--success-color: #388e3c;
+				--input-bg: #3c3c3c;
+				--item-hover: #2a2d2e;
+				--item-selected: #37373d;
+			}
+			* {
+				box-sizing: border-box;
+			}
+			body {
+				margin: 0;
+				padding: 0;
+				overflow: hidden;
+				font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+				background: var(--bg-color);
+				color: var(--text-color);
+				display: flex;
+				font-size: 13px;
+			}
+
+			#sidebar {
+				width: 300px;
+				height: 100vh;
+				background: var(--panel-bg);
+				border-right: 1px solid var(--border-color);
+				display: flex;
+				flex-direction: column;
+				z-index: 10;
+				box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+			}
+
+			#sidebar-header {
+				padding: 10px 15px;
+				background: #2d2d30;
+				border-bottom: 1px solid var(--border-color);
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+			}
+			#sidebar-header h2 {
+				margin: 0;
+				font-size: 14px;
+				font-weight: 600;
+				text-transform: uppercase;
+				letter-spacing: 0.5px;
+			}
+			#item-count {
+				font-size: 11px;
+				opacity: 0.7;
+				background: #333;
+				padding: 2px 6px;
+				border-radius: 10px;
+			}
+
+			#search-box {
+				padding: 8px;
+				border-bottom: 1px solid var(--border-color);
+			}
+			#search-input {
+				width: 100%;
+				padding: 6px 8px;
+				background: var(--input-bg);
+				border: 1px solid var(--border-color);
+				color: white;
+				border-radius: 3px;
+			}
+			#search-input:focus {
+				border-color: var(--accent-color);
+				outline: none;
+			}
+
+			#list {
+				flex: 1;
+				overflow-y: auto;
+				margin: 0;
+				padding: 0;
+				list-style: none;
+			}
+			#list::-webkit-scrollbar {
+				width: 10px;
+			}
+			#list::-webkit-scrollbar-track {
+				background: #1e1e1e;
+			}
+			#list::-webkit-scrollbar-thumb {
+				background: #424242;
+				border-radius: 5px;
+				border: 2px solid #1e1e1e;
+			}
+
+			#list li {
+				padding: 6px 15px;
+				border-bottom: 1px solid #2d2d30;
+				cursor: pointer;
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				transition: background 0.1s;
+			}
+			#list li:hover {
+				background: var(--item-hover);
+			}
+			#list li.selected {
+				background: var(--item-selected);
+				color: white;
+				border-left: 3px solid var(--accent-color);
+				padding-left: 12px;
+			}
+			#list li .key {
+				flex: 1;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+				font-weight: 500;
+			}
+			#list li .coord {
+				font-size: 11px;
+				opacity: 0.5;
+				font-family: monospace;
+			}
+
+			#controls {
+				padding: 15px;
+				background: #252526;
+				border-top: 1px solid var(--border-color);
+				display: flex;
+				flex-direction: column;
+				gap: 12px;
+			}
+
+			.btn-group {
+				display: flex;
+				gap: 8px;
+			}
+			button {
+				flex: 1;
+				background: #3c3c3c;
+				color: white;
+				border: 1px solid transparent;
+				padding: 6px 12px;
+				cursor: pointer;
+				border-radius: 3px;
+				font-size: 12px;
+				transition: all 0.2s;
+			}
+			button:hover {
+				background: #4a4a4a;
+			}
+			button.primary {
+				background: var(--accent-color);
+			}
+			button.primary:hover {
+				background: var(--accent-hover);
+			}
+			button.danger {
+				background: var(--danger-color);
+				opacity: 0.8;
+			}
+			button.danger:hover {
+				opacity: 1;
+			}
+
+			.form-grid {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 8px;
+			}
+			.field {
+				display: flex;
+				flex-direction: column;
+				gap: 4px;
+			}
+			.field label {
+				font-size: 11px;
+				color: #888;
+				text-transform: uppercase;
+			}
+			input {
+				background: var(--input-bg);
+				border: 1px solid var(--border-color);
+				color: white;
+				padding: 5px 8px;
+				border-radius: 2px;
+				font-family: inherit;
+				font-size: 12px;
+			}
+			input:focus {
+				border-color: var(--accent-color);
+				outline: none;
+			}
+			input[type="number"] {
+				-moz-appearance: textfield;
+			}
+
+			#viewport {
+				flex: 1;
+				position: relative;
+				height: 100vh;
+				overflow: hidden;
+				cursor: grab;
+				background: #111;
+				user-select: none;
+			}
+			#viewport:active {
+				cursor: grabbing;
+			}
+
+			#map-container {
+				position: absolute;
+				top: 0;
+				left: 0;
+				transform-origin: 0 0;
+			}
+			#map-img {
+				display: block;
+				pointer-events: none;
+				opacity: 0.8;
+			}
+			#items-layer {
+				position: absolute;
+				top: 0;
+				left: 0;
+				pointer-events: none;
+				width: 100%;
+				height: 100%;
+			}
+
+			.ui-box {
+				position: absolute;
+				border: 1px solid rgba(0, 255, 255, 0.4);
+				color: rgba(255, 255, 255, 0.9);
+				font-size: 10px;
+				background: rgba(0, 100, 100, 0.15);
+				pointer-events: auto;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				overflow: hidden;
+				cursor: move;
+				transition:
+					border-color 0.1s,
+					background 0.1s,
+					box-shadow 0.1s;
+			}
+			.ui-box:hover {
+				border-color: rgba(0, 255, 255, 1);
+				background: rgba(0, 100, 100, 0.3);
+				z-index: 100;
+				box-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+			}
+			.ui-box.selected {
+				border: 2px solid #ffd700;
+				color: #ffd700;
+				background: rgba(255, 215, 0, 0.25);
+				z-index: 101;
+				box-shadow: 0 0 12px rgba(255, 215, 0, 0.4);
+			}
+			.ui-box .label {
+				pointer-events: none;
+				text-align: center;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				padding: 2px;
+				text-shadow: 0 1px 3px black;
+				font-weight: 600;
+				letter-spacing: -0.2px;
+			}
+
+			#toolbar {
+				position: absolute;
+				top: 10px;
+				right: 10px;
+				background: rgba(30, 30, 30, 0.9);
+				border-radius: 4px;
+				padding: 5px;
+				display: flex;
+				gap: 5px;
+				box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+			}
+			#toolbar button {
+				padding: 4px 8px;
+				font-size: 14px;
+				background: transparent;
+			}
+			#toolbar button:hover {
+				background: rgba(255, 255, 255, 0.1);
+			}
+
+			#toast {
+				position: absolute;
+				left: 50%;
+				bottom: 30px;
+				transform: translateX(-50%);
+				background: #333;
+				color: #fff;
+				padding: 8px 16px;
+				border-radius: 20px;
+				opacity: 0;
+				transition: opacity 0.3s;
+				pointer-events: none;
+				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+				font-weight: 500;
+				display: flex;
+				align-items: center;
+				gap: 8px;
+			}
+			#toast.success {
+				border-left: 4px solid var(--success-color);
+			}
+			#toast.error {
+				border-left: 4px solid var(--danger-color);
+			}
+
+			#coords-display {
+				position: absolute;
+				bottom: 0;
+				right: 0;
+				background: rgba(0, 0, 0, 0.6);
+				color: #aaa;
+				padding: 4px 8px;
+				font-size: 11px;
+				font-family: monospace;
+				pointer-events: none;
+			}
+			#selection-rect {
+				position: absolute;
+				border: 1px dashed #00ffff;
+				background: rgba(0, 255, 255, 0.1);
+				pointer-events: none;
+				display: none;
+				z-index: 1000;
+			}
+
+			.toolbar-group {
+				display: flex;
+				gap: 1px;
+				background: #333;
+				padding: 2px;
+				border-radius: 3px;
+			}
+			.icon-btn {
+				padding: 4px;
+				width: 28px;
+				height: 24px;
+				text-align: center;
+				font-family: monospace;
+				font-size: 12px;
+				cursor: pointer;
+				background: transparent;
+				color: #ccc;
+				border: none;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+			.icon-btn:hover {
+				background: #444;
+				color: white;
+			}
+			.icon-btn:active {
+				background: #555;
+			}
+
+			/* New Toolbar Styles */
+			.toolbar-row {
+				display: flex;
+				gap: 4px;
+				margin-bottom: 8px;
+				align-items: center;
+			}
+			.toolbar-btn {
+				padding: 4px 8px;
+				background: #3c3c3c;
+				border: 1px solid #444;
+				border-radius: 3px;
+				color: #ccc;
+				cursor: pointer;
+				font-size: 13px;
+				flex: 0 0 auto;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				height: 26px;
+			}
+			.toolbar-btn:hover {
+				background: #505050;
+				color: white;
+				border-color: #666;
+			}
+			.toolbar-btn:disabled {
+				opacity: 0.5;
+				cursor: default;
+			}
+			.toolbar-btn.primary {
+				background: var(--accent-color);
+				border-color: var(--accent-color);
+				color: white;
+			}
+			.toolbar-btn.primary:hover {
+				background: var(--accent-hover);
+			}
+			.toolbar-btn.danger {
+				color: #ff6b6b;
+			}
+			.toolbar-btn.danger:hover {
+				background: rgba(211, 47, 47, 0.2);
+				border-color: #d32f2f;
+			}
+
+			.section-header {
+				font-size: 10px;
+				text-transform: uppercase;
+				color: #666;
+				margin: 12px 0 6px 0;
+				font-weight: 600;
+				letter-spacing: 0.5px;
+				display: flex;
+				align-items: center;
+			}
+			.section-header::after {
+				content: "";
+				flex: 1;
+				height: 1px;
+				background: #333;
+				margin-left: 8px;
+			}
+
+			.compact-field {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+			}
+			.compact-field label {
+				min-width: 15px;
+				color: #888;
+				font-size: 11px;
+			}
+			.compact-field input {
+				flex: 1;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="sidebar">
+			<div id="sidebar-header">
+				<h2>UI 编辑器</h2>
+				<span id="item-count">0 个组件</span>
+			</div>
+			<div id="search-box">
+				<input id="search-input" placeholder="搜索..." oninput="filterList(this.value)" />
+			</div>
+			<ul id="list"></ul>
+			<div id="controls">
+				<!-- Edit Toolbar -->
+				<div class="toolbar-row">
+					<button class="toolbar-btn" onclick="undo()" id="btn-undo" title="撤销">↶</button>
+					<button class="toolbar-btn" onclick="redo()" id="btn-redo" title="重做">↷</button>
+					<button
+						class="toolbar-btn"
+						onclick="toggleLabels()"
+						id="btn-labels"
+						title="显示/隐藏标签"
+					>
+						T
+					</button>
+					<div style="flex: 1"></div>
+					<button class="toolbar-btn" onclick="addItem()" title="添加新组件">＋</button>
+					<button class="toolbar-btn" onclick="duplicateSelected()" title="克隆选中组件">❐</button>
+					<button
+						class="toolbar-btn"
+						onclick="toggleLock()"
+						id="btn-lock"
+						title="锁定/解锁 (解锁后点击地图移动组件)"
+					>
+						🔒
+					</button>
+					<button class="toolbar-btn danger" onclick="deleteSelected()" title="删除选中组件">✕</button>
+				</div>
+
+				<div class="section-header">属性</div>
+
+				<div class="field">
+					<input id="field-key" placeholder="键名 / ID" oninput="updateField('key', this.value)" />
+				</div>
+
+				<div class="form-grid">
+					<div class="compact-field">
+						<label>X</label>
+						<input id="field-x" type="number" oninput="updateField('x', this.value)" />
+					</div>
+					<div class="compact-field">
+						<label>Y</label>
+						<input id="field-y" type="number" oninput="updateField('y', this.value)" />
+					</div>
+				</div>
+				<div class="form-grid">
+					<div class="compact-field">
+						<label>宽</label>
+						<input id="field-w" type="number" oninput="updateField('w', this.value)" />
+					</div>
+					<div class="compact-field">
+						<label>高</label>
+						<input id="field-h" type="number" oninput="updateField('h', this.value)" />
+					</div>
+				</div>
+
+				<div class="section-header">对齐</div>
+
+				<div class="toolbar-row" style="justify-content: space-between">
+					<div class="toolbar-group">
+						<button class="icon-btn" onclick="align('left')" title="左对齐">⇤</button>
+						<button class="icon-btn" onclick="align('center-x')" title="水平居中">⇹</button>
+						<button class="icon-btn" onclick="align('right')" title="右对齐">⇥</button>
+					</div>
+					<div class="toolbar-group">
+						<button class="icon-btn" onclick="align('top')" title="顶对齐">⤒</button>
+						<button class="icon-btn" onclick="align('center-y')" title="垂直居中">⇕</button>
+						<button class="icon-btn" onclick="align('bottom')" title="底对齐">⤓</button>
+					</div>
+				</div>
+				<div class="toolbar-row" style="justify-content: center">
+					<div class="toolbar-group">
+						<button
+							class="icon-btn"
+							onclick="distribute('h')"
+							style="width: auto; padding: 4px 8px"
+							title="水平分布"
+						>
+							水平分布
+						</button>
+						<button
+							class="icon-btn"
+							onclick="distribute('v')"
+							style="width: auto; padding: 4px 8px"
+							title="垂直分布"
+						>
+							垂直分布
+						</button>
+					</div>
+				</div>
+
+				<div style="flex: 1"></div>
+
+				<div class="toolbar-row">
+					<button class="toolbar-btn" onclick="reloadLatest()" title="丢弃更改并重新加载">重载</button>
+					<div style="flex: 1"></div>
+					<button class="toolbar-btn primary" onclick="saveDiff()" title="保存更改">保存</button>
+				</div>
+			</div>
+		</div>
+		<div id="viewport">
+			<div id="map-container">
+				<img id="map-img" src="/pieces/PuGmap.jpg" />
+				<div id="items-layer"></div>
+			</div>
+			<div id="selection-rect"></div>
+			<div id="toolbar">
+				<button onclick="zoomOut()" title="缩小">-</button>
+				<button onclick="resetZoom()" title="重置缩放">1:1</button>
+				<button onclick="zoomIn()" title="放大">+</button>
+			</div>
+			<div id="coords-display">0, 0</div>
+			<div id="toast">消息</div>
+		</div>
+		<script>
+			let items = []
+			let filteredItems = []
+			let selection = new Set() // Set of item objects
+			let baseByKey = new Map()
+
+			// Undo/Redo state
+			let undoStack = []
+			let redoStack = []
+			const MAX_HISTORY = 50
+			let tempSnapshot = null // For drag/edit operations
+
+			// Viewport state
+			let vScale = 1
+			let vX = 0
+			let vY = 0
+
+			// Interaction state
+			let isPanning = false
+			let startPanX = 0
+			let startPanY = 0
+
+			let isDragging = false
+			let dragStartMouseX = 0
+			let dragStartMouseY = 0
+			let dragStartPositions = new Map() // Map<item, {x, y}>
+
+			let isBoxSelecting = false
+			let boxStartMapX = 0
+			let boxStartMapY = 0
+
+			const listEl = document.getElementById("list")
+			const viewport = document.getElementById("viewport")
+			const mapContainer = document.getElementById("map-container")
+			const mapImg = document.getElementById("map-img")
+			const itemsLayer = document.getElementById("items-layer")
+			const selectionRect = document.getElementById("selection-rect")
+			const toast = document.getElementById("toast")
+			const countEl = document.getElementById("item-count")
+			const coordsDisplay = document.getElementById("coords-display")
+
+			function showToast(msg, type = "success") {
+				toast.textContent = msg
+				toast.className = type
+				toast.style.opacity = 1
+				setTimeout(() => (toast.style.opacity = 0), 2000)
+			}
+
+			function filterList(query) {
+				if (!query) {
+					filteredItems = items
+				} else {
+					const lower = query.toLowerCase()
+					filteredItems = items.filter((i) => i.key.toLowerCase().includes(lower))
+				}
+				renderList()
+			}
+
+			function parseCSV(text) {
+				if (!text) return []
+				if (text.charCodeAt(0) === 0xfeff) text = text.slice(1)
+				const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0)
+				if (lines.length === 0) return []
+				const headers = lines[0].split(",").map((h) => h.trim())
+				return lines.slice(1).map((line) => {
+					const values = line.split(",")
+					const obj = {}
+					headers.forEach((h, i) => (obj[h] = (values[i] ?? "").trim()))
+					return obj
+				})
+			}
+
+			function buildCSV(headers, rows) {
+				let out = headers.join(",") + "\n"
+				rows.forEach((r) => {
+					out += headers.map((h) => r[h] ?? "").join(",") + "\n"
+				})
+				return out
+			}
+
+			async function initData() {
+				try {
+					const res = await fetch("/csv/ui.csv?t=" + Date.now())
+					if (!res.ok) throw new Error("load failed")
+					const text = await res.text()
+					const rows = parseCSV(text)
+					items = rows
+						.map((r) => ({
+							...r, // Keep all columns (like 'id')
+							key: r.key || r.name || "",
+							x: parseInt(r.x) || 0,
+							y: parseInt(r.y) || 0,
+							w: parseInt(r.w) || 44,
+							h: parseInt(r.h) || 44
+						}))
+						.filter((r) => r.key)
+					filteredItems = items
+					countEl.textContent = `${items.length} 个组件`
+					showToast(`加载了 ${items.length} 个组件`)
+				} catch (e) {
+					items = []
+					filteredItems = []
+					showToast("加载数据失败", "error")
+				}
+				captureBaseline()
+				render()
+			}
+
+			// Undo/Redo Logic
+			function getSnapshot() {
+				return JSON.stringify({
+					items: items,
+					selection: [...selection].map((i) => i.key)
+				})
+			}
+
+			function pushToUndo(snapshot) {
+				if (!snapshot) return
+				if (undoStack.length > 0 && undoStack[undoStack.length - 1] === snapshot) return
+
+				undoStack.push(snapshot)
+				if (undoStack.length > MAX_HISTORY) undoStack.shift()
+				redoStack = []
+				updateUndoRedoButtons()
+			}
+
+			function saveState() {
+				pushToUndo(getSnapshot())
+			}
+
+			function restoreState(snapshot) {
+				if (!snapshot) return
+
+				const data = JSON.parse(snapshot)
+				items = data.items || [] // Handle legacy snapshots if any (though we just started)
+				// If snapshot is old format (array), handle it? No, we are in dev.
+				// Actually, to be safe:
+				if (Array.isArray(data)) {
+					items = data
+					selection = new Set()
+				} else {
+					items = data.items
+					const selectedKeys = new Set(data.selection || [])
+					selection = new Set()
+					items.forEach((i) => {
+						if (selectedKeys.has(i.key)) selection.add(i)
+					})
+				}
+
+				filterList(document.getElementById("search-input").value)
+				countEl.textContent = `${items.length} 个组件`
+				render()
+			}
+
+			function undo() {
+				if (undoStack.length === 0) return
+
+				// Push current state to redo stack BEFORE restoring
+				const current = getSnapshot()
+				redoStack.push(current)
+
+				const prev = undoStack.pop()
+				restoreState(prev)
+				updateUndoRedoButtons()
+				showToast("撤销", "info")
+			}
+
+			function redo() {
+				if (redoStack.length === 0) return
+
+				const current = getSnapshot()
+				undoStack.push(current)
+
+				const next = redoStack.pop()
+				restoreState(next)
+				updateUndoRedoButtons()
+				showToast("重做", "info")
+			}
+
+			function updateUndoRedoButtons() {
+				const btnUndo = document.getElementById("btn-undo")
+				const btnRedo = document.getElementById("btn-redo")
+				if (btnUndo) btnUndo.disabled = undoStack.length === 0
+				if (btnRedo) btnRedo.disabled = redoStack.length === 0
+			}
+
+			function captureBaseline() {
+				baseByKey = new Map(items.map((i) => [i.key, { ...i }]))
+			}
+
+			function computeDiff() {
+				const added = []
+				const updated = []
+				const deleted = []
+				const currentKeys = new Set(items.map((i) => i.key))
+				items.forEach((i) => {
+					const base = baseByKey.get(i.key)
+					if (!base) added.push(i)
+					else if (JSON.stringify(i) !== JSON.stringify(base)) updated.push(i)
+				})
+				baseByKey.forEach((v, k) => {
+					if (!currentKeys.has(k)) deleted.push(v)
+				})
+				return { ui: { added, updated, deleted } }
+			}
+
+			async function saveDiff() {
+				const diff = computeDiff()
+				const changeCount = diff.ui.added.length + diff.ui.updated.length + diff.ui.deleted.length
+				if (changeCount === 0) {
+					showToast("没有更改需要保存")
+					return
+				}
+				try {
+					const res = await fetch("/api/save-diff", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify(diff)
+					})
+					if (res.ok) {
+						showToast(`已保存 ${changeCount} 处更改`)
+						captureBaseline()
+					} else {
+						showToast("保存失败", "error")
+					}
+				} catch (e) {
+					showToast("保存失败", "error")
+				}
+			}
+
+			function reloadLatest() {
+				if (confirm("丢弃未保存的更改并重新加载？")) {
+					initData()
+				}
+			}
+
+			function render() {
+				renderList()
+				renderMapItems()
+				updateFields()
+			}
+
+			function renderList() {
+				// We still clear the list for now because it's not the primary source of performance lag.
+				// But we'll use a fragment to minimize layout thrashing.
+				const fragment = document.createDocumentFragment()
+				filteredItems.forEach((item) => {
+					const li = document.createElement("li")
+					const isSelected = selection.has(item)
+					li.className = isSelected ? "selected" : ""
+					li.onclick = (e) => handleListClick(e, item)
+
+					const keySpan = document.createElement("span")
+					keySpan.className = "key"
+					keySpan.textContent = item.key
+
+					const coordSpan = document.createElement("span")
+					coordSpan.className = "coord"
+					coordSpan.textContent = `${item.x},${item.y}`
+
+					li.appendChild(keySpan)
+					li.appendChild(coordSpan)
+					fragment.appendChild(li)
+				})
+				listEl.innerHTML = ""
+				listEl.appendChild(fragment)
+
+				// Auto scroll to first selected if in list
+				if (selection.size > 0) {
+					const selEl = listEl.querySelector(".selected")
+					if (selEl) selEl.scrollIntoView({ block: "nearest" })
+				}
+			}
+
+			// Map item elements cache: key -> element
+			const mapItemCache = new Map()
+
+			function renderMapItems() {
+				// We don't clear the layer anymore. Instead, we sync the items with the layer.
+				const currentKeys = new Set(items.map((i) => i.key))
+
+				// Remove old items
+				mapItemCache.forEach((el, key) => {
+					if (!currentKeys.has(key)) {
+						el.remove()
+						mapItemCache.delete(key)
+					}
+				})
+
+				// Update or create items
+				items.forEach((item) => {
+					let box = mapItemCache.get(item.key)
+					const isSelected = selection.has(item)
+
+					if (!box) {
+						box = document.createElement("div")
+						box.className = "ui-box"
+						const label = document.createElement("div")
+						label.className = "label"
+						box.appendChild(label)
+						box.onmousedown = (e) => startDrag(e, item)
+						itemsLayer.appendChild(box)
+						mapItemCache.set(item.key, box)
+					}
+
+					box.className = "ui-box" + (isSelected ? " selected" : "")
+					box.style.left = item.x + "px"
+					box.style.top = item.y + "px"
+					box.style.width = item.w + "px"
+					box.style.height = item.h + "px"
+					const lbl = box.querySelector(".label")
+					lbl.textContent = item.key
+					lbl.style.display = showLabels ? "" : "none"
+				})
+			}
+
+			function getSelectionCommonValue(field) {
+				if (selection.size === 0) return ""
+				const values = new Set([...selection].map((i) => i[field]))
+				return values.size === 1 ? [...values][0] : "" // return empty string if mixed
+			}
+
+			function updateFields() {
+				document.getElementById("field-key").value = getSelectionCommonValue("key")
+				document.getElementById("field-x").value = getSelectionCommonValue("x")
+				document.getElementById("field-y").value = getSelectionCommonValue("y")
+				document.getElementById("field-w").value = getSelectionCommonValue("w")
+				document.getElementById("field-h").value = getSelectionCommonValue("h")
+
+				// Disable Key editing if multiple selected
+				document.getElementById("field-key").disabled = selection.size > 1
+			}
+
+			function handleListClick(e, item) {
+				if (e.ctrlKey || e.metaKey) {
+					if (selection.has(item)) selection.delete(item)
+					else selection.add(item)
+				} else if (e.shiftKey) {
+					// Simple range selection could be implemented here,
+					// for now just add to selection
+					selection.add(item)
+				} else {
+					selection.clear()
+					selection.add(item)
+				}
+				render()
+			}
+
+			function updateField(field, value) {
+				if (selection.size === 0) return
+
+				// Key must be unique, so only update if single selection
+				if (field === "key") {
+					if (selection.size > 1) return
+					const newKey = value.trim()
+					if (!newKey) return
+					const item = [...selection][0]
+					if (items.find((i) => i.key === newKey && i !== item)) return
+					item.key = newKey
+				} else if (field === "x" || field === "y" || field === "w" || field === "h") {
+					if (value === "" || value === "-") return
+					const val = parseInt(value)
+					if (isNaN(val)) return
+					selection.forEach((item) => (item[field] = val))
+				}
+				// Only re-render map item and list item for performance, or full render
+				// Avoid full render() to prevent input focus loss/overwrite during typing
+				renderMapItems()
+				if (field === "key") renderList()
+			}
+
+			function addItem() {
+				pushToUndo(getSnapshot())
+				let idx = 1
+				let key = `UI ${idx}`
+				while (items.find((i) => i.key === key)) {
+					idx += 1
+					key = `UI ${idx}`
+				}
+
+				// Center of viewport
+				const rect = viewport.getBoundingClientRect()
+				const x = Math.round((rect.width / 2 - vX) / vScale) - 22
+				const y = Math.round((rect.height / 2 - vY) / vScale) - 22
+
+				const maxId = items.reduce((max, i) => Math.max(max, parseInt(i.id) || 0), 0)
+
+				const item = { id: maxId + 1, key, x, y, w: 44, h: 44 }
+				items.push(item)
+				filterList(document.getElementById("search-input").value) // re-filter
+
+				selection.clear()
+				selection.add(item)
+
+				countEl.textContent = `${items.length} 个组件`
+				render()
+			}
+
+			let isLocked = true
+
+			let showLabels = true
+			function toggleLabels() {
+				showLabels = !showLabels
+				const btn = document.getElementById("btn-labels")
+				btn.style.background = showLabels ? "" : "#555"
+				renderMapItems()
+			}
+
+			function toggleLock() {
+				isLocked = !isLocked
+				const btn = document.getElementById("btn-lock")
+				if (isLocked) {
+					btn.textContent = "🔒"
+					btn.style.background = ""
+					showToast("已锁定：标准模式")
+				} else {
+					btn.textContent = "🔓"
+					btn.style.background = "#ffe0e0" // Light red to warn unlocked
+					showToast("已解锁：点击地图移动组件", "info")
+				}
+			}
+
+			function duplicateSelected() {
+				if (selection.size === 0) return
+				pushToUndo(getSnapshot())
+
+				const newItems = []
+				const newSelection = new Set()
+
+				let currentMaxId = items.reduce((max, i) => Math.max(max, parseInt(i.id) || 0), 0)
+
+				selection.forEach((item) => {
+					let idx = 1
+					let key = `${item.key} copy`
+					while (items.find((i) => i.key === key)) {
+						idx += 1
+						key = `${item.key} copy ${idx}`
+					}
+					currentMaxId += 1
+					const newItem = { ...item, id: currentMaxId, key, x: item.x + 20, y: item.y + 20 }
+					items.push(newItem)
+					newItems.push(newItem)
+					newSelection.add(newItem)
+				})
+
+				selection = newSelection
+				filterList(document.getElementById("search-input").value)
+				countEl.textContent = `${items.length} 个组件`
+				render()
+				showToast(`已复制 ${newItems.length} 个组件`)
+			}
+
+			function deleteSelected() {
+				if (selection.size === 0) return
+				if (confirm(`确定要删除 ${selection.size} 个组件吗？`)) {
+					pushToUndo(getSnapshot())
+					items = items.filter((i) => !selection.has(i))
+					filteredItems = filteredItems.filter((i) => !selection.has(i))
+					selection.clear()
+					countEl.textContent = `${items.length} 个组件`
+					render()
+				}
+			}
+
+			function startDrag(e, item) {
+				if (e.button !== 0) return
+				e.stopPropagation() // Prevent panning/box selection
+				e.preventDefault()
+
+				// Save state before drag starts
+				tempSnapshot = getSnapshot()
+
+				// If clicking an item not in selection, select it (exclusive unless Shift/Ctrl)
+				if (!selection.has(item)) {
+					if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
+						selection.clear()
+					}
+					selection.add(item)
+					render() // Update visuals
+				} else if (e.shiftKey || e.ctrlKey || e.metaKey) {
+					// Toggle off if already selected and modifier held
+					// But if dragging, we probably want to keep it selected...
+					// Let's stick to standard behavior: click toggles, drag maintains selection
+				}
+
+				isDragging = true
+				dragStartMouseX = e.clientX
+				dragStartMouseY = e.clientY
+
+				// Record start positions for all selected items
+				dragStartPositions.clear()
+				selection.forEach((i) => {
+					dragStartPositions.set(i, { x: i.x, y: i.y })
+				})
+			}
+
+			function screenToMap(clientX, clientY) {
+				const rect = viewport.getBoundingClientRect()
+				const x = (clientX - rect.left - vX) / vScale
+				const y = (clientY - rect.top - vY) / vScale
+				return { x, y }
+			}
+
+			function updateTransform() {
+				mapContainer.style.transform = `translate(${vX}px, ${vY}px) scale(${vScale})`
+			}
+
+			// Alignment Functions
+			function align(mode) {
+				if (selection.size < 2) return
+				pushToUndo(getSnapshot())
+				const selArr = [...selection]
+
+				// Calculate bounds/average
+				let minX = Infinity,
+					maxX = -Infinity,
+					minY = Infinity,
+					maxY = -Infinity
+				let avgX = 0,
+					avgY = 0
+
+				selArr.forEach((i) => {
+					minX = Math.min(minX, i.x)
+					maxX = Math.max(maxX, i.x + i.w)
+					minY = Math.min(minY, i.y)
+					maxY = Math.max(maxY, i.y + i.h)
+					avgX += i.x + i.w / 2
+					avgY += i.y + i.h / 2
+				})
+				avgX /= selArr.length
+				avgY /= selArr.length
+
+				selArr.forEach((i) => {
+					switch (mode) {
+						case "left":
+							i.x = minX
+							break
+						case "right":
+							i.x = maxX - i.w
+							break
+						case "center-x":
+							i.x = avgX - i.w / 2
+							break // Align to average center
+						case "top":
+							i.y = minY
+							break
+						case "bottom":
+							i.y = maxY - i.h
+							break
+						case "center-y":
+							i.y = avgY - i.h / 2
+							break
+					}
+				})
+				render()
+			}
+
+			function distribute(mode) {
+				if (selection.size < 3) return
+				pushToUndo(getSnapshot())
+				// Sort by position
+				const selArr = [...selection].sort((a, b) => (mode === "h" ? a.x - b.x : a.y - b.y))
+
+				const first = selArr[0]
+				const last = selArr[selArr.length - 1]
+
+				if (mode === "h") {
+					const totalDist = last.x - first.x
+					const step = totalDist / (selArr.length - 1)
+					selArr.forEach((item, idx) => {
+						if (idx === 0 || idx === selArr.length - 1) return
+						item.x = Math.round(first.x + step * idx)
+					})
+				} else {
+					const totalDist = last.y - first.y
+					const step = totalDist / (selArr.length - 1)
+					selArr.forEach((item, idx) => {
+						if (idx === 0 || idx === selArr.length - 1) return
+						item.y = Math.round(first.y + step * idx)
+					})
+				}
+				render()
+			}
+
+			// Zoom
+			function zoomIn() {
+				vScale = Math.min(5, vScale * 1.2)
+				updateTransform()
+			}
+			function zoomOut() {
+				vScale = Math.max(0.1, vScale / 1.2)
+				updateTransform()
+			}
+			function resetZoom() {
+				vScale = 1
+				vX = 0
+				vY = 0
+				updateTransform()
+			}
+
+			viewport.addEventListener("wheel", (e) => {
+				e.preventDefault()
+				const zoomSpeed = 0.1
+				const rect = viewport.getBoundingClientRect()
+				const mouseX = e.clientX - rect.left
+				const mouseY = e.clientY - rect.top
+				const mapX = (mouseX - vX) / vScale
+				const mapY = (mouseY - vY) / vScale
+
+				if (e.deltaY < 0) vScale *= 1 + zoomSpeed
+				else vScale /= 1 + zoomSpeed
+				vScale = Math.max(0.1, Math.min(5, vScale))
+
+				vX = mouseX - mapX * vScale
+				vY = mouseY - mapY * vScale
+				updateTransform()
+			})
+
+			viewport.addEventListener("mousedown", (e) => {
+				// Middle click or Space+Left -> Pan
+				if (e.button === 1 || (e.button === 0 && e.altKey)) {
+					isPanning = true
+					startPanX = e.clientX - vX
+					startPanY = e.clientY - vY
+					e.preventDefault()
+					viewport.style.cursor = "grabbing"
+					return
+				}
+
+				// Left click on empty space -> Box Selection (or clear selection)
+				if (e.button === 0) {
+					// UNLOCKED: Click to move selected items
+					if (!isLocked && selection.size > 0) {
+						pushToUndo(getSnapshot())
+						const p = screenToMap(e.clientX, e.clientY)
+
+						// Calculate center of current selection
+						let minX = Infinity,
+							minY = Infinity,
+							maxX = -Infinity,
+							maxY = -Infinity
+						selection.forEach((i) => {
+							minX = Math.min(minX, i.x)
+							minY = Math.min(minY, i.y)
+							maxX = Math.max(maxX, i.x + i.w)
+							maxY = Math.max(maxY, i.y + i.h)
+						})
+						const cx = (minX + maxX) / 2
+						const cy = (minY + maxY) / 2
+
+						const dx = Math.round(p.x - cx)
+						const dy = Math.round(p.y - cy)
+
+						selection.forEach((i) => {
+							i.x += dx
+							i.y += dy
+						})
+
+						render()
+						updateFields()
+						return // Skip box selection
+					}
+
+					if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
+						selection.clear()
+						render()
+					}
+
+					isBoxSelecting = true
+					// Store raw mouse pos for rect drawing
+					dragStartMouseX = e.clientX
+					dragStartMouseY = e.clientY
+
+					// Calculate map coordinates for selection logic
+					const p = screenToMap(e.clientX, e.clientY)
+					boxStartMapX = p.x
+					boxStartMapY = p.y
+
+					selectionRect.style.left = e.clientX - viewport.getBoundingClientRect().left + "px"
+					selectionRect.style.top = e.clientY - viewport.getBoundingClientRect().top + "px"
+					selectionRect.style.width = "0"
+					selectionRect.style.height = "0"
+					selectionRect.style.display = "block"
+				}
+			})
+
+			window.addEventListener("mousemove", (e) => {
+				const p = screenToMap(e.clientX, e.clientY)
+				coordsDisplay.textContent = `${Math.round(p.x)}, ${Math.round(p.y)}`
+
+				if (isPanning) {
+					vX = e.clientX - startPanX
+					vY = e.clientY - startPanY
+					updateTransform()
+				}
+
+				if (isDragging && selection.size > 0) {
+					const deltaX = (e.clientX - dragStartMouseX) / vScale
+					const deltaY = (e.clientY - dragStartMouseY) / vScale
+
+					const snap = !e.shiftKey
+
+					selection.forEach((item) => {
+						const startPos = dragStartPositions.get(item)
+						if (startPos) {
+							let newX = startPos.x + deltaX
+							let newY = startPos.y + deltaY
+
+							if (snap) {
+								newX = Math.round(newX / 5) * 5
+								newY = Math.round(newY / 5) * 5
+							} else {
+								newX = Math.round(newX)
+								newY = Math.round(newY)
+							}
+
+							item.x = newX
+							item.y = newY
+						}
+					})
+
+					render() // Re-render all moved items
+					updateFields()
+				}
+
+				if (isBoxSelecting) {
+					const rect = viewport.getBoundingClientRect()
+					const mouseX = e.clientX - rect.left
+					const mouseY = e.clientY - rect.top
+					const startX = dragStartMouseX - rect.left
+					const startY = dragStartMouseY - rect.top
+
+					const w = Math.abs(mouseX - startX)
+					const h = Math.abs(mouseY - startY)
+					const l = Math.min(mouseX, startX)
+					const t = Math.min(mouseY, startY)
+
+					selectionRect.style.left = l + "px"
+					selectionRect.style.top = t + "px"
+					selectionRect.style.width = w + "px"
+					selectionRect.style.height = h + "px"
+				}
+			})
+
+			window.addEventListener("mouseup", (e) => {
+				if (isPanning) {
+					isPanning = false
+					viewport.style.cursor = "grab"
+				}
+
+				if (isDragging) {
+					isDragging = false
+					if (tempSnapshot && tempSnapshot !== getSnapshot()) {
+						pushToUndo(tempSnapshot)
+					}
+					tempSnapshot = null
+				}
+
+				if (isBoxSelecting) {
+					isBoxSelecting = false
+					selectionRect.style.display = "none"
+
+					// Perform selection
+					// Need to calculate box in Map Coordinates
+					const p1 = screenToMap(dragStartMouseX, dragStartMouseY)
+					const p2 = screenToMap(e.clientX, e.clientY)
+
+					const minX = Math.min(p1.x, p2.x)
+					const maxX = Math.max(p1.x, p2.x)
+					const minY = Math.min(p1.y, p2.y)
+					const maxY = Math.max(p1.y, p2.y)
+
+					// If box is very small, treat as click (already handled by mousedown clearing)
+					if (Math.abs(maxX - minX) > 2 || Math.abs(maxY - minY) > 2) {
+						items.forEach((item) => {
+							// Check intersection or containment
+							// Simple containment of item center
+							const cx = item.x + item.w / 2
+							const cy = item.y + item.h / 2
+							if (cx >= minX && cx <= maxX && cy >= minY && cy <= maxY) {
+								selection.add(item)
+							}
+						})
+						render()
+					}
+				}
+			})
+
+			// Attach input listeners for undo/redo
+			document.querySelectorAll("#controls input").forEach((el) => {
+				el.addEventListener("focus", () => {
+					tempSnapshot = getSnapshot()
+				})
+				el.addEventListener("blur", () => {
+					if (tempSnapshot && tempSnapshot !== getSnapshot()) {
+						pushToUndo(tempSnapshot)
+					}
+					tempSnapshot = null
+				})
+			})
+
+			mapImg.onload = () => {
+				mapContainer.style.width = mapImg.naturalWidth + "px"
+				mapContainer.style.height = mapImg.naturalHeight + "px"
+				updateTransform()
+			}
+
+			if (location.protocol === "file:") {
+				alert("请通过 http://localhost:8082/tools/ui_editor.html 访问")
+			}
+
+			initData()
+		</script>
+	</body>
+</html>
