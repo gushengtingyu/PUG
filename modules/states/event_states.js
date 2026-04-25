@@ -831,6 +831,9 @@ module.exports = function (Engine) {
 		delete game.grand_duke_to_tiflis_retreat_pieces
 		delete game.selected_piece
 		delete event.cp_retreat_steps
+		if (event.event_port > 0) {
+			Engine.set_control(game, event.event_port, AP)
+		}
 		game.active = AP
 		game.state = "event_grand_duke_to_tiflis_sr"
 	}
