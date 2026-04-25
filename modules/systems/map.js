@@ -639,10 +639,9 @@ module.exports = function (Engine) {
 			return true
 		}
 
-		// Must control the strait being crossed
-		if (!faction_controls_strait(game, num, faction)) return false
-
-		// Sequential check for AP (opening the straits from Med to Black Sea)
+		// Sequential check for AP (opening the straits from Med to Black Sea).
+		// AP may always use Strait #1; higher straits require control of all
+		// lower-numbered straits, not control of the target side itself.
 		if (faction === AP) {
 			init_strait_edges()
 			for (let n of strait_numbers) {
@@ -650,7 +649,9 @@ module.exports = function (Engine) {
 			}
 			return true
 		}
-		// Sequential check for CP (opening from Black Sea to Med?)
+		// Sequential check for CP (opening from Black Sea to Med).
+		// CP must control all higher-numbered straits; Strait #5 additionally
+		// requires control of The Bosphorus Forts.
 		if (faction === CP) {
 			init_strait_edges()
 			for (let n of strait_numbers) {
@@ -749,6 +750,11 @@ module.exports = function (Engine) {
 			if (data.spaces[s].connection_types) {
 				conns = Object.keys(data.spaces[s].connection_types).map(Number)
 			}
+		} else if (mode === "attack" && data.spaces[s].connection_types) {
+			// Attacks use map-line adjacency, not movement direction. This lets
+			// units attack across restricted railroads and lets CP attack into
+			// established Beachheads from the mainland side.
+			conns = [...new Set(conns.concat(Object.keys(data.spaces[s].connection_types).map(Number)))]
 		} else if (nation && data.spaces[s].limited_connections && data.spaces[s].limited_connections[nation]) {
 			conns = data.spaces[s].limited_connections[nation]
 		}

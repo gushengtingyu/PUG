@@ -418,6 +418,34 @@ module.exports = function (Engine) {
 		return game_utils.find_space(space)
 	}
 
+	function place_bulgaria_third_army(game, space) {
+		let { game_utils } = Engine
+		let plan =
+			Engine.collapse && typeof Engine.collapse.get_bulgaria_entry_plan === "function"
+				? Engine.collapse.get_bulgaria_entry_plan()
+				: null
+		let cp_plan = plan && plan.cp ? plan.cp : {}
+		let unit_name = cp_plan.third_army_name || "BU 3 Army"
+		let target_space = space || cp_plan.third_army_default_space || "Rustchuk"
+		let p = game_utils.find_piece(CP, unit_name)
+		let space_id = get_entry_space_id(CP, target_space)
+		if (p < 0 || space_id < 0) return false
+
+		let choice_space_names = Array.isArray(cp_plan.third_army_choice_spaces)
+			? cp_plan.third_army_choice_spaces
+			: [cp_plan.third_army_default_space || "Rustchuk"]
+		let choice_space_ids = choice_space_names.map((name) => get_entry_space_id(CP, name)).filter((s) => s >= 0)
+		let current_space = game.pieces[p]
+		let can_reposition_existing = choice_space_ids.includes(current_space)
+
+		if (!game_utils.is_not_on_map(game, p) && !can_reposition_existing) return false
+		if (current_space !== space_id) {
+			game.pieces[p] = space_id
+			Engine.log(game, `部署 ${unit_name} 至 ${data.spaces[space_id].name}`)
+		}
+		return true
+	}
+
 	function place_named_entry_piece(game, faction, unit_name, space, options = {}) {
 		let { game_utils } = Engine
 		if (options.skip_if_event && game.events && game.events[options.skip_if_event]) return false
@@ -798,6 +826,7 @@ module.exports = function (Engine) {
 		trigger_greece_entry,
 		trigger_bulgaria_entry,
 		trigger_romania_entry,
+		place_bulgaria_third_army,
 		place_entry_units,
 		should_trigger_greece_entry_on_attack,
 		on_beachhead_placed,

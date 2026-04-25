@@ -2727,13 +2727,11 @@ module.exports = function (Engine) {
 			},
 			handler: function (game, ctx) {
 				Engine.neutral.trigger_bulgaria_entry(game)
+				Engine.neutral.place_bulgaria_third_army(game)
 				if (game.events["romania"]) {
 					game.active = CP
 					game.state = "event_bulgaria_place_3rd_army"
 				} else {
-					Engine.neutral.place_entry_units(game, CP, [
-						{ space: "Rustchuk", units: ["BU 3 Army"] }
-					])
 					if (typeof Engine.map.check_supply === "function") {
 						Engine.map.check_supply(game)
 					}

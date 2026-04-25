@@ -111,21 +111,23 @@ test("Bulgaria event can place BU 3 Army in Rustchuk after Romania has entered",
 	let bulgariaCard = 88
 	let bu3Army = findPiece(CP, "BU 3 Army")
 	let rustchuk = findSpace("Rustchuk")
+	let plevna = findSpace("Plevna")
 
 	game.active = CP
 	game.state = "play_card"
 	game.hand_cp.push(bulgariaCard)
-	game.events.romania = true
+	Engine.neutral.trigger_romania_entry(game)
 
 	game = rules.action(game, rules.roles[1], "play_event", bulgariaCard)
 	expect(game.state).toBe("event_bulgaria_place_3rd_army")
-	expect(game.pieces[bu3Army]).not.toBe(rustchuk)
+	expect(game.pieces[bu3Army]).toBe(rustchuk)
 
 	let view = rules.view(game, rules.roles[1])
 	expect(view.actions.space || []).toContain(rustchuk)
+	expect(view.actions.space || []).toContain(plevna)
 
-	game = rules.action(game, rules.roles[1], "space", rustchuk)
+	game = rules.action(game, rules.roles[1], "space", plevna)
 
-	expect(game.pieces[bu3Army]).toBe(rustchuk)
+	expect(game.pieces[bu3Army]).toBe(plevna)
 	expect(game.state).toBe("confirm_event")
 })

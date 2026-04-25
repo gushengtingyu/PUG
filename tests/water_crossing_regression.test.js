@@ -19,6 +19,33 @@ function findPiece(faction, name) {
 	return piece
 }
 
+function resetAttackContext(game, faction = CP) {
+	game.active = faction
+	game.reduced = []
+	game.retreated = []
+	game.attacked = []
+	game.activated = { move: [], attack: [] }
+	game.forts = { destroyed: [] }
+	if (!game.events) game.events = {}
+}
+
+function clearSpaces(game, spaces) {
+	for (let p = 0; p < game.pieces.length; p++) {
+		if (spaces.includes(game.pieces[p])) game.pieces[p] = 0
+	}
+}
+
+function canActivateCpAttack(game, p, s) {
+	return Engine.combat.can_activate_piece_in_space_to_attack(
+		game,
+		p,
+		s,
+		CP,
+		() => Engine.game_utils.get_season(game),
+		(space, faction) => Engine.map.is_rail_connected_to_supply(game, space, faction)
+	)
+}
+
 test("water crossing second fire reuses the original die roll", () => {
 	let game = setupGame(2026042310)
 	let cyprus = findSpace("Cyprus")
@@ -61,4 +88,68 @@ test("water crossing second fire reuses the original die roll", () => {
 	Engine.combat.resolve_second_fire(game, () => {})
 
 	expect(game.seed).toBe(seedAfterInitialFire)
+})
+
+test("CP can activate an attack across a numbered strait into the enemy-controlled target side", () => {
+	let game = setupGame(2026042501)
+	let gallipoli = findSpace("Gallipoli")
+	let chardak = findSpace("Chardak")
+	let rodosto = findSpace("Rodosto")
+	let bandirma = findSpace("Bandirma")
+	let constantinople = findSpace("CONSTANTINOPLE")
+	let bosphorusForts = findSpace("The Bosphorus Forts")
+	let attacker = findPiece(CP, "TU I Corps")
+	let defender = findPiece(AP, "BR IX Corps")
+
+	resetAttackContext(game, CP)
+	clearSpaces(game, [gallipoli, chardak])
+	game.pieces[attacker] = gallipoli
+	game.pieces[defender] = chardak
+	game.control[gallipoli] = CP
+	game.control[chardak] = AP
+	game.control[rodosto] = CP
+	game.control[bandirma] = CP
+	game.control[constantinople] = CP
+	game.control[bosphorusForts] = CP
+
+	expect(Engine.map.can_use_strait(game, gallipoli, chardak, CP)).toBe(true)
+	expect(Engine.map.get_piece_connected_spaces_for_rule(game, gallipoli, attacker, "attack")).toContain(chardak)
+	expect(canActivateCpAttack(game, attacker, gallipoli)).toBe(true)
+})
+
+test("CP can activate an attack into an established beachhead from the mainland side", () => {
+	let game = setupGame(2026042502)
+	let sariBahr = findSpace("Sari Bahr")
+	let gabaTepe = findSpace("Gaba Tepe")
+	let attacker = findPiece(CP, "TU I Corps")
+	let defender = findPiece(AP, "BR IX Corps")
+
+	resetAttackContext(game, CP)
+	clearSpaces(game, [sariBahr, gabaTepe])
+	game.pieces[attacker] = sariBahr
+	game.pieces[defender] = gabaTepe
+	game.control[sariBahr] = CP
+	game.control[gabaTepe] = AP
+	game.beachheads = [gabaTepe]
+
+	expect(Engine.map.get_piece_connected_spaces_for_rule(game, sariBahr, attacker, "attack")).toContain(gabaTepe)
+	expect(canActivateCpAttack(game, attacker, sariBahr)).toBe(true)
+})
+
+test("CP attack eligibility treats one-way water crossing lines as adjacent", () => {
+	let game = setupGame(2026042503)
+	let hilla = findSpace("Hilla")
+	let dawaniyeh = findSpace("Dawaniyeh")
+	let attacker = findPiece(CP, "TU I Corps")
+	let defender = findPiece(AP, "BR IX Corps")
+
+	resetAttackContext(game, CP)
+	clearSpaces(game, [hilla, dawaniyeh])
+	game.pieces[attacker] = hilla
+	game.pieces[defender] = dawaniyeh
+	game.control[hilla] = CP
+	game.control[dawaniyeh] = AP
+
+	expect(Engine.map.get_piece_connected_spaces_for_rule(game, hilla, attacker, "attack")).toContain(dawaniyeh)
+	expect(canActivateCpAttack(game, attacker, hilla)).toBe(true)
 })

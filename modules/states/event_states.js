@@ -3608,9 +3608,7 @@ module.exports = function (Engine) {
 		},
 		space(ctx) {
 			let name = data.spaces[ctx.arg].name
-			Engine.neutral.place_entry_units(ctx.game, CP, [
-				{ space: name, units: ["BU 3 Army"] }
-			])
+			Engine.neutral.place_bulgaria_third_army(ctx.game, name)
 			if (typeof Engine.map.check_supply === "function") {
 				Engine.map.check_supply(ctx.game)
 			}
