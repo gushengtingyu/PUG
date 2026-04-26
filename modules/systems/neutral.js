@@ -640,6 +640,12 @@ module.exports = function (Engine) {
 		let vp_val = get_effective_vp_value(game, s)
 		if (vp_val <= 0) return 0
 		let default_owner = normalize_vp_owner(Engine.map.get_default_controller(game, s))
+
+		if (default_owner === 0 && game.neutral_vp_first_captor && game.neutral_vp_first_captor[s]) {
+			let first_captor = game.neutral_vp_first_captor[s]
+			default_owner = first_captor === AP ? CP : AP
+		}
+
 		let normalized_owner = normalize_vp_owner(owner)
 		if (normalized_owner === default_owner) return 0
 		if (normalized_owner === AP) return -vp_val
@@ -721,10 +727,22 @@ module.exports = function (Engine) {
 			if (is_neutral_vp_space(s)) game.neutral_vp_partial_control[s] = next
 			return
 		}
-		if (previous === AP) game.vp += vp_val
-		else if (previous === CP) game.vp -= vp_val
-		if (next === AP) game.vp -= vp_val
-		else if (next === CP) game.vp += vp_val
+
+		let old_contribution = get_vp_owner_contribution(game, s, previous)
+
+		let default_owner = normalize_vp_owner(Engine.map.get_default_controller(game, s))
+		if (default_owner === 0) {
+			let controller = normalize_vp_owner(Engine.map.get_space_controller(game, s))
+			if (controller !== 0 && (!game.neutral_vp_first_captor || !game.neutral_vp_first_captor[s])) {
+				if (!game.neutral_vp_first_captor) game.neutral_vp_first_captor = {}
+				game.neutral_vp_first_captor[s] = controller
+			}
+		}
+
+		let new_contribution = get_vp_owner_contribution(game, s, next)
+		let delta = new_contribution - old_contribution
+		game.vp += delta
+
 		game.vp_partial_disruption[s] = next
 		if (is_neutral_vp_space(s)) game.neutral_vp_partial_control[s] = next
 	}
@@ -763,8 +781,20 @@ module.exports = function (Engine) {
 
 	function apply_control_change(game, s, faction, previous_vp_owner) {
 		if (!is_vp_space(game, s)) return
-		let delta =
-			get_vp_owner_contribution(game, s, faction) - get_vp_owner_contribution(game, s, previous_vp_owner)
+		
+		let old_contribution = get_vp_owner_contribution(game, s, previous_vp_owner)
+
+		let default_owner = normalize_vp_owner(Engine.map.get_default_controller(game, s))
+		if (default_owner === 0) {
+			if (!game.neutral_vp_first_captor) game.neutral_vp_first_captor = {}
+			if (!game.neutral_vp_first_captor[s]) {
+				game.neutral_vp_first_captor[s] = faction
+			}
+		}
+
+		let new_contribution = get_vp_owner_contribution(game, s, faction)
+		let delta = new_contribution - old_contribution
+
 		if (delta < 0) {
 			Engine.log(game, `AP 获得 ${-delta} VP (当前VP: ${game.vp + delta})`)
 		} else if (delta > 0) {
