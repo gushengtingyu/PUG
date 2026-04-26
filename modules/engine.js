@@ -196,19 +196,37 @@ const Engine = {
 		if (!Engine.map || typeof Engine.map.get_pieces_in_space !== "function") return
 		if (!Engine.game_utils || typeof Engine.game_utils.get_piece_effective_faction !== "function") return
 
-		let has_ap = false
-		let has_cp = false
+		// Rule 10.1.4 / 10.2 / 10.1.1 PLAY NOTE:
+		// Only regular Combat Units can gain region control.
+		// Irregulars, HQs, and Heavy Artillery have only Partial Control and cannot take a region.
+		// However, per Rule 10.1.5, any non-tribe unit (including irregulars) makes the region
+		// contested, preventing the enemy from taking control until ALL enemy units leave.
+		let has_ap_regular = false  // AP regular combat unit present (can gain control)
+		let has_cp_regular = false  // CP regular combat unit present (can gain control)
+		let ap_present = false      // any AP non-tribe unit (blocks enemy control)
+		let cp_present = false      // any CP non-tribe unit (blocks enemy control)
+
 		for (let p of Engine.map.get_pieces_in_space(game, s)) {
-			// Tribes only disrupt spaces, they do not change control.
 			if (Engine.game_utils.is_tribe(p)) continue
 			let faction = Engine.game_utils.get_piece_effective_faction(game, p)
-			if (faction === constants.AP) has_ap = true
-			else if (faction === constants.CP) has_cp = true
-			if (has_ap && has_cp) return
+			let can_gain_control =
+				!Engine.game_utils.is_irregular(p) &&
+				!Engine.game_utils.is_hq(p) &&
+				!Engine.game_utils.is_heavy_arty(p)
+			if (faction === constants.AP) {
+				ap_present = true
+				if (can_gain_control) has_ap_regular = true
+			} else if (faction === constants.CP) {
+				cp_present = true
+				if (can_gain_control) has_cp_regular = true
+			}
+			if (ap_present && cp_present) return  // contested, no change
 		}
-		if (!has_ap && !has_cp) return
 
-		let desired = has_ap ? constants.AP : constants.CP
+		// No regular combat units on either side — no control change
+		if (!has_ap_regular && !has_cp_regular) return
+
+		let desired = has_ap_regular ? constants.AP : constants.CP
 		let current_controller =
 			Engine.map && typeof Engine.map.get_space_controller === "function"
 				? Engine.map.get_space_controller(game, s)
