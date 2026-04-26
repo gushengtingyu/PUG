@@ -3598,12 +3598,15 @@ function get_stack_yildirim_count(pieces) {
 
 		// MO_BRITISH_NO_ATTACK logic
 		const MO_BRITISH_NO_ATTACK = "british_no_attack"
-		let ignore_br_for_attack = faction === AP && game.mo_ap === MO_BRITISH_NO_ATTACK
+		const mo_br_no_attack = faction === AP && game.mo_ap === MO_BRITISH_NO_ATTACK && !game.br_attack_penalty_paid
 		let move_pieces = []
-		let attack_pieces = []
+		let attack_pieces = []       // without BR (when MO active and penalty not paid)
+		let attack_pieces_with_br = [] // with BR included (for the "pay VP" mode)
 		let move_has_hq = false
 		let attack_has_hq = false
+		let attack_has_hq_with_br = false
 		let has_pi_nation = false
+		let has_br_in_stack = false
 
 		for (let p of pieces) {
 			if (data.pieces[p].faction !== faction) continue
@@ -3611,16 +3614,23 @@ function get_stack_yildirim_count(pieces) {
 			if (nations.some((nation) => nation === "br" || nation === "in" || nation === "in-g")) {
 				has_pi_nation = true
 			}
+			let is_br = mo_br_no_attack && nations.some((nation) => nation === "br")
+			if (is_br) has_br_in_stack = true
 
 			if (can_piece_be_activated(p)) {
 				move_pieces.push(p)
 				if (data.pieces[p].type === "hq") move_has_hq = true
-			}
 
-			if (!(ignore_br_for_attack && nations.some((nation) => nation === "br"))) {
-				if (can_piece_be_activated(p)) {
+				// attack without BR
+				if (!is_br) {
 					attack_pieces.push(p)
 					if (data.pieces[p].type === "hq") attack_has_hq = true
+				}
+
+				// attack with BR (only tracked when MO active and penalty not yet paid)
+				if (mo_br_no_attack) {
+					attack_pieces_with_br.push(p)
+					if (data.pieces[p].type === "hq") attack_has_hq_with_br = true
 				}
 			}
 		}
@@ -3657,6 +3667,20 @@ function get_stack_yildirim_count(pieces) {
 				special_hq_command
 			)
 		}
+		// attack_with_br: only provided when MO active, penalty not paid, and BR units present
+		if (mo_br_no_attack && has_br_in_stack) {
+			let with_br_count = get_stack_count(attack_pieces_with_br)
+			let with_br_group = get_minimum_activation_group_count(game, attack_pieces_with_br)
+			costs.attack_with_br = compute_activation_mode_cost(
+				game,
+				s,
+				with_br_count,
+				attack_has_hq_with_br,
+				with_br_group,
+				has_pi_penalty,
+				special_hq_command
+			)
+		}
 		if (faction === AP) {
 			let submarine_surcharge = 0
 			if (is_german_subs_penalized_space(game, s, AP)) submarine_surcharge += 1
@@ -3664,6 +3688,7 @@ function get_stack_yildirim_count(pieces) {
 			if (submarine_surcharge > 0) {
 				if (costs.move > 0) costs.move += submarine_surcharge
 				if (costs.attack > 0) costs.attack += submarine_surcharge
+				if (costs.attack_with_br !== undefined && costs.attack_with_br > 0) costs.attack_with_br += submarine_surcharge
 			}
 		}
 		return costs
@@ -3672,6 +3697,7 @@ function get_stack_yildirim_count(pieces) {
 	function get_activation_cost(game, s, activation_type) {
 		let costs = get_activation_cost_pair(game, s)
 		if (activation_type === "attack") return costs.attack
+		if (activation_type === "attack_with_br") return costs.attack_with_br ?? costs.attack
 		return costs.move
 	}
 

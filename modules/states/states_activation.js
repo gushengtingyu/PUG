@@ -266,6 +266,11 @@ exports.register = function (states, Engine, context) {
 		if (!can_piece_participate_in_activation(p, faction)) return false
 		if (get_piece_activation_supply_status(p, faction) === "LIMITED") return false
 		if (Engine.neutral.is_greek_piece(p) && !Engine.neutral.can_attack_piece_for_faction(game, p, faction)) return false
+		// MO_BRITISH_NO_ATTACK: BR units cannot attack unless penalty has been paid
+		if (game.mo_ap === "british_no_attack" && !game.br_attack_penalty_paid && faction === active_faction()) {
+			let nations = Engine.map.get_piece_nations_for_rule(game, p, "activation")
+			if (nations.some((n) => n === "br")) return false
+		}
 		return can_activate_piece_in_space_to_attack(p, s)
 	}
 
@@ -688,6 +693,14 @@ exports.register = function (states, Engine, context) {
 
 				if (can_move) res.action("activate_move", s)
 				if (can_attack) res.action("activate_attack", s)
+				// MO_BRITISH_NO_ATTACK: offer "attack with BR" mode if affordable and BR units present
+				if (costs.attack_with_br !== undefined && game.ops >= costs.attack_with_br) {
+					let has_br_that_can_attack = (all_pieces_by_space.get(s) || []).some((p) => {
+						let nations = Engine.map.get_piece_nations_for_rule(game, p, "activation")
+						return nations.some((n) => n === "br") && can_activate_piece_in_space_to_attack(p, s)
+					})
+					if (has_br_that_can_attack) res.action("activate_attack_with_br", s)
+				}
 			}
 
 			let deactivated_spaces = new Set()
@@ -794,6 +807,24 @@ exports.register = function (states, Engine, context) {
 			} else if (game.ops === 0) {
 				states.activate_spaces.done()
 			}
+		},
+		activate_attack_with_br(s) {
+			// MO_BRITISH_NO_ATTACK: activate attack including BR units, pay +1 VP penalty once per turn
+			let faction = active_faction()
+			if (game.mo_ap !== "british_no_attack" || game.br_attack_penalty_paid) return
+			if (Engine.map.is_region(game, s)) return  // region activation handled separately
+			let cost = get_activation_cost(game, s, "attack_with_br")
+			if (cost === undefined || game.ops < cost) return
+			push_undo()
+			// Pay the VP penalty (once per turn)
+			game.vp += 1
+			game.br_attack_penalty_paid = true
+			log("BR部队突破进攻限制：CP +1 VP")
+			game.ops -= cost
+			set_add(game.activated.attack, s)
+			if (!game.activation_cost) game.activation_cost = {}
+			map_set(game.activation_cost, s, cost)
+			if (game.ops === 0) states.activate_spaces.done()
 		},
 		deactivate(s) {
 			if (game.liberate_suez_op_required && set_has(game.activated.attack, s) && Engine.map.is_egypt(s)) {
