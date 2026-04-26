@@ -35,6 +35,7 @@ module.exports = function (Engine) {
 	const AP_RESERVE_SPACE = find_space("AP Reserve")
 	const CP_RESERVE_SPACE = find_space("CP Reserve")
 	const BOSPHORUS_FORTS_SPACE = find_space("The Bosphorus Forts")
+	const SENUSSI_CONNECTION_KEY = "senussi"
 	const SOFIA = find_space("SOFIA")
 	const ATHENS = find_space("ATHENS")
 	const JERUSALEM = find_space("Jerusalem")
@@ -134,6 +135,9 @@ module.exports = function (Engine) {
 		if (!info) return []
 		let nations = get_piece_nations_for_rule(game, p)
 		if (nations.length === 0) nations = [info.nation]
+		if ((info.name || "").startsWith("Senussi") && !nations.includes(SENUSSI_CONNECTION_KEY)) {
+			nations = nations.concat(SENUSSI_CONNECTION_KEY)
+		}
 		let connected = new Set()
 		for (let nation of nations) {
 			for (let s of get_connected_spaces(game, from, nation, info.faction, p, mode)) {
