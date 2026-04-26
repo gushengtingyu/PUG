@@ -195,9 +195,9 @@ module.exports = function (Engine) {
 
 		place_piece(game, "ap", "BR Royal Navy", "Mersa Matruh", true)
 		place_piece(game, "ap", "BR DIV #1", "CAIRO", true)
-		place_piece(game, "ap", "BR IN Garrison #1", "Simla", true)
-		place_piece(game, "ap", "BR IN Garrison #2", "Simla", true)
-		place_piece(game, "ap", "BR IN Garrison #3", "Simla", true)
+		place_piece(game, "ap", "BR IN Garrison #1", "INDIA", true)
+		place_piece(game, "ap", "BR IN Garrison #2", "INDIA", true)
+		place_piece(game, "ap", "BR IN Garrison #3", "INDIA", true)
 
 		place_piece(game, "ap", "IN DIV #1", "Ismailia", true)
 		place_piece(game, "ap", "IN DIV #2", "Suez", false)
