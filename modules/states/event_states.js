@@ -3901,12 +3901,12 @@ module.exports = function (Engine) {
 			game.sr_piece = p
 		},
 		space(ctx) {
-			let { game, rules, arg: s, log } = ctx
+			let { game, rules, arg: s } = ctx
 			rules.push_undo()
 			let p = game.sr_piece
 			let from = game.pieces[p]
 			rules.move_piece(game, p, s)
-			log(`塞尔维亚崩溃：${data.pieces[p].name} 从 ${data.spaces[from].name} 战略调整至 ${data.spaces[s].name}`)
+			rules.log(`塞尔维亚崩溃：${data.pieces[p].name} 从 ${data.spaces[from].name} 战略调整至 ${data.spaces[s].name}`)
 			if (!game.event_ctx.data) game.event_ctx.data = { moved: [] }
 			rules.set_add(game.event_ctx.data.moved, p)
 			game.sr_piece = null
@@ -3926,12 +3926,12 @@ module.exports = function (Engine) {
 			game.sr_piece = p
 		},
 		space(ctx) {
-			let { game, rules, arg: s, log } = ctx
+			let { game, rules, arg: s } = ctx
 			rules.push_undo()
 			let p = game.sr_piece
 			let from = game.pieces[p]
 			rules.move_piece(game, p, s)
-			log(`罗马尼亚崩溃：${data.pieces[p].name} 从 ${data.spaces[from].name} 战略调整至 ${data.spaces[s].name}`)
+			rules.log(`罗马尼亚崩溃：${data.pieces[p].name} 从 ${data.spaces[from].name} 战略调整至 ${data.spaces[s].name}`)
 			if (!game.event_ctx.data) game.event_ctx.data = { moved: [] }
 			rules.set_add(game.event_ctx.data.moved, p)
 			game.sr_piece = null

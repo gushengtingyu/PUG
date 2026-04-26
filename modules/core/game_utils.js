@@ -45,6 +45,23 @@ module.exports = function (Engine) {
 		return -1
 	}
 
+	const BOX_IDS = {
+		ap_scu_reserve: find_space("AP Reserve"),
+		cp_scu_reserve: find_space("CP Reserve"),
+		ap_lcu_reserve: find_space("AP Corps Assets"),
+		cp_lcu_reserve: find_space("CP Corps Assets"),
+		ap_eliminated: find_space("AP Eliminated"),
+		cp_eliminated: find_space("CP Eliminated"),
+		ap_removed: find_space("AP Removed Box"),
+		cp_removed: find_space("CP Removed Box"),
+		ap_permanently_eliminated: find_space("AP Permanently Eliminated Box"),
+		cp_permanently_eliminated: find_space("CP Permanently Eliminated Box")
+	}
+
+	function cached_box(id, fallback) {
+		return id >= 0 ? id : fallback
+	}
+
 	function find_capital(nation) {
 		for (let s = 1; s < data.spaces.length; s++) {
 			if (data.spaces[s] && data.spaces[s].nation === nation && data.spaces[s].capital === 1) return s
@@ -96,14 +113,12 @@ module.exports = function (Engine) {
 	// === Boxes & Locations ===
 
 	function get_scu_reserve_box(faction) {
-		let s = find_space(faction === AP ? "AP Reserve" : "CP Reserve")
-		return s >= 0 ? s : RESERVE
+		return cached_box(faction === AP ? BOX_IDS.ap_scu_reserve : BOX_IDS.cp_scu_reserve, RESERVE)
 	}
 
 	function get_lcu_reserve_box(faction) {
-		let s = find_space(faction === AP ? "AP Corps Assets" : "CP Corps Assets")
-		if (s < 0) s = get_scu_reserve_box(faction)
-		return s
+		let s = faction === AP ? BOX_IDS.ap_lcu_reserve : BOX_IDS.cp_lcu_reserve
+		return cached_box(s, get_scu_reserve_box(faction))
 	}
 
 	function get_reserve_box(faction) {
@@ -111,19 +126,16 @@ module.exports = function (Engine) {
 	}
 
 	function get_eliminated_box(faction) {
-		let s = find_space(faction === AP ? "AP Eliminated" : "CP Eliminated")
-		return s >= 0 ? s : ELIMINATED
+		return cached_box(faction === AP ? BOX_IDS.ap_eliminated : BOX_IDS.cp_eliminated, ELIMINATED)
 	}
 
 	function get_removed_box(faction) {
-		let s = find_space(faction === AP ? "AP Removed Box" : "CP Removed Box")
-		return s >= 0 ? s : REMOVED
+		return cached_box(faction === AP ? BOX_IDS.ap_removed : BOX_IDS.cp_removed, REMOVED)
 	}
 
 	function get_permanently_eliminated_box(faction) {
-		let s = find_space(faction === AP ? "AP Permanently Eliminated Box" : "CP Permanently Eliminated Box")
-		if (s < 0) s = get_removed_box(faction)
-		return s
+		let s = faction === AP ? BOX_IDS.ap_permanently_eliminated : BOX_IDS.cp_permanently_eliminated
+		return cached_box(s, get_removed_box(faction))
 	}
 
 	function get_tribe_key_space(p) {
