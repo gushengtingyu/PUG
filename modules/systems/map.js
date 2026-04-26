@@ -747,6 +747,21 @@ module.exports = function (Engine) {
 		return false
 	}
 
+	// Rule 17.2.2 / 17.2.4: Irregular units cannot move or advance out of their supply area.
+	function is_space_in_irregular_supply_area(p, s) {
+		if (!is_irregular(p)) return true
+		let name = data.pieces[p].name || ""
+		let nation = data.pieces[p].nation || ""
+		if (nation === "ar") return is_syria_palestine(s) || is_hejaz(s)
+		if (nation === "arm") return is_anatolia(s) || is_caucasus(s) || is_georgia(s) || is_russia(s)
+		if (nation === "pe") return is_persia(s)
+		if (name.startsWith("Afghan")) return is_afghanistan(s)
+		if (name.startsWith("CAsia")) return is_central_asia(s)
+		if (name.startsWith("Egypt")) return is_egypt(s) || is_sudan_and_darfur(s)
+		if (name.startsWith("Indian")) return is_india(s)
+		return true
+	}
+
 	function is_limited_connection_allowed_for_nation(s, next, nation) {
 		if (!data.spaces[s].connection_nations || !data.spaces[s].connection_nations[next]) return true
 		let limited = data.spaces[s].limited_connections
@@ -840,6 +855,11 @@ module.exports = function (Engine) {
 
 			// Rule 17.1.4: Tribe Movement Range (within one full move of activity grid).
 			conns = conns.filter((next) => is_space_in_tribal_range(p, next))
+		}
+
+		// Rule 17.2.2: Irregular units cannot leave their supply area.
+		if (p !== undefined && p >= 0 && data.pieces[p] && is_irregular(p)) {
+			conns = conns.filter((next) => is_space_in_irregular_supply_area(p, next))
 		}
 		return conns
 	}
@@ -1399,6 +1419,11 @@ function get_stack_yildirim_count(pieces) {
 			if (!is_space_in_tribal_range(p, target)) return false
 		}
 
+		// Rule 17.2.2: Irregular supply area restriction
+		for (let p of pieces) {
+			if (!is_space_in_irregular_supply_area(p, target)) return false
+		}
+
 		if (!can_move_stack_composition(game, pieces)) return false
 
 		let faction = data.pieces[pieces[0]].faction
@@ -1437,6 +1462,11 @@ function get_stack_yildirim_count(pieces) {
 			if (!is_space_in_tribal_range(p, s)) return "部落活动范围限制"
 		}
 
+		// Rule 17.2.2: Irregular supply area restriction
+		for (let p of friendly) {
+			if (!is_space_in_irregular_supply_area(p, s)) return "不正规军供给区域限制"
+		}
+
 		let composition_reason = get_stack_composition_reason(game, friendly)
 		if (composition_reason) return composition_reason
 
@@ -1469,6 +1499,11 @@ function get_stack_yildirim_count(pieces) {
 
 		for (let p of pieces) {
 			if (!is_space_in_tribal_range(p, target)) return "部落活动范围限制"
+		}
+
+		// Rule 17.2.2: Irregular supply area restriction
+		for (let p of pieces) {
+			if (!is_space_in_irregular_supply_area(p, target)) return "不正规军供给区域限制"
 		}
 
 		if (!can_move_stack_composition(game, pieces)) return "堆叠组成限制"
@@ -3764,6 +3799,7 @@ function get_stack_yildirim_count(pieces) {
 		get_beachhead_spaces,
 		get_supply_status,
 		is_space_in_tribal_range,
+		is_space_in_irregular_supply_area,
 		check_rule_violations
 	})
 

@@ -2273,6 +2273,8 @@ module.exports = function (Engine) {
 			game.attack.pieces.includes(piece)
 		if (!connected.includes(target_space) && !participated_in_current_attack) return []
 		if (!can_enter_region(game, piece, target_space)) return []
+		// Rule 17.2.2: Irregular units cannot advance out of their supply area.
+		if (!Engine.map.is_space_in_irregular_supply_area(piece, target_space)) return []
 		if (!is_region(game, target_space) && contains_enemy_pieces(game, target_space, faction)) return []
 		if (!can_stack_end_in_space(game, target_space, [piece])) return []
 		return [target_space]
