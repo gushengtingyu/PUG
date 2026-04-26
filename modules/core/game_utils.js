@@ -126,10 +126,6 @@ module.exports = function (Engine) {
 		return s
 	}
 
-	function get_reinforcement_box() {
-		return REINFORCEMENTS
-	}
-
 	function get_tribe_key_space(p) {
 		let tribe_type = Engine.map.get_tribe_type(p)
 		for (let s = 1; s < data.spaces.length; s++) {

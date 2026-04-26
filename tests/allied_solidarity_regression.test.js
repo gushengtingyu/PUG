@@ -1,29 +1,15 @@
 const rules = require("../rules.js")
 const Engine = require("../modules/engine.js")
 
+const { setupGame, findSpace, findPieceByPredicate: findPiece } = require("./helpers.js")
+
 const { AP, CP } = Engine.constants
 const AP_ROLE = rules.roles[0]
-
-function setupGame(seed) {
-	return rules.setup(seed, "Historical", { seven_hand_size: false, no_supply_warnings: false })
-}
-
-function findSpace(name) {
-	let space = Engine.game_utils.find_space(name)
-	if (space < 0) throw new Error(`Could not find space: ${name}`)
-	return space
-}
 
 function findCardByNumber(num) {
 	let card = Engine.data.cards.findIndex((info, idx) => idx > 0 && info && info.num === num)
 	if (card < 0) throw new Error(`Could not find card #${num}`)
 	return card
-}
-
-function findPiece(predicate, label) {
-	let piece = Engine.data.pieces.findIndex((info, idx) => idx > 0 && info && predicate(info))
-	if (piece < 0) throw new Error(`Could not find piece: ${label}`)
-	return piece
 }
 
 function setSpaceControl(game, space, faction) {

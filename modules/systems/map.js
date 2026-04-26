@@ -1407,6 +1407,10 @@ function get_stack_yildirim_count(pieces) {
 		}
 
 		let existing = get_stack_occupying_pieces(game, target, faction)
+		if (Array.isArray(options.ignore_existing_pieces) && options.ignore_existing_pieces.length > 0) {
+			let ignored = new Set(options.ignore_existing_pieces)
+			existing = existing.filter((p) => !ignored.has(p))
+		}
 
 		let total = get_unique_pieces([...pieces, ...existing])
 		if (total.some((p) => data.pieces[p].name === "GE GeoProtect") && total.length > 1) return false
@@ -1475,6 +1479,10 @@ function get_stack_yildirim_count(pieces) {
 		}
 
 		let existing = get_stack_occupying_pieces(game, target, faction)
+		if (Array.isArray(options.ignore_existing_pieces) && options.ignore_existing_pieces.length > 0) {
+			let ignored = new Set(options.ignore_existing_pieces)
+			existing = existing.filter((p) => !ignored.has(p))
+		}
 
 		let total = get_unique_pieces([...pieces, ...existing])
 		let composition_reason = get_stack_composition_reason(game, total)

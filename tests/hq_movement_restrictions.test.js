@@ -1,29 +1,10 @@
 const rules = require("../rules.js")
 const Engine = require("../modules/engine.js")
 
+const { setupGame, findSpace, findPiece, clearBoard } = require("./helpers.js")
+
 const { AP, CP } = Engine.constants
-
-function setupGame(seed, scenario = "Historical") {
-	return rules.setup(seed, scenario, { seven_hand_size: false, no_supply_warnings: false })
-}
-
-function findPiece(faction, name) {
-	let piece = Engine.game_utils.find_piece(faction, name)
-	if (piece < 0) throw new Error(`Cannot find piece: ${name}`)
-	return piece
-}
-
-function findSpace(name) {
-	let space = Engine.game_utils.find_space(name)
-	if (space < 0) throw new Error(`Cannot find space: ${name}`)
-	return space
-}
-
-function clearBoard(game) {
-	for (let p = 0; p < game.pieces.length; p++) game.pieces[p] = 0
-	game.moved = []
-	game.sr_moved = []
-}
+const AP_ROLE = rules.roles[0]
 
 function setupGermanStack(game, pieces) {
 	let source = findSpace("Adrianople")
@@ -127,4 +108,37 @@ test("Strategic Redeployment still allows HQs and land Heavy Artillery", () => {
 
 	expect(Engine.map.can_sr_piece(game, heavy, CP)).toBe(true)
 	expect(Engine.map.can_sr_to_space(game, heavy, reserve, CP)).toBe(true)
+})
+
+test("Move stack can drop one moving piece from a temporarily overstacked space", () => {
+	let game = setupGame(2026042601)
+	let belgrade = findSpace("BELGRADE")
+	let movingArmy = findPiece(AP, "SB 3 Army")
+	let movingDivision = findPiece(AP, "SB DIV #3")
+	let existingArmy = findPiece(AP, "SB 1 Army")
+	let existingDivision = findPiece(AP, "SB DIV #1")
+
+	clearBoard(game)
+	for (let p of [movingArmy, movingDivision, existingArmy, existingDivision]) game.pieces[p] = belgrade
+	game.control[belgrade] = AP
+	game.active = AP
+	game.state = "move_stack"
+	game.activated = { move: [belgrade], attack: [] }
+	game.move = {
+		initial: belgrade,
+		current: belgrade,
+		spaces_moved: 1,
+		pieces: [movingArmy, movingDivision],
+		touched_spaces: [belgrade]
+	}
+
+	let view = rules.view(game, AP_ROLE)
+	expect(view.actions.piece).toEqual(expect.arrayContaining([movingArmy, movingDivision]))
+
+	game = rules.action(game, AP_ROLE, "piece", movingDivision)
+	expect(game.move.pieces).toEqual([movingArmy])
+	expect(game.moved).toContain(movingDivision)
+
+	view = rules.view(game, AP_ROLE)
+	expect(view.actions.stop).toBe(1)
 })

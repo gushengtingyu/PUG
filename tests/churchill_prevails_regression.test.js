@@ -1,18 +1,9 @@
 const rules = require("../rules.js")
-const Engine = require("../modules/engine.js")
+
+const { setupGame, findSpace } = require("./helpers.js")
 
 const AP = rules.AP
 const AP_ROLE = rules.roles[0]
-
-function setupGame(seed) {
-	return rules.setup(seed, "Historical", { seven_hand_size: false, no_supply_warnings: false })
-}
-
-function findSpace(name) {
-	let space = Engine.game_utils.find_space(name)
-	if (space < 0) throw new Error(`找不到地块: ${name}`)
-	return space
-}
 
 function prepareChurchillPlacementState(game) {
 	game.active = AP

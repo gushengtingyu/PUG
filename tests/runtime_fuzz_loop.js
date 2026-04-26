@@ -89,10 +89,10 @@ function actionWeight(name) {
 
 function buildChoices(actions, game) {
 	let choices = []
+	let recoveryChoices = []
 	if (!actions || typeof actions !== "object") return choices
 	for (let name of Object.keys(actions)) {
 		let weight = actionWeight(name)
-		if (weight <= 0) continue
 
 		let value = actions[name]
 		if (Array.isArray(value)) {
@@ -101,18 +101,24 @@ function buildChoices(actions, game) {
 				if ((name === "play_event" || name === "event") && arg === 67) {
 					continue
 				}
+				if (weight <= 0) {
+					if (name === "undo") recoveryChoices.push({ name, arg, weight: 1 })
+					continue
+				}
 				choices.push({ name, arg, weight })
 			}
 		} else if (value === 1) {
 			// Temporarily disable "LIBERATE SUEZ" event (ID 67) to avoid stuck issues in fuzzing
 			if ((name === "play_event" || name === "event") && game && game.card === 67) {
 				// skip
+			} else if (weight <= 0) {
+				if (name === "undo") recoveryChoices.push({ name, weight: 1 })
 			} else {
 				choices.push({ name, weight })
 			}
 		}
 	}
-	return choices
+	return choices.length > 0 ? choices : recoveryChoices
 }
 
 function isWaitingPrompt(prompt) {

@@ -1,17 +1,9 @@
 const rules = require("../rules.js")
 const Engine = require("../modules/engine.js")
 
+const { setupGame, findPiece } = require("./helpers.js")
+
 const { CP } = Engine.constants
-
-function setupGame(seed, scenario = "Historical") {
-	return rules.setup(seed, scenario, { seven_hand_size: false, no_supply_warnings: false })
-}
-
-function findPiece(faction, name) {
-	let piece = Engine.game_utils.find_piece(faction, name)
-	if (piece < 0) throw new Error(`找不到单位: ${name}`)
-	return piece
-}
 
 test("CP 2号牌的新兵征募只使用事件给的额外 TU 补员，不会动用 GE 或 RP 条上的 TU", () => {
 	let game = setupGame(20260416011, "Historical")

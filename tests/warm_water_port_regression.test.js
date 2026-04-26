@@ -2,21 +2,11 @@ const rules = require("../rules.js")
 const data = require("../data.js")
 const Engine = require("../modules/engine.js")
 
+const { findSpace, findPieceByName: findPiece } = require("./helpers.js")
+
 const { AP } = Engine.constants
 const AP_ROLE = rules.roles[0]
 const WARM_WATER_PORT = 40
-
-function findSpace(name) {
-	let space = Engine.game_utils.find_space(name)
-	if (space < 0) throw new Error(`Space not found: ${name}`)
-	return space
-}
-
-function findPiece(name) {
-	let piece = data.pieces.findIndex((info) => info && info.name === name)
-	if (piece < 0) throw new Error(`Piece not found: ${name}`)
-	return piece
-}
 
 function clearPieces(game) {
 	for (let p = 1; p < data.pieces.length; p++) {

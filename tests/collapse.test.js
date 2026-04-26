@@ -1,4 +1,6 @@
 const Engine = require("../modules/engine.js")
+const { findSpace, findPiece } = require("./helpers.js")
+
 const eventStates = Engine.event_states.states
 
 const { AP, CP, RESERVE } = Engine.constants
@@ -14,18 +16,6 @@ function createGame() {
 
 function makeLogger(game) {
 	return (msg) => game.log.push(msg)
-}
-
-function findPiece(faction, name) {
-	const piece = Engine.game_utils.find_piece(faction, name)
-	if (piece < 0) throw new Error(`找不到单位: ${name}`)
-	return piece
-}
-
-function findSpace(name) {
-	const space = Engine.game_utils.find_space(name)
-	if (space < 0) throw new Error(`找不到地块: ${name}`)
-	return space
 }
 
 function setControl(game, spaceName, faction) {

@@ -171,6 +171,11 @@ exports.register = function (states, Engine, context) {
 		return reason
 	}
 
+	function get_move_piece_drop_block_reason(p) {
+		let continuing_pieces = game.move.pieces.filter((q) => q !== p)
+		return get_stack_end_block_reason(game, game.move.current, [p], { ignore_existing_pieces: continuing_pieces })
+	}
+
 	function get_unresolved_move_activation_violations() {
 		let violations = []
 		for (let s of game.activated.move || []) {
@@ -1715,7 +1720,7 @@ exports.register = function (states, Engine, context) {
 
 			// Allow dropping pieces
 			for (let p of game.move.pieces) {
-				res.piece(p)
+				if (!get_move_piece_drop_block_reason(p)) res.piece(p)
 			}
 		},
 		space(s) {
@@ -1735,7 +1740,7 @@ exports.register = function (states, Engine, context) {
 		piece(p) {
 			// Drop piece
 			let s = game.move.current
-			let reason = get_stack_end_block_reason(game, s, [p])
+			let reason = get_move_piece_drop_block_reason(p)
 			if (reason) {
 				log(`不能在此放下 ${piece_name(p)}：${reason}`)
 				return

@@ -1,25 +1,11 @@
 const rules = require("../rules.js")
 const Engine = require("../modules/engine.js")
 
+const { setupGame, findSpace, findPiece } = require("./helpers.js")
+
 const { AP, CP } = Engine.constants
 const AP_ROLE = rules.roles[0]
 const CP_ROLE = rules.roles[1]
-
-function setupGame(seed) {
-	return rules.setup(seed, "Historical", { seven_hand_size: false, no_supply_warnings: false })
-}
-
-function findPiece(faction, name) {
-	let piece = Engine.game_utils.find_piece(faction, name)
-	if (piece < 0) throw new Error(`找不到单位: ${name}`)
-	return piece
-}
-
-function findSpace(name) {
-	let space = Engine.game_utils.find_space(name)
-	if (space < 0) throw new Error(`找不到地块: ${name}`)
-	return space
-}
 
 function activateBullsEye(game) {
 	// Directly activate Bull's Eye flags as if the card was just played.

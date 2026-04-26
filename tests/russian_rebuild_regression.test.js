@@ -1,23 +1,8 @@
-const rules = require("../rules.js")
 const Engine = require("../modules/engine.js")
 
+const { setupGame, findSpace, findPiece } = require("./helpers.js")
+
 const { AP, ELIMINATED } = Engine.constants
-
-function setupGame(seed, scenario = "Historical") {
-	return rules.setup(seed, scenario, { seven_hand_size: false, no_supply_warnings: false })
-}
-
-function findPiece(faction, name) {
-	let piece = Engine.game_utils.find_piece(faction, name)
-	if (piece < 0) throw new Error(`找不到单位: ${name}`)
-	return piece
-}
-
-function findSpace(name) {
-	let space = Engine.game_utils.find_space(name)
-	if (space < 0) throw new Error(`找不到地块: ${name}`)
-	return space
-}
 
 function clearSpace(game, name) {
 	let space = findSpace(name)

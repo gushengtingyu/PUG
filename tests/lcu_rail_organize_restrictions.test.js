@@ -1,23 +1,8 @@
-const rules = require("../rules.js")
 const Engine = require("../modules/engine.js")
 
+const { setupGame, findSpace, findCpPiece: findPiece } = require("./helpers.js")
+
 const { CP } = Engine.constants
-
-function setupGame(seed) {
-	return rules.setup(seed, "Historical", { seven_hand_size: false, no_supply_warnings: false })
-}
-
-function findSpace(name) {
-	let space = Engine.game_utils.find_space(name)
-	if (space < 0) throw new Error(`Cannot find space: ${name}`)
-	return space
-}
-
-function findPiece(name) {
-	let piece = Engine.game_utils.find_piece(CP, name)
-	if (piece < 0) throw new Error(`Cannot find piece: ${name}`)
-	return piece
-}
 
 function placeTurkishDivisionPair(game, space) {
 	game.pieces[findPiece("TU DIV #1")] = space

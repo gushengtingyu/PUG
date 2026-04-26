@@ -1813,12 +1813,18 @@ exports.register = function (states, Engine, context) {
 		let cat = get_catastrophic_attack_state()
 		let retreating = cat?.retreating_pieces || []
 		if (retreating.length === 0) return []
-		let valid = null
+		let valid = []
+		let first_piece = true
 		for (let p of retreating) {
 			let piece_valid = get_valid_retreat_spaces(game, p, [], 1, true)
-			valid = valid === null ? piece_valid.slice() : valid.filter((s) => set_has(piece_valid, s))
+			if (first_piece) {
+				valid = piece_valid.slice()
+				first_piece = false
+			} else {
+				valid = valid.filter((s) => set_has(piece_valid, s))
+			}
 		}
-		if (!valid || valid.length === 0) return []
+		if (valid.length === 0) return []
 		return combat.apply_retreat_priorities(game, retreating[0], valid)
 	}
 

@@ -1,20 +1,9 @@
 const rules = require("../rules.js")
-const data = require("../data.js")
 const Engine = require("../modules/engine.js")
 
+const { findSpace, findPieceByName: findPiece } = require("./helpers.js")
+
 const AP = rules.AP
-
-function findSpace(name) {
-	let s = data.spaces.findIndex((info, idx) => idx > 0 && info && info.name === name)
-	if (s < 0) throw new Error(`Missing space: ${name}`)
-	return s
-}
-
-function findPiece(name) {
-	let p = data.pieces.findIndex((info, idx) => idx > 0 && info && info.name === name)
-	if (p < 0) throw new Error(`Missing piece: ${name}`)
-	return p
-}
 
 function createSubmarineGame() {
 	let game = rules.setup(1, "Historical", { seed: 17 })

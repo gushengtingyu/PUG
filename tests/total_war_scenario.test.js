@@ -2,19 +2,9 @@ const rules = require("../rules.js")
 const data = require("../data.js")
 const Engine = require("../modules/engine.js")
 
+const { findSpace, findPiece } = require("./helpers.js")
+
 const { COMMITMENT_TOTAL } = Engine.constants
-
-function findPiece(faction, name) {
-	let piece = Engine.game_utils.find_piece(faction, name)
-	if (piece < 0) throw new Error(`找不到单位 ${name}`)
-	return piece
-}
-
-function findSpace(name) {
-	let space = Engine.game_utils.find_space(name)
-	if (space < 0) throw new Error(`找不到地区 ${name}`)
-	return space
-}
 
 test("TOTAL WAR剧本从第6回合开始且只保留全面战争牌", () => {
 	let game = rules.setup(2026042301, "TOTAL WAR", { seven_hand_size: false, no_supply_warnings: true })

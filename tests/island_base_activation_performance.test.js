@@ -1,24 +1,10 @@
 const rules = require("../rules.js")
 const Engine = require("../modules/engine.js")
 
+const { setupGame, findSpace, findApPiece: findPiece } = require("./helpers.js")
+
 const { AP } = Engine.constants
 const AP_ROLE = rules.roles[0]
-
-function setupGame(seed) {
-	return rules.setup(seed, "Historical", { seven_hand_size: false, no_supply_warnings: true })
-}
-
-function findSpace(name) {
-	let space = Engine.game_utils.find_space(name)
-	if (space < 0) throw new Error(`Cannot find space ${name}`)
-	return space
-}
-
-function findPiece(name) {
-	let piece = Engine.game_utils.find_piece(AP, name)
-	if (piece < 0) throw new Error(`Cannot find piece ${name}`)
-	return piece
-}
 
 function prepareActivation(game, ops = 5) {
 	game.active = AP
@@ -36,7 +22,7 @@ function prepareActivation(game, ops = 5) {
 }
 
 test("island base stack selection does not dirty global supply", () => {
-	let game = setupGame(2026042401)
+	let game = setupGame(2026042401, "Historical", { no_supply_warnings: true })
 	let lemnos = findSpace("Lemnos")
 	let stack = [findPiece("BR DIV #1"), findPiece("BR DIV #2"), findPiece("BR DIV #3")]
 
@@ -59,7 +45,7 @@ test("island base stack selection does not dirty global supply", () => {
 })
 
 test("island base movement still dirties global supply", () => {
-	let game = setupGame(2026042402)
+	let game = setupGame(2026042402, "Historical", { no_supply_warnings: true })
 	let lemnos = findSpace("Lemnos")
 	let besikaBay = findSpace("Besika Bay")
 	let piece = findPiece("BR DIV #4")

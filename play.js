@@ -1726,7 +1726,7 @@ function sub_piece_name_reduced(match, p1) {
  * @param {*} missing - 默认值。
  * @returns {*} 获取的值或默认值。
  */
-function map_get(map, key, missing) {
+function view_map_get(map, key, missing) {
 	if (map && Object.prototype.hasOwnProperty.call(map, key)) {
 		return map[key]
 	}
@@ -4526,7 +4526,7 @@ function get_space_activation_marker_count(s) {
 	if (!view.activation_cost) {
 		return 1
 	}
-	return Math.max(1, map_get(view.activation_cost, s, 1))
+	return Math.max(1, view_map_get(view.activation_cost, s, 1))
 }
 
 function render_space_markers(space, state, s, stack_parts) {
@@ -6064,7 +6064,7 @@ Object.assign(window, {
 	show_dialog,
 	hide_dialog,
 	is_card_enabled,
-	map_get,
+	view_map_get,
 	destroy_marker,
 	unshift_stack,
 	blur_stack,

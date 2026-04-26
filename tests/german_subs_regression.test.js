@@ -1,23 +1,8 @@
-const rules = require("../rules.js")
 const Engine = require("../modules/engine.js")
 
+const { setupGame, findSpace, findPieceByPredicate: findPiece } = require("./helpers.js")
+
 const { AP, CP, ELIMINATED } = Engine.constants
-
-function setupGame(seed) {
-	return rules.setup(seed, "Historical", { seven_hand_size: false, no_supply_warnings: false })
-}
-
-function findSpace(name) {
-	let space = Engine.game_utils.find_space(name)
-	if (space < 0) throw new Error(`找不到地块: ${name}`)
-	return space
-}
-
-function findPiece(predicate, label) {
-	let piece = Engine.data.pieces.findIndex((info, idx) => idx > 0 && info && predicate(info))
-	if (piece < 0) throw new Error(`找不到单位: ${label}`)
-	return piece
-}
 
 function createNavalSupportBattle(seed) {
 	let game = setupGame(seed)

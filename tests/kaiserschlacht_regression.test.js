@@ -1,12 +1,10 @@
 const rules = require("../rules.js")
 const Engine = require("../modules/engine.js")
 
+const { setupGame } = require("./helpers.js")
+
 const { AP, CP } = Engine.constants
 const AP_ROLE = rules.roles[0]
-
-function setupGame(seed, scenario = "Historical") {
-	return rules.setup(seed, scenario, { seven_hand_size: false, no_supply_warnings: false })
-}
 
 function findPieces(predicate, label) {
 	let pieces = []

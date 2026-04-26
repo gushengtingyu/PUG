@@ -2,6 +2,8 @@ const rules = require("../rules.js")
 const data = require("../data.js")
 const Engine = require("../modules/engine.js")
 
+const { findSpace } = require("./helpers.js")
+
 const AP_ROLE = rules.roles[0]
 const CP_ROLE = rules.roles[1]
 
@@ -9,10 +11,6 @@ function assert(condition, message) {
 	if (!condition) {
 		throw new Error(message)
 	}
-}
-
-function findSpace(name) {
-	return data.spaces.findIndex((space) => space && space.name === name)
 }
 
 function findPieceIndex(predicate) {
