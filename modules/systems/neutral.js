@@ -547,9 +547,8 @@ module.exports = function (Engine) {
 			}
 		}
 		for (let entry of plan.ap.delayed) {
-			if (entry.name === "FR Army Orient 1" || entry.name === "FR Army Orient 2") {
-				schedule_entry_piece(game, AP, entry.name, entry.turn_offset, entry.space)
-			}
+			if (entry.name.startsWith("RU ")) continue
+			schedule_entry_piece(game, AP, entry.name, entry.turn_offset, entry.space)
 		}
 
 		place_entry_placements(game, CP, plan.cp.immediate, (entry) => {

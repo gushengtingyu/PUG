@@ -43,7 +43,9 @@ module.exports = function (Engine) {
 		is_caucasus,
 		is_gallipoli,
 		is_besieged,
-		can_trace_supply_to_source,
+		get_connected_spaces,
+		get_connection_type,
+		is_russia_controlled_space,
 		has_allied_control_of_balfour_spaces
 	} = Engine.map
 	const { update_jihad_level } = Engine
@@ -84,6 +86,7 @@ module.exports = function (Engine) {
 		"Kuwait",
 		"Smyrna"
 	].map(find_space)
+	const WARM_WATER_PORT_SET = new Set(WARM_WATER_PORTS)
 	const ARMENIAN_UPRISING_BLUE_A_SPACES = [
 		"Yozgat",
 		"Sivas",
@@ -200,17 +203,78 @@ module.exports = function (Engine) {
 		game.god_save_the_tsar = get_long_live_czar_turn(game)
 	}
 
-	function get_warm_water_port_options(game) {
-		let options = []
-		for (let s of WARM_WATER_PORTS) {
-			if (is_controlled_by(game, s, AP)) {
-				// The rule says "via land supply to Petrovsk"
-				if (can_trace_supply_to_source(game, s, AP, PETROVSK)) {
-					options.push(s)
-				}
+	function is_warm_water_port_space(s) {
+		let info = data.spaces[s]
+		if (!info || !WARM_WATER_PORT_SET.has(s)) return false
+		if (!info.port) return false
+		return info.nation === "tu" || info.nation === "tua"
+	}
+
+	function is_russian_warm_water_port_unit(game, p) {
+		let info = data.pieces[p]
+		if (!info || info.faction !== AP || !info.piece_class) return false
+		if (get_piece_effective_faction(game, p) !== AP) return false
+		return info.nation === "ru" || piece_counts_as_nation_for_rule(game, p, "ru")
+	}
+
+	function has_russian_unit_in_space(game, s) {
+		for (let p of get_pieces_in_space(game, s)) {
+			if (is_russian_warm_water_port_unit(game, p)) return true
+		}
+		return false
+	}
+
+	function is_warm_water_port_russian_controlled(game, s) {
+		let info = data.spaces[s]
+		if (!info || !is_controlled_by(game, s, AP)) return false
+		if (is_russia_controlled_space(game, s)) return true
+		return !info.vp && has_russian_unit_in_space(game, s)
+	}
+
+	function is_warm_water_port_land_connection(game, a, b) {
+		if (is_beachhead_space(game, a) || is_beachhead_space(game, b)) return false
+		return get_connection_type(a, b) !== "strait"
+	}
+
+	function is_warm_water_port_trace_space(game, s, target) {
+		let info = data.spaces[s]
+		if (!info || !is_controlled_by(game, s, AP)) return false
+		if (s === target) return is_warm_water_port_russian_controlled(game, s)
+		if (s === PETROVSK) return true
+		if (is_russia_controlled_space(game, s)) return true
+		// Non-VP spaces do not record AP national control separately; AP land control is the available proxy.
+		return !info.vp
+	}
+
+	function can_trace_warm_water_port_land_to_petrovsk(game, start) {
+		if (start === PETROVSK) return true
+		if (!is_warm_water_port_trace_space(game, start, start)) return false
+		let visited = new Set([start])
+		let queue = [start]
+		let queue_head = 0
+		while (queue_head < queue.length) {
+			let current = queue[queue_head++]
+			for (let next of get_connected_spaces(game, current, undefined, AP, undefined, "supply")) {
+				if (visited.has(next)) continue
+				if (!is_warm_water_port_land_connection(game, current, next)) continue
+				if (!is_warm_water_port_trace_space(game, next, start)) continue
+				if (next === PETROVSK) return true
+				visited.add(next)
+				queue.push(next)
 			}
 		}
-		return options
+		return false
+	}
+
+	function is_warm_water_port_option(game, s) {
+		if (!is_warm_water_port_space(s)) return false
+		if (!has_russian_unit_in_space(game, s)) return false
+		if (!is_warm_water_port_russian_controlled(game, s)) return false
+		return can_trace_warm_water_port_land_to_petrovsk(game, s)
+	}
+
+	function get_warm_water_port_options(game) {
+		return WARM_WATER_PORTS.filter((s) => is_warm_water_port_option(game, s))
 	}
 
 	function apply_warm_water_port_effect(game, s) {
@@ -1760,15 +1824,16 @@ module.exports = function (Engine) {
 				if (game.events["russian_revolution"]) return false
 				return get_warm_water_port_options(game).length > 0
 			},
-			handler: function (game) {
+			handler: function (game, ctx) {
 				let options = get_warm_water_port_options(game)
 				if (options.length === 1) {
 					apply_warm_water_port_effect(game, options[0])
+					finish_event(ctx)
 				} else {
+					game.active = AP
 					game.state = "event_warm_water_port"
 					game.warm_water_port_options = options
 				}
-				game.events["warm_water_port"] = true
 			},
 			defer_end: true
 		},
@@ -3141,6 +3206,8 @@ module.exports = function (Engine) {
 	exports.set_cp_auto_victory_marker = set_cp_auto_victory_marker
 	exports.shift_cp_auto_victory_marker = shift_cp_auto_victory_marker
 	exports.apply_warm_water_port_effect = apply_warm_water_port_effect
+	exports.get_warm_water_port_options = get_warm_water_port_options
+	exports.is_warm_water_port_option = is_warm_water_port_option
 	exports.get_parvus_marker_turn = get_parvus_marker_turn
 	exports.get_revolution_marker_turn = get_revolution_marker_turn
 	exports.get_long_live_czar_turn = get_long_live_czar_turn

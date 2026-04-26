@@ -747,6 +747,12 @@ module.exports = function (Engine) {
 		return false
 	}
 
+	function is_limited_connection_allowed_for_nation(s, next, nation) {
+		if (!data.spaces[s].connection_nations || !data.spaces[s].connection_nations[next]) return true
+		let limited = data.spaces[s].limited_connections
+		return !!(nation && limited && limited[nation] && limited[nation].includes(next))
+	}
+
 	function get_connected_spaces(game, s, nation, faction, p, mode = "move") {
 		if (!data.spaces[s]) return []
 		let conns = data.spaces[s].connections || []
@@ -761,6 +767,7 @@ module.exports = function (Engine) {
 			// units attack across restricted railroads and lets CP attack into
 			// established Beachheads from the mainland side.
 			conns = [...new Set(conns.concat(Object.keys(data.spaces[s].connection_types).map(Number)))]
+			conns = conns.filter((next) => is_limited_connection_allowed_for_nation(s, next, nation))
 		} else if (nation && data.spaces[s].limited_connections && data.spaces[s].limited_connections[nation]) {
 			conns = data.spaces[s].limited_connections[nation]
 		}

@@ -3694,10 +3694,14 @@ module.exports = function (Engine) {
 		},
 		space(ctx) {
 			let { game, arg: s, rules } = ctx
+			if (!Array.isArray(game.warm_water_port_options) || !game.warm_water_port_options.includes(s)) {
+				if (rules && typeof rules.log === "function") rules.log("Invalid Warm Water Port selection.")
+				return
+			}
 			rules.push_undo()
 			Engine.events.apply_warm_water_port_effect(game, s)
 			delete game.warm_water_port_options
-			game.state = "action_round"
+			rules.goto_end_event()
 		}
 	}
 

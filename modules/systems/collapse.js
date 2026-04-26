@@ -78,8 +78,8 @@ module.exports = function (Engine) {
 			delayed: Object.freeze([
 				Object.freeze({ name: "RU Danube Army", turn_offset: 1, space: "Odessa" }),
 				Object.freeze({ name: "RU 6 Army", turn_offset: 2, space: "Odessa" }),
-				Object.freeze({ name: "FR Army Orient 1", turn_offset: 1, space: "Lemnos" }),
-				Object.freeze({ name: "FR Army Orient 2", turn_offset: 1, space: "Lemnos" })
+				Object.freeze({ name: "FR DIV #7", turn_offset: 1, space: "Lemnos" }),
+				Object.freeze({ name: "FR DIV #8", turn_offset: 1, space: "Lemnos" })
 			])
 		}),
 		cp: Object.freeze({
