@@ -8358,6 +8358,7 @@ var data = {
 		"nation": "in",
 		"faction": "ap",
 		"port": 2,
+		"vp": 2,
 		"region": "india",
 		"area": "india",
 		"tribal_activity_grid": "NW Frontier",
