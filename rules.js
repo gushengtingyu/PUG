@@ -2211,8 +2211,8 @@ function reduce_piece(p) {
 		utils_reduce_piece(game, p)
 	}
 }
-function replace_lcu_with_scu(lcu, space, scu) {
-	return Engine.game_utils.replace_lcu_with_scu(game, lcu, space, scu, log)
+function replace_lcu_with_scu(lcu, space, scu, runtime_state = null) {
+	return Engine.game_utils.replace_lcu_with_scu(game, lcu, space, scu, log, runtime_state)
 }
 
 function eliminate_piece(p, permanent = false) {

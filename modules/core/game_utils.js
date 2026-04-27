@@ -457,45 +457,97 @@ module.exports = function (Engine) {
 		return full_options.length > 0 ? full_options : reduced_options
 	}
 
-	function replace_lcu_with_scu(game, lcu, space, scu, log) {
+	function capture_lcu_runtime_state(game, lcu) {
+		let attack_origin = null
+		if (game.attack && game.attack.origin_by_piece && game.attack.origin_by_piece[lcu] > 0) {
+			attack_origin = game.attack.origin_by_piece[lcu]
+		} else if (game.pieces && game.pieces[lcu] > 0) {
+			attack_origin = game.pieces[lcu]
+		}
+
+		return {
+			attack_pieces: !!(game.attack && Array.isArray(game.attack.pieces) && set_has(game.attack.pieces, lcu)),
+			move_pieces: !!(game.move && Array.isArray(game.move.pieces) && set_has(game.move.pieces, lcu)),
+			attacked: !!(Array.isArray(game.attacked) && set_has(game.attacked, lcu)),
+			moved: !!(Array.isArray(game.moved) && set_has(game.moved, lcu)),
+			retreated: !!(Array.isArray(game.retreated) && set_has(game.retreated, lcu)),
+			sr_moved: !!(Array.isArray(game.sr_moved) && set_has(game.sr_moved, lcu)),
+			oos: !!(Array.isArray(game.oos) && set_has(game.oos, lcu)),
+			entrenching: !!(Array.isArray(game.entrenching) && set_has(game.entrenching, lcu)),
+			battle_result_attackers: !!(
+				game.battle_result &&
+				Array.isArray(game.battle_result.attackers) &&
+				set_has(game.battle_result.attackers, lcu)
+			),
+			battle_result_defenders: !!(
+				game.battle_result &&
+				Array.isArray(game.battle_result.defenders) &&
+				set_has(game.battle_result.defenders, lcu)
+			),
+			battle_result_retreating_units: !!(
+				game.battle_result &&
+				Array.isArray(game.battle_result.retreating_units) &&
+				set_has(game.battle_result.retreating_units, lcu)
+			),
+			battle_result_turkish_retreat_units: !!(
+				game.battle_result &&
+				Array.isArray(game.battle_result.turkish_retreat_units) &&
+				set_has(game.battle_result.turkish_retreat_units, lcu)
+			),
+			battle_result_turkish_retreat_optional_units: !!(
+				game.battle_result &&
+				Array.isArray(game.battle_result.turkish_retreat_optional_units) &&
+				set_has(game.battle_result.turkish_retreat_optional_units, lcu)
+			),
+			attack_origin
+		}
+	}
+
+	function transfer_lcu_runtime_state(game, lcu, scu, runtime_state) {
+		let snapshot = runtime_state || capture_lcu_runtime_state(game, lcu)
+
+		function transfer_array(container, key, was_present) {
+			if (!container) return
+			if (!Array.isArray(container[key])) {
+				if (!was_present) return
+				container[key] = []
+			}
+			set_delete(container[key], lcu)
+			if (was_present) set_add(container[key], scu)
+		}
+
+		transfer_array(game.attack, "pieces", snapshot.attack_pieces)
+		transfer_array(game.move, "pieces", snapshot.move_pieces)
+		transfer_array(game, "attacked", snapshot.attacked)
+		transfer_array(game, "moved", snapshot.moved)
+		transfer_array(game, "retreated", snapshot.retreated)
+		transfer_array(game, "sr_moved", snapshot.sr_moved)
+		transfer_array(game, "oos", snapshot.oos)
+		transfer_array(game, "entrenching", snapshot.entrenching)
+		transfer_array(game.battle_result, "attackers", snapshot.battle_result_attackers)
+		transfer_array(game.battle_result, "defenders", snapshot.battle_result_defenders)
+		transfer_array(game.battle_result, "retreating_units", snapshot.battle_result_retreating_units)
+		transfer_array(game.battle_result, "turkish_retreat_units", snapshot.battle_result_turkish_retreat_units)
+		transfer_array(
+			game.battle_result,
+			"turkish_retreat_optional_units",
+			snapshot.battle_result_turkish_retreat_optional_units
+		)
+
+		if (game.attack && snapshot.attack_origin > 0) {
+			if (!game.attack.origin_by_piece || typeof game.attack.origin_by_piece !== "object") {
+				game.attack.origin_by_piece = {}
+			}
+			game.attack.origin_by_piece[scu] = snapshot.attack_origin
+			delete game.attack.origin_by_piece[lcu]
+		}
+		delete game.attack_eligibility_cache
+	}
+
+	function replace_lcu_with_scu(game, lcu, space, scu, log, runtime_state = null) {
+		let snapshot = runtime_state || capture_lcu_runtime_state(game, lcu)
 		game.pieces[scu] = space
-		if (game.attack && game.attack.pieces && set_has(game.attack.pieces, lcu)) {
-			set_delete(game.attack.pieces, lcu)
-			set_add(game.attack.pieces, scu)
-		}
-		if (game.attacked && set_has(game.attacked, lcu)) {
-			set_add(game.attacked, scu)
-		}
-		if (game.moved && set_has(game.moved, lcu)) {
-			set_add(game.moved, scu)
-		}
-		if (game.retreated && set_has(game.retreated, lcu)) {
-			set_add(game.retreated, scu)
-		}
-		if (
-			game.battle_result &&
-			game.battle_result.retreating_units &&
-			set_has(game.battle_result.retreating_units, lcu)
-		) {
-			set_delete(game.battle_result.retreating_units, lcu)
-			set_add(game.battle_result.retreating_units, scu)
-		}
-		if (
-			game.battle_result &&
-			game.battle_result.turkish_retreat_units &&
-			set_has(game.battle_result.turkish_retreat_units, lcu)
-		) {
-			set_delete(game.battle_result.turkish_retreat_units, lcu)
-			set_add(game.battle_result.turkish_retreat_units, scu)
-		}
-		if (
-			game.battle_result &&
-			game.battle_result.turkish_retreat_optional_units &&
-			set_has(game.battle_result.turkish_retreat_optional_units, lcu)
-		) {
-			set_delete(game.battle_result.turkish_retreat_optional_units, lcu)
-			set_add(game.battle_result.turkish_retreat_optional_units, scu)
-		}
+		transfer_lcu_runtime_state(game, lcu, scu, snapshot)
 		if (log)
 			log(`LCU ${data.pieces[lcu].name} 被替换为 SCU ${data.pieces[scu].name}。`)
 		return scu
@@ -544,7 +596,8 @@ module.exports = function (Engine) {
 							unit: p,
 							space,
 							options,
-							return_state: game.state
+							return_state: game.state,
+							runtime_state: capture_lcu_runtime_state(game, p)
 						}
 						game.state = "choose_lcu_replacement"
 					} else {

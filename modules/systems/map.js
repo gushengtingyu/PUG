@@ -114,9 +114,23 @@ module.exports = function (Engine) {
 		return found
 	}
 
+	function is_regular_combat_unit(p) {
+		let info = data.pieces[p]
+		return !!info && info.type === "regular" && (is_lcu(p) || is_scu(p))
+	}
+
+	function has_regular_combat_unit_for_faction(game, s, faction) {
+		let found = false
+		for_each_piece_in_space(game, s, (p) => {
+			if (get_piece_effective_faction(game, p) === faction && is_regular_combat_unit(p)) found = true
+		})
+		return found
+	}
+
 	function is_disrupted_by_enemy(game, s, faction) {
 		if (faction === undefined) faction = game.active
 		let enemy = other_faction(faction)
+		if (has_regular_combat_unit_for_faction(game, s, enemy)) return false
 		if (enemy === CP && Array.isArray(game.persian_uprising_markers) && game.persian_uprising_markers.includes(s)) {
 			return true
 		}
@@ -1890,11 +1904,18 @@ function get_stack_yildirim_count(pieces) {
 			}
 			return (
 				get_base_sr_cost(p) +
+				get_disrupted_supply_sr_surcharge(game, p, from, faction) +
 				get_german_subs_sr_surcharge(game, from, to, faction) +
 				get_unrestricted_submarine_warfare_sr_surcharge(game, from, to, faction)
 			)
 		}
 		return get_base_sr_cost(game_or_piece)
+	}
+
+	function get_disrupted_supply_sr_surcharge(game, p, from, faction) {
+		if (!(from > 0) || from >= data.spaces.length || !data.spaces[from]) return 0
+		let status = get_supply_status(game, from, faction, p, true)
+		return status === "DISRUPTED" ? 1 : 0
 	}
 
 	function is_reserve_space(s) {
@@ -2465,6 +2486,10 @@ function get_stack_yildirim_count(pieces) {
 			[AP]: new Uint8Array(space_count),
 			[CP]: new Uint8Array(space_count)
 		}
+		let disrupting = {
+			[AP]: new Uint8Array(space_count),
+			[CP]: new Uint8Array(space_count)
+		}
 		let non_tribe = {
 			[AP]: new Uint8Array(space_count),
 			[CP]: new Uint8Array(space_count)
@@ -2487,12 +2512,17 @@ function get_stack_yildirim_count(pieces) {
 				enemy_regular[opp][s] = 1
 			}
 			if (is_disrupting_piece(p)) {
-				disrupted[opp][s] = 1
+				disrupting[opp][s] = 1
 			}
 		}
 		if (Array.isArray(game.persian_uprising_markers)) {
 			for (let s of game.persian_uprising_markers) {
-				if (s > 0 && s < space_count) disrupted[AP][s] = 1
+				if (s > 0 && s < space_count) disrupting[AP][s] = 1
+			}
+		}
+		for (let faction of [AP, CP]) {
+			for (let s = 1; s < space_count; s++) {
+				if (disrupting[faction][s] && !enemy_regular[faction][s]) disrupted[faction][s] = 1
 			}
 		}
 
@@ -3613,6 +3643,34 @@ function get_stack_yildirim_count(pieces) {
 		let attack_has_hq_with_br = false
 		let has_pi_nation = false
 		let has_br_in_stack = false
+		let move_has_disrupted_supply = false
+		let attack_has_disrupted_supply = false
+		let attack_with_br_has_disrupted_supply = false
+		let supply_trace_cache = null
+		let supply_context = null
+		let source_cache = null
+		let status_cache = null
+
+		function is_piece_in_disrupted_supply(p) {
+			if (!supply_trace_cache) {
+				supply_trace_cache = new Map()
+				supply_context = create_supply_context(game)
+				source_cache = new Map()
+				status_cache = new Map()
+			}
+			let status = get_supply_status(
+				game,
+				game.pieces[p],
+				faction,
+				p,
+				false,
+				supply_trace_cache,
+				supply_context,
+				source_cache,
+				status_cache
+			)
+			return status === "DISRUPTED"
+		}
 
 		for (let p of pieces) {
 			if (data.pieces[p].faction !== faction) continue
@@ -3624,18 +3682,22 @@ function get_stack_yildirim_count(pieces) {
 			if (is_br) has_br_in_stack = true
 
 			if (can_piece_be_activated(p)) {
+				let disrupted_supply = is_piece_in_disrupted_supply(p)
 				move_pieces.push(p)
+				if (disrupted_supply) move_has_disrupted_supply = true
 				if (data.pieces[p].type === "hq") move_has_hq = true
 
 				// attack without BR
 				if (!is_br) {
 					attack_pieces.push(p)
+					if (disrupted_supply) attack_has_disrupted_supply = true
 					if (data.pieces[p].type === "hq") attack_has_hq = true
 				}
 
 				// attack with BR (only tracked when MO active and penalty not yet paid)
 				if (mo_br_no_attack) {
 					attack_pieces_with_br.push(p)
+					if (disrupted_supply) attack_with_br_has_disrupted_supply = true
 					if (data.pieces[p].type === "hq") attack_has_hq_with_br = true
 				}
 			}
@@ -3673,6 +3735,8 @@ function get_stack_yildirim_count(pieces) {
 				special_hq_command
 			)
 		}
+		if (move_has_disrupted_supply && costs.move > 0) costs.move += 1
+		if (attack_has_disrupted_supply && costs.attack > 0) costs.attack += 1
 		// attack_with_br: only provided when MO active, penalty not paid, and BR units present
 		if (mo_br_no_attack && has_br_in_stack) {
 			let with_br_count = get_stack_count(attack_pieces_with_br)
@@ -3686,6 +3750,7 @@ function get_stack_yildirim_count(pieces) {
 				has_pi_penalty,
 				special_hq_command
 			)
+			if (attack_with_br_has_disrupted_supply && costs.attack_with_br > 0) costs.attack_with_br += 1
 		}
 		if (faction === AP) {
 			let submarine_surcharge = 0

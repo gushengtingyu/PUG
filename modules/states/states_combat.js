@@ -1694,7 +1694,12 @@ exports.register = function (states, Engine, context) {
 		},
 		piece(p) {
 			push_undo()
-			replace_lcu_with_scu(game.attack.replacement.unit, game.attack.replacement.space, p)
+			replace_lcu_with_scu(
+				game.attack.replacement.unit,
+				game.attack.replacement.space,
+				p,
+				game.attack.replacement.runtime_state
+			)
 			let return_state = game.attack.replacement.return_state
 			delete game.attack.replacement
 			resume_replacement_return_state(return_state)

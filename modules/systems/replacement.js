@@ -152,9 +152,19 @@ module.exports = function (Engine) {
 		if (eliminated) {
 			return info.piece_class === "LCU" ? 1 : 0.5
 		} else if (set_has(game.reduced, p)) {
-			return info.piece_class === "LCU" ? 1 : 0.5
+			let cost = info.piece_class === "LCU" ? 1 : 0.5
+			return is_repairing_in_disrupted_supply(game, p) ? cost * 2 : cost
 		}
 		return 0
+	}
+
+	function is_repairing_in_disrupted_supply(game, p) {
+		let s = game.pieces[p]
+		if (!(s > 0) || s >= data.spaces.length || !data.spaces[s]) return false
+		if (!Engine.map || typeof Engine.map.get_supply_status !== "function") return false
+		let faction = get_piece_effective_faction(game, p)
+		if (faction !== AP && faction !== CP) faction = data.pieces[p].faction
+		return Engine.map.get_supply_status(game, s, faction, p, false) === "DISRUPTED"
 	}
 
 	function can_use_any_friendly_rp(p) {
