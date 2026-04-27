@@ -2770,6 +2770,9 @@ exports.register = function (states, Engine, context) {
 			game.advance_trench_processed = true
 		}
 		resolve_russian_winter_offensive_advance(game, p, to_space, log)
+		// Sync VP and jihad BEFORE set_control so the previous controller is still the old one
+		Engine.sync_neutral_vp_state(game, to_space)
+		Engine.sync_jihad_city_state(game, to_space)
 		if (!Engine.map.is_controlled_by(game, to_space, active_faction())) {
 			let enemy_holds_contested_region =
 				!!data.spaces[to_space]?.region && Engine.map.contains_enemy_pieces(game, to_space, active_faction())
@@ -2791,8 +2794,6 @@ exports.register = function (states, Engine, context) {
 			Engine.sync_region_control(game, from_space)
 		}
 		Engine.sync_region_control(game, to_space)
-		Engine.sync_neutral_vp_state(game, to_space)
-		Engine.sync_jihad_city_state(game, to_space)
 		if (Engine.neutral.is_greece_neutral(game) && Engine.neutral.is_athens_space(to_space)) {
 			Engine.neutral.trigger_greece_entry(game, to_space, active_faction(), "战斗推进进入雅典", (msg) => log(msg))
 		}

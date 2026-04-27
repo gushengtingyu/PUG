@@ -3009,6 +3009,13 @@ module.exports = function (Engine) {
 			let cost = game.activation_cost && game.activation_cost[s] !== undefined ? game.activation_cost[s] : 0
 			total += cost
 		}
+		// Also count OPs from spaces activated for Egypt-only attack (e.g. Sinai → Egypt)
+		if (Array.isArray(game.activated.attack_egypt)) {
+			for (let s of game.activated.attack_egypt) {
+				let cost = game.activation_cost && game.activation_cost[s] !== undefined ? game.activation_cost[s] : 0
+				total += cost
+			}
+		}
 		return total
 	}
 

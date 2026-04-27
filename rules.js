@@ -222,6 +222,16 @@ function move_piece(target_game, p, s) {
 
 		if (target_game === game) {
 			let faction = data.pieces[p].faction
+			// Sync jihad city state BEFORE any set_control call
+			if (from > 0) {
+				Engine.sync_neutral_vp_state(game, from)
+				Engine.sync_jihad_city_state(game, from)
+				Engine.sync_region_control(game, from)
+			}
+			Engine.sync_neutral_vp_state(game, s)
+			Engine.sync_jihad_city_state(game, s)
+			Engine.sync_region_control(game, s)
+
 			let can_capture_persia_vp =
 				Engine.events.is_persia_open(game) &&
 				Engine.map.is_persia(s) &&
@@ -235,12 +245,6 @@ function move_piece(target_game, p, s) {
 			if (Engine.check_persia_entry_vp_penalty) {
 				Engine.check_persia_entry_vp_penalty(game, s, [p])
 			}
-			if (from > 0) {
-				Engine.sync_region_control(game, from)
-				Engine.sync_neutral_vp_state(game, from)
-			}
-			Engine.sync_region_control(game, s)
-			Engine.sync_neutral_vp_state(game, s)
 		}
 
 		// Rule 19.2.1: Entering neutral Athens triggers Greek entry
@@ -1213,72 +1217,7 @@ states.retreat_choice_cc_cp = {
 	}
 }
 
-states.save_tiflis_retreat = {
-	prompt(res) {
-		if (!game.save_tiflis_pieces || game.save_tiflis_pieces.length === 0) {
-			res.prompt("回援第比利斯：所有受影响的单位已处理完毕。")
-			res.action("next")
-			return
-		}
-		res.prompt("回援第比利斯：选择一个受影响的俄国单位向第比利斯方向撤退一格。")
-		for (let p of game.save_tiflis_pieces) {
-			res.piece(p)
-		}
-	},
-	piece(p) {
-		game.save_tiflis_active_piece = p
-		game.state = "save_tiflis_retreat_space"
-	},
-	next() {
-		game.active = CP
-		combat.end_battle_sequence(game, log)
-	}
-}
-
-states.save_tiflis_retreat_space = {
-	prompt(res) {
-		res.prompt("回援第比利斯：选择撤退目标（必须距离第比利斯更近）。")
-		let p = game.save_tiflis_active_piece
-		let s = game.pieces[p]
-		let current_dist = Engine.map.get_distance(s, 12) // 12是第比利斯(TIFLIS)的地块ID
-		let valid_spaces = Engine.combat.get_valid_retreat_spaces(game, p, [], 1, true)
-		let can_retreat = false
-		
-		for (let next_s of valid_spaces) {
-			if (Engine.map.get_distance(next_s, 12) < current_dist) {
-				res.space(next_s)
-				can_retreat = true
-			}
-		}
-		
-		if (!can_retreat) {
-			res.prompt("回援第比利斯：该单位无法合法向第比利斯方向撤退。")
-			res.action("cannot_retreat")
-		} else {
-			res.action("cancel")
-		}
-	},
-	space(s) {
-		let p = game.save_tiflis_active_piece
-		move_piece(game, p, s)
-		log(`${piece_name(p)} 向第比利斯方向撤退至 ${space_name(s)}。`)
-		set_delete(game.save_tiflis_pieces, p)
-		delete game.save_tiflis_active_piece
-		game.state = "save_tiflis_retreat"
-	},
-	cannot_retreat() {
-		let p = game.save_tiflis_active_piece
-		log(`${piece_name(p)} 无法向第比利斯合法撤退。`)
-		set_delete(game.save_tiflis_pieces, p)
-		delete game.save_tiflis_active_piece
-		game.save_tiflis_failed = true // 记录撤退失败，触发同盟国允许挺进的规则
-		game.state = "save_tiflis_retreat"
-	},
-	cancel() {
-		delete game.save_tiflis_active_piece
-		game.state = "save_tiflis_retreat"
-	}
-}
+// Save Tiflis retreat states now handled by modules/states/states_combat.js
 
 // Action phase functions moved to states_action.js
 
@@ -1856,6 +1795,7 @@ function build_attack_eligibility_cache_key() {
 
 	let attacked_hash = hash_number_array(game.attacked)
 	let activated_attack_hash = hash_number_array(game.activated && game.activated.attack)
+	let activated_attack_egypt_hash = hash_number_array(game.activated && game.activated.attack_egypt)
 	let region_attack_hash = hash_region_attack_activations()
 	let retreated_hash = hash_number_array(game.retreated)
 
@@ -1877,7 +1817,7 @@ function build_attack_eligibility_cache_key() {
 	let events_hash = hash_events_flags(game.events)
 	let faction_bit = game.active === AP || game.active === "AP" || game.active === "Allied Powers" ? 1 : 2
 
-	return `${faction_bit}|${pieces_hash}|${attacked_hash}|${activated_attack_hash}|${region_attack_hash}|${retreated_hash}|${fort_hash}|${events_hash}`
+	return `${faction_bit}|${pieces_hash}|${attacked_hash}|${activated_attack_hash}|${activated_attack_egypt_hash}|${region_attack_hash}|${retreated_hash}|${fort_hash}|${events_hash}`
 }
 
 function build_enemy_space_flag(faction) {
@@ -1917,9 +1857,10 @@ function has_attack_targets(p, faction, enemy, enemy_space_flag = null) {
 
 function refresh_attack_eligibility() {
 	game.eligible_attackers = []
+	let has_egypt_attack = Array.isArray(game.activated?.attack_egypt) && game.activated.attack_egypt.length > 0
 	let has_normal_attack_activations = !!(game.activated && game.activated.attack && game.activated.attack.length > 0)
 	let region_attack_entries = get_region_attack_activation_entries()
-	if (!has_normal_attack_activations && region_attack_entries.length === 0) return
+	if (!has_normal_attack_activations && !has_egypt_attack && region_attack_entries.length === 0) return
 
 	let cache_key = build_attack_eligibility_cache_key()
 	if (game.attack_eligibility_cache && game.attack_eligibility_cache.key === cache_key) {
@@ -1933,6 +1874,10 @@ function refresh_attack_eligibility() {
 	let enemy_space_flag = build_enemy_space_flag(faction)
 	let activated_attack_flag = new Uint8Array(data.spaces.length)
 	for (let s of game.activated.attack) {
+		if (s > 0 && data.spaces[s]) activated_attack_flag[s] = 1
+	}
+	// Also include Egypt-only attack activations
+	for (let s of (game.activated.attack_egypt || [])) {
 		if (s > 0 && data.spaces[s]) activated_attack_flag[s] = 1
 	}
 	for (let p = 0; p < game.pieces.length; p++) {
@@ -2184,7 +2129,7 @@ function start_ops_from_event(card_index) {
 	log(`${card_name(card_index)} -- 行动点 (${info.ops})`)
 	game.ops = info.ops
 	game.card_ops = info.ops
-	game.activated = { move: [], attack: [] }
+	game.activated = { move: [], attack: [], attack_egypt: [] }
 	game.activation_cost = {}
 	game.moved = []
 	game.attacked = []

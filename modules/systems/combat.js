@@ -1175,6 +1175,16 @@ module.exports = function (Engine) {
 		let targets = get_attackable_spaces(game, pieces, faction, get_season_fn, is_rail_connected_to_supply_fn)
 		if (targets.length === 0) return targets
 		if (is_invalid_multinational_attack(game, pieces)) return []
+		// Liberate Suez: units from attack_egypt spaces can only target Egypt
+		if (Array.isArray(game.activated?.attack_egypt)) {
+			let all_from_egypt_activation = pieces.every((p) => {
+				let from = game.pieces[p]
+				return from > 0 && set_has(game.activated.attack_egypt, from)
+			})
+			if (all_from_egypt_activation) {
+				targets = targets.filter((t) => Engine.map.is_egypt(t))
+			}
+		}
 		return apply_balkan_attack_target_restrictions(game, pieces, targets, faction)
 	}
 
@@ -2829,7 +2839,8 @@ module.exports = function (Engine) {
 			if (!Array.isArray(game.liberate_suez_egypt_attacked_spaces)) game.liberate_suez_egypt_attacked_spaces = []
 			for (let p of attackers) {
 				let from = game.pieces[p]
-				if (Engine.map.is_egypt(from) && game.activated && set_has(game.activated.attack, from)) {
+				// Source may be outside Egypt (e.g., Sinai) as long as the target is in Egypt
+				if (game.activated && (set_has(game.activated.attack, from) || set_has(game.activated.attack_egypt, from))) {
 					set_add(game.liberate_suez_egypt_attacked_spaces, from)
 					game.liberate_suez_egypt_battle_done = true
 					delete game.liberate_suez_battle_required

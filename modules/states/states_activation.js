@@ -146,9 +146,11 @@ exports.register = function (states, Engine, context) {
 	function log_activation_summary() {
 		let move_spaces = Array.isArray(game.activated.move) ? game.activated.move : []
 		let attack_spaces = Array.isArray(game.activated.attack) ? game.activated.attack : []
+		let attack_egypt_spaces = Array.isArray(game.activated.attack_egypt) ? game.activated.attack_egypt : []
 
 		log_activation_group("MOVE", move_spaces)
 		log_activation_group("ATTACK", attack_spaces)
+		if (attack_egypt_spaces.length > 0) log_activation_group("ATTACK (埃及限定)", attack_egypt_spaces)
 		log_region_activation_group("MOVE", "move")
 		log_region_activation_group("ATTACK", "attack")
 	}
@@ -613,6 +615,7 @@ exports.register = function (states, Engine, context) {
 			let pieces_by_space = new Map()
 			let activated_move_set = new Set(game.activated.move || [])
 			let activated_attack_set = new Set(game.activated.attack || [])
+			let activated_attack_egypt_set = new Set(game.activated.attack_egypt || [])
 			let enemy = other_faction(faction)
 			let enemy_space_flag = new Uint8Array(data.spaces.length)
 			for (let p = 0; p < game.pieces.length; p++) {
@@ -644,7 +647,7 @@ exports.register = function (states, Engine, context) {
 
 			for (let [s, friendly_pieces] of pieces_by_space) {
 				let is_region_space = Engine.map.is_region(game, s)
-				if (!is_region_space && (activated_move_set.has(s) || activated_attack_set.has(s))) continue
+				if (!is_region_space && (activated_move_set.has(s) || activated_attack_set.has(s) || activated_attack_egypt_set.has(s))) continue
 
 				let costs = is_region_space ? { move: 1, attack: 1 } : get_activation_cost_pair(game, s, all_pieces_by_space.get(s))
 				let move_cost = costs.move
@@ -693,6 +696,12 @@ exports.register = function (states, Engine, context) {
 
 				if (can_move) res.action("activate_move", s)
 				if (can_attack) res.action("activate_attack", s)
+				// Liberate Suez: offer Egypt-only attack for non-Egypt spaces that can attack into Egypt
+				if (game.liberate_suez_op_required && !Engine.map.is_egypt(s) && can_attack && !activated_attack_egypt_set.has(s)) {
+					let adj = Engine.map.get_connected_spaces(game, s, null, faction, undefined, "attack")
+					let has_egypt_enemy = adj.some((n) => Engine.map.is_egypt(n) && Engine.map.contains_enemy_pieces(game, n, faction))
+					if (has_egypt_enemy) res.action("activate_attack_egypt", s)
+				}
 				// MO_BRITISH_NO_ATTACK: offer "attack with BR" mode if affordable and BR units present
 				if (costs.attack_with_br !== undefined && game.ops >= costs.attack_with_br) {
 					let has_br_that_can_attack = (all_pieces_by_space.get(s) || []).some((p) => {
@@ -715,6 +724,12 @@ exports.register = function (states, Engine, context) {
 					if (game.liberate_suez_op_required && Engine.map.is_egypt(s)) continue
 					if (russo_british_mode && !russo_british_legal_set.has(s)) continue
 					if (romania_mode && !romania_legal_set.has(s)) continue
+					res.action("deactivate", s)
+					deactivated_spaces.add(s)
+				}
+			}
+			for (let s of (game.activated.attack_egypt || [])) {
+				if (!deactivated_spaces.has(s)) {
 					res.action("deactivate", s)
 					deactivated_spaces.add(s)
 				}
@@ -808,6 +823,22 @@ exports.register = function (states, Engine, context) {
 				states.activate_spaces.done()
 			}
 		},
+		activate_attack_egypt(s) {
+			// Liberate Suez: activate non-Egypt space for Egypt-only attack
+			let faction = active_faction()
+			if (Engine.map.is_region(game, s)) return
+			let unmoved_pieces = get_pieces_in_space(game, s).filter((p) => !set_has(game.moved, p))
+			if (!unmoved_pieces.some((p) => can_piece_attack_in_activation(p, s, faction))) return
+			push_undo()
+			let cost = get_activation_cost(game, s, "attack")
+			game.ops -= cost
+			if (!Array.isArray(game.activated.attack_egypt)) game.activated.attack_egypt = []
+			set_add(game.activated.attack_egypt, s)
+			if (!game.activation_cost) game.activation_cost = {}
+			map_set(game.activation_cost, s, cost)
+			log("解放苏伊士：该单位仅能进攻埃及地区的目标。")
+			if (game.ops === 0) states.activate_spaces.done()
+		},
 		activate_attack_with_br(s) {
 			// MO_BRITISH_NO_ATTACK: activate attack including BR units, pay +1 VP penalty once per turn
 			let faction = active_faction()
@@ -827,8 +858,12 @@ exports.register = function (states, Engine, context) {
 			if (game.ops === 0) states.activate_spaces.done()
 		},
 		deactivate(s) {
-			if (game.liberate_suez_op_required && set_has(game.activated.attack, s) && Engine.map.is_egypt(s)) {
+			if (game.liberate_suez_op_required && Engine.map.is_egypt(s) && set_has(game.activated.attack, s)) {
 				log("解放苏伊士：埃及地区已激活的进攻不能取消。")
+				return
+			}
+			if (game.liberate_suez_op_required && set_has(game.activated.attack_egypt, s)) {
+				log("解放苏伊士：已指定进攻埃及的单位不能取消。")
 				return
 			}
 			push_undo()
@@ -838,12 +873,13 @@ exports.register = function (states, Engine, context) {
 			}
 			let total_cost_before = map_get(game.activation_cost, s) || 0
 			let region_refund = 0
-			let had_ordinary_activation = set_has(game.activated.move, s) || set_has(game.activated.attack, s)
+			let had_ordinary_activation = set_has(game.activated.move, s) || set_has(game.activated.attack, s) || set_has(game.activated.attack_egypt, s)
 			if (had_ordinary_activation) {
 				let ordinary_cost = total_cost_before - region_refund
 				if (ordinary_cost <= 0) ordinary_cost = total_cost_before
 				set_delete(game.activated.move, s)
 				set_delete(game.activated.attack, s)
+				set_delete(game.activated.attack_egypt, s)
 				game.ops += ordinary_cost
 				map_delete(game.activation_cost, s)
 			}
@@ -1880,6 +1916,12 @@ exports.register = function (states, Engine, context) {
 
 			check_immediate_jihad_rebellion_on_entry(from_space, target, pieces_moving)
 
+			// Sync VP and jihad BEFORE set_control so the previous controller is still the old one
+			if (should_sync_vp_and_jihad_on_entry(pieces_moving)) {
+				Engine.sync_neutral_vp_state(game, target)
+				Engine.sync_jihad_city_state(game, target)
+			}
+
 			if (!has_undestroyed_fort(game, target, other_faction(active_faction())) && !is_gallipoli(target)) {
 				if (!is_controlled_by(game, target, active_faction())) {
 					let enemy_holds_contested_region =
@@ -1893,10 +1935,6 @@ exports.register = function (states, Engine, context) {
 				Engine.check_persia_entry_vp_penalty(game, target, pieces_moving)
 			}
 			Engine.sync_region_control(game, target)
-			if (should_sync_vp_and_jihad_on_entry(pieces_moving)) {
-				Engine.sync_neutral_vp_state(game, target)
-				Engine.sync_jihad_city_state(game, target)
-			}
 
 			if (
 				is_siege_entry ||
@@ -1932,7 +1970,9 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function should_sync_vp_and_jihad_on_entry(pieces) {
-		return Array.isArray(pieces) && pieces.some((p) => Engine.game_utils.is_regular(p))
+		return Array.isArray(pieces) && pieces.some((p) => {
+			return Engine.game_utils.is_regular(p) || Engine.game_utils.is_irregular(p) || Engine.game_utils.is_tribe(p)
+		})
 	}
 
 	function sync_vp_and_jihad_for_stopped_space(space) {
