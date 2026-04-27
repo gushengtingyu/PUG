@@ -326,6 +326,7 @@ module.exports = function (Engine) {
 		},
 		piece(game, log, p) {
 			if (!is_tribe(p) || is_not_on_map(game, p)) return
+			let from = game.pieces[p]
 			let tribe_type = get_tribe_type(p)
 			let rb = -1
 			for (let s = 1; s < data.spaces.length; s++) {
@@ -345,6 +346,10 @@ module.exports = function (Engine) {
 			game.pieces[p] = rb
 			game.tribes_to_remove--
 			log(`${format_piece_name(game, p)} 返回部落预备格`)
+			if (from > 0) {
+				Engine.sync_neutral_vp_state(game, from)
+				Engine.sync_jihad_city_state(game, from)
+			}
 			if (game.tribes_to_remove <= 0) {
 				Engine.resume_previous_state(game)
 			}
@@ -411,6 +416,8 @@ module.exports = function (Engine) {
 			game.selected_piece = null
 			game.tribes_to_place--
 			log(`${format_piece_name(game, p)} 放置在 ${data.spaces[s].name}`)
+			Engine.sync_neutral_vp_state(game, s)
+			Engine.sync_jihad_city_state(game, s)
 			if (game.tribes_to_place <= 0) {
 				Engine.resume_previous_state(game)
 			}
