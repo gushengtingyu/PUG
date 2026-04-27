@@ -619,7 +619,7 @@ var data = {
 		"id": 18,
 		"map": "asia",
 		"name": "Craiova",
-		"x": 492,
+		"x": 490,
 		"y": 318,
 		"nation": "ro",
 		"faction": "neutral",
@@ -7588,8 +7588,7 @@ var data = {
 			"23": "green",
 			"78": "green",
 			"292": "green",
-			"298": "green",
-			"312": ""
+			"298": "green"
 		},
 		"crossings": {
 			"23": "bidirectional",
@@ -7601,9 +7600,6 @@ var data = {
 			],
 			"78": [
 				"no_tribe"
-			],
-			"312": [
-				"none"
 			]
 		},
 		"limited_connections": {
@@ -7720,11 +7716,6 @@ var data = {
 				78,
 				292,
 				298
-			],
-			"none": [
-				292,
-				298,
-				312
 			]
 		}
 	},
@@ -7919,30 +7910,12 @@ var data = {
 	},
 	{
 		"id": 294,
-		"map": "asia",
-		"name": "Simla",
-		"x": 4285,
-		"y": 1210,
-		"nation": "br",
-		"faction": "ap",
-		"terrain": "mountain",
-		"vp": 2,
-		"area": "india",
+		"name": "Generated Gap",
+		"type": "generated_gap",
+		"generated": true,
 		"connections": [],
 		"rail_connections": [],
-		"connection_types": {
-			"313": ""
-		},
-		"connection_nations": {
-			"313": [
-				"none"
-			]
-		},
-		"limited_connections": {
-			"none": [
-				313
-			]
-		}
+		"connection_types": {}
 	},
 	{
 		"id": 295,
@@ -8325,29 +8298,12 @@ var data = {
 	},
 	{
 		"id": 312,
-		"map": "asia",
-		"name": "Krasnovodsk",
-		"x": 4285,
-		"y": 469,
-		"nation": "ru",
-		"faction": "ap",
-		"vp": 1,
-		"area": "central_asia",
+		"name": "Generated Gap",
+		"type": "generated_gap",
+		"generated": true,
 		"connections": [],
 		"rail_connections": [],
-		"connection_types": {
-			"283": ""
-		},
-		"connection_nations": {
-			"283": [
-				"none"
-			]
-		},
-		"limited_connections": {
-			"none": [
-				283
-			]
-		}
+		"connection_types": {}
 	},
 	{
 		"id": 313,
@@ -8357,8 +8313,9 @@ var data = {
 		"y": 1106,
 		"nation": "in",
 		"faction": "ap",
-		"port": 2,
+		"terrain": "mountain",
 		"vp": 2,
+		"port": 2,
 		"region": "india",
 		"area": "india",
 		"tribal_activity_grid": "NW Frontier",
@@ -8368,21 +8325,8 @@ var data = {
 		],
 		"rail_connections": [],
 		"connection_types": {
-			"294": "",
 			"298": "green",
 			"299": "green"
-		},
-		"connection_nations": {
-			"294": [
-				"none"
-			]
-		},
-		"limited_connections": {
-			"none": [
-				294,
-				298,
-				299
-			]
 		}
 	},
 	{
@@ -19794,16 +19738,6 @@ var data = {
 		"type": "strait"
 	},
 	{
-		"a": 283,
-		"b": 312,
-		"nations": "none"
-	},
-	{
-		"a": 313,
-		"b": 294,
-		"nations": "none"
-	},
-	{
 		"a": 234,
 		"b": 226
 	},
@@ -28099,7 +28033,6 @@ data.space_name = {
 	"Bahrain": 291,
 	"Meshed": 292,
 	"AP Corps Assets": 293,
-	"Simla": 294,
 	"Odessa": 295,
 	"Galicia": 296,
 	"Petrovsk": 297,
@@ -28117,7 +28050,6 @@ data.space_name = {
 	"NW Frontier": 309,
 	"Jangali": 310,
 	"Sinjabi": 311,
-	"Krasnovodsk": 312,
 	"INDIA": 313,
 	"ANZ Elite DIV": 1001,
 	"ANZ Cavalry #1": 1002,

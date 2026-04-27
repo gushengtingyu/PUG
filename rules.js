@@ -68,6 +68,7 @@ const {
 	get_pieces_in_eliminated,
 	get_pieces_in_removed,
 	get_pieces_in_reinforcements,
+	pieces_count_as_any_nation_for_rule,
 	is_turn_event,
 	is_hq,
 	add_rps: utils_add_rps,
@@ -771,12 +772,20 @@ exports.view = function (state, current) {
 		hidden_reinforcement_markers.push("Revolution token")
 		hidden_reinforcement_markers.push("Long Live the Czar! token")
 	}
+	if (game.events && game.events["jerusalem_by_christmas"] !== undefined) {
+		hidden_reinforcement_markers.push("J By C token")
+	}
 
 	function create_view() {
 		const entry_gr = !!(game.entry_gr || (Engine.neutral && Engine.neutral.get_greece_faction(game)))
 		const entry_bu = !!(game.entry_bu || (game.events && game.events["bulgaria"]))
 		const entry_ro = !!(game.entry_ro || (game.events && game.events["romania"]))
 		const entry_sb = !!(game.entry_sb || (game.events && game.events["bulgaria"]))
+		const jerusalem_by_christmas =
+			game.events && typeof game.events["jerusalem_by_christmas"] === "object"
+				? game.events["jerusalem_by_christmas"]
+				: null
+		const jerusalem_by_christmas_target = Number(jerusalem_by_christmas?.target_space)
 		return {
 			active: game.active,
 			log: game.log,
@@ -830,6 +839,10 @@ exports.view = function (state, current) {
 			control: game.control,
 			ru_control_markers: game.ru_control_markers || [],
 			persian_uprising_markers: game.persian_uprising_markers || [],
+			jerusalem_by_christmas_markers:
+				Number.isFinite(jerusalem_by_christmas_target) && jerusalem_by_christmas_target > 0
+					? [jerusalem_by_christmas_target]
+					: [],
 			reduced: game.reduced,
 			forts: game.forts,
 			beachheads: game.beachheads,
@@ -2499,6 +2512,7 @@ turn_funcs = turn_states.register(states, Engine, {
 	get_connected_spaces,
 	is_controlled_by,
 	is_gallipoli,
+	pieces_count_as_any_nation_for_rule,
 	mo_name,
 	determine_mo_ap,
 	determine_mo_cp,

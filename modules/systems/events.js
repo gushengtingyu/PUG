@@ -488,6 +488,14 @@ module.exports = function (Engine) {
 		return false
 	}
 
+	function is_brf_35_dunsterforce_space(game, s) {
+		return is_brf_35_spers_space(game, s) || (s === BAGHDAD && Engine.map.is_controlled_by(game, s, AP))
+	}
+
+	function is_brf_35_spers_space(game, s) {
+		return Engine.map.is_persia(s) && Engine.map.is_controlled_by(game, s, AP)
+	}
+
 	Engine.reinf_helpers = {
 		is_br: {
 			faction: AP,
@@ -532,18 +540,30 @@ module.exports = function (Engine) {
 		},
 		is_brf_35_rein: {
 			faction: AP,
-			desc: "协约国控制的巴格达、波斯地区或预备军格",
+			desc: (game, unit_name) => {
+				if (unit_name === "BR Dunsterforce") return "协约国控制的波斯地区或波斯大区、或协约国控制的巴格达"
+				return "协约国控制的波斯地区或波斯大区"
+			},
 			check: function (game, s) {
 				let units = get_pending_reinf_units(game)
 				if (!units || units.length === 0) return false
 				let unit = units[0]
 				if (s === get_scu_reserve_box(AP)) return true
 				if (unit === "BR Dunsterforce") {
-					return s === BAGHDAD && Engine.map.is_controlled_by(game, s, AP)
-				} else {
-					return Engine.map.is_persia(s) && Engine.map.is_controlled_by(game, s, AP)
+					return is_brf_35_dunsterforce_space(game, s)
 				}
+				return is_brf_35_spers_space(game, s)
 			}
+		},
+		is_brf_35_dunsterforce_rein: {
+			faction: AP,
+			desc: "协约国控制的波斯地区或波斯大区、或协约国控制的巴格达",
+			check: is_brf_35_dunsterforce_space
+		},
+		is_brf_35_spers_rein: {
+			faction: AP,
+			desc: "协约国控制的波斯地区或波斯大区",
+			check: is_brf_35_spers_space
 		},
 		is_tu: {
 			faction: CP,
@@ -1749,13 +1769,16 @@ module.exports = function (Engine) {
 			add_rein_record: "br",
 			name_cn: "英国增援",
 			effect_cn:
-				"增援:邓斯特部队，英国南波斯洋枪队。英国南波斯洋枪队增援至英国控制波斯地区 or 波斯的一个大区，邓斯特部队**只能**增援至**被英国控制的巴格达。**。- **邓斯特部队可以只花费4点移动力作为代价跨越绿色连线。**",
+				"增援:邓斯特部队，英国南波斯洋枪队。两者均可增援至协约国控制的波斯地区或波斯大区，或预备格；邓斯特部队还可以增援至协约国控制的巴格达。- **邓斯特部队可以只花费4点移动力作为代价跨越绿色连线。**",
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "british_reinf_35")
 				game.active = AP
 				event.reinf_to_place = ["BR Dunsterforce", "BR/PE SPers Rifles"]
-				event.reinf_placement = "map"
-				event.reinf_logic = "is_brf_35_rein"
+				event.reinf_placement = "either"
+				event.reinf_logic = {
+					"BR Dunsterforce": "is_brf_35_dunsterforce_rein",
+					"BR/PE SPers Rifles": "is_brf_35_spers_rein"
+				}
 				game.state = "event_place_reinforcements"
 			},
 			defer_end: true
@@ -3021,7 +3044,7 @@ module.exports = function (Engine) {
 				"(只能在1917年冬季后、【英国厌战】、【皇帝攻势】后，以及VP不小于13时打出)。协约国玩家必须选择:。A:+1VP。B:将最多3个英国/印度/澳新师移除游戏(派往西线)。。同盟国自动胜利标记左移1格。。在剩余的游戏中，每回合英国补员点数-1，协约国MO掷骰-2drm(**此外，掷骰“无”和“俄国”现在开始视为英国禁攻**)。解除同盟国在巴尔干地区的攻击限制。。(注:协约国选择移除师时，也可以以1LCU=3SCU的代价进行。选择移除师时，不能选择骑兵/骆驼师和英国特殊部队(例如英国波斯宪兵或者印度卫戍师等))",
 			can_play: function (game) {
 				let year = get_year(game)
-				let is_after_winter_1917 = year > 1917 || (year === 1917 && get_season(game) === "Winter")
+				let is_after_winter_1917 = year > 1916
 				return is_after_winter_1917 && game.events["british_war_weariness"] && game.events["kaiserschlacht"] && game.vp >= 13
 			},
 			handler: function (game, ctx) {

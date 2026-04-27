@@ -1961,42 +1961,38 @@ function destroy_fort_destroyed_marker(s) {
 	})
 }
 
-function build_persian_uprising_marker(s) {
+function build_space_marker(s, type, info) {
 	const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
-	return build_marker(
-		list,
-		(m) => {
-			return m.type === "persian_uprising"
-		},
-		{ type: "persian_uprising", space: s },
-		marker_info.persian_uprising
-	)
+	return build_marker(list, (m) => m.type === type, { type, space: s }, info)
+}
+
+function destroy_space_marker(s, type) {
+	const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
+	destroy_marker(list, (m) => m.type === type)
+}
+
+function build_persian_uprising_marker(s) {
+	return build_space_marker(s, "persian_uprising", marker_info.persian_uprising)
 }
 
 function destroy_persian_uprising_marker(s) {
-	const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
-	destroy_marker(list, (m) => {
-		return m.type === "persian_uprising"
-	})
+	destroy_space_marker(s, "persian_uprising")
 }
 
 function build_armenian_uprising_marker(s) {
-	const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
-	return build_marker(
-		list,
-		(m) => {
-			return m.type === "armenian_uprising"
-		},
-		{ type: "armenian_uprising", space: s },
-		marker_info.armenian_uprising
-	)
+	return build_space_marker(s, "armenian_uprising", marker_info.armenian_uprising)
 }
 
 function destroy_armenian_uprising_marker(s) {
-	const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
-	destroy_marker(list, (m) => {
-		return m.type === "armenian_uprising"
-	})
+	destroy_space_marker(s, "armenian_uprising")
+}
+
+function build_jerusalem_by_christmas_marker(s) {
+	return build_space_marker(s, "jerusalem_by_christmas", marker_info.j_by_c)
+}
+
+function destroy_jerusalem_by_christmas_marker(s) {
+	destroy_space_marker(s, "jerusalem_by_christmas")
 }
 
 /**
@@ -2093,6 +2089,7 @@ const UI_FRAME_STATE_FIELDS = [
 	{ key: "forts_destroyed", diff: "space_set", build: () => to_id_set(view?.forts?.destroyed) },
 	{ key: "armenian_uprising_markers", diff: "space_set", build: () => to_id_set(view?.armenian_uprising_markers) },
 	{ key: "persian_uprising_markers", diff: "space_set", build: () => to_id_set(view?.persian_uprising_markers) },
+	{ key: "jerusalem_by_christmas_markers", diff: "space_set", build: () => to_id_set(view?.jerusalem_by_christmas_markers) },
 	{ key: "partial_ap_control_markers", diff: "space_set", build: () => to_id_set(view?.partial_ap_control_markers) },
 	{ key: "partial_cp_control_markers", diff: "space_set", build: () => to_id_set(view?.partial_cp_control_markers) },
 	{ key: "oos_spaces", diff: "space_set", build: () => to_id_set(view?.oos_spaces) },
@@ -4085,6 +4082,10 @@ function update_system_markers() {
 	// 回合轨道
 	update_turn_record("game_turn", view.turn)
 	update_turn_record("sinai_railroad", view.events.xinai, view.events.xinai === undefined)
+	const jerusalem_by_christmas =
+		view.events && typeof view.events.jerusalem_by_christmas === "object" ? view.events.jerusalem_by_christmas : null
+	const jerusalem_by_christmas_turn = Number(jerusalem_by_christmas?.turn)
+	update_turn_record("j_by_c", jerusalem_by_christmas_turn, !Number.isFinite(jerusalem_by_christmas_turn))
 	update_turn_record("parvus_to_berlin", view.parvus_to_berlin, view.parvus_to_berlin === undefined)
 	update_turn_record(
 		"gorlice_tarnow_return",
@@ -4464,6 +4465,7 @@ function has_space_special_marker(space, state, s) {
 		has_id(state.forts_destroyed, s) ||
 		has_id(state.armenian_uprising_markers, s) ||
 		has_id(state.persian_uprising_markers, s) ||
+		has_id(state.jerusalem_by_christmas_markers, s) ||
 		has_id(state.activated_move_spaces, s) ||
 		has_id(state.activated_attack_spaces, s)
 	)
@@ -4587,6 +4589,12 @@ function render_space_markers(space, state, s, stack_parts) {
 		stack_parts.bottom_markers.push(build_armenian_uprising_marker(s))
 	} else {
 		destroy_armenian_uprising_marker(s)
+	}
+
+	if (has_id(state.jerusalem_by_christmas_markers, s)) {
+		stack_parts.bottom_markers.push(build_jerusalem_by_christmas_marker(s))
+	} else {
+		destroy_jerusalem_by_christmas_marker(s)
 	}
 
 	if (view.activated) {

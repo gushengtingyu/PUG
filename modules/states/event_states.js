@@ -3126,8 +3126,13 @@ module.exports = function (Engine) {
 			if (!targets.includes(s)) return
 			rules.push_undo()
 			let event = use_event(game, "jerusalem_by_christmas")
-			event.target_space = s
-			event.turn = game.turn + 2
+			let marker = {
+				target_space: s,
+				turn: game.turn + 2
+			}
+			Object.assign(event, marker)
+			if (!game.events) game.events = {}
+			game.events["jerusalem_by_christmas"] = marker
 			rules.log(`圣诞节前收复圣城：目标设为 ${data.spaces[s].name}，将在第 ${event.turn} 回合开始时结算。`)
 			rules.goto_end_event()
 		},
@@ -3162,7 +3167,7 @@ module.exports = function (Engine) {
 	}
 
 	function get_enver_falkenhayn_destinations_no_overlay(game, rules, p) {
-		return rules
+		return Engine.map
 			.get_sr_destinations(game, p, CP)
 			.filter((s) => s > 0 && s !== game.pieces[p] && Engine.map.is_balkans(s))
 	}
