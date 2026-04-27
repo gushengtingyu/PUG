@@ -2754,7 +2754,7 @@ module.exports = function (Engine) {
 				return game.events["berlin_constantinople_railway"] || game.events.berlin_baghdad
 			},
 			handler: function (game, ctx) {
-				reinforce(game, "BU 4th Army", CP)
+				reinforce(game, "BU 4 Army", CP)
 				game.active = CP
 				let event = start_event_data(game, ctx, "enver_falkenhayn_summit")
 				event.sr_points = 8
@@ -3097,7 +3097,12 @@ module.exports = function (Engine) {
 					"TU XXII Corps": "reserve"
 				}
 
-				event.reinf_logic = "is_tu_reinf"
+				event.reinf_logic = {
+					"TU-A Left Wing Gp": "is_tua",
+					"TU-A DIV #17": "is_tua",
+					"TU XX Corps": "is_tu",
+					"TU XXII Corps": "is_tu"
+				}
 				game.state = "event_place_reinforcements"
 			},
 			defer_end: true
