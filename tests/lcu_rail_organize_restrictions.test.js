@@ -1,8 +1,8 @@
 const Engine = require("../modules/engine.js")
 
-const { setupGame, findSpace, findCpPiece: findPiece } = require("./helpers.js")
+const { setupGame, findSpace, findApPiece, findCpPiece: findPiece, clearBoard } = require("./helpers.js")
 
-const { CP } = Engine.constants
+const { AP, CP } = Engine.constants
 
 function placeTurkishDivisionPair(game, space) {
 	game.pieces[findPiece("TU DIV #1")] = space
@@ -32,6 +32,32 @@ test("LCUs cannot enter or organize in desert spaces without an actual rail line
 	expect(Engine.map.is_rail_connected_to_supply(game, kuwait, CP)).toBe(false)
 	expect(Engine.game_utils.can_combine_in_space(game, kuwait, CP)).toBe(false)
 	expect(Engine.map.can_enter_region(game, tuCorps, kuwait)).toBe(false)
+})
+
+test("ANZ Desert Corps can move across unfinished Sinai railroad as a normal connection", () => {
+	let game = setupGame(2026042105)
+	let ismailia = findSpace("Ismailia")
+	let romani = findSpace("Romani")
+	let anzDesertCorps = findApPiece("ANZ Desert Corps")
+	let britishCorps = findApPiece("BR IX Corps")
+
+	clearBoard(game)
+	game.events = game.events || {}
+	delete game.events.xinai
+	game.pieces[anzDesertCorps] = ismailia
+	game.pieces[britishCorps] = ismailia
+	game.move = {
+		initial: ismailia,
+		current: ismailia,
+		spaces_moved: 0,
+		pieces: [anzDesertCorps],
+		touched_spaces: [ismailia]
+	}
+
+	expect(Engine.map.can_piece_move_to(game, anzDesertCorps, romani, AP)).toBe(true)
+
+	game.move.pieces = [britishCorps]
+	expect(Engine.map.can_piece_move_to(game, britishCorps, romani, AP)).toBe(false)
 })
 
 test("Rail-connected desert restricted spaces still allow legal LCU organization", () => {

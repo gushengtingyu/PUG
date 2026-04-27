@@ -514,6 +514,19 @@ function active_faction() {
 	return short_faction(game.active)
 }
 
+function game_over_prompt() {
+	return game.victory || "Game over."
+}
+
+states.game_over = {
+	inactive(res) {
+		res.prompt(game_over_prompt())
+	},
+	prompt(res) {
+		res.prompt(game_over_prompt())
+	}
+}
+
 function is_reserve_space_id(s) {
 	if (s <= 0 || !data.spaces[s]) return false
 	let name = data.spaces[s].name
@@ -678,7 +691,8 @@ exports.resign = function (state, current) {
 	if (game.state !== "game_over") {
 		log(`${current} resigned.`)
 		game.state = "game_over"
-		game.result = other_faction(current)
+		game.active = "None"
+		game.result = other_faction(short_faction(current))
 		game.victory = current + " resigned."
 	}
 	return game
@@ -965,7 +979,7 @@ exports.view = function (state, current) {
 
 	function prompt_current_view(next) {
 		if (!states[game.state]) {
-			next.prompt()
+			next.prompt("Invalid game state: " + game.state)
 			return
 		}
 
@@ -974,7 +988,7 @@ exports.view = function (state, current) {
 				states[game.state].prompt(next)
 			} else {
 				let inactive = states[game.state].inactive
-				if (typeof inactive === "function") inactive()
+				if (typeof inactive === "function") inactive(next)
 				else if (typeof inactive === "string") next.prompt(`等待 ${faction_name(game.active)}   ${inactive}`)
 				else next.prompt(`等待 ${faction_name(game.active)} 行动`)
 			}

@@ -153,6 +153,10 @@ module.exports = function (Engine) {
 		return space.area !== "balkans"
 	}
 
+	function is_anzac_desert_corps(p) {
+		return !!(data.pieces[p] && data.pieces[p].name === "ANZ Desert Corps")
+	}
+
 	// --- Naval Access Logic ---
 	function get_movement_cost(game, p, to) {
 		let from = game.pieces[p]
@@ -804,8 +808,6 @@ module.exports = function (Engine) {
 		}
 
 		if (p !== undefined && is_lcu(p)) {
-			const is_anzac_desert_corps = data.pieces[p].name === "ANZ Desert Corps"
-
 			if (mode === "move" || mode === "sr") {
 				let is_s_desert = data.spaces[s].terrain === "desert"
 				let rail_conns = null
@@ -815,7 +817,7 @@ module.exports = function (Engine) {
 
 					// Rule 13.3.3: Desert LCU restriction (Move/Attack)
 					// Rule 11.1.7: SR LCU restriction (must be rail connected to supply)
-					if ((is_s_desert || is_next_desert) && !is_anzac_desert_corps) {
+					if ((is_s_desert || is_next_desert) && !is_anzac_desert_corps(p)) {
 						if (!rail_conns) rail_conns = get_rail_connections(game, s, faction)
 						if (!rail_conns.includes(next)) return false
 						if (is_s_desert) {
@@ -1199,7 +1201,7 @@ module.exports = function (Engine) {
 			if (data.spaces[s].terrain === "desert") {
 				// Rule 9.3: Desert Movement Restrictions for LCUs.
 				let faction = data.pieces[p].faction
-				if (!is_rail_connected_to_supply(game, s, faction)) {
+				if (!is_anzac_desert_corps(p) && !is_rail_connected_to_supply(game, s, faction)) {
 					return false
 				}
 			}
