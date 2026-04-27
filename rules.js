@@ -987,15 +987,12 @@ exports.view = function (state, current) {
 			return
 		}
 
+		
 		if (current === "Observer" || short_faction(game.active) !== short_faction(current)) {
-			if (game.state === "review_supply_warnings") {
-				states[game.state].prompt(next)
-			} else {
 				let inactive = states[game.state].inactive
 				if (typeof inactive === "function") inactive(next)
 				else if (typeof inactive === "string") next.prompt(`等待 ${faction_name(game.active)}   ${inactive}`)
 				else next.prompt(`等待 ${faction_name(game.active)} 行动`)
-			}
 		} else {
 			states[game.state].prompt(next)
 			if (!next.has_action("undo")) {
