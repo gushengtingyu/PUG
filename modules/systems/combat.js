@@ -493,6 +493,14 @@ module.exports = function (Engine) {
 	}
 
 	// PUG恶劣天气
+	function has_pugnacity_tenacity_weather_immunity(game) {
+		if (!is_turn_event(game, "pugnacity_tenacity_no_weather")) return false
+		return !!(
+			game.attack &&
+			game.attack.pieces.some((p) => piece_counts_as_nation_for_rule(game, p, "in"))
+		)
+	}
+
 	function can_battle_trigger_severe_weather(game, season = null) {
 		if (!game.attack) return false
 		if (
@@ -506,12 +514,7 @@ module.exports = function (Engine) {
 
 		const target_space = game.attack.space
 		const current_season = season || get_season(game)
-		const pugnacity_active = is_turn_event(game, "pugnacity_tenacity_no_weather")
-		if (pugnacity_active) {
-			let has_indian_attacker =
-				game.attack && game.attack.pieces.some((p) => piece_counts_as_nation_for_rule(game, p, "in"))
-			if (has_indian_attacker) return false
-		}
+		if (has_pugnacity_tenacity_weather_immunity(game)) return false
 
 		const is_summer = current_season === "Summer"
 		const is_winter = current_season === "Winter"
@@ -556,6 +559,7 @@ module.exports = function (Engine) {
 			}
 			return
 		}
+		if (has_pugnacity_tenacity_weather_immunity(game)) return
 		const target_space = game.attack.space
 		const round = game.action_round
 		const is_summer = season === "Summer"
@@ -588,7 +592,7 @@ module.exports = function (Engine) {
 
 		for (let s of spaces_to_roll) {
 			const roll = roll_die(6, game)
-			let status_msg = `恶劣天气 (${data.spaces[s].name}): 掷骰=${roll}, 轮次=${round}`
+			let status_msg = `恶劣天气 (${data.spaces[s].name}): 掷骰=${roll}, 行动轮=${round}`
 			if (roll >= round) {
 				let reduced_units = []
 				// 仅翻转该地区中参与进攻的正规部队
