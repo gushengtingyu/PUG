@@ -4358,27 +4358,79 @@ module.exports = function (Engine) {
 		prompt(ctx) {
 			let { game, res, rules } = ctx
 			let data_event = rules.get_event_data()
+
+			// 首次进入时统计各国及精锐单位可用师当量，用于校验最低比例要求
+			if (!data_event.robertson_pool_initialized) {
+				let br_avail = 0, anz_avail = 0, in_avail = 0, elite_avail = 0
+				for (let p = 1; p < data.pieces.length; p++) {
+					let info = data.pieces[p]
+					if (!info || info.faction !== AP) continue
+					if (info.nation !== "br" && info.nation !== "anz" && info.nation !== "in") continue
+					if (Engine.game_utils.is_not_on_map(game, p)) continue
+					let badge = Engine.game_utils.get_piece_badge(p)
+					if (badge === "cavalry" || info.name.includes("Camel") || info.name.includes("Persian") || info.name.includes("Garrison")) continue
+					if (info.nation === "br" && badge === "yellow") continue
+					let cost = Engine.game_utils.is_lcu(p) ? 3 : 1
+					if (info.nation === "br") br_avail += cost
+					else if (info.nation === "anz") anz_avail += cost
+					else if (info.nation === "in") in_avail += cost
+					if (is_verdun_elite_or_special(p)) elite_avail += cost
+				}
+				data_event.robertson_br_avail = br_avail
+				data_event.robertson_anz_avail = anz_avail
+				data_event.robertson_in_avail = in_avail
+				data_event.robertson_elite_avail = elite_avail
+				data_event.robertson_pool_initialized = true
+			}
+
 			let count = data_event.count || 0
-			res.prompt(`罗伯逊：选择要移除的单位 (${count}个师当量，至少需3个才能抵消VP)`)
-			for (let p = 1; p < data.pieces.length; p++) {
-				let info = data.pieces[p]
-				if (info && info.faction === AP && (info.nation === "br" || info.nation === "in" || info.nation === "anz")) {
-					if (!Engine.game_utils.is_not_on_map(game, p)) {
-						let badge = Engine.game_utils.get_piece_badge(p)
-						if (badge !== "cavalry" && !info.name.includes("Camel") && !info.name.includes("Persian") && !info.name.includes("Garrison")) {
-							res.piece(p)
-						}
-					}
+			let br_count = data_event.br_count || 0
+			let anz_count = data_event.anz_count || 0
+			let elite_count = data_event.elite_count || 0
+			let br_avail = data_event.robertson_br_avail || 0
+			let anz_avail = data_event.robertson_anz_avail || 0
+			let elite_avail = data_event.robertson_elite_avail || 0
+
+			// 校验 BR 优先规则及精锐规则（count=0 时始终通过）
+			let is_valid = true
+			if (count > 0) {
+				let minimum = Math.ceil(count / 2)
+				let br_min = Math.min(minimum, br_avail)
+				let br_anz_min = Math.min(minimum, br_avail + anz_avail)
+				let elite_min = Math.min(minimum, elite_avail)
+				is_valid = br_count >= br_min && (br_count + anz_count) >= br_anz_min && elite_count >= elite_min
+			}
+
+			res.prompt(`罗伯逊：选择要移除的单位（已选${count}个师当量，至多3个，其中至少一半须为BR且至少一半须为精锐/特殊）`)
+
+			if (count < 3) {
+				for (let p = 1; p < data.pieces.length; p++) {
+					let info = data.pieces[p]
+					if (!info || info.faction !== AP) continue
+					if (info.nation !== "br" && info.nation !== "anz" && info.nation !== "in") continue
+					if (Engine.game_utils.is_not_on_map(game, p)) continue
+					let badge = Engine.game_utils.get_piece_badge(p)
+					if (badge === "cavalry" || info.name.includes("Camel") || info.name.includes("Persian") || info.name.includes("Garrison")) continue
+					if (info.nation === "br" && badge === "yellow") continue
+					let cost = Engine.game_utils.is_lcu(p) ? 3 : 1
+					if (count + cost > 3) continue
+					res.piece(p)
 				}
 			}
-			res.action("done")
+
+			if (is_valid) res.action("done")
 		},
 		piece(ctx) {
 			let { game, rules, arg: p } = ctx
 			rules.push_undo()
+			let info = data.pieces[p]
 			let cost = Engine.game_utils.is_lcu(p) ? 3 : 1
 			let data_event = rules.get_event_data()
 			data_event.count = (data_event.count || 0) + cost
+			if (info.nation === "br") data_event.br_count = (data_event.br_count || 0) + cost
+			else if (info.nation === "anz") data_event.anz_count = (data_event.anz_count || 0) + cost
+			else if (info.nation === "in") data_event.in_count = (data_event.in_count || 0) + cost
+			if (is_verdun_elite_or_special(p)) data_event.elite_count = (data_event.elite_count || 0) + cost
 			rules.eliminate_piece(p, true)
 		},
 		done(ctx) {
