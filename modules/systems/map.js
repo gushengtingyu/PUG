@@ -735,6 +735,10 @@ module.exports = function (Engine) {
 			if (dist >= mf) continue
 
 			let conns = data.spaces[curr].connections || []
+			let limited = data.spaces[curr].limited_connections
+			if (limited && limited[tribe_type.toLowerCase()]) {
+				conns = [...new Set([...conns, ...limited[tribe_type.toLowerCase()]])]
+			}
 			for (let next of conns) {
 				if (is_caspian_green_connection(curr, next)) continue
 				if (next === s) return true

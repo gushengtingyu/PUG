@@ -1617,7 +1617,7 @@ exports.register = function (states, Engine, context) {
 			if (game.move.pieces.length > 0) {
 				let all_neighbors = new Set()
 				for (let p of game.move.pieces) {
-					let neighbors = get_connected_spaces(game, s, data.pieces[p].nation, active_faction(), p)
+					let neighbors = Engine.map.get_piece_connected_spaces_for_rule(game, s, p)
 					for (let n of neighbors) all_neighbors.add(n)
 				}
 
@@ -1735,7 +1735,7 @@ exports.register = function (states, Engine, context) {
 
 			let all_neighbors = new Set()
 			for (let p of game.move.pieces) {
-				let neighbors = get_connected_spaces(game, s, data.pieces[p].nation, active_faction(), p)
+				let neighbors = Engine.map.get_piece_connected_spaces_for_rule(game, s, p)
 				for (let n of neighbors) all_neighbors.add(n)
 			}
 
