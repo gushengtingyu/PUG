@@ -536,9 +536,14 @@ module.exports = function (Engine) {
 
 	const STANDARD_CC_WINDOWS = STANDARD_CC_STATES
 	const PRE_WEATHER_ATTACKER_CC_WINDOWS = new Set(["pre_weather_cc_attacker"])
+	const PRE_WEATHER_BOTH_SIDES_CC_WINDOWS = new Set(["pre_weather_cc_attacker", "pre_weather_cc_defender"])
 
 	function get_pre_weather_attacker_windows(game) {
 		return combat.can_battle_trigger_severe_weather(game) ? PRE_WEATHER_ATTACKER_CC_WINDOWS : STANDARD_CC_WINDOWS
+	}
+
+	function get_pre_weather_both_sides_windows(game) {
+		return combat.can_battle_trigger_severe_weather(game) ? PRE_WEATHER_BOTH_SIDES_CC_WINDOWS : STANDARD_CC_WINDOWS
 	}
 
 	// 战斗卡规格表：统一收敛窗口、判定、修正值与打出后的即时效果。
@@ -777,7 +782,7 @@ module.exports = function (Engine) {
 			can_play: can_play_water_shortage
 		},
 		[combat.CC_CP_PASHA_1]: {
-			windows: get_pre_weather_attacker_windows,
+			windows: get_pre_weather_both_sides_windows,
 			can_play: can_play_pasha_1,
 			modifiers: {
 				drm({ has_nation, side_pieces }) {

@@ -2900,7 +2900,7 @@ module.exports = function (Engine) {
 		94: {
 			name: "PASHA 1 CC",
 			name_cn: "帕夏一号",
-			effect_cn: "这次战斗中，同盟国部队忽略恶劣天气修正，并可以以强火力表(LCU火力表)开火。",
+			effect_cn: "这次战斗中，同盟国进攻或防守部队忽略恶劣天气修正，并可以以强火力表(LCU火力表)开火。",
 			handler: function (game) {
 				game.events["pasha_1"] = game.turn
 			}

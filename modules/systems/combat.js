@@ -501,16 +501,16 @@ module.exports = function (Engine) {
 		)
 	}
 
+	function has_pasha_1_weather_immunity(game) {
+		if (!game.attack || !game.combat_cards) return false
+		let cp_is_attacker = game.attack.attacker === CP || (game.attack.attacker === undefined && game.active === CP)
+		if (cp_is_attacker) return !!(game.combat_cards.attacker && game.combat_cards.attacker.includes(CC_CP_PASHA_1))
+		return !!(game.combat_cards.defender && game.combat_cards.defender.includes(CC_CP_PASHA_1))
+	}
+
 	function can_battle_trigger_severe_weather(game, season = null) {
 		if (!game.attack) return false
-		if (
-			game.active === CP &&
-			game.combat_cards &&
-			game.combat_cards.attacker &&
-			game.combat_cards.attacker.includes(CC_CP_PASHA_1)
-		) {
-			return false
-		}
+		if (has_pasha_1_weather_immunity(game)) return false
 
 		const target_space = game.attack.space
 		const current_season = season || get_season(game)
@@ -546,16 +546,11 @@ module.exports = function (Engine) {
 	}
 
 	function apply_severe_weather(game, log, season, reduce_piece_fn) {
-		if (
-			game.active === CP &&
-			game.combat_cards &&
-			game.combat_cards.attacker &&
-			game.combat_cards.attacker.includes(CC_CP_PASHA_1)
-		) {
+		if (has_pasha_1_weather_immunity(game)) {
 			if (!game.combat_cards_effected) game.combat_cards_effected = []
 			if (!game.combat_cards_effected.includes(CC_CP_PASHA_1)) {
 				game.combat_cards_effected.push(CC_CP_PASHA_1)
-				if (log) log("Pasha 1: Attacker ignores Severe Weather effects!")
+				if (log) log("Pasha 1: CP units ignore Severe Weather effects!")
 			}
 			return
 		}
