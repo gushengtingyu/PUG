@@ -2664,6 +2664,23 @@ function get_stack_yildirim_count(pieces) {
 		return faction === AP && is_beachhead_space(game, s)
 	}
 
+	function is_ap_contested_cp_region_port(game, s, faction, supply_context = null) {
+		if (faction !== AP) return false
+		let info = data.spaces[s]
+		if (!info || !info.region || !info.port) return false
+		if (!is_controlled_by(game, s, CP)) return false
+
+		let has_ap_unit = supply_context ? supply_context.friendly[AP][s] === 1 : has_friendly_pieces(game, s, AP)
+		let has_cp_unit = supply_context ? supply_context.enemy[AP][s] === 1 : contains_enemy_pieces(game, s, AP)
+		return has_ap_unit && has_cp_unit
+	}
+
+	function can_use_ap_contested_region_port_for_full_supply(info) {
+		if (!info) return false
+		if (["br", "fr", "it", "in", "anz", "sb", "gr", "ar"].includes(info.nation)) return true
+		return !!(info.name && (info.name.includes("2/4 Special") || info.name.includes("Yugo")))
+	}
+
 	function is_connected_by_rail(game, start, faction, sources, supply_context = null) {
 		let source_flag = build_space_flag_from_sources(sources || [])
 		let queue = [start]
@@ -2706,7 +2723,11 @@ function get_stack_yildirim_count(pieces) {
 		// Add all sources
 		for (let s of sources) {
 			let is_friendly = is_controlled_by(game, s, faction)
+			let is_contested_cp_region_port = is_ap_contested_cp_region_port(game, s, faction, context)
 			if (is_ap_supply_beachhead(game, s, faction)) {
+				is_friendly = true
+			}
+			if (is_contested_cp_region_port) {
 				is_friendly = true
 			}
 			if (
@@ -2723,7 +2744,9 @@ function get_stack_yildirim_count(pieces) {
 				} else {
 					full_supplied.add(s)
 				}
-				queue.push({ s, disrupted: source_disrupted })
+				if (!is_contested_cp_region_port) {
+					queue.push({ s, disrupted: source_disrupted })
+				}
 			}
 		}
 
@@ -2874,11 +2897,15 @@ function get_stack_yildirim_count(pieces) {
 			// not automatically full national supply sources during normal operational supply.
 			// Keep them as AP "generic" sources for faction-level checks, and as BR-family
 			// placement/rebuild sources where the rules explicitly allow those ports.
-			if (info.port && is_controlled_by(game, s, AP)) {
+			if (info.port && (is_controlled_by(game, s, AP) || is_ap_contested_cp_region_port(game, s, AP))) {
+				let is_contested_cp_region_port = is_ap_contested_cp_region_port(game, s, AP)
 				let allow_generic_ap_port =
 					!nation ||
 					(for_placement_or_sr && ["br", "fr", "it", "in", "anz"].includes(nation))
-				if (allow_generic_ap_port && (is_mediterranean_port(s) || is_persian_gulf_port(game, s))) {
+				if (
+					allow_generic_ap_port &&
+					(is_contested_cp_region_port || is_mediterranean_port(s) || is_persian_gulf_port(game, s))
+				) {
 					return true
 				}
 			}
@@ -3387,6 +3414,15 @@ function get_stack_yildirim_count(pieces) {
 			full_sources = full_sources.concat(beachheads)
 		}
 
+		// Rule 14.1.4/14.1.8: AP units in a contested CP-controlled Region can
+		// use that Region's port to trace supply, but supply cannot be traced
+		// through that enemy-controlled contested Region to other spaces.
+		if (faction === AP && can_use_ap_contested_region_port_for_full_supply(info)) {
+			for (let s of get_supply_eligible_space_ids()) {
+				if (is_ap_contested_cp_region_port(game, s, faction)) full_sources.push(s)
+			}
+		}
+
 		if (source_cache) source_cache.set(cache_key, full_sources)
 		return full_sources
 	}
@@ -3416,7 +3452,11 @@ function get_stack_yildirim_count(pieces) {
 			) {
 				return context.disrupted[faction][start] === 1 ? "DISRUPTED" : "FULL"
 			}
-			if (is_ap_supply_beachhead(game, start, faction) || is_controlled_by(game, start, faction)) {
+			if (
+				is_ap_supply_beachhead(game, start, faction) ||
+				is_controlled_by(game, start, faction) ||
+				is_ap_contested_cp_region_port(game, start, faction, context)
+			) {
 				return context.disrupted[faction][start] === 1 ? "DISRUPTED" : "FULL"
 			}
 			return best_status
@@ -3452,6 +3492,7 @@ function get_stack_yildirim_count(pieces) {
 
 				let next_disrupted = current_disrupted || is_disrupted_by_enemy
 				if (source_flag[next] === 1) {
+					if (is_ap_contested_cp_region_port(game, next, faction, context)) continue
 					if (!next_disrupted) return "FULL"
 					best_status = "DISRUPTED"
 				}
