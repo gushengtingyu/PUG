@@ -3025,6 +3025,14 @@ module.exports = function (Engine) {
 			if (check_liberate_suez_ops(game, (msg) => res.log(msg))) {
 				delete game.liberate_suez_op_required
 				game.liberate_suez_egypt_attack_activation_valid = true
+				// 2OP Egypt-attack requirement satisfied; merge Egypt-only attacks
+				// into normal attacks so units can freely choose targets
+				if (Array.isArray(game.activated.attack_egypt) && game.activated.attack_egypt.length > 0) {
+					for (let s of game.activated.attack_egypt) {
+						set_add(game.activated.attack, s)
+					}
+					game.activated.attack_egypt = []
+				}
 				if (game.activated.move.length > 0) {
 					game.state = "choose_move_space"
 				} else {
