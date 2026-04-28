@@ -3252,6 +3252,7 @@ var data = {
 		"nation": "br",
 		"faction": "ap",
 		"beach_for": "Lemnos",
+		"area": "balkans",
 		"connections": [
 			95,
 			288
@@ -3781,6 +3782,7 @@ var data = {
 		"nation": "br",
 		"faction": "ap",
 		"beach_for": "Lemnos",
+		"area": "balkans",
 		"connections": [
 			149,
 			288
@@ -7788,6 +7790,7 @@ var data = {
 		"faction": "ap",
 		"port": 2,
 		"island_base": "Lemnos",
+		"area": "balkans",
 		"connections": [
 			113,
 			126,
