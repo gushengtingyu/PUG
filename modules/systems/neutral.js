@@ -13,6 +13,7 @@ module.exports = function (Engine) {
 	const SALONIKA = find_space("Salonika")
 	const BELGRADE = find_space("BELGRADE")
 	const NIS = find_space("Nis")
+	const NEUTRAL_PERSIA_FIRST_ENTRY_PENALTY = "neutral_persia_first_entry_penalty"
 
 	function normalize_greece_faction(value) {
 		if (value === AP || value === CP) return value
@@ -657,9 +658,38 @@ module.exports = function (Engine) {
 		return get_effective_vp_value(game, s) > 0
 	}
 
+	function get_entering_faction(game, entered_pieces) {
+		for (let p of entered_pieces) {
+			let faction =
+				Engine.game_utils && typeof Engine.game_utils.get_piece_effective_faction === "function"
+					? Engine.game_utils.get_piece_effective_faction(game, p)
+					: null
+			if (faction !== AP && faction !== CP) faction = data.pieces[p] && data.pieces[p].faction
+			if (faction === AP || faction === CP) return faction
+		}
+		return 0
+	}
+
+	function apply_neutral_persia_first_entry_penalty(game, s, entered_pieces) {
+		if (game.events[NEUTRAL_PERSIA_FIRST_ENTRY_PENALTY]) return
+		if (!Engine.map.is_neutral_persia_space(s)) return
+		let entering_faction = get_entering_faction(game, entered_pieces)
+		if (entering_faction !== AP && entering_faction !== CP) return
+
+		game.events[NEUTRAL_PERSIA_FIRST_ENTRY_PENALTY] = entering_faction
+		if (entering_faction === AP) {
+			game.vp += 1
+			Engine.log(game, "Neutral Persia: AP entered first, CP +1 VP.")
+		} else {
+			game.vp -= 1
+			Engine.log(game, "Neutral Persia: CP entered first, AP +1 VP.")
+		}
+	}
+
 	function check_persia_entry_vp_penalty(game, s, entered_pieces) {
 		if (!game || !Array.isArray(entered_pieces) || entered_pieces.length === 0) return
 		if (!game.events) game.events = {}
+		apply_neutral_persia_first_entry_penalty(game, s, entered_pieces)
 		// Rule 19.6.3 (bullet 2): The first time RU units enter Arabistan, +1 VP penalty.
 		// This is the only explicit sphere-entry VP penalty in the rulebook; the mirror
 		// direction (BR/FR/IN/IT/ANZ into Russian sphere) is handled by bullet 1's hard
@@ -780,12 +810,6 @@ module.exports = function (Engine) {
 		return false
 	}
 
-	function qualifies_for_ru_non_vp_control_marker(game, s) {
-		if (is_vp_space(game, s)) return false
-		if (!has_ru_capture_piece_in_space(game, s)) return false
-		return Engine.map.is_persia(s)
-	}
-
 	function add_ru_control_marker(game, s) {
 		if (!game.ru_control_markers) game.ru_control_markers = []
 		if (!game.ru_control_markers.includes(s)) game.ru_control_markers.push(s)
@@ -800,11 +824,7 @@ module.exports = function (Engine) {
 
 	function apply_control_change(game, s, faction, previous_vp_owner) {
 		if (!is_vp_space(game, s)) {
-			if (faction === AP && qualifies_for_ru_non_vp_control_marker(game, s)) {
-				add_ru_control_marker(game, s)
-			} else {
-				remove_ru_control_marker(game, s)
-			}
+			remove_ru_control_marker(game, s)
 			return
 		}
 		

@@ -232,14 +232,13 @@ function move_piece(target_game, p, s) {
 			Engine.sync_jihad_city_state(game, s)
 			Engine.sync_region_control(game, s)
 
-			let can_capture_persia_vp =
+			let can_capture_persia_control =
 				Engine.events.is_persia_open(game) &&
 				Engine.map.is_persia(s) &&
-				Engine.is_neutral_vp_space(s) &&
 				!is_controlled_by(game, s, faction) &&
 				data.pieces[p].type === "regular" &&
 				data.pieces[p].type !== "hq"
-			if (can_capture_persia_vp) {
+			if (can_capture_persia_control) {
 				set_control(game, s, faction)
 			}
 			if (Engine.check_persia_entry_vp_penalty) {

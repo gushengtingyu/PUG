@@ -996,14 +996,13 @@ module.exports = function (Engine) {
 			let sn = space === RESERVE ? "Reserve" : space_name(space)
 			log(game, `增援：${name} 放置到 ${sn}`)
 			if (space !== null && space !== RESERVE) {
-				let can_capture_persia_vp =
+				let can_capture_persia_control =
 					is_persia_open(game) &&
 					Engine.map.is_persia(space) &&
-					Engine.is_neutral_vp_space(space) &&
 					!Engine.map.is_controlled_by(game, space, faction) &&
 					Engine.game_utils.is_regular(p) &&
 					data.pieces[p].type !== "hq"
-				if (can_capture_persia_vp) {
+				if (can_capture_persia_control) {
 					Engine.set_control(game, space, faction)
 				}
 				if (Engine.check_persia_entry_vp_penalty) {
