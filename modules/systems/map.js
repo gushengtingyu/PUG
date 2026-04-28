@@ -127,12 +127,29 @@ module.exports = function (Engine) {
 		return found
 	}
 
+	function get_region_disruption_owner(game, s) {
+		if (!is_region(game, s)) return null
+		let owner = Array.isArray(game.region_disruption) ? game.region_disruption[s] : null
+		return owner === AP || owner === CP ? owner : null
+	}
+
+	function has_disrupting_piece_for_faction(game, s, faction) {
+		let found = false
+		for_each_piece_in_space(game, s, (p) => {
+			if (get_piece_effective_faction(game, p) === faction && is_disrupting_piece(p)) found = true
+		})
+		return found
+	}
+
 	function is_disrupted_by_enemy(game, s, faction) {
 		if (faction === undefined) faction = game.active
 		let enemy = other_faction(faction)
 		if (has_regular_combat_unit_for_faction(game, s, enemy)) return false
 		if (enemy === CP && Array.isArray(game.persian_uprising_markers) && game.persian_uprising_markers.includes(s)) {
 			return true
+		}
+		if (is_region(game, s)) {
+			return get_region_disruption_owner(game, s) === enemy && has_disrupting_piece_for_faction(game, s, enemy)
 		}
 		let found = false
 		for_each_piece_in_space(game, s, (p) => {
@@ -2543,7 +2560,9 @@ function get_stack_yildirim_count(pieces) {
 				enemy_regular[opp][s] = 1
 			}
 			if (is_disrupting_piece(p)) {
-				disrupting[opp][s] = 1
+				if (!is_region(game, s) || get_region_disruption_owner(game, s) === ef) {
+					disrupting[opp][s] = 1
+				}
 			}
 		}
 		if (Array.isArray(game.persian_uprising_markers)) {

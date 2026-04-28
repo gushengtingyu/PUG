@@ -430,7 +430,10 @@ module.exports = function (Engine) {
 	function is_allied_solidarity_general_space(game, s) {
 		return check_reinforcement_space(game, s, AP, (space, s) => {
 			if (is_german_subs_blocked_port(game, s)) return false
-			return !!(space && (space.port || is_allied_solidarity_balkan_beachhead(game, s) || s === LEMNOS))
+			return !!(
+				space &&
+				((space.port && is_balkans(s)) || is_allied_solidarity_balkan_beachhead(game, s) || s === LEMNOS)
+			)
 		})
 	}
 
@@ -628,7 +631,7 @@ module.exports = function (Engine) {
 		},
 		is_allied_solidarity_rein: {
 			faction: AP,
-			desc: "任何协约国控制的港口、巴尔干滩头、利姆诺斯岛或萨洛尼卡",
+			desc: "巴尔干内任一协约国控制港口或滩头标记，包括利姆诺斯岛；希腊国防军也可放置至中立萨洛尼卡",
 			check: (game, s) => {
 				let units = get_pending_reinf_units(game)
 				let unit_name = units && units.length > 0 ? units[0] : null
@@ -1379,7 +1382,7 @@ module.exports = function (Engine) {
 			name: "ALLIED SOLIDARITY",
 			name_cn: "盟军团结",
 			effect_cn:
-				"增援:俄国2/4特别旅、意大利步兵师、希腊国防军 至任何协约国控制的港口或者巴尔干的滩头标志(或利姆诺斯岛)。。希腊国防军可以选择直接增援至中立的萨洛尼卡地区并保持不破坏希腊的中立。随后萨洛尼卡成为协约国控制的港口。。俄国2/4特别旅虽然遵循俄国部队的一般规则，无法和英国单位堆叠在一起，但是其可以从非俄国补给源(英国补给源)获得完全补给。并且在被摧毁并重建在俄国补给源或者预备军格后，俄国2/4特别旅可以通过海上战略调整再次进入协约国控制的希腊港口，无视相关的黑海-地中海海上战略调整禁止规则。",
+				"增援:俄国2/4特别旅、意大利步兵师、希腊国防军 至巴尔干内任一协约国控制港口或滩头标记，包括利姆诺斯岛。希腊国防军可以选择直接增援至中立的萨洛尼卡地区并保持不破坏希腊的中立；随后萨洛尼卡成为协约国控制的港口。俄国2/4特别旅虽然遵循俄国部队的一般规则，无法和英国单位堆叠在一起，但是其可以从非俄国补给源(英国补给源)获得完全补给。并且在被摧毁并重建在俄国补给源或者预备军格后，俄国2/4特别旅可以通过海上战略调整再次进入协约国控制的希腊港口，无视相关的黑海-地中海海上战略调整禁止规则。",
 			can_play: function (game) {
 				return can_place_allied_solidarity_units(game, ["RU 2/4 Special", "IT DIV", "GR National Defense"])
 			},

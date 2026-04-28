@@ -1786,9 +1786,9 @@ module.exports = function (Engine) {
 			let has_salonika_option = options.includes(SALONIKA)
 
 			if (unit === "GR National Defense" && has_salonika_option) {
-				res.prompt(`盟军团结：将 ${unit} 放置在协约国控制的港口、巴尔干滩头、利姆诺斯岛或萨洛尼卡。`)
+				res.prompt(`盟军团结：将 ${unit} 放置在巴尔干内任一协约国控制港口或滩头标记，包括利姆诺斯岛；也可放置至中立萨洛尼卡。`)
 			} else {
-				res.prompt(`盟军团结：将 ${unit} 放置在协约国控制的港口、巴尔干滩头或利姆诺斯岛。`)
+				res.prompt(`盟军团结：将 ${unit} 放置在巴尔干内任一协约国控制港口或滩头标记，包括利姆诺斯岛。`)
 			}
 
 			for (let s of options) {
@@ -1847,9 +1847,9 @@ module.exports = function (Engine) {
 			let has_salonika_option = options.includes(SALONIKA)
 
 			if (unit === "GR National Defense" && has_salonika_option) {
-				res.prompt(`盟军团结：将 ${unit} 放置在协约国控制的港口、巴尔干滩头、利姆诺斯岛或萨洛尼卡。`)
+				res.prompt(`盟军团结：将 ${unit} 放置在巴尔干内任一协约国控制港口或滩头标记，包括利姆诺斯岛；也可放置至中立萨洛尼卡。`)
 			} else {
-				res.prompt(`盟军团结：将 ${unit} 放置在协约国控制的港口、巴尔干滩头或利姆诺斯岛。`)
+				res.prompt(`盟军团结：将 ${unit} 放置在巴尔干内任一协约国控制港口或滩头标记，包括利姆诺斯岛。`)
 			}
 
 			for (let s of options) {

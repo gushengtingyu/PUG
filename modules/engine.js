@@ -190,6 +190,56 @@ const Engine = {
 		})
 	},
 
+	sync_region_disruption(game, s) {
+		let info = data.spaces[s]
+		if (!info || !info.region) return
+		if (!Array.isArray(game.region_disruption)) game.region_disruption = []
+		if (!Engine.map || typeof Engine.map.get_pieces_in_space !== "function") return
+		if (!Engine.game_utils || typeof Engine.game_utils.get_piece_effective_faction !== "function") return
+
+		let regular = { [constants.AP]: false, [constants.CP]: false }
+		let disrupting = { [constants.AP]: false, [constants.CP]: false }
+		let present = { [constants.AP]: false, [constants.CP]: false }
+
+		for (let p of Engine.map.get_pieces_in_space(game, s)) {
+			let pinfo = data.pieces[p]
+			if (!pinfo) continue
+			let faction = Engine.game_utils.get_piece_effective_faction(game, p)
+			if (faction !== constants.AP && faction !== constants.CP) continue
+
+			present[faction] = true
+			let can_gain_control =
+				!Engine.game_utils.is_irregular(p) &&
+				!Engine.game_utils.is_tribe(p) &&
+				!Engine.game_utils.is_hq(p) &&
+				!Engine.game_utils.is_heavy_arty(p)
+			if (can_gain_control) regular[faction] = true
+			if (Engine.game_utils.is_irregular(p) || Engine.game_utils.is_tribe(p) || pinfo.nation === "Re") {
+				disrupting[faction] = true
+			}
+		}
+
+		let current = game.region_disruption[s]
+		if (current !== constants.AP && current !== constants.CP) current = null
+
+		if (current) {
+			if (!disrupting[current] || regular[current] || Engine.map.get_space_controller(game, s) === current) {
+				delete game.region_disruption[s]
+			}
+			return
+		}
+
+		for (let faction of [constants.AP, constants.CP]) {
+			let enemy = faction === constants.AP ? constants.CP : constants.AP
+			if (!disrupting[faction]) continue
+			if (regular[faction]) continue
+			if (present[enemy]) continue
+			if (Engine.map.get_space_controller(game, s) === faction) continue
+			game.region_disruption[s] = faction
+			return
+		}
+	},
+
 	sync_region_control(game, s) {
 		let info = data.spaces[s]
 		if (!info || !info.region) return
@@ -201,6 +251,7 @@ const Engine = {
 		// Irregulars, HQs, and Heavy Artillery have only Partial Control and cannot take a region.
 		// However, per Rule 10.1.5, any non-tribe unit (including irregulars) makes the region
 		// contested, preventing the enemy from taking control until ALL enemy units leave.
+		Engine.sync_region_disruption(game, s)
 		let has_ap_regular = false  // AP regular combat unit present (can gain control)
 		let has_cp_regular = false  // CP regular combat unit present (can gain control)
 		let ap_present = false      // any AP non-tribe unit (blocks enemy control)

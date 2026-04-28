@@ -549,6 +549,7 @@ module.exports = function (Engine) {
 		if (!Array.isArray(state.jihad_cities_flipped)) state.jihad_cities_flipped = []
 		if (!Array.isArray(state.jihad_city_effective_owner)) state.jihad_city_effective_owner = []
 		if (!Array.isArray(state.vp_partial_disruption)) state.vp_partial_disruption = []
+		if (!Array.isArray(state.region_disruption)) state.region_disruption = []
 		if (state.tribes_to_place === undefined) state.tribes_to_place = 0
 		if (state.cp_opening_mobilization_pick_done === undefined) state.cp_opening_mobilization_pick_done = state.turn > 1
 		return state
@@ -613,6 +614,7 @@ module.exports = function (Engine) {
 			jihad_cities_flipped: [],
 			jihad_city_effective_owner: [],
 			vp_partial_disruption: [],
+			region_disruption: [],
 			russian_vp: 0,
 			combined_war: 0,
 			tribal_reserve: [],

@@ -349,6 +349,7 @@ module.exports = function (Engine) {
 			if (from > 0) {
 				Engine.sync_neutral_vp_state(game, from)
 				Engine.sync_jihad_city_state(game, from)
+				Engine.sync_region_control(game, from)
 			}
 			if (game.tribes_to_remove <= 0) {
 				Engine.resume_previous_state(game)
@@ -418,6 +419,7 @@ module.exports = function (Engine) {
 			log(`${format_piece_name(game, p)} 放置在 ${data.spaces[s].name}`)
 			Engine.sync_neutral_vp_state(game, s)
 			Engine.sync_jihad_city_state(game, s)
+			Engine.sync_region_control(game, s)
 			if (game.tribes_to_place <= 0) {
 				Engine.resume_previous_state(game)
 			}
