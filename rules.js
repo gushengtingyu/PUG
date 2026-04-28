@@ -931,6 +931,11 @@ exports.view = function (state, current) {
 				let base = game.activated || { move: [], attack: [] }
 				let merged_move = Array.isArray(base.move) ? base.move.slice() : []
 				let merged_attack = Array.isArray(base.attack) ? base.attack.slice() : []
+				if (Array.isArray(base.attack_egypt)) {
+					for (let s of base.attack_egypt) {
+						if (!merged_attack.includes(s)) merged_attack.push(s)
+					}
+				}
 				let ra = game.region_activations || {}
 				if (ra.move) {
 					for (let key of Object.keys(ra.move)) {
