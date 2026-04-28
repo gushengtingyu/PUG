@@ -773,10 +773,22 @@ function get_piece_supply_status_view() {
 		if (Engine.map.is_disrupted_supply_status(piece_status)) disrupted.push(p)
 	}
 	return {
-		status,
 		limited,
 		disrupted
 	}
+}
+
+function get_control_view() {
+	const view_control = {}
+	const control = Array.isArray(game.control) ? game.control : []
+	for (let s = 1; s < data.spaces.length; s++) {
+		const value = control[s]
+		const default_value = data.spaces[s] && data.spaces[s].faction
+		if (value !== undefined && value !== null && value !== default_value) {
+			view_control[s] = value
+		}
+	}
+	return view_control
 }
 
 exports.view = function (state, current) {
@@ -878,7 +890,7 @@ exports.view = function (state, current) {
 			pieces: game.pieces,
 			ui_tokens: ui_tokens,
 			hidden_reinforcement_markers: hidden_reinforcement_markers,
-			control: game.control,
+			control: get_control_view(),
 			ru_control_markers: game.ru_control_markers || [],
 			persian_uprising_markers: game.persian_uprising_markers || [],
 			jerusalem_by_christmas_markers:
@@ -954,7 +966,6 @@ exports.view = function (state, current) {
 			where: game.where,
 			violations: Engine.map.check_rule_violations(game),
 			supply_warnings: game.supply_warnings || [],
-			supply_status: supply_view.status,
 			limited_supply: supply_view.limited,
 			disrupted_supply: supply_view.disrupted,
 			oos: game.oos || [],

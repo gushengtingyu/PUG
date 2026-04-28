@@ -1370,11 +1370,40 @@ function on_init(scenario, options) {
 }
 
 const NEUTRAL_UI_MARKERS = [
-	{ id: "neutral_gr", key: "neutral_gr_UI" },
-	{ id: "neutral_bu", key: "neutral_bu_UI" },
-	{ id: "neutral_ro", key: "neutral_ro_UI" },
-	{ id: "neutral_sb", key: "neutral_SB_UI" }
+	{ id: "neutral_gr", key: "neutral_gr_UI", nation: "gr", entry: "entry_gr" },
+	{ id: "neutral_bu", key: "neutral_bu_UI", nation: "bu", entry: "entry_bu" },
+	{ id: "neutral_ro", key: "neutral_ro_UI", nation: "ro", entry: "entry_ro" },
+	{ id: "neutral_sb", key: "neutral_SB_UI", nation: "sb", entry: "entry_sb" }
 ]
+
+function is_neutral_marker_hidden(marker) {
+	return typeof view !== "undefined" && !!view?.[marker.entry]
+}
+
+function get_neutral_marker_element(marker) {
+	ui.neutral = ui.neutral || {}
+	let elt = ui.neutral[marker.nation]
+	if (!elt) {
+		elt = document.getElementById(marker.id)
+		if (elt) {
+			ui.neutral[marker.nation] = elt
+		}
+	}
+	return elt
+}
+
+function apply_neutral_marker_visibility(marker, elt) {
+	if (!elt) {
+		return
+	}
+	const hidden = is_neutral_marker_hidden(marker)
+	if (elt.hidden !== hidden) {
+		elt.hidden = hidden
+	}
+	if (elt.classList.contains("hide") !== hidden) {
+		elt.classList.toggle("hide", hidden)
+	}
+}
 
 /**
  * 初始化系统标记（如中立国标记）。
@@ -1403,7 +1432,8 @@ function init_system_markers() {
 			elt.style.left = `${x}px`
 			elt.style.top = `${y}px`
 		}
-		ui.neutral[marker.id.replace("neutral_", "")] = elt
+		ui.neutral[marker.nation] = elt
+		apply_neutral_marker_visibility(marker, elt)
 	}
 }
 
@@ -1565,7 +1595,6 @@ const marker_info = {
 
 	// Replacement Points
 	ap_rp: { name: "Allied RP", counter: "marker allied_rp", size: 75 * SCALE },
-	cp_rp: { name: "Central Powers RP", counter: "marker cp_rp", size: 75 * SCALE },
 	br_rp: { name: "British RP", counter: "marker br_rp", size: 75 * SCALE },
 	ru_rp: { name: "Russian RP", counter: "marker ru_rp", size: 75 * SCALE },
 	in_rp: { name: "Indian RP", counter: "marker in_rp", size: 75 * SCALE },
@@ -2050,9 +2079,9 @@ function has_loose_id(set_or_null, id) {
 const UI_FRAME_STATE_FIELDS = [
 	{
 		key: "control",
-		diff: "control_array",
-		build: () => (Array.isArray(view?.control) ? view.control : null),
-		snapshot: (value) => (Array.isArray(value) ? value.slice() : null)
+		diff: "control_map",
+		build: () => (view?.control && typeof view.control === "object" ? view.control : null),
+		snapshot: (value) => (value ? { ...value } : null)
 	},
 	{ key: "reduced", diff: "piece_set", build: () => to_id_set(view?.reduced) },
 	{ key: "oos", diff: "piece_set", build: () => to_id_set(view?.oos) },
@@ -2231,18 +2260,24 @@ function add_dirty_ui_frame_state_changes(dirty_spaces, prev_state, next_state, 
 					}
 				}
 				break
-			case "control_array":
-				if (prev_value || next_value) {
-					const max_len = Math.max(prev_value ? prev_value.length : 0, next_value ? next_value.length : 0)
-					for (let s = 1; s < max_len; s++) {
-						const prev_control = prev_value ? prev_value[s] : undefined
-						const next_control = next_value ? next_value[s] : undefined
-						if (prev_control !== next_control) {
-							add_dirty_update_space(dirty_spaces, s)
-						}
+			case "control_map": {
+				const ids = new Set()
+				if (prev_value) {
+					for (const id of Object.keys(prev_value)) ids.add(id)
+				}
+				if (next_value) {
+					for (const id of Object.keys(next_value)) ids.add(id)
+				}
+				for (const id of ids) {
+					const prev_control = prev_value ? prev_value[id] : undefined
+					const next_control = next_value ? next_value[id] : undefined
+					if (prev_control !== next_control) {
+						const s = normalize_numeric_id(id)
+						if (s !== null) add_dirty_update_space(dirty_spaces, s)
 					}
 				}
 				break
+			}
 		}
 	}
 }
@@ -4150,13 +4185,9 @@ function update_system_markers() {
  * 更新中立国标记显示状态。
  */
 function update_neutral_markers() {
-	if (!ui.neutral) {
-		return
+	for (const marker of NEUTRAL_UI_MARKERS) {
+		apply_neutral_marker_visibility(marker, get_neutral_marker_element(marker))
 	}
-	ui.neutral.gr?.classList.toggle("hide", !!view.entry_gr)
-	ui.neutral.bu?.classList.toggle("hide", !!view.entry_bu)
-	ui.neutral.ro?.classList.toggle("hide", !!view.entry_ro)
-	ui.neutral.sb?.classList.toggle("hide", !!view.entry_sb)
 }
 
 function toggle_operator_details(id) {
@@ -4427,7 +4458,7 @@ function get_space_marker_list(s) {
 }
 
 function get_space_control(state, s) {
-	return state.control && state.control[s]
+	return (state.control && state.control[s]) || spaces[s].faction || null
 }
 
 function has_space_special_marker(space, state, s) {

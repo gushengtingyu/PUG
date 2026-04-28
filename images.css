@@ -82,9 +82,6 @@
 	background-image: url(pieces/MAPMOM.png);
 }
 
-.marker.cp_rp {
-	background-image: url(pieces/MCPRP.png);
-}
 .marker.br_rp {
 	background-image: url(pieces/MBRRP.png);
 }
@@ -221,10 +218,10 @@
 
 /* CARDS */
 .lang-cn .card_ap_0 {
-	background-image: url(cards.CN/card_back_ap.jpg);
+	background-image: url(cards.EN/card_back_ap.jpg);
 }
 .lang-cn .card_cp_0 {
-	background-image: url(cards.CN/card_back_cp.jpg);
+	background-image: url(cards.EN/card_back_cp.jpg);
 }
 .lang-en .card_ap_0 {
 	background-image: url(cards.EN/card_back_ap.jpg);

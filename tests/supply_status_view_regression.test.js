@@ -23,7 +23,7 @@ function createSupplyStatusViewGame() {
 	return game
 }
 
-test("rules.view exposes Limited, Disrupted, and Limited+Disrupted supply statuses per unit", () => {
+test("rules.view exposes supply visuals while keeping five-state status internal", () => {
 	let game = createSupplyStatusViewGame()
 	let tiflis = findSpace("TIFLIS")
 	let bolgrad = findSpace("Bolgrad")
@@ -45,9 +45,10 @@ test("rules.view exposes Limited, Disrupted, and Limited+Disrupted supply status
 
 	let view = rules.view(game, AP_ROLE)
 
-	expect(view.supply_status[tuLimited]).toBe("LIMITED")
-	expect(view.supply_status[ruDisrupted]).toBe("DISRUPTED")
-	expect(view.supply_status[brLimitedDisrupted]).toBe("LIMITED_DISRUPTED")
+	expect(game.supply_status[tuLimited]).toBe("LIMITED")
+	expect(game.supply_status[ruDisrupted]).toBe("DISRUPTED")
+	expect(game.supply_status[brLimitedDisrupted]).toBe("LIMITED_DISRUPTED")
+	expect(view.supply_status).toBeUndefined()
 	expect(view.limited_supply).toEqual(expect.arrayContaining([tuLimited, brLimitedDisrupted]))
 	expect(view.disrupted_supply).toEqual(expect.arrayContaining([ruDisrupted, brLimitedDisrupted]))
 })
@@ -80,7 +81,8 @@ test("OOS units are not exposed as disrupted or limited supply", () => {
 
 	let view = rules.view(game, AP_ROLE)
 
-	expect(view.supply_status[brOos]).toBe("OOS")
+	expect(game.supply_status[brOos]).toBe("OOS")
+	expect(view.supply_status).toBeUndefined()
 	expect(view.oos).toContain(brOos)
 	expect(view.limited_supply).not.toContain(brOos)
 	expect(view.disrupted_supply).not.toContain(brOos)
