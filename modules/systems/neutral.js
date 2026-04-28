@@ -765,22 +765,48 @@ module.exports = function (Engine) {
 	}
 
 	function qualifies_for_ru_vp_capture(game, s) {
-		let pieces = Engine.map.get_pieces_in_space(game, s)
-		let has_ru_capture_piece = false
-		for (let p of pieces) {
-			if (is_ru_capture_piece(data.pieces[p])) {
-				has_ru_capture_piece = true
-				break
-			}
-		}
-		if (!has_ru_capture_piece) return false
+		if (!has_ru_capture_piece_in_space(game, s)) return false
 		let ru_sources = Engine.map.get_ru_supply_sources(game, false)
 		if (!ru_sources.length) return false
 		return Engine.map.can_trace_supply_to_source(game, s, AP, ru_sources)
 	}
 
+	function has_ru_capture_piece_in_space(game, s) {
+		for (let p of Engine.map.get_pieces_in_space(game, s)) {
+			if (is_ru_capture_piece(data.pieces[p])) {
+				return true
+			}
+		}
+		return false
+	}
+
+	function qualifies_for_ru_non_vp_control_marker(game, s) {
+		if (is_vp_space(game, s)) return false
+		if (!has_ru_capture_piece_in_space(game, s)) return false
+		return Engine.map.is_persia(s)
+	}
+
+	function add_ru_control_marker(game, s) {
+		if (!game.ru_control_markers) game.ru_control_markers = []
+		if (!game.ru_control_markers.includes(s)) game.ru_control_markers.push(s)
+	}
+
+	function remove_ru_control_marker(game, s) {
+		if (!Array.isArray(game.ru_control_markers)) return false
+		let had_marker = game.ru_control_markers.includes(s)
+		if (had_marker) game.ru_control_markers = game.ru_control_markers.filter((x) => x !== s)
+		return had_marker
+	}
+
 	function apply_control_change(game, s, faction, previous_vp_owner) {
-		if (!is_vp_space(game, s)) return
+		if (!is_vp_space(game, s)) {
+			if (faction === AP && qualifies_for_ru_non_vp_control_marker(game, s)) {
+				add_ru_control_marker(game, s)
+			} else {
+				remove_ru_control_marker(game, s)
+			}
+			return
+		}
 		
 		let old_contribution = get_vp_owner_contribution(game, s, previous_vp_owner)
 
@@ -805,15 +831,12 @@ module.exports = function (Engine) {
 		if (faction === AP) {
 			if (qualifies_for_ru_vp_capture(game, s)) {
 				game.russian_vp += 1
-				if (!game.ru_control_markers.includes(s)) game.ru_control_markers.push(s)
+				add_ru_control_marker(game, s)
 				Engine.log(game, `俄国部队占领VP点，俄国VP +1 (当前: ${game.russian_vp})`)
 			}
 		} else if (faction === CP) {
 			let is_ru_vp = Engine.map.is_russian_vp_space(game, s)
-			let was_ru_controlled = game.ru_control_markers.includes(s)
-			if (was_ru_controlled) {
-				game.ru_control_markers = game.ru_control_markers.filter((x) => x !== s)
-			}
+			let was_ru_controlled = remove_ru_control_marker(game, s)
 			if (is_ru_vp || was_ru_controlled) {
 				game.russian_vp -= 1
 				Engine.log(game, `同盟国占领俄国VP点，俄国VP -1 (当前: ${game.russian_vp})`)

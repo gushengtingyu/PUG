@@ -270,7 +270,7 @@ exports.register = function (states, Engine, context) {
 		if (Engine.neutral.is_greek_piece(p) && !Engine.neutral.can_attack_piece_for_faction(game, p, faction)) return false
 		// MO_BRITISH_NO_ATTACK: BR units cannot attack unless penalty has been paid
 		if (game.mo_ap === "british_no_attack" && !game.br_attack_penalty_paid && faction === active_faction()) {
-			let nations = Engine.map.get_piece_nations_for_rule(game, p, "activation")
+			let nations = Engine.game_utils.get_piece_nations_for_rule(game, p, "activation")
 			if (nations.some((n) => n === "br")) return false
 		}
 		return can_activate_piece_in_space_to_attack(p, s)
@@ -716,7 +716,7 @@ exports.register = function (states, Engine, context) {
 				// MO_BRITISH_NO_ATTACK: offer "attack with BR" mode if affordable and BR units present
 				if (costs.attack_with_br !== undefined && game.ops >= costs.attack_with_br) {
 					let has_br_that_can_attack = (all_pieces_by_space.get(s) || []).some((p) => {
-						let nations = Engine.map.get_piece_nations_for_rule(game, p, "activation")
+						let nations = Engine.game_utils.get_piece_nations_for_rule(game, p, "activation")
 						return nations.some((n) => n === "br") && can_activate_piece_in_space_to_attack(p, s)
 					})
 					if (has_br_that_can_attack) res.action("activate_attack_with_br", s)
