@@ -945,9 +945,12 @@ module.exports = function (Engine) {
 	function is_connection_active(game, type, flags, mode, faction) {
 		let events = flags.map((flag) => get_event_flag(flag, mode)).filter(Boolean)
 		if (type === "conditional_rail") {
-			// Rule: For conditional rails (usually roads upgraded to rail via event),
-			// normal movement and supply are allowed even if the rail isn't active,
-			// UNLESS it's a virtual connection that doesn't exist yet.
+			// Rule 9.4.5: incomplete Berlin-Baghdad Railroad connections exist for normal
+			// movement before the event, but are not railroads until the event is active.
+			if (mode === "move" && is_incomplete_berlin_baghdad_connection(flags)) return true
+			// Rule: For other conditional rails (usually roads upgraded to rail via event),
+			// normal movement and supply are allowed even if the rail isn't active, unless
+			// it's a virtual connection that doesn't exist yet.
 			if (mode !== "rail" && !flags.includes("virtual")) return true
 
 			if (events.length === 0) return false
@@ -957,11 +960,16 @@ module.exports = function (Engine) {
 		return has_active_event(game, events, faction)
 	}
 
+	function is_incomplete_berlin_baghdad_connection(flags) {
+		return flags.includes("virtual") && flags.includes("event_berlin_baghdad")
+	}
+
 	function connection_allows_mode(type, flags, mode) {
 		let modeFlags = flags.filter((f) => f.startsWith("mode:")).map((f) => f.substring(5))
 		if (modeFlags.length > 0) return modeFlags.includes(mode)
 		if (mode === "move") {
-			if (flags.includes("rail_only") || flags.includes("virtual") || flags.includes("supply_only")) return false
+			if (flags.includes("rail_only") || flags.includes("supply_only")) return false
+			if (flags.includes("virtual") && !is_incomplete_berlin_baghdad_connection(flags)) return false
 		}
 		if (mode === "rail") {
 			if (flags.includes("move_only")) return false
