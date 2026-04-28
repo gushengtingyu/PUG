@@ -516,11 +516,9 @@ exports.register = function (states, Engine, context) {
 		return get_valid_lcus_for_selected_scus(selected_pieces).length > 0
 	}
 
-	function space_has_adjacent_enemy(s, faction, enemy_space_flag = null) {
-		if (!data.spaces[s]) return false
+	function attack_neighbors_include_enemy(neighbors, faction, enemy_space_flag = null) {
 		let enemy = other_faction(faction)
-		let attack_neighbors = get_connected_spaces(game, s, null, faction, undefined, "attack")
-		for (let n of attack_neighbors) {
+		for (let n of neighbors) {
 			if (enemy_space_flag) {
 				if (enemy_space_flag[n] === 1) return true
 			} else if (Engine.map.contains_enemy_pieces(game, n, faction)) {
@@ -529,6 +527,19 @@ exports.register = function (states, Engine, context) {
 			if (has_undestroyed_fort(game, n, enemy)) return true
 		}
 		return false
+	}
+
+	function space_has_adjacent_enemy(s, faction, enemy_space_flag = null, pieces = null) {
+		if (!data.spaces[s]) return false
+		if (Array.isArray(pieces) && pieces.length > 0) {
+			for (let p of pieces) {
+				let piece_neighbors = Engine.map.get_piece_connected_spaces_for_rule(game, s, p, "attack")
+				if (attack_neighbors_include_enemy(piece_neighbors, faction, enemy_space_flag)) return true
+			}
+			return false
+		}
+		let attack_neighbors = get_connected_spaces(game, s, null, faction, undefined, "attack")
+		return attack_neighbors_include_enemy(attack_neighbors, faction, enemy_space_flag)
 	}
 
 	function is_russo_british_russian_activation() {
@@ -663,7 +674,7 @@ exports.register = function (states, Engine, context) {
 				} else if (game.ops >= attack_cost && unmoved_pieces.length > 0) {
 					let has_adjacent_enemy = false
 					let t_adj = DEBUG_ACTIVATION_TRACE ? activation_now() : 0
-					has_adjacent_enemy = space_has_adjacent_enemy(s, faction, enemy_space_flag)
+					has_adjacent_enemy = space_has_adjacent_enemy(s, faction, enemy_space_flag, unmoved_pieces)
 					if (DEBUG_ACTIVATION_TRACE) {
 						perf_enemy_adjacency_checks += 1
 						perf_enemy_adjacency_ms += activation_now() - t_adj
