@@ -1799,12 +1799,14 @@ function get_stack_yildirim_count(pieces) {
 		return get_ap_sea_supply_sources(game, source_cache, "ap_east_med_sources", is_east_med_port)
 	}
 
-	function is_submarine_penalized_space(game, s, event_flag, source_selector, faction = AP, supply_context = null, source_cache = null) {
+	function is_submarine_penalized_space(game, s, event_flag, source_selector, port_predicate = null, faction = AP, supply_context = null, source_cache = null) {
 		if (faction !== AP) return false
 		if (!(s > 0 && data.spaces[s])) return false
 		if (!(game && game.events && game.events[event_flag])) return false
-		if (ATHENS > 0 && is_controlled_by(game, ATHENS, AP)) return false
-		if (!is_controlled_by(game, s, AP)) return false
+			if (ATHENS > 0 && is_controlled_by(game, ATHENS, AP)) return false
+			if (!is_controlled_by(game, s, AP)) return false
+			// Spaces geographically in the threatened sea zone are always penalized
+			if (port_predicate && port_predicate(s)) return true
 
 		let zone_sources = source_selector(game, source_cache)
 		if (zone_sources.length === 0) return false
@@ -1831,6 +1833,7 @@ function get_stack_yildirim_count(pieces) {
 			s,
 			"german_subs",
 			get_ap_aegean_east_med_supply_sources,
+			is_aegean_east_med_port,
 			faction,
 			supply_context,
 			source_cache
@@ -1849,6 +1852,7 @@ function get_stack_yildirim_count(pieces) {
 			s,
 			"unrestricted_submarine_warfare",
 			get_ap_east_med_supply_sources,
+			is_east_med_port,
 			faction,
 			supply_context,
 			source_cache
