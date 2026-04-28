@@ -24,12 +24,12 @@ id,faction,nation,name,cf,lf,mf,rcf,rlf,rmf,symbol,region_limit,type,badge,piece
 23,ap,br,BR DIV #6,2,2,4,1,2,4,,,regular,infantry,SCU,BRDiv.png,BRDivR.png
 24,ap,br,BR DIV #7,2,2,4,1,2,4,,,regular,infantry,SCU,BRDiv.png,BRDivR.png
 25,ap,br,BR Dunsterforce,1,?,8,0,1,8,,,regular,armored,SCU,BRDUNF.png,BRDUNFR.png
-26,ap,br,BR Elite DIV #1,3,2,4,2,2,4,,,irregular,blue,SCU,BREDiv.png,BREDivR.png
-27,ap,br,BR Elite DIV #2,3,2,4,2,2,4,,,irregular,blue,SCU,BREDiv.png,BREDivR.png
-28,ap,br,BR Elite DIV #3,3,2,4,2,2,4,,,irregular,blue,SCU,BREDiv.png,BREDivR.png
-29,ap,br,BR Elite DIV #4,3,2,4,2,2,4,,,irregular,blue,SCU,BREDiv.png,BREDivR.png
-30,ap,br,BR Elite DIV #5,3,2,4,2,2,4,,,irregular,blue,SCU,BREDiv.png,BREDivR.png
-31,ap,br,BR Elite DIV #6,3,2,4,2,2,4,,,irregular,blue,SCU,BREDiv.png,BREDivR.png
+26,ap,br,BR Elite DIV #1,3,2,4,2,2,4,,,regular,blue,SCU,BREDiv.png,BREDivR.png
+27,ap,br,BR Elite DIV #2,3,2,4,2,2,4,,,regular,blue,SCU,BREDiv.png,BREDivR.png
+28,ap,br,BR Elite DIV #3,3,2,4,2,2,4,,,regular,blue,SCU,BREDiv.png,BREDivR.png
+29,ap,br,BR Elite DIV #4,3,2,4,2,2,4,,,regular,blue,SCU,BREDiv.png,BREDivR.png
+30,ap,br,BR Elite DIV #5,3,2,4,2,2,4,,,regular,blue,SCU,BREDiv.png,BREDivR.png
+31,ap,br,BR Elite DIV #6,3,2,4,2,2,4,,,regular,blue,SCU,BREDiv.png,BREDivR.png
 32,ap,br,BR IN Garrison #1,2,2,0,0,2,0,,I,regular,yellow,SCU,BRINGarr.png,BRINGarrR.png
 33,ap,br,BR IN Garrison #2,2,2,0,0,2,0,,I,regular,yellow,SCU,BRINGarr.png,BRINGarrR.png
 34,ap,br,BR IN Garrison #3,2,2,0,0,2,0,,I,regular,yellow,SCU,BRINGarr.png,BRINGarrR.png

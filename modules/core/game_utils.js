@@ -835,13 +835,8 @@ module.exports = function (Engine) {
 		return ["br", "anz", "in", "in-g", "ar", "pe"].includes(nation)
 	}
 
-	function is_turkish_combination_nation(nation) {
-		return nation === "tu" || nation === "tua"
-	}
-
 	function is_same_combination_nationality(lcu_nation, scu_nation) {
 		if (lcu_nation === scu_nation) return true
-		if (is_turkish_combination_nation(lcu_nation) && is_turkish_combination_nation(scu_nation)) return true
 		return !!(is_british_empire(lcu_nation) && is_british_empire(scu_nation));
 	}
 
