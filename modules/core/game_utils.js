@@ -980,7 +980,7 @@ module.exports = function (Engine) {
 				if (set_has(game.moved, p)) return false
 				if (Engine.events.is_arab_desertion_active(game) && data.pieces[p].nation === "tua") return false
 				let status = supply.get_supply_status(game, s, faction, p)
-				return status !== "OOS" && status !== "LIMITED"
+				return status !== "OOS" && !supply.is_limited_supply_status(status)
 			}
 		)
 

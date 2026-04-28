@@ -22,7 +22,9 @@ module.exports = function (Engine) {
 		is_disrupted_by_enemy,
 		contains_enemy_pieces,
 		is_port,
-		get_tribal_spaces
+		get_tribal_spaces,
+		is_limited_supply_status,
+		is_disrupted_supply_status
 	} = Engine.map
 	const { set_has, other_faction } = Engine.utils
 	const { can_stack_end_in_space } = Engine.map
@@ -164,7 +166,8 @@ module.exports = function (Engine) {
 		if (!Engine.map || typeof Engine.map.get_supply_status !== "function") return false
 		let faction = get_piece_effective_faction(game, p)
 		if (faction !== AP && faction !== CP) faction = data.pieces[p].faction
-		return Engine.map.get_supply_status(game, s, faction, p, false) === "DISRUPTED"
+		let status = Engine.map.get_supply_status(game, s, faction, p, false)
+		return !is_limited_supply_status(status) && is_disrupted_supply_status(status)
 	}
 
 	function can_use_any_friendly_rp(p) {

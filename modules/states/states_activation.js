@@ -266,7 +266,7 @@ exports.register = function (states, Engine, context) {
 
 	function can_piece_attack_in_activation(p, s, faction) {
 		if (!can_piece_participate_in_activation(p, faction)) return false
-		if (get_piece_activation_supply_status(p, faction) === "LIMITED") return false
+		if (Engine.map.is_limited_supply_status(get_piece_activation_supply_status(p, faction))) return false
 		if (Engine.neutral.is_greek_piece(p) && !Engine.neutral.can_attack_piece_for_faction(game, p, faction)) return false
 		// MO_BRITISH_NO_ATTACK: BR units cannot attack unless penalty has been paid
 		if (game.mo_ap === "british_no_attack" && !game.br_attack_penalty_paid && faction === active_faction()) {
@@ -1532,7 +1532,7 @@ exports.register = function (states, Engine, context) {
 				log_activation_debug(`[调试] piece ${p} (${info.name}) out of supply`)
 				return false
 			}
-			if (status === "LIMITED") {
+			if (Engine.map.is_limited_supply_status(status)) {
 				log_activation_debug(`[调试] piece ${p} (${info.name}) in limited supply`)
 				return false
 			}

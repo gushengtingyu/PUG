@@ -1915,7 +1915,7 @@ function get_stack_yildirim_count(pieces) {
 	function get_disrupted_supply_sr_surcharge(game, p, from, faction) {
 		if (!(from > 0) || from >= data.spaces.length || !data.spaces[from]) return 0
 		let status = get_supply_status(game, from, faction, p, true)
-		return status === "DISRUPTED" ? 1 : 0
+		return is_disrupted_supply_status(status) ? 1 : 0
 	}
 
 	function is_reserve_space(s) {
@@ -1985,7 +1985,26 @@ function get_stack_yildirim_count(pieces) {
 	}
 
 	function is_supply_status_in_supply(status) {
-		return status === "FULL" || status === "DISRUPTED" || status === "LIMITED"
+		return status === "FULL" || is_limited_supply_status(status) || is_disrupted_supply_status(status)
+	}
+
+	function is_limited_supply_status(status) {
+		return status === "LIMITED" || status === "LIMITED_DISRUPTED"
+	}
+
+	function is_disrupted_supply_status(status) {
+		return status === "DISRUPTED" || status === "LIMITED_DISRUPTED"
+	}
+
+	function get_supply_trace_status_from_info(supply_info, space) {
+		if (supply_info.full.has(space)) return "FULL"
+		if (supply_info.disrupted.has(space)) return "DISRUPTED"
+		return "OOS"
+	}
+
+	function get_limited_supply_status_from_trace_status(trace_status) {
+		if (trace_status === "OOS") return "OOS"
+		return is_disrupted_supply_status(trace_status) ? "LIMITED_DISRUPTED" : "LIMITED"
 	}
 
 	function has_same_nationality_supplied_unit_in_space(
@@ -2014,7 +2033,7 @@ function get_stack_yildirim_count(pieces) {
 				source_cache,
 				status_cache
 			)
-			if (!is_supply_status_in_supply(status) || status === "LIMITED") continue
+			if (!is_supply_status_in_supply(status) || is_limited_supply_status(status)) continue
 			return true
 		}
 		return false
@@ -2248,7 +2267,7 @@ function get_stack_yildirim_count(pieces) {
 					source_cache,
 					status_cache
 				)
-				if (!is_supply_status_in_supply(q_status) || q_status === "LIMITED") continue
+				if (!is_supply_status_in_supply(q_status) || is_limited_supply_status(q_status)) continue
 				candidates.add(q_space)
 			}
 			let filtered = []
@@ -2272,7 +2291,7 @@ function get_stack_yildirim_count(pieces) {
 			status_cache
 		)
 
-		if (info.piece_class !== "LCU" && source_status !== "LIMITED" && is_supply_status_in_supply(source_status)) {
+		if (info.piece_class !== "LCU" && !is_limited_supply_status(source_status) && is_supply_status_in_supply(source_status)) {
 			let reserve_id = get_faction_reserve_space_id(faction)
 			if (reserve_id > 0 && data.spaces[reserve_id]) destinations.add(reserve_id)
 		}
@@ -2365,7 +2384,7 @@ function get_stack_yildirim_count(pieces) {
 		}
 		let status = get_supply_status(game, s, faction, p, true)
 		if (!is_supply_status_in_supply(status)) return false
-		return status !== "LIMITED"
+		return !is_limited_supply_status(status)
 	}
 
 	function can_sr_to_space(game, p, s, faction) {
@@ -2394,7 +2413,7 @@ function get_stack_yildirim_count(pieces) {
 
 			let source_status = get_supply_status(game, source, faction, p, true)
 			if (!is_supply_status_in_supply(source_status)) return false
-			return source_status !== "LIMITED"
+			return !is_limited_supply_status(source_status)
 		}
 
 		if (!is_controlled_by(game, s, faction) && !contains_friendly_pieces(game, s, faction)) return false
@@ -2667,8 +2686,13 @@ function get_stack_yildirim_count(pieces) {
 				is_friendly = true
 			}
 			if (is_friendly) {
-				full_supplied.add(s)
-				queue.push({ s, disrupted: false })
+				let source_disrupted = context.disrupted[faction][s] === 1
+				if (source_disrupted) {
+					disrupted_supplied.add(s)
+				} else {
+					full_supplied.add(s)
+				}
+				queue.push({ s, disrupted: source_disrupted })
 			}
 		}
 
@@ -2999,7 +3023,7 @@ function get_stack_yildirim_count(pieces) {
 			if (status === "OOS") {
 				set_add(game.oos, p)
 				set_delete(game.disrupted_supply, p)
-			} else if (status === "DISRUPTED") {
+			} else if (is_disrupted_supply_status(status)) {
 				set_delete(game.oos, p)
 				set_add(game.disrupted_supply, p)
 			} else {
@@ -3225,18 +3249,22 @@ function get_stack_yildirim_count(pieces) {
 
 		let trace_piece = needs_piece_specific_supply_trace(p) ? p : -1
 		let supply_info = get_supplied_spaces_cached(game, supply_trace_cache, sources, faction, trace_piece, supply_context)
-		if (supply_info.full.has(space)) return cache_result("FULL")
-		if (supply_info.disrupted.has(space)) return cache_result("DISRUPTED")
+		let full_trace_status = get_supply_trace_status_from_info(supply_info, space)
+		if (full_trace_status !== "OOS") return cache_result(full_trace_status)
 
 		// 4. Limited Supply Check (Rule 14.2.8 / 14.2.2 / 14.2.3)
 		// If not in Full Supply, check if it can trace supply to ANY base source of the faction
 		if (p !== -1) {
-			if (
-				faction === CP &&
-				!(game.events && game.events["afghan_alliance"]) &&
-				can_trace_supply_to_source(game, space, faction, AFGHANISTAN_SPACE, supply_context)
-			) {
-				return cache_result("LIMITED")
+			if (faction === CP && !(game.events && game.events["afghan_alliance"])) {
+				let afghanistan_trace_status = get_supply_trace_status_to_source(
+					game,
+					space,
+					faction,
+					AFGHANISTAN_SPACE,
+					supply_context
+				)
+				let afghanistan_limited_status = get_limited_supply_status_from_trace_status(afghanistan_trace_status)
+				if (afghanistan_limited_status !== "OOS") return cache_result(afghanistan_limited_status)
 			}
 
 			let all_faction_sources = get_supply_sources_from_data_cached(game, faction, for_placement_or_sr, source_cache)
@@ -3250,8 +3278,9 @@ function get_stack_yildirim_count(pieces) {
 				trace_piece,
 				supply_context
 			)
-			if (limited_info.full.has(space)) return cache_result("LIMITED")
-			if (limited_info.disrupted.has(space)) return cache_result("DISRUPTED")
+			let limited_trace_status = get_supply_trace_status_from_info(limited_info, space)
+			let limited_status = get_limited_supply_status_from_trace_status(limited_trace_status)
+			if (limited_status !== "OOS") return cache_result(limited_status)
 		}
 
 		return cache_result("OOS")
@@ -3259,7 +3288,7 @@ function get_stack_yildirim_count(pieces) {
 
 	function is_in_supply(game, space, faction, p = -1, for_placement_or_sr = false) {
 		let status = get_supply_status(game, space, faction, p, for_placement_or_sr)
-		return status === "FULL" || status === "DISRUPTED" || status === "LIMITED"
+		return is_supply_status_in_supply(status)
 	}
 
 	function get_full_supply_sources_for_unit(game, p, for_placement_or_sr = false, source_cache = null) {
@@ -3325,13 +3354,16 @@ function get_stack_yildirim_count(pieces) {
 			faction = data.pieces[p].faction
 		}
 		let status = get_supply_status(game, game.pieces[p], faction, p)
-		return status === "LIMITED"
+		return is_limited_supply_status(status)
 	}
 
-	function can_trace_supply_to_source(game, start, faction, source, supply_context = null) {
+	function get_supply_trace_status_to_source(game, start, faction, source, supply_context = null) {
 		let context = supply_context || create_supply_context(game)
 		let sources = Array.isArray(source) ? source : [source]
 		let source_flag = build_space_flag_from_sources(sources)
+		let best_status = "OOS"
+		if (!(start > 0) || start >= data.spaces.length || !data.spaces[start]) return best_status
+
 		if (source_flag[start] === 1) {
 			if (
 				faction === CP &&
@@ -3339,22 +3371,25 @@ function get_stack_yildirim_count(pieces) {
 				data.spaces[start].name === "Afghanistan" &&
 				!(game.events && game.events["afghan_alliance"])
 			) {
-				return true
+				return context.disrupted[faction][start] === 1 ? "DISRUPTED" : "FULL"
 			}
-		if (is_ap_supply_beachhead(game, start, faction)) {
-			return true
+			if (is_ap_supply_beachhead(game, start, faction) || is_controlled_by(game, start, faction)) {
+				return context.disrupted[faction][start] === 1 ? "DISRUPTED" : "FULL"
+			}
+			return best_status
 		}
-			return is_controlled_by(game, start, faction)
-		}
-		let visited = new Set([start])
-		let queue = [start]
+
+		let visited_clean = new Set()
+		let visited_disrupted = new Set()
+		let start_disrupted = context.disrupted[faction][start] === 1
+		if (start_disrupted) visited_disrupted.add(start)
+		else visited_clean.add(start)
+		let queue = [{ s: start, disrupted: start_disrupted }]
 		let queue_head = 0
 		while (queue_head < queue.length) {
-			let current = queue[queue_head++]
+			let { s: current, disrupted: current_disrupted } = queue[queue_head++]
 			let neighbors = get_connected_spaces(game, current, undefined, faction, undefined, "supply")
 			for (let next of neighbors) {
-				if (visited.has(next)) continue
-
 				// Blocked by enemy regular units (unless besieged)
 				if (context.enemy_regular[faction][next] === 1 && !is_besieged_with_context(game, next, context)) continue
 
@@ -3372,12 +3407,27 @@ function get_stack_yildirim_count(pieces) {
 				// Supply trace pass if: friendly controlled OR contains friendly pieces OR is disrupted (partial control) OR besieged fort
 				if (!is_friendly && !is_besieged_enemy && !has_friendly_pieces && !is_disrupted_by_enemy) continue
 
-				if (source_flag[next] === 1) return true
-				visited.add(next)
-				queue.push(next)
+				let next_disrupted = current_disrupted || is_disrupted_by_enemy
+				if (source_flag[next] === 1) {
+					if (!next_disrupted) return "FULL"
+					best_status = "DISRUPTED"
+				}
+
+				if (next_disrupted) {
+					if (visited_clean.has(next) || visited_disrupted.has(next)) continue
+					visited_disrupted.add(next)
+				} else {
+					if (visited_clean.has(next)) continue
+					visited_clean.add(next)
+				}
+				queue.push({ s: next, disrupted: next_disrupted })
 			}
 		}
-		return false
+		return best_status
+	}
+
+	function can_trace_supply_to_source(game, start, faction, source, supply_context = null) {
+		return get_supply_trace_status_to_source(game, start, faction, source, supply_context) !== "OOS"
 	}
 
 	function is_rail_connected_to_supply(game, s, faction) {
@@ -3669,7 +3719,7 @@ function get_stack_yildirim_count(pieces) {
 				source_cache,
 				status_cache
 			)
-			return status === "DISRUPTED"
+			return is_disrupted_supply_status(status)
 		}
 
 		for (let p of pieces) {
@@ -3878,10 +3928,14 @@ function get_stack_yildirim_count(pieces) {
 		is_connected_by_rail,
 		is_in_supply,
 		is_in_limited_supply,
+		is_limited_supply_status,
+		is_disrupted_supply_status,
+		is_supply_status_in_supply,
 		is_rail_connected_to_supply,
 		is_besieged,
 		create_supply_context,
 		is_base_supply_source,
+		get_supply_trace_status_to_source,
 		can_trace_supply_to_source,
 		can_trace_piece_supply_to_space,
 		can_trace_piece_supply_to_sources,
