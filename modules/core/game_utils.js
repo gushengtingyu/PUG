@@ -211,6 +211,16 @@ module.exports = function (Engine) {
 		return set_has(game.reduced, p)
 	}
 
+	function is_stanke_bey_unit(p) {
+		let info = data.pieces[p]
+		return !!(info && info.name === "TU Stanke Bey")
+	}
+
+	function is_spers_rifles_unit(p) {
+		let info = data.pieces[p]
+		return !!(info && info.name && info.name.includes("SPers Rifles"))
+	}
+
 	function reduce_piece(game, p, log) {
 		if (is_piece_reduced(game, p)) {
 			eliminate_piece(game, p, log)
@@ -615,7 +625,8 @@ module.exports = function (Engine) {
 			}
 		}
 
-		let is_permanently_eliminated = permanent || is_lcu_pe || info.symbol === "dot"
+		let is_permanently_eliminated =
+			permanent || is_lcu_pe || info.symbol === "dot" || is_stanke_bey_unit(p) || is_spers_rifles_unit(p)
 
 		if (is_permanently_eliminated) {
 			game.pieces[p] = get_permanently_eliminated_box(info.faction)
@@ -1070,6 +1081,8 @@ module.exports = function (Engine) {
 		get_reserve_box_for_piece,
 		count_tribes_on_map,
 		is_piece_reduced,
+		is_stanke_bey_unit,
+		is_spers_rifles_unit,
 		reduce_piece,
 		is_regular,
 		is_irregular,

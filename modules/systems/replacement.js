@@ -54,7 +54,9 @@ module.exports = function (Engine) {
 		get_tribe_key_space,
 		get_piece_nations_for_rule,
 		is_irregular,
-		is_tribe
+		is_tribe,
+		is_stanke_bey_unit,
+		is_spers_rifles_unit
 	} = Engine.game_utils
 	const SOFIA = find_space("SOFIA")
 	const BELGRADE = find_space("BELGRADE")
@@ -75,10 +77,6 @@ module.exports = function (Engine) {
 	const AP_FALLBACK_REPLACEMENT_NATIONS = new Set(["fr", "ro", "sb", "pe", "arm", "geo", "it"])
 	const AP_SHARED_BRITISH_REPLACEMENT_NATIONS = new Set(["anz", "ar", "gr"])
 	const CP_GALICIA_SHARED_REPLACEMENT_NATIONS = new Set(["ah", "bu"])
-
-	function is_spers_rifles_unit(info) {
-		return !!(info && info.name && info.name.includes("SPers Rifles"))
-	}
 
 	function is_br_indian_garrison_unit(info) {
 		return !!(info && info.name && info.name.includes("IN Garrison"))
@@ -116,7 +114,7 @@ module.exports = function (Engine) {
 	function can_rebuild_in_reserve_box(p) {
 		let info = data.pieces[p]
 		if (!info || info.piece_class !== "SCU" || info.type !== "regular") return false
-		if (is_spers_rifles_unit(info)) return false
+		if (is_spers_rifles_unit(p)) return false
 		if (is_br_indian_garrison_unit(info)) return false
 		return !is_br_persian_cordon_unit(info);
 	}
@@ -133,8 +131,9 @@ module.exports = function (Engine) {
 		if (info.type === "hq") return 0
 
 		let eliminated = is_eliminated(game, p)
+		if (is_stanke_bey_unit(p)) return 0
 
-		if (eliminated && is_spers_rifles_unit(info)) return 0
+		if (eliminated && is_spers_rifles_unit(p)) return 0
 
 		// Triangle units: only so long as they remain on the map
 		if (info.symbol === "triangle" && eliminated) return 0
@@ -685,6 +684,8 @@ module.exports = function (Engine) {
 
 	function get_valid_rebuild_spaces(game, p, faction) {
 		let info = data.pieces[p]
+		if (is_stanke_bey_unit(p)) return []
+		if (is_spers_rifles_unit(p)) return []
 		if (is_tribe(p)) {
 			let key = get_tribe_key_space(p)
 			if (key >= 0 && can_trace_tribe_replacement_supply(game, p)) {
