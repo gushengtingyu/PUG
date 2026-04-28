@@ -1616,6 +1616,7 @@ const marker_info = {
 	beachhead: { name: "Beachhead", counter: "marker beachhead", size: 75 * SCALE },
 	besieged: { name: "Besieged", counter: "marker besieged", size: 75 * SCALE },
 	out_of_supply: { name: "Out of Supply", counter: "marker out_of_supply", size: 75 * SCALE },
+	limited_supply: { name: "Limited Supply", counter: "marker limited_supply", size: 75 * SCALE },
 	mo_modifier: { name: "AP MO Modifier", counter: "marker mo_modifier", size: 75 * SCALE },
 	fort_destroyed: {
 		name: "Fort Destroyed",
@@ -1880,16 +1881,7 @@ function destroy_activation_markers(s) {
  * @returns {HTMLElement} 标记元素。
  */
 function build_oos_marker(s) {
-	const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
-	const info = marker_info.out_of_supply
-	return build_marker(
-		list,
-		(m) => {
-			return m.type === "oos"
-		},
-		{ type: "oos", space: s },
-		info
-	)
+	return build_space_marker(s, "oos", marker_info.out_of_supply)
 }
 
 /**
@@ -1897,10 +1889,15 @@ function build_oos_marker(s) {
  * @param {number} s - 空间 ID。
  */
 function destroy_oos_marker(s) {
-	const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
-	destroy_marker(list, (m) => {
-		return m.type === "oos"
-	})
+	destroy_space_marker(s, "oos")
+}
+
+function build_limited_supply_marker(s) {
+	return build_space_marker(s, "limited_supply", marker_info.limited_supply)
+}
+
+function destroy_limited_supply_marker(s) {
+	destroy_space_marker(s, "limited_supply")
 }
 
 /**
@@ -1909,16 +1906,7 @@ function destroy_oos_marker(s) {
  * @returns {HTMLElement} 标记元素。
  */
 function build_beachhead_marker(s) {
-	const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
-	const info = marker_info.beachhead
-	return build_marker(
-		list,
-		(m) => {
-			return m.type === "beachhead"
-		},
-		{ type: "beachhead", space: s },
-		info
-	)
+	return build_space_marker(s, "beachhead", marker_info.beachhead)
 }
 
 /**
@@ -1926,10 +1914,7 @@ function build_beachhead_marker(s) {
  * @param {number} s - 空间 ID。
  */
 function destroy_beachhead_marker(s) {
-	const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
-	destroy_marker(list, (m) => {
-		return m.type === "beachhead"
-	})
+	destroy_space_marker(s, "beachhead")
 }
 
 /**
@@ -1938,16 +1923,7 @@ function destroy_beachhead_marker(s) {
  * @returns {HTMLElement} 标记元素。
  */
 function build_fort_destroyed_marker(s) {
-	const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
-	const info = marker_info.fort_destroyed
-	return build_marker(
-		list,
-		(m) => {
-			return m.type === "fort_destroyed"
-		},
-		{ type: "fort_destroyed", space: s },
-		info
-	)
+	return build_space_marker(s, "fort_destroyed", marker_info.fort_destroyed)
 }
 
 /**
@@ -1955,10 +1931,7 @@ function build_fort_destroyed_marker(s) {
  * @param {number} s - 空间 ID。
  */
 function destroy_fort_destroyed_marker(s) {
-	const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
-	destroy_marker(list, (m) => {
-		return m.type === "fort_destroyed"
-	})
+	destroy_space_marker(s, "fort_destroyed")
 }
 
 function build_space_marker(s, type, info) {
@@ -2083,6 +2056,8 @@ const UI_FRAME_STATE_FIELDS = [
 	},
 	{ key: "reduced", diff: "piece_set", build: () => to_id_set(view?.reduced) },
 	{ key: "oos", diff: "piece_set", build: () => to_id_set(view?.oos) },
+	{ key: "limited_supply", diff: "piece_set", build: () => to_id_set(view?.limited_supply) },
+	{ key: "disrupted_supply", diff: "piece_set", build: () => to_id_set(view?.disrupted_supply) },
 	{ key: "beachheads", diff: "space_set", build: () => to_id_set(view?.beachheads) },
 	{ key: "trenches", diff: "space_set", build: () => to_id_set(view?.trenches) },
 	{ key: "trenches_2", diff: "space_set", build: () => to_id_set(view?.trenches_2) },
@@ -2777,7 +2752,8 @@ function update_reinforcements() {
 			if (pieces[p].type !== "tribe") {
 				el.classList.remove("selected")
 			}
-			el.classList.remove("oos")
+			el.classList.remove("limited_supply")
+			el.classList.remove("disrupted_supply")
 			el.classList.remove("entrenching")
 
 			const stk = ensure_slot_stack(slot, slot_stacks, stack_by_coord)
@@ -2793,7 +2769,8 @@ function update_reinforcements() {
 				if (pieces[p].type !== "tribe") {
 					el.classList.remove("selected")
 				}
-				el.classList.remove("oos")
+				el.classList.remove("limited_supply")
+				el.classList.remove("disrupted_supply")
 				el.classList.remove("entrenching")
 			} else {
 				// Tribal units in reserve boxes might be here if they are remapped to a non-reinforcement slot
@@ -4440,7 +4417,8 @@ function create_space_stack_parts() {
 		full_lcu: [],
 		reduced_lcu: [],
 		bottom_markers: [],
-		has_oos_unit: false
+		has_oos_unit: false,
+		has_limited_supply_unit: false
 	}
 }
 
@@ -4490,19 +4468,25 @@ function render_space_piece(piece_id, state, stack_parts) {
 		has_id(state.attack_pieces, piece_id) ||
 		has_id(state.move_pieces, piece_id)
 	const is_oos = has_id(state.oos, piece_id)
+	const is_limited_supply = !is_oos && has_id(state.limited_supply, piece_id)
+	const is_disrupted_supply = !is_oos && has_id(state.disrupted_supply, piece_id)
 
 	el.classList.remove("offmap")
 	el.classList.toggle("reduced", is_reduced)
 	el.classList.toggle("highlight", is_action_piece_highlighted(state, piece_id))
 	el.classList.toggle("activated", is_activated)
 	el.classList.toggle("selected", is_selected)
-	el.classList.toggle("oos", is_oos)
+	el.classList.toggle("limited_supply", is_limited_supply)
+	el.classList.toggle("disrupted_supply", is_disrupted_supply)
 	el.classList.toggle("entrenching", has_id(state.entrenching, piece_id))
 	el.classList.toggle("spent", has_id(state.moved, piece_id) || has_id(state.attacked, piece_id))
 	set_piece_image(el, is_reduced ? piece.image_reduced : piece.image_full)
 
 	if (is_oos) {
 		stack_parts.has_oos_unit = true
+	}
+	if (is_limited_supply) {
+		stack_parts.has_limited_supply_unit = true
 	}
 	if (piece.piece_class === "LCU") {
 		;(is_reduced ? stack_parts.reduced_lcu : stack_parts.full_lcu).push(el)
@@ -4618,9 +4602,17 @@ function render_space_markers(space, state, s, stack_parts) {
 		destroy_activation_markers(s)
 	}
 
-	// (Removed: OOS markers are no longer rendered as standalone markers on the space, 
-	// they are handled purely via CSS classes on the units themselves as requested)
-	destroy_oos_marker(s)
+	if (stack_parts.has_oos_unit) {
+		stack_parts.top_markers.push(build_oos_marker(s))
+	} else {
+		destroy_oos_marker(s)
+	}
+
+	if (stack_parts.has_limited_supply_unit) {
+		stack_parts.top_markers.push(build_limited_supply_marker(s))
+	} else {
+		destroy_limited_supply_marker(s)
+	}
 }
 
 function populate_space_stack(stack, s, stack_parts) {
@@ -4817,7 +4809,8 @@ function apply_box_piece_interaction_state(el, state, piece_id, interactive = tr
 	el.classList.toggle("selected", interactive && (state.who_single === piece_id || has_id(state.who_set, piece_id)))
 	el.classList.remove("activated")
 	el.classList.remove("spent")
-	el.classList.remove("oos")
+	el.classList.remove("limited_supply")
+	el.classList.remove("disrupted_supply")
 	el.classList.remove("entrenching")
 	el.style.pointerEvents = interactive ? "" : "none"
 }

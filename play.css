@@ -1120,7 +1120,6 @@ header.Central_Powers {
 	display: none;
 }
 
-.reinforcement_board .unit,
 .reinforcement_marker {
 	border: none !important;
 }
@@ -1282,12 +1281,6 @@ X.space.fort::before {
 
 /* COUNTERS */
 
-.marker.out_of_supply {
-	width: 75px;
-	height: 75px;
-	background-size: 100% 100%;
-}
-
 .piece,
 .marker {
 	position: absolute;
@@ -1343,7 +1336,7 @@ body.bevel .piece.entrenching {
 		1px 1px 4px #000;
 }
 
-.piece.oos {
+.piece.disrupted_supply {
 	filter: brightness(70%) sepia(100%) hue-rotate(-50deg) saturate(200%);
 }
 
@@ -1391,52 +1384,6 @@ body.bevel .piece.tip {
 	border-style: none;
 	z-index: 200;
 	background-size: 100% 100%;
-}
-
-/* MARKERS */
-
-.marker {
-	width: 60px;
-	height: 60px;
-}
-
-.marker.control {
-	width: 75px;
-	height: 75px;
-}
-.marker.trench {
-	width: 75px;
-	height: 75px;
-}
-.marker.small {
-	width: 60px;
-	height: 60px;
-}
-.marker.mini {
-	width: 30px;
-	height: 30px;
-	border-radius: 0;
-	border-width: 1px !important;
-}
-.event {
-	width: 75px;
-	height: 75px;
-	position: absolute;
-	z-index: 1;
-	border-width: 2px;
-	border-style: solid;
-	border-radius: 5px;
-}
-.event.disabled {
-	border-color: rgba(0, 0, 0, 0.4);
-	background-color: rgba(0, 0, 0, 0.4);
-}
-.event.small {
-	width: 60px;
-	height: 60px;
-}
-.event.hide {
-	display: none;
 }
 
 /* Animations */

@@ -2963,8 +2963,8 @@ function get_stack_yildirim_count(pieces) {
 		let western = []
 		let eastern = []
 		for (let s of get_supply_eligible_space_ids()) {
-			western[s] = western_supply.full.has(s) ? 1 : 0
-			eastern[s] = eastern_supply.full.has(s) ? 1 : 0
+			western[s] = western_supply.full.has(s) || western_supply.disrupted.has(s) ? 1 : 0
+			eastern[s] = eastern_supply.full.has(s) || eastern_supply.disrupted.has(s) ? 1 : 0
 		}
 		return { western, eastern }
 	}
@@ -3006,6 +3006,8 @@ function get_stack_yildirim_count(pieces) {
 			if (is_tribe(p)) {
 				set_delete(game.oos, p)
 				set_delete(game.disrupted_supply, p)
+				set_delete(game.limited_supply, p)
+				if (game.supply_status) game.supply_status[p] = null
 				continue
 			}
 
@@ -3020,15 +3022,23 @@ function get_stack_yildirim_count(pieces) {
 				source_cache,
 				status_cache
 			)
+			game.supply_status[p] = status
 			if (status === "OOS") {
 				set_add(game.oos, p)
+				set_delete(game.limited_supply, p)
 				set_delete(game.disrupted_supply, p)
-			} else if (is_disrupted_supply_status(status)) {
-				set_delete(game.oos, p)
-				set_add(game.disrupted_supply, p)
 			} else {
 				set_delete(game.oos, p)
-				set_delete(game.disrupted_supply, p)
+				if (is_limited_supply_status(status)) {
+					set_add(game.limited_supply, p)
+				} else {
+					set_delete(game.limited_supply, p)
+				}
+				if (is_disrupted_supply_status(status)) {
+					set_add(game.disrupted_supply, p)
+				} else {
+					set_delete(game.disrupted_supply, p)
+				}
 			}
 		}
 	}
@@ -3036,6 +3046,8 @@ function get_stack_yildirim_count(pieces) {
 	function check_supply(game) {
 		game.oos = []
 		game.oos_spaces = []
+		game.supply_status = new Array(game.pieces.length).fill(null)
+		game.limited_supply = []
 		game.disrupted_supply = []
 		let supply_trace_cache = new Map()
 		let source_cache = new Map()
@@ -3067,8 +3079,8 @@ function get_stack_yildirim_count(pieces) {
 		// Rule 14.3.3 & 15.4.6: Check all friendly controlled spaces for supply
 		for (let s of get_supply_eligible_space_ids()) {
 			let info = data.spaces[s]
-			projection_ap[s] = ap_supply.full.has(s) ? 1 : 0
-			projection_cp[s] = cp_supply.full.has(s) ? 1 : 0
+			projection_ap[s] = ap_supply.full.has(s) || ap_supply.disrupted.has(s) ? 1 : 0
+			projection_cp[s] = cp_supply.full.has(s) || cp_supply.disrupted.has(s) ? 1 : 0
 
 			if (is_potential_beachhead_space(s) && !is_beachhead_space(game, s)) {
 				continue

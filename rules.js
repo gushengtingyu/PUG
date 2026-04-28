@@ -581,6 +581,9 @@ function update_supply_if_missing() {
 	if (
 		game.supply_dirty !== false ||
 		!Array.isArray(game.oos) ||
+		!Array.isArray(game.supply_status) ||
+		game.supply_status.length !== game.pieces.length ||
+		!Array.isArray(game.limited_supply) ||
 		!Array.isArray(game.disrupted_supply) ||
 		!Array.isArray(game.oos_spaces)
 	) {
@@ -733,11 +736,11 @@ exports.query = function (state, current, q) {
 		const { CP } = Engine.constants
 		let supply_spaces = Engine.map.get_supply_eligible_space_ids()
 		let cp_sources = Engine.map.get_supply_sources_from_data(game, CP)
-		let cp_supply = Engine.map.get_supplied_spaces(game, cp_sources, CP, -1).full
+		let cp_supply = Engine.map.get_supplied_spaces(game, cp_sources, CP, -1)
 
 		let reply = { cp: [] }
 		for (let s of supply_spaces) {
-			reply.cp[s] = cp_supply.has(s) ? 1 : 0
+			reply.cp[s] = cp_supply.full.has(s) || cp_supply.disrupted.has(s) ? 1 : 0
 		}
 		if (!game.supply_query_cache) game.supply_query_cache = {}
 		game.supply_query_cache.cp_supply = reply
@@ -757,6 +760,22 @@ function query_cards(state, faction) {
 		discard: [...discard].sort((a, b) => a - b),
 		deck: [...deck, ...hand].sort((a, b) => a - b),
 		removed: [...removed].sort((a, b) => a - b)
+	}
+}
+
+function get_piece_supply_status_view() {
+	const status = Array.isArray(game.supply_status) ? game.supply_status : []
+	const limited = []
+	const disrupted = []
+	for (let p = 0; p < status.length; p++) {
+		const piece_status = status[p]
+		if (Engine.map.is_limited_supply_status(piece_status)) limited.push(p)
+		if (Engine.map.is_disrupted_supply_status(piece_status)) disrupted.push(p)
+	}
+	return {
+		status,
+		limited,
+		disrupted
 	}
 }
 
@@ -799,6 +818,7 @@ exports.view = function (state, current) {
 	}
 
 	function create_view() {
+		const supply_view = get_piece_supply_status_view()
 		const entry_gr = !!(game.entry_gr || (Engine.neutral && Engine.neutral.get_greece_faction(game)))
 		const entry_bu = !!(game.entry_bu || (game.events && game.events["bulgaria"]))
 		const entry_ro = !!(game.entry_ro || (game.events && game.events["romania"]))
@@ -934,6 +954,9 @@ exports.view = function (state, current) {
 			where: game.where,
 			violations: Engine.map.check_rule_violations(game),
 			supply_warnings: game.supply_warnings || [],
+			supply_status: supply_view.status,
+			limited_supply: supply_view.limited,
+			disrupted_supply: supply_view.disrupted,
 			oos: game.oos || [],
 			oos_spaces: game.oos_spaces || [],
 			entrenching: game.entrenching || [],
@@ -1284,6 +1307,8 @@ const HISTORY_SNAPSHOT_OMIT_KEYS = new Set([
 	"supply_projection_ap_split",
 	"oos",
 	"oos_spaces",
+	"supply_status",
+	"limited_supply",
 	"disrupted_supply"
 ])
 

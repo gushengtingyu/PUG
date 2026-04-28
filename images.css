@@ -184,6 +184,9 @@
 .marker.out_of_supply {
 	background-image: url(pieces/oos.png);
 }
+.marker.limited_supply {
+	background-image: url(pieces/LimSupply.png);
+}
 
 .marker.ru.control {
 	background-image: url(pieces/MRUCtrl.png);
