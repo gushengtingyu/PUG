@@ -103,6 +103,7 @@ id,key,x,y,w,h
 102,Sinai Railroad,1792,2131,75,75
 103,neutral_SB_UI,80,325,200,160
 104,SUB IN THE MED,700,1256,75,75
+105,BB.RR,1958,1083,75,75
 1000,box_cp_corps_assets_tu_lcu,808,1760,44,44
 1001,box_cp_corps_assets_tua_lcu,927,1760,44,44
 1100,box_cp_reserve_tu_scu,1055,1680,44,44

@@ -793,6 +793,10 @@ exports.view = function (state, current) {
 	if (game.events && game.events["jerusalem_by_christmas"] !== undefined) {
 		hidden_reinforcement_markers.push("J By C token")
 	}
+	if (game.events && game.events["berlin_baghdad"]) {
+		ui_tokens["BB.RR"] = "MBBRR.png"
+		hidden_reinforcement_markers.push("BB.RR token")
+	}
 
 	function create_view() {
 		const entry_gr = !!(game.entry_gr || (Engine.neutral && Engine.neutral.get_greece_faction(game)))
