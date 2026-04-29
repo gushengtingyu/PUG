@@ -186,7 +186,12 @@ const Engine = {
 	sync_jihad_city_state(game, s, previous_override) {
 		if (!Engine.jihad || typeof Engine.jihad.sync_jihad_city_state !== "function") return
 		Engine.jihad.sync_jihad_city_state(game, s, previous_override, {
-			update_jihad_level: (g, amount) => Engine.update_jihad_level(g, amount)
+			push_state:
+				typeof Engine.push_state === "function"
+					? Engine.push_state
+					: (next_state) => {
+							if (game && typeof game.push_state === "function") game.push_state(next_state)
+						}
 		})
 	},
 

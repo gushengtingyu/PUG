@@ -740,6 +740,16 @@ module.exports = function (Engine) {
 		return get_vp_partial_disruptor(game, s)
 	}
 
+	function log_vp_partial_disruption_change(game, s, delta) {
+		if (!delta) return
+		let side = delta > 0 ? "CP" : "AP"
+		let amount = Math.abs(delta)
+		Engine.log(
+			game,
+			`部落/非正规军单位影响VP：${data.spaces[s].name}，${side} +${amount} VP (当前VP: ${game.vp})。`
+		)
+	}
+
 	function sync_vp_state(game, s, previous_override) {
 		if (!is_vp_space(game, s)) return
 		if (!game.vp_partial_disruption) game.vp_partial_disruption = []
@@ -772,6 +782,7 @@ module.exports = function (Engine) {
 		let new_contribution = get_vp_owner_contribution(game, s, next)
 		let delta = new_contribution - old_contribution
 		game.vp += delta
+		if (previous_override === undefined) log_vp_partial_disruption_change(game, s, delta)
 
 		game.vp_partial_disruption[s] = next
 		if (is_neutral_vp_space(s)) game.neutral_vp_partial_control[s] = next

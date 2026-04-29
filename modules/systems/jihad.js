@@ -100,11 +100,23 @@ module.exports = function (Engine) {
 		return controller
 	}
 
+	function log_jihad_city_change(game, s, amount) {
+		if (!amount) return
+		Engine.log(
+			game,
+			`圣战城市影响：${data.spaces[s].name}，圣战等级 ${amount > 0 ? "+" : ""}${amount} (当前: ${game.jihad})。`
+		)
+	}
+
 	function sync_jihad_city_state(game, s, previous_override, helpers = {}) {
 		if (!data.spaces[s] || !data.spaces[s].jihad_city) return
 		const { AP, CP } = Engine.constants
-		const update_level =
-			typeof helpers.update_jihad_level === "function" ? helpers.update_jihad_level : update_jihad_level
+		const push_state =
+			typeof helpers.push_state === "function"
+				? helpers.push_state
+				: (next_state) => {
+						if (game && typeof game.push_state === "function") game.push_state(next_state)
+					}
 
 		if (!Array.isArray(game.jihad_city_effective_owner)) game.jihad_city_effective_owner = []
 
@@ -131,10 +143,10 @@ module.exports = function (Engine) {
 			if (!Array.isArray(game.jihad_cities_flipped)) game.jihad_cities_flipped = []
 			if (!game.jihad_cities_flipped.includes(s)) {
 				game.jihad_cities_flipped.push(s)
-				update_level(game, 1)
+				update_jihad_level(game, 1, push_state, () => log_jihad_city_change(game, s, 1))
 			}
 		} else if (delta < 0) {
-			update_level(game, -1)
+			update_jihad_level(game, -1, push_state, () => log_jihad_city_change(game, s, -1))
 		}
 
 		game.jihad_city_effective_owner[s] = next
