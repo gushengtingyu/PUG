@@ -207,68 +207,62 @@ function check_menu(id, x) {
 }
 
 let showing_supply = false
+let supply_dirty_spaces = null
 
 /**
- * 显示协约国的补给线。
- * @param {Object} supply - 包含补给状态的对象。
+ * 显示协约国的补给线，并记录实际加过补给样式的格子，方便之后只清理这些格子。
+ * @param {Object} supply - 包含 western/eastern 补给状态的对象。
  */
 function show_ap_supply(supply) {
-	if (showing_supply) {
-		hide_supply()
-	}
+	if (showing_supply) hide_supply()
 	showing_supply = true
+	supply_dirty_spaces = []
 	for (let s of SUPPLY_OVERLAY_SPACE_IDS) {
 		const space = spaces[s]
-		if (!space || !space.element) {
-			continue
-		}
+		if (!space || !space.element) continue
 		const western = !!(supply.western && supply.western[s] > 0)
 		const eastern = !!(supply.eastern && supply.eastern[s] > 0)
 		const el = space.element
 		el.classList.toggle("western_supply", western)
 		el.classList.toggle("eastern_supply", eastern)
 		el.classList.toggle("no_supply", !western && !eastern)
+		supply_dirty_spaces.push(s)
 	}
 }
 
 /**
- * 显示同盟国的补给线。
- * @param {Object} supply - 包含补给状态的对象。
+ * 显示同盟国的补给线，并记录实际加过补给样式的格子，方便之后只清理这些格子。
+ * @param {Object} supply - 包含 cp 补给状态的对象。
  */
 function show_cp_supply(supply) {
-	if (showing_supply) {
-		hide_supply()
-	}
+	if (showing_supply) hide_supply()
 	showing_supply = true
+	supply_dirty_spaces = []
 	for (let s of SUPPLY_OVERLAY_SPACE_IDS) {
 		const space = spaces[s]
-		if (!space || !space.element) {
-			continue
-		}
+		if (!space || !space.element) continue
 		const cp = !!(supply.cp && supply.cp[s] > 0)
 		const el = space.element
 		el.classList.toggle("cp_supply", cp)
 		el.classList.toggle("no_supply", !cp)
+		supply_dirty_spaces.push(s)
 	}
 }
 
 /**
- * 隐藏地图上的补给线。
+ * 隐藏地图上的补给线。优先清理本次显示时记录的格子，缺少记录时回退到完整补给格列表。
  */
 function hide_supply() {
-	if (showing_supply) {
-		showing_supply = false
-		for (let s of SUPPLY_OVERLAY_SPACE_IDS) {
-			const space = spaces[s]
-			if (space && space.element) {
-				const el = space.element
-				el.classList.remove("western_supply")
-				el.classList.remove("eastern_supply")
-				el.classList.remove("cp_supply")
-				el.classList.remove("no_supply")
-			}
+	if (!showing_supply) return
+	showing_supply = false
+	const to_clear = supply_dirty_spaces || SUPPLY_OVERLAY_SPACE_IDS
+	for (let s of to_clear) {
+		const space = spaces[s]
+		if (space && space.element) {
+			space.element.classList.remove("western_supply", "eastern_supply", "cp_supply", "no_supply")
 		}
 	}
+	supply_dirty_spaces = null
 }
 
 let focus_key = null

@@ -695,9 +695,9 @@ exports.register = function (states, Engine, context) {
 			// Move piece
 			game.pieces[p] = s
 
-			// 战略调整进入雅典，触发希腊参战（规则 19.2.1）
+			// 战略调整进入雅典，触发希腊参战（规则 19.2.1：进入方的对手成为希腊盟友）
 			if (Engine.neutral.is_greece_neutral(game) && Engine.neutral.is_athens_space(s)) {
-				Engine.neutral.trigger_greece_entry(game, s, active_faction(), "战略调整进入雅典", (msg) => log(msg))
+				Engine.neutral.trigger_greece_entry(game, s, active_faction() === AP ? CP : AP, "战略调整进入雅典", (msg) => log(msg))
 			}
 
 			if (!game.sr_moved) game.sr_moved = []

@@ -69,14 +69,19 @@ module.exports = function (Engine) {
 		return list
 	}
 
+	// Callback returning false stops iteration early.
 	function for_each_piece_in_space(game, s, fn) {
 		if (game._space_index) {
 			let list = game._space_index[s] || []
-			for (let i = 0; i < list.length; i++) fn(list[i])
+			for (let i = 0; i < list.length; i++) {
+				if (fn(list[i]) === false) return
+			}
 			return
 		}
 		for (let p = 0; p < game.pieces.length; p++) {
-			if (game.pieces[p] === s) fn(p)
+			if (game.pieces[p] === s) {
+				if (fn(p) === false) return
+			}
 		}
 	}
 
@@ -104,7 +109,10 @@ module.exports = function (Engine) {
 		let enemy = other_faction(faction)
 		let found = false
 		for_each_piece_in_space(game, s, (p) => {
-			if (get_piece_effective_faction(game, p) === enemy) found = true
+			if (get_piece_effective_faction(game, p) === enemy) {
+				found = true
+				return false
+			}
 		})
 		return found
 	}
@@ -113,7 +121,10 @@ module.exports = function (Engine) {
 		if (faction === undefined) faction = game.active
 		let found = false
 		for_each_piece_in_space(game, s, (p) => {
-			if (get_piece_effective_faction(game, p) === faction) found = true
+			if (get_piece_effective_faction(game, p) === faction) {
+				found = true
+				return false
+			}
 		})
 		return found
 	}
@@ -126,7 +137,10 @@ module.exports = function (Engine) {
 	function has_regular_combat_unit_for_faction(game, s, faction) {
 		let found = false
 		for_each_piece_in_space(game, s, (p) => {
-			if (get_piece_effective_faction(game, p) === faction && is_regular_combat_unit(p)) found = true
+			if (get_piece_effective_faction(game, p) === faction && is_regular_combat_unit(p)) {
+				found = true
+				return false
+			}
 		})
 		return found
 	}
@@ -140,7 +154,10 @@ module.exports = function (Engine) {
 	function has_disrupting_piece_for_faction(game, s, faction) {
 		let found = false
 		for_each_piece_in_space(game, s, (p) => {
-			if (get_piece_effective_faction(game, p) === faction && is_disrupting_piece(p)) found = true
+			if (get_piece_effective_faction(game, p) === faction && is_disrupting_piece(p)) {
+				found = true
+				return false
+			}
 		})
 		return found
 	}
@@ -163,7 +180,10 @@ module.exports = function (Engine) {
 		for_each_piece_in_space(game, s, (p) => {
 			if (get_piece_effective_faction(game, p) === enemy) {
 				let type = data.pieces[p].type
-				if (type === "irregular" || type === "tribe" || data.pieces[p].nation === "Re") found = true
+				if (type === "irregular" || type === "tribe" || data.pieces[p].nation === "Re") {
+					found = true
+					return false
+				}
 			}
 		})
 		return found

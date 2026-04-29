@@ -8,6 +8,37 @@ module.exports = function (Engine) {
 	const { set_add, set_delete, set_has } = Engine.utils
 	const STACKING_LIMIT = 3
 
+	// --- Static lookup indexes built once from data at module init ---
+
+	const _space_name_map = new Map()
+	const _space_name_lower_map = new Map()
+	for (let _si = 1; _si < data.spaces.length; _si++) {
+		const _sp = data.spaces[_si]
+		if (_sp && _sp.name) {
+			if (!_space_name_map.has(_sp.name)) _space_name_map.set(_sp.name, _si)
+			const _lo = _sp.name.toLowerCase()
+			if (!_space_name_lower_map.has(_lo)) _space_name_lower_map.set(_lo, _si)
+		}
+	}
+
+	const _capital_by_nation = new Map()
+	for (let _si = 1; _si < data.spaces.length; _si++) {
+		const _sp = data.spaces[_si]
+		if (_sp && _sp.capital === 1 && _sp.nation && !_capital_by_nation.has(_sp.nation)) {
+			_capital_by_nation.set(_sp.nation, _si)
+		}
+	}
+
+	const _piece_by_name = new Map()
+	for (let _pi = 0; _pi < data.pieces.length; _pi++) {
+		const _pc = data.pieces[_pi]
+		if (!_pc || !_pc.name) continue
+		if (!_piece_by_name.has(_pc.name)) _piece_by_name.set(_pc.name, [])
+		_piece_by_name.get(_pc.name).push(_pi)
+	}
+
+	const _tribe_key_space_cache = new Map()
+
 	// === Basic Lookup ===
 
 	// Printed/static faction from the unit definition. Use this for box ownership,
@@ -33,16 +64,10 @@ module.exports = function (Engine) {
 
 	function find_space(name) {
 		if (typeof name !== "string") return -1
-		for (let s = 1; s < data.spaces.length; s++) {
-			if (data.spaces[s] && data.spaces[s].name === name) return s
-		}
-		let lowered = name.toLowerCase()
-		for (let s = 1; s < data.spaces.length; s++) {
-			if (data.spaces[s] && typeof data.spaces[s].name === "string" && data.spaces[s].name.toLowerCase() === lowered) {
-				return s
-			}
-		}
-		return -1
+		const exact = _space_name_map.get(name)
+		if (exact !== undefined) return exact
+		const lower = _space_name_lower_map.get(name.toLowerCase())
+		return lower !== undefined ? lower : -1
 	}
 
 	const BOX_IDS = {
@@ -63,21 +88,15 @@ module.exports = function (Engine) {
 	}
 
 	function find_capital(nation) {
-		for (let s = 1; s < data.spaces.length; s++) {
-			if (data.spaces[s] && data.spaces[s].nation === nation && data.spaces[s].capital === 1) return s
-		}
-		return -1
+		const s = _capital_by_nation.get(nation)
+		return s !== undefined ? s : -1
 	}
 
 	function find_piece(faction, name) {
-		for (let p = 0; p < data.pieces.length; p++) {
-			if (!data.pieces[p]) continue
-			if (
-				data.pieces[p].name === name &&
-				(faction === undefined || faction === "system" || data.pieces[p].faction === faction)
-			) {
-				return p
-			}
+		const candidates = _piece_by_name.get(name)
+		if (!candidates) return -1
+		for (const p of candidates) {
+			if (faction === undefined || faction === "system" || data.pieces[p].faction === faction) return p
 		}
 		return -1
 	}
@@ -139,16 +158,21 @@ module.exports = function (Engine) {
 	}
 
 	function get_tribe_key_space(p) {
-		let tribe_type = Engine.map.get_tribe_type(p)
+		const tribe_type = Engine.map.get_tribe_type(p)
+		if (_tribe_key_space_cache.has(tribe_type)) return _tribe_key_space_cache.get(tribe_type)
+		let result = -1
 		for (let s = 1; s < data.spaces.length; s++) {
 			if (
+				data.spaces[s] &&
 				(data.spaces[s].type === "Reserve Box" || data.spaces[s].map === "Reserve Box") &&
 				data.spaces[s].name === tribe_type
 			) {
-				return s
+				result = s
+				break
 			}
 		}
-		return -1
+		_tribe_key_space_cache.set(tribe_type, result)
+		return result
 	}
 
 	function get_capacity(game, s) {
@@ -612,6 +636,10 @@ module.exports = function (Engine) {
 						game.state = "choose_lcu_replacement"
 					} else {
 						replacement_scu = replace_lcu_with_scu(game, p, space, options[0], log)
+						if (game.attack && replacement_scu >= 0) {
+							if (!game.attack.lcu_replacement_map) game.attack.lcu_replacement_map = {}
+							game.attack.lcu_replacement_map[p] = replacement_scu
+						}
 					}
 				} else {
 					// Rule 307: If no replacement SCU, LCU is permanently eliminated
