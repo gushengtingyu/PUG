@@ -24,3 +24,16 @@ test("neutral marker visibility is resilient to async layout initialization", ()
 	expect(play).toContain("elt.hidden = hidden")
 	expect(play).not.toContain("if (!ui.neutral) {\n\t\treturn\n\t}")
 })
+
+test("neutral markers fade on pointer overlap without blocking map hit testing", () => {
+	const play = read("play.js")
+	const css = read("play.css")
+
+	expect(css).toMatch(/\.marker\.neutral\s*\{[\s\S]*pointer-events:\s*none/)
+	expect(css).toMatch(/\.marker\.neutral\.neutral-peek\s*\{[\s\S]*opacity:\s*0\.35/)
+	expect(play).toContain("function update_neutral_marker_peek(evt)")
+	expect(play).toContain('ui.map.classList.contains("hide_markers")')
+	expect(play).toContain("window.requestAnimationFrame(flush_neutral_marker_peek)")
+	expect(play).toContain('map.addEventListener("pointermove", update_neutral_marker_peek)')
+	expect(play).toContain('map.addEventListener("pointerleave", clear_neutral_marker_peek)')
+})

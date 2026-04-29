@@ -1384,6 +1384,15 @@ body.bevel .piece.tip {
 	border-style: none;
 	z-index: 200;
 	background-size: 100% 100%;
+	pointer-events: none;
+	transition:
+		left 200ms,
+		top 200ms,
+		opacity 120ms ease;
+}
+
+.marker.neutral.neutral-peek {
+	opacity: 0.35;
 }
 
 /* Animations */

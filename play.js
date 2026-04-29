@@ -635,6 +635,7 @@ function toggle_counters() {
 	} else {
 		classList.add("hide_pieces")
 	}
+	clear_neutral_marker_peek()
 }
 
 /**
@@ -1392,11 +1393,81 @@ function get_neutral_marker_element(marker) {
 	return elt
 }
 
+let neutral_marker_peek_elt = null
+let neutral_marker_peek_frame = 0
+let neutral_marker_peek_point = null
+
+function clear_neutral_marker_peek() {
+	if (neutral_marker_peek_frame) {
+		window.cancelAnimationFrame(neutral_marker_peek_frame)
+		neutral_marker_peek_frame = 0
+	}
+	neutral_marker_peek_point = null
+	if (!neutral_marker_peek_elt) {
+		return
+	}
+	neutral_marker_peek_elt.classList.remove("neutral-peek")
+	neutral_marker_peek_elt = null
+}
+
+function get_neutral_marker_peek_target(client_x, client_y) {
+	if (ui.map.classList.contains("hide_markers")) {
+		return null
+	}
+	for (const marker of NEUTRAL_UI_MARKERS) {
+		const elt = get_neutral_marker_element(marker)
+		if (!elt || elt.hidden || elt.classList.contains("hide")) {
+			continue
+		}
+		const rect = elt.getBoundingClientRect()
+		if (rect.width <= 0 || rect.height <= 0) {
+			continue
+		}
+		if (client_x >= rect.left && client_x <= rect.right && client_y >= rect.top && client_y <= rect.bottom) {
+			return elt
+		}
+	}
+	return null
+}
+
+function apply_neutral_marker_peek(client_x, client_y) {
+	const next = get_neutral_marker_peek_target(client_x, client_y)
+	if (neutral_marker_peek_elt === next) {
+		return
+	}
+	clear_neutral_marker_peek()
+	if (next) {
+		next.classList.add("neutral-peek")
+		neutral_marker_peek_elt = next
+	}
+}
+
+function flush_neutral_marker_peek() {
+	neutral_marker_peek_frame = 0
+	if (!neutral_marker_peek_point) {
+		return
+	}
+	const point = neutral_marker_peek_point
+	neutral_marker_peek_point = null
+	apply_neutral_marker_peek(point.clientX, point.clientY)
+}
+
+function update_neutral_marker_peek(evt) {
+	neutral_marker_peek_point = { clientX: evt.clientX, clientY: evt.clientY }
+	if (neutral_marker_peek_frame) {
+		return
+	}
+	neutral_marker_peek_frame = window.requestAnimationFrame(flush_neutral_marker_peek)
+}
+
 function apply_neutral_marker_visibility(marker, elt) {
 	if (!elt) {
 		return
 	}
 	const hidden = is_neutral_marker_hidden(marker)
+	if (hidden && neutral_marker_peek_elt === elt) {
+		clear_neutral_marker_peek()
+	}
 	if (elt.hidden !== hidden) {
 		elt.hidden = hidden
 	}
@@ -5329,6 +5400,9 @@ function on_click_piece(e, p) {
 const map = document.getElementById("map")
 if (map) {
 	map.addEventListener("contextmenu", (e) => e.preventDefault())
+	map.addEventListener("pointerover", update_neutral_marker_peek)
+	map.addEventListener("pointermove", update_neutral_marker_peek)
+	map.addEventListener("pointerleave", clear_neutral_marker_peek)
 	map.addEventListener("click", (evt) => {
 		if (evt.button === 0 && evt.target === map) {
 			log_stack_debug("map.click.blur", evt, null)

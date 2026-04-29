@@ -575,43 +575,53 @@ var data = {
 		"limited_connections": {
 			"ah": [
 				29,
-				41
+				41,
+				296
 			],
 			"arm": [
 				29,
-				41
+				41,
+				296
 			],
 			"bu": [
 				29,
-				41
+				41,
+				296
 			],
 			"ge": [
 				29,
-				41
+				41,
+				296
 			],
 			"geo": [
 				29,
-				41
+				41,
+				296
 			],
 			"pe": [
 				29,
-				41
+				41,
+				296
 			],
 			"re": [
 				29,
-				41
+				41,
+				296
 			],
 			"tr": [
 				29,
-				41
+				41,
+				296
 			],
 			"tu": [
 				29,
-				41
+				41,
+				296
 			],
 			"tua": [
 				29,
-				41
+				41,
+				296
 			]
 		}
 	},
@@ -627,13 +637,15 @@ var data = {
 		"connections": [
 			4,
 			13,
+			14,
 			24,
 			25,
 			31
 		],
 		"rail_connections": [
 			4,
-			13
+			13,
+			14
 		],
 		"connection_types": {
 			"4": "rail",
@@ -934,10 +946,12 @@ var data = {
 		"connections": [
 			15,
 			18,
-			27
+			27,
+			31
 		],
 		"rail_connections": [
-			27
+			27,
+			31
 		],
 		"connection_types": {
 			"15": "",
@@ -2840,6 +2854,7 @@ var data = {
 			73,
 			88,
 			92,
+			113,
 			117
 		],
 		"rail_connections": [
@@ -3640,6 +3655,7 @@ var data = {
 		"y": 1161,
 		"nation": "pe",
 		"faction": "neutral",
+		"terrain": "mountain",
 		"area": "persia",
 		"connections": [
 			115,
@@ -3757,6 +3773,7 @@ var data = {
 		"port": 1,
 		"area": "anatolia",
 		"connections": [
+			126,
 			128,
 			143
 		],
@@ -4072,6 +4089,7 @@ var data = {
 		"y": 1321,
 		"nation": "tu",
 		"faction": "cp",
+		"terrain": "mountain",
 		"area": "mesopotamia",
 		"tribal_activity_grid": "Kurds",
 		"connections": [
@@ -4099,7 +4117,8 @@ var data = {
 		"capital": 1,
 		"area": "balkans",
 		"connections": [
-			131
+			131,
+			136
 		],
 		"rail_connections": [],
 		"connection_types": {
@@ -4123,7 +4142,8 @@ var data = {
 		"connections": [
 			139,
 			140,
-			157
+			157,
+			166
 		],
 		"rail_connections": [
 			139,
@@ -4175,6 +4195,7 @@ var data = {
 		"y": 1347,
 		"nation": "pe",
 		"faction": "neutral",
+		"terrain": "mountain",
 		"area": "persia",
 		"tribal_activity_grid": "Sinjabi",
 		"connections": [
@@ -4197,6 +4218,7 @@ var data = {
 		"y": 1356,
 		"nation": "pe",
 		"faction": "neutral",
+		"terrain": "mountain",
 		"area": "persia",
 		"connections": [
 			138,
@@ -4421,6 +4443,7 @@ var data = {
 		"y": 1434,
 		"nation": "pe",
 		"faction": "neutral",
+		"terrain": "mountain",
 		"area": "persia",
 		"connections": [
 			152,
@@ -4511,6 +4534,7 @@ var data = {
 		"y": 1482,
 		"nation": "tu",
 		"faction": "cp",
+		"terrain": "mountain",
 		"area": "mesopotamia",
 		"tribal_activity_grid": "Kurds",
 		"connections": [
@@ -4950,6 +4974,7 @@ var data = {
 		"area": "gallipoli",
 		"connections": [
 			180,
+			197,
 			199,
 			204
 		],
@@ -5125,7 +5150,8 @@ var data = {
 		"connections": [
 			184,
 			189,
-			205
+			205,
+			206
 		],
 		"rail_connections": [],
 		"connection_types": {
@@ -5150,6 +5176,7 @@ var data = {
 		"port": 1,
 		"area": "syria_palestine",
 		"connections": [
+			192,
 			193,
 			213
 		],
@@ -5200,7 +5227,9 @@ var data = {
 		"area": "mesopotamia",
 		"tribal_activity_grid": "Marsh",
 		"connections": [
-			190
+			190,
+			194,
+			214
 		],
 		"rail_connections": [],
 		"connection_types": {
@@ -5351,6 +5380,7 @@ var data = {
 		"connections": [
 			188,
 			199,
+			210,
 			218
 		],
 		"rail_connections": [],
@@ -5397,7 +5427,8 @@ var data = {
 		"area": "mesopotamia",
 		"connections": [
 			194,
-			195
+			195,
+			222
 		],
 		"rail_connections": [],
 		"connection_types": {
@@ -5550,6 +5581,7 @@ var data = {
 		"connections": [
 			196,
 			208,
+			209,
 			228
 		],
 		"rail_connections": [
@@ -5890,7 +5922,8 @@ var data = {
 			201,
 			207,
 			226,
-			234
+			234,
+			238
 		],
 		"rail_connections": [],
 		"connection_types": {
@@ -5962,6 +5995,7 @@ var data = {
 		"area": "syria_palestine",
 		"connections": [
 			213,
+			223,
 			224,
 			237,
 			241
@@ -6090,7 +6124,8 @@ var data = {
 		"area": "mesopotamia",
 		"connections": [
 			225,
-			226
+			226,
+			290
 		],
 		"rail_connections": [],
 		"connection_types": {
@@ -6239,6 +6274,7 @@ var data = {
 		"fort": 1,
 		"area": "gallipoli",
 		"connections": [
+			221,
 			227,
 			248
 		],
@@ -6442,7 +6478,8 @@ var data = {
 		"port": 1,
 		"area": "mesopotamia",
 		"connections": [
-			240
+			240,
+			252
 		],
 		"rail_connections": [],
 		"connection_types": {
@@ -6488,7 +6525,8 @@ var data = {
 		"area": "gallipoli",
 		"connections": [
 			239,
-			243
+			243,
+			247
 		],
 		"rail_connections": [],
 		"connection_types": {
@@ -20207,7 +20245,7 @@ var data = {
 		"rcf": 2,
 		"rlf": 2,
 		"rmf": 4,
-		"type": "irregular",
+		"type": "regular",
 		"badge": "blue",
 		"piece_class": "SCU",
 		"image_full": "BREDiv.png",
@@ -20224,7 +20262,7 @@ var data = {
 		"rcf": 2,
 		"rlf": 2,
 		"rmf": 4,
-		"type": "irregular",
+		"type": "regular",
 		"badge": "blue",
 		"piece_class": "SCU",
 		"image_full": "BREDiv.png",
@@ -20241,7 +20279,7 @@ var data = {
 		"rcf": 2,
 		"rlf": 2,
 		"rmf": 4,
-		"type": "irregular",
+		"type": "regular",
 		"badge": "blue",
 		"piece_class": "SCU",
 		"image_full": "BREDiv.png",
@@ -20258,7 +20296,7 @@ var data = {
 		"rcf": 2,
 		"rlf": 2,
 		"rmf": 4,
-		"type": "irregular",
+		"type": "regular",
 		"badge": "blue",
 		"piece_class": "SCU",
 		"image_full": "BREDiv.png",
@@ -20275,7 +20313,7 @@ var data = {
 		"rcf": 2,
 		"rlf": 2,
 		"rmf": 4,
-		"type": "irregular",
+		"type": "regular",
 		"badge": "blue",
 		"piece_class": "SCU",
 		"image_full": "BREDiv.png",
@@ -20292,7 +20330,7 @@ var data = {
 		"rcf": 2,
 		"rlf": 2,
 		"rmf": 4,
-		"type": "irregular",
+		"type": "regular",
 		"badge": "blue",
 		"piece_class": "SCU",
 		"image_full": "BREDiv.png",

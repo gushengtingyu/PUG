@@ -252,23 +252,22 @@ edgesRaw.forEach((e) => {
 	// No other type modifications based on flags.
 
 	// Crossing Logic (0-3)
+	// Crossing marks a water-crossing combat side only. Values 2/3 are
+	// kept as authored metadata (used by map tooling for orientation), but
+	// they must not make the map connection one-way for movement or attack.
 	let crossing_val = 0
 	if (e.crossing !== undefined && e.crossing !== "") {
 		crossing_val = Number(e.crossing)
 	}
 
 	let crossing_type = null
-	let dir_a_to_b = true
-	let dir_b_to_a = true
 
 	if (crossing_val === 1) {
 		crossing_type = "bidirectional"
 	} else if (crossing_val === 2) {
 		crossing_type = "a_to_b"
-		dir_b_to_a = false
 	} else if (crossing_val === 3) {
 		crossing_type = "b_to_a"
-		dir_a_to_b = false
 	}
 
 	conn_types[a][b] = type
@@ -302,17 +301,13 @@ edgesRaw.forEach((e) => {
 	// Determine if it's a restricted edge
 	if (nations.length === 0) {
 		// Standard connection
-		if (dir_a_to_b) {
-			if (!adj[a].includes(b)) adj[a].push(b)
-			if (type === "rail" || type === "conditional_rail") {
-				if (!rail_adj[a].includes(b)) rail_adj[a].push(b)
-			}
+		if (!adj[a].includes(b)) adj[a].push(b)
+		if (type === "rail" || type === "conditional_rail") {
+			if (!rail_adj[a].includes(b)) rail_adj[a].push(b)
 		}
-		if (dir_b_to_a) {
-			if (!adj[b].includes(a)) adj[b].push(a)
-			if (type === "rail" || type === "conditional_rail") {
-				if (!rail_adj[b].includes(a)) rail_adj[b].push(a)
-			}
+		if (!adj[b].includes(a)) adj[b].push(a)
+		if (type === "rail" || type === "conditional_rail") {
+			if (!rail_adj[b].includes(a)) rail_adj[b].push(a)
 		}
 	} else {
 		// Limited connection
@@ -320,12 +315,8 @@ edgesRaw.forEach((e) => {
 			if (!lim_adj[a][n]) lim_adj[a][n] = []
 			if (!lim_adj[b][n]) lim_adj[b][n] = []
 
-			if (dir_a_to_b) {
-				if (!lim_adj[a][n].includes(b)) lim_adj[a][n].push(b)
-			}
-			if (dir_b_to_a) {
-				if (!lim_adj[b][n].includes(a)) lim_adj[b][n].push(a)
-			}
+			if (!lim_adj[a][n].includes(b)) lim_adj[a][n].push(b)
+			if (!lim_adj[b][n].includes(a)) lim_adj[b][n].push(a)
 		})
 	}
 })
