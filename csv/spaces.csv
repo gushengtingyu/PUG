@@ -145,7 +145,7 @@ id,map,name,x,y,w,h,nation,faction,terrain,vp,fort,port,capital,region,island_ba
 145,asia,Denizli,1188,1283,,,tu,cp,mountain,,,,,,,,anatolia,,
 146,asia,Kirkuk,3125,1283,,,tu,cp,,,,,,,,,mesopotamia,Kurds,
 147,asia,Sultanabad,3896,1317,,,pe,neutral,mountain,,,,,,,,persia,,
-148,asia,Suleymaniye,3312,1321,,,tu,cp,,,,,,,,,mesopotamia,Kurds,
+148,asia,Suleymaniye,3312,1321,,,tu,cp,mountain,,,,,,,,mesopotamia,Kurds,
 149,asia,ATHENS,466,1334,,,gr,neutral,,1,,2,1,,,,balkans,,
 150,asia,Adana,1933,1338,,,tu,cp,,,,1,,,,,anatolia,,
 151,asia,Kashan,4062,1341,,,pe,neutral,,,,,,,,,persia,,
