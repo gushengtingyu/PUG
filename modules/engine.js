@@ -169,13 +169,13 @@ const Engine = {
 		return Engine.neutral.get_vp_effective_owner(game, s)
 	},
 
-	sync_vp_state(game, s, previous_override) {
+	sync_vp_state(game, s, previous_override, options) {
 		if (!Engine.neutral || typeof Engine.neutral.sync_vp_state !== "function") return
-		Engine.neutral.sync_vp_state(game, s, previous_override)
+		Engine.neutral.sync_vp_state(game, s, previous_override, options)
 	},
 
-	sync_neutral_vp_state(game, s, previous_override) {
-		Engine.sync_vp_state(game, s, previous_override)
+	sync_neutral_vp_state(game, s, previous_override, options) {
+		Engine.sync_vp_state(game, s, previous_override, options)
 	},
 
 	get_jihad_city_effective_owner(game, s) {
@@ -326,16 +326,17 @@ const Engine = {
 			Engine.map && typeof Engine.map.get_default_controller === "function"
 				? Engine.map.get_default_controller(game, s)
 				: data.spaces[s] && data.spaces[s].faction
+		let vp_before_control_change = game.vp
 		game.control[s] = faction === default_controller ? null : faction
 
 		if (is_vp_space) {
-			Engine.sync_vp_state(game, s)
+			Engine.sync_vp_state(game, s, undefined, { silent: true })
 		}
 		if (is_jihad_city) {
 			Engine.sync_jihad_city_state(game, s, previous_jihad_owner)
 		}
 		if (Engine.neutral && typeof Engine.neutral.apply_control_change === "function") {
-			Engine.neutral.apply_control_change(game, s, faction, previous_vp_owner)
+			Engine.neutral.apply_control_change(game, s, faction, previous_vp_owner, vp_before_control_change)
 		}
 	},
 
