@@ -1686,6 +1686,7 @@ function sub_icon(match) {
  */
 function sub_space_name(match, p1) {
 	const s = p1 | 0
+	if (!spaces[s]) return `[${s}]`
 	const n = spaces[s].name
 	return `<span class="spacetip" onmouseenter="on_focus_space_tip(${s})" onmouseleave="on_blur_space_tip(${s})" onclick="on_click_space_tip(${s})">${n}</span>`
 }
@@ -3333,6 +3334,8 @@ function render_rollback_details(details, from_index, header_text) {
 	}
 	const event_list = document.createElement("div")
 	event_list.className = "rollback_event_list"
+	const saved_box_ap = log_box_ap
+	const saved_box_cp = log_box_cp
 	log_box_ap = 0
 	log_box_cp = 0
 	for (const event of events) {
@@ -3344,6 +3347,8 @@ function render_rollback_details(details, from_index, header_text) {
 		}
 		event_list.appendChild(detail)
 	}
+	log_box_ap = saved_box_ap
+	log_box_cp = saved_box_cp
 	details.appendChild(event_list)
 }
 
@@ -4130,7 +4135,7 @@ function update_system_markers() {
 		ap_key = "AP MO Made"
 	}
 	if (view.mo_cp_fulfilled && view.mo_cp !== "none") {
-		cp_key = "CP MO None"
+		cp_key = "CP MO Made"
 	}
 
 	if (!ap_mo_marker) {

@@ -1846,6 +1846,7 @@ module.exports = function (Engine) {
 			effect_cn:
 				"(只能在能通过陆地计算补给线至彼得罗夫斯克的俄国部队控制原本属于土耳其的爱琴海、东地中海和波斯湾港口时打出。不能在俄国革命后打出)。。如果该港口地区不为VP点，则在游戏的剩余时间视其为VP点**(同样在革命结算时算作俄国VP数的一部分)**。现在开始“上帝保佑沙皇”标记永远位于俄国VP数+2的位置。**(即使该港口随后被同盟国夺回)**",
 			can_play: function (game) {
+				// 温水港机制尚未实装
 				return false
 			},
 			handler: function (game, ctx) {

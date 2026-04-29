@@ -1830,67 +1830,6 @@ module.exports = function (Engine) {
 		}
 	}
 
-	states.event_allied_solidarity_place = {
-		prompt(ctx) {
-			let { game, res } = ctx
-			let { units } = get_reinforcement_units(game)
-			if (!units || units.length === 0) {
-				res.prompt("盟军团结：所有增援已放置。")
-				res.action("done")
-				return
-			}
-			let unit = units[0]
-			let options =
-				Engine.events && typeof Engine.events.get_allied_solidarity_space_options === "function"
-					? Engine.events.get_allied_solidarity_space_options(game, unit)
-					: []
-			let has_salonika_option = options.includes(SALONIKA)
-
-			if (unit === "GR National Defense" && has_salonika_option) {
-				res.prompt(`盟军团结：将 ${unit} 放置在巴尔干内任一协约国控制港口或滩头标记，包括利姆诺斯岛；也可放置至中立萨洛尼卡。`)
-			} else {
-				res.prompt(`盟军团结：将 ${unit} 放置在巴尔干内任一协约国控制港口或滩头标记，包括利姆诺斯岛。`)
-			}
-
-			for (let s of options) {
-				res.space(s)
-			}
-		},
-		space(ctx) {
-			let { game, rules, arg: s } = ctx
-			let { units, source } = get_reinforcement_units(game)
-			if (!units || units.length === 0) return
-			let unit = units[0]
-			let options =
-				Engine.events && typeof Engine.events.get_allied_solidarity_space_options === "function"
-					? Engine.events.get_allied_solidarity_space_options(game, unit)
-					: []
-			if (!options.includes(s)) return
-
-			rules.push_undo()
-			units.shift()
-			rules.reinforce(game, unit, AP, s)
-
-			if (unit === "GR National Defense" && s === SALONIKA && !rules.is_controlled_by(game, s, AP)) {
-				rules.set_control(game, s, AP)
-				if (!game.events) game.events = {}
-				game.events["salonika_is_port"] = true
-				rules.log("Salonika is now an AP port.")
-			}
-
-
-			if (units.length === 0) {
-				if (source) delete source.reinf_to_place
-				rules.goto_end_event()
-			}
-		},
-		done(ctx) {
-			let { game, rules } = ctx
-			let { source } = get_reinforcement_units(game)
-			if (source) delete source.reinf_to_place
-			rules.goto_end_event()
-		}
-	}
 
 	// === EVENT: INVASION EVENTS (ID 22, 30, 34) ===
 
