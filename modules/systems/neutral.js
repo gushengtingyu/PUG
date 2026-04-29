@@ -750,7 +750,7 @@ module.exports = function (Engine) {
 		)
 	}
 
-	function sync_vp_state(game, s, previous_override) {
+	function sync_vp_state(game, s, previous_override, options = {}) {
 		if (!is_vp_space(game, s)) return
 		if (!game.vp_partial_disruption) game.vp_partial_disruption = []
 		if (!game.neutral_vp_partial_control) game.neutral_vp_partial_control = []
@@ -782,14 +782,14 @@ module.exports = function (Engine) {
 		let new_contribution = get_vp_owner_contribution(game, s, next)
 		let delta = new_contribution - old_contribution
 		game.vp += delta
-		if (previous_override === undefined) log_vp_partial_disruption_change(game, s, delta)
+		if (!options.silent && previous_override === undefined) log_vp_partial_disruption_change(game, s, delta)
 
 		game.vp_partial_disruption[s] = next
 		if (is_neutral_vp_space(s)) game.neutral_vp_partial_control[s] = next
 	}
 
-	function sync_neutral_vp_state(game, s, previous_override) {
-		sync_vp_state(game, s, previous_override)
+	function sync_neutral_vp_state(game, s, previous_override, options) {
+		sync_vp_state(game, s, previous_override, options)
 	}
 
 	function is_ru_capture_piece(info) {
@@ -833,7 +833,7 @@ module.exports = function (Engine) {
 		return had_marker
 	}
 
-	function apply_control_change(game, s, faction, previous_vp_owner) {
+	function apply_control_change(game, s, faction, previous_vp_owner, vp_before_control_change = game.vp) {
 		if (!is_vp_space(game, s)) {
 			remove_ru_control_marker(game, s)
 			return
@@ -852,12 +852,13 @@ module.exports = function (Engine) {
 		let new_contribution = get_vp_owner_contribution(game, s, faction)
 		let delta = new_contribution - old_contribution
 
-		if (delta < 0) {
-			Engine.log(game, `AP 获得 ${-delta} VP (当前VP: ${game.vp + delta})`)
-		} else if (delta > 0) {
-			Engine.log(game, `CP 获得 ${delta} VP (当前VP: ${game.vp + delta})`)
-		}
 		game.vp += delta
+		let net_delta = game.vp - vp_before_control_change
+		if (net_delta < 0) {
+			Engine.log(game, `AP 获得 ${-net_delta} VP (当前VP: ${game.vp})`)
+		} else if (net_delta > 0) {
+			Engine.log(game, `CP 获得 ${net_delta} VP (当前VP: ${game.vp})`)
+		}
 		if (!game.ru_control_markers) game.ru_control_markers = []
 		if (faction === AP) {
 			if (qualifies_for_ru_vp_capture(game, s)) {

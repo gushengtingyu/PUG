@@ -91,7 +91,11 @@ module.exports = function (Engine) {
 
 	function get_stack_occupying_pieces(game, s, faction) {
 		return get_pieces_in_space(game, s).filter(
-			(p) => data.pieces[p] && (data.pieces[p].faction === faction || is_neutral_bulgaria_display_piece(game, p))
+			(p) => data.pieces[p] && (
+				data.pieces[p].faction === faction ||
+				get_piece_effective_faction(game, p) === faction ||
+				is_neutral_bulgaria_display_piece(game, p)
+			)
 		)
 	}
 
@@ -149,7 +153,11 @@ module.exports = function (Engine) {
 			return true
 		}
 		if (is_region(game, s)) {
-			return get_region_disruption_owner(game, s) === enemy && has_disrupting_piece_for_faction(game, s, enemy)
+			let owner = get_region_disruption_owner(game, s)
+			if (owner === enemy) return has_disrupting_piece_for_faction(game, s, enemy)
+			// Fallback: direct check when region_disruption hasn't been synced yet
+			if (owner === null && has_disrupting_piece_for_faction(game, s, enemy)) return true
+			return false
 		}
 		let found = false
 		for_each_piece_in_space(game, s, (p) => {
@@ -2560,7 +2568,8 @@ function get_stack_yildirim_count(pieces) {
 				enemy_regular[opp][s] = 1
 			}
 			if (is_disrupting_piece(p)) {
-				if (!is_region(game, s) || get_region_disruption_owner(game, s) === ef) {
+				let owner = is_region(game, s) ? get_region_disruption_owner(game, s) : null
+				if (!is_region(game, s) || owner === ef || owner === null) {
 					disrupting[opp][s] = 1
 				}
 			}
@@ -3815,7 +3824,7 @@ function get_stack_yildirim_count(pieces) {
 			let is_br = mo_br_no_attack && nations.some((nation) => nation === "br")
 			if (is_br) has_br_in_stack = true
 
-			if (can_piece_be_activated(p)) {
+			if (can_piece_be_activated(p) && get_supply_status(game, s, faction, p) !== "OOS") {
 				let disrupted_supply = is_piece_in_disrupted_supply(p)
 				move_pieces.push(p)
 				if (disrupted_supply) move_has_disrupted_supply = true

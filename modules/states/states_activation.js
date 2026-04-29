@@ -883,10 +883,9 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 			let total_cost_before = map_get(game.activation_cost, s) || 0
-			let region_refund = 0
 			let had_ordinary_activation = set_has(game.activated.move, s) || set_has(game.activated.attack, s) || set_has(game.activated.attack_egypt, s)
 			if (had_ordinary_activation) {
-				let ordinary_cost = total_cost_before - region_refund
+				let ordinary_cost = total_cost_before
 				if (ordinary_cost <= 0) ordinary_cost = total_cost_before
 				set_delete(game.activated.move, s)
 				set_delete(game.activated.attack, s)
@@ -1920,23 +1919,25 @@ exports.register = function (states, Engine, context) {
 				log(`Trench in ${space_name(target)} removed by enemy entry.`)
 			}
 
-			// Rule 19.2.1: Entering neutral Athens triggers Greek entry
-			if (Engine.neutral.is_greece_neutral(game) && Engine.neutral.is_athens_space(target)) {
-				Engine.neutral.trigger_greece_entry(game, target, active_faction(), "进入雅典", (msg) => log(msg))
-			}
-
 			check_immediate_jihad_rebellion_on_entry(from_space, target, pieces_moving)
+
+			let enemy_holds_contested_region =
+				!!data.spaces[target]?.region && Engine.map.contains_enemy_pieces(game, target, active_faction())
+			let will_control_target =
+				!has_undestroyed_fort(game, target, other_faction(active_faction())) &&
+				!is_gallipoli(target) &&
+				!is_controlled_by(game, target, active_faction()) &&
+				pieces_moving.some((p) => data.pieces[p].type === "regular") &&
+				!enemy_holds_contested_region
 
 			// Sync VP and jihad BEFORE set_control so the previous controller is still the old one
 			if (should_sync_vp_and_jihad_on_entry(pieces_moving)) {
-				Engine.sync_neutral_vp_state(game, target)
+				Engine.sync_neutral_vp_state(game, target, undefined, { silent: will_control_target })
 				Engine.sync_jihad_city_state(game, target)
 			}
 
 			if (!has_undestroyed_fort(game, target, other_faction(active_faction())) && !is_gallipoli(target)) {
 				if (!is_controlled_by(game, target, active_faction())) {
-					let enemy_holds_contested_region =
-						!!data.spaces[target]?.region && Engine.map.contains_enemy_pieces(game, target, active_faction())
 					if (pieces_moving.some((p) => data.pieces[p].type === "regular") && !enemy_holds_contested_region) {
 						set_control(game, target, active_faction())
 					}

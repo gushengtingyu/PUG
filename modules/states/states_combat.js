@@ -131,10 +131,8 @@ exports.register = function (states, Engine, context) {
 		let defender = game.attack.defender || other_faction(game.attack.attacker || game.active)
 		if (defender === CP) game.vp -= 1
 		else game.vp += 1
-		if (game.attack.attacker === AP) {
-			update_jihad_level(game, 1)
-			log("协约国将耶路撒冷变为战区，圣战等级 +1。")
-		}
+		update_jihad_level(game, 1)
+		log("耶路撒冷变为战区，圣战等级 +1。")
 		log(`${defender === CP ? "同盟国" : "协约国"}因将耶路撒冷变为战区而承受 1 VP 惩罚。`)
 		game.attack.jerusalem_battleground_penalty_applied = true
 	}
@@ -2608,7 +2606,7 @@ exports.register = function (states, Engine, context) {
 
 				// Rule 6.1.7: Must retreat to a single adjacent space that is not enemy-occupied and does not contain a fortress.
 				valid = valid.filter(
-					(s) => !combat.has_undestroyed_fort(game, s, CP) && !combat.has_undestroyed_fort(game, s, AP)
+					(s) => !combat.has_undestroyed_fort(game, s, other_faction(active_faction()))
 				)
 
 				if (game.turkish_retreat_chosen_space !== undefined) {
@@ -2770,12 +2768,17 @@ exports.register = function (states, Engine, context) {
 			game.advance_trench_processed = true
 		}
 		resolve_russian_winter_offensive_advance(game, p, to_space, log)
+		let enemy_holds_contested_region =
+			!!data.spaces[to_space]?.region && Engine.map.contains_enemy_pieces(game, to_space, active_faction())
+		let will_control_to_space =
+			!Engine.map.is_controlled_by(game, to_space, active_faction()) &&
+			!combat.has_undestroyed_fort(game, to_space, other_faction(active_faction())) &&
+			data.pieces[p].type === "regular" &&
+			!enemy_holds_contested_region
 		// Sync VP and jihad BEFORE set_control so the previous controller is still the old one
-		Engine.sync_neutral_vp_state(game, to_space)
+		Engine.sync_neutral_vp_state(game, to_space, undefined, { silent: will_control_to_space })
 		Engine.sync_jihad_city_state(game, to_space)
 		if (!Engine.map.is_controlled_by(game, to_space, active_faction())) {
-			let enemy_holds_contested_region =
-				!!data.spaces[to_space]?.region && Engine.map.contains_enemy_pieces(game, to_space, active_faction())
 			if (!enemy_holds_contested_region && active_faction() === CP && Engine.map.is_russian_vp_space(game, to_space)) {
 				game.captured_russian_vp_in_advance = true
 			}

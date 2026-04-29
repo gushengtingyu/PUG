@@ -755,12 +755,13 @@ module.exports = function (Engine) {
 			origins.add(game.pieces[p])
 		}
 
-		// Find all HQs / Heavy Artillery in origin spaces that belong to the active faction
+		// Find HQs / Heavy Artillery that participated in the attack (Rule 12.9.1)
 		let support_units = []
+		let attacker_set = new Set(attackers)
 		for (let space of origins) {
 			let pieces = get_pieces_in_space(game, space)
 			for (let p of pieces) {
-				if (get_piece_effective_faction(game, p) === game.active && (is_hq(p) || is_heavy_arty(p))) {
+				if (attacker_set.has(p) && (is_hq(p) || is_heavy_arty(p))) {
 					support_units.push(p)
 				}
 			}
@@ -868,7 +869,7 @@ module.exports = function (Engine) {
 		let adj = get_piece_connected_spaces_for_rule(game, space, p)
 		let has_valid_space = adj.some((s) => {
 			if (contains_enemy_pieces(game, s, CP)) return false
-			return !(has_undestroyed_fort(game, s, AP) || has_undestroyed_fort(game, s, CP));
+			return !has_undestroyed_fort(game, s, AP)
 		})
 		if (!has_valid_space) return false
 
@@ -2216,6 +2217,7 @@ module.exports = function (Engine) {
 			for (let next of adj) {
 				if (Engine.map.is_beachhead_space(game, from_space) && !is_island_base(game, next)) continue
 				if (contains_enemy_pieces(game, next, faction)) continue
+				if (has_undestroyed_fort(game, next, other_faction(faction))) continue
 				if (local_avoided.includes(next)) continue
 				if (Engine.map.is_potential_beachhead_space(next) && !Engine.map.is_beachhead_space(game, next)) continue
 				if (!can_enter_region(game, piece, next)) continue
@@ -2552,7 +2554,7 @@ module.exports = function (Engine) {
 		for (let next of neighbors) {
 			// Rule 12.7.6b: Cannot enter space with enemy unit or unbesieged enemy Fort
 			if (contains_enemy_pieces(game, next, faction)) continue
-			if (has_undestroyed_fort(game, next, other_faction(faction)) || has_undestroyed_fort(game, next, faction))
+			if (has_undestroyed_fort(game, next, other_faction(faction)))
 				continue
 			if (avoided.includes(next)) continue
 
@@ -2606,6 +2608,9 @@ module.exports = function (Engine) {
 				for (let next of neighbors) {
 					// Rule 12.7.6b: Cannot retreat to space with enemy pieces or unbesieged enemy Fort
 					if (contains_enemy_pieces(game, next, faction)) continue
+					if (has_undestroyed_fort(game, next, other_faction(faction))) continue
+					if (!can_enter_region(game, p, next)) continue
+					if (retreated_dist === distance - 1 && !can_stack_end_in_space(game, next, [p])) continue
 
 					// Rule 12.7.6f: Cannot retreat back into the original defending space (for 2nd space)
 					if (next === game.attack.space) continue
@@ -2760,8 +2765,7 @@ module.exports = function (Engine) {
 		)
 		let has_defenders = defenders.length > 0
 		let is_besieged_val = is_besieged(game, target_space) && has_defenders
-		let empty_fort =
-			has_undestroyed_fort(game, target_space, defender_faction) && !has_defenders && !is_besieged_val
+		let has_fort = has_undestroyed_fort(game, target_space, defender_faction)
 		let is_region_val = is_region(game, target_space)
 
 		return (
@@ -2770,7 +2774,7 @@ module.exports = function (Engine) {
 			target_terrain !== MOUNTAIN &&
 			target_terrain !== SWAMP &&
 			(trench_level_at_target === 0 || jihad_ignore) &&
-			!empty_fort &&
+			!has_fort &&
 			!is_region_val &&
 			(!is_river_def || jihad_ignore)
 		)
@@ -3506,12 +3510,14 @@ module.exports = function (Engine) {
 
 		if (retreat_needed) {
 			let trench = has_trench(game, target_space)
+			let has_fort = has_undestroyed_fort(game, target_space, retreating_faction)
 			if (
 				(target_terrain === "forest" ||
 					target_terrain === "desert" ||
 					target_terrain === "swamp" ||
 					target_terrain === "mountain" ||
-					trench > 0) &&
+					trench > 0 ||
+					has_fort) &&
 				count_steps(game, retreating_units) > 1
 			) {
 				retreat_can_cancel = true
@@ -3866,12 +3872,14 @@ module.exports = function (Engine) {
 
 		let target_terrain = data.spaces[target_space].terrain
 		let trench = has_trench(game, target_space)
+		let has_fort = has_undestroyed_fort(game, target_space, defender_faction)
 		if (
 			(target_terrain === FOREST ||
 				target_terrain === "desert" ||
 				target_terrain === SWAMP ||
 				target_terrain === MOUNTAIN ||
-				trench > 0) &&
+				trench > 0 ||
+				has_fort) &&
 			count_steps(game, defenders_in_space) > 1
 		) {
 			result.retreat_can_cancel = true

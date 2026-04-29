@@ -2433,13 +2433,8 @@ module.exports = function (Engine) {
 				// Rule 19.2.1: Neutral Greece becomes a CP ally if King Constantine is played when conditions met.
 				if (neutral.is_greece_neutral(game) && neutral.check_constantine_entry_conditions(game)) {
 					neutral.trigger_greece_entry(game, null, CP, "康斯坦丁国王事件", (msg) => log(game, msg, ctx))
-				} else {
-					let salonika = Engine.game_utils.find_space("Salonika")
-					if (salonika >= 0 && typeof Engine.set_control === "function") {
-						Engine.set_control(game, salonika, CP)
-					}
-					game.vp += 1 // CP gains 1 VP
 				}
+				game.vp += 1 // CP gains 1 VP
 
 				// Control Salonika
 				let salonika = find_space("Salonika")
