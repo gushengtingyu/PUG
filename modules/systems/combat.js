@@ -819,6 +819,26 @@ module.exports = function (Engine) {
 		return has_trench(game, s) > 0
 	}
 
+	function can_cancel_defender_retreat(game, target_space, retreating_faction, retreating_units) {
+		if (!(target_space > 0) || !Array.isArray(retreating_units) || retreating_units.length === 0) return false
+		let target_terrain = get_combat_target_terrain(game, target_space, game.attack?.pieces)
+		let trench = has_trench(game, target_space)
+		let has_fort = has_undestroyed_fort(game, target_space, retreating_faction)
+		let defensive_ground =
+			target_terrain === FOREST ||
+			target_terrain === "desert" ||
+			target_terrain === SWAMP ||
+			target_terrain === MOUNTAIN ||
+			trench > 0 ||
+			has_fort
+		if (!defensive_ground) return false
+		if (count_steps(game, retreating_units) <= 1) return false
+		if (is_turn_event(game, "war_weary_balkans")) {
+			if (retreating_units.some((p) => get_piece_nation(p) === "bu")) return false
+		}
+		return true
+	}
+
 	function is_cp_attacking_beachhead(game, target_space, attackers = null) {
 		if (!(target_space > 0 && Engine.map.is_beachhead_space(game, target_space))) return false
 		if (Array.isArray(attackers) && attackers.length > 0) {
@@ -2136,6 +2156,16 @@ module.exports = function (Engine) {
 			if (game.retreat_pieces.length === 0) {
 				result.retreat_needed = false
 			} else {
+				result.retreating_units = actual_retreating
+				if (!result.turkish_retreat) {
+					result.retreat_can_cancel = can_cancel_defender_retreat(
+						game,
+						target_space,
+						defender_faction,
+						actual_retreating
+					)
+				}
+
 				// POG 12.4.6: Massed Cavalry Charge and Push to the Breaking Point
 				if (game.combat_cards && game.combat_cards.attacker && game.active === AP) {
 					let ap_won = result.retreat_needed || defenders_in_space.length === 0
@@ -3509,24 +3539,7 @@ module.exports = function (Engine) {
 		}
 
 		if (retreat_needed) {
-			let trench = has_trench(game, target_space)
-			let has_fort = has_undestroyed_fort(game, target_space, retreating_faction)
-			if (
-				(target_terrain === "forest" ||
-					target_terrain === "desert" ||
-					target_terrain === "swamp" ||
-					target_terrain === "mountain" ||
-					trench > 0 ||
-					has_fort) &&
-				count_steps(game, retreating_units) > 1
-			) {
-				retreat_can_cancel = true
-			}
-		}
-		if (retreat_needed && is_turn_event(game, "war_weary_balkans")) {
-			if (retreating_units.some((p) => data.pieces[p].nation === "bu")) {
-				retreat_can_cancel = false
-			}
+			retreat_can_cancel = can_cancel_defender_retreat(game, target_space, retreating_faction, retreating_units)
 		}
 
 		if (turkish_retreat_active) {
@@ -3870,26 +3883,7 @@ module.exports = function (Engine) {
 
 		if (defenders_in_space.length === 0) return
 
-		let target_terrain = data.spaces[target_space].terrain
-		let trench = has_trench(game, target_space)
-		let has_fort = has_undestroyed_fort(game, target_space, defender_faction)
-		if (
-			(target_terrain === FOREST ||
-				target_terrain === "desert" ||
-				target_terrain === SWAMP ||
-				target_terrain === MOUNTAIN ||
-				trench > 0 ||
-				has_fort) &&
-			count_steps(game, defenders_in_space) > 1
-		) {
-			result.retreat_can_cancel = true
-		}
-
-		if (is_turn_event(game, "war_weary_balkans")) {
-			if (defenders_in_space.some((p) => get_piece_nation(p) === "bu")) {
-				result.retreat_can_cancel = false
-			}
-		}
+		result.retreat_can_cancel = can_cancel_defender_retreat(game, target_space, defender_faction, defenders_in_space)
 	}
 
 	Object.assign(exports, {
