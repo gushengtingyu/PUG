@@ -2600,7 +2600,7 @@ module.exports = function (Engine) {
 			name_cn: "飞行分队",
 			effect_cn: "(不能在协约国打出【皇家空军】后打出)一次同盟国攻击/防御+1drm。",
 			can_play: function (game) {
-				return !game.events["royal_air_force"]
+				return !(game.events && game.events["royal_flying_corps_permanent"])
 			},
 			handler: function (game) {
 				game.events["fliegerabteilung"] = game.turn

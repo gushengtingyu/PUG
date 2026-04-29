@@ -10,6 +10,7 @@ const nodeGlobals = {
 	exports: "readonly",
 	__dirname: "readonly",
 	process: "readonly",
+	Buffer: "readonly",
 	console: "readonly",
 	setTimeout: "readonly",
 	clearTimeout: "readonly",

@@ -1836,10 +1836,10 @@ function get_stack_yildirim_count(pieces) {
 		if (faction !== AP) return false
 		if (!(s > 0 && data.spaces[s])) return false
 		if (!(game && game.events && game.events[event_flag])) return false
-			if (ATHENS > 0 && is_controlled_by(game, ATHENS, AP)) return false
-			if (!is_controlled_by(game, s, AP)) return false
-			// Spaces geographically in the threatened sea zone are always penalized
-			if (port_predicate && port_predicate(s)) return true
+		if (ATHENS > 0 && is_controlled_by(game, ATHENS, AP)) return false
+		if (!is_controlled_by(game, s, AP)) return false
+		// Spaces geographically in the threatened sea zone are always penalized.
+		if (port_predicate && port_predicate(s)) return true
 
 		let zone_sources = source_selector(game, source_cache)
 		if (zone_sources.length === 0) return false
@@ -2158,26 +2158,18 @@ function get_stack_yildirim_count(pieces) {
 	}
 
 	function is_sr_destination_blocked_by_events(game, source, dest, faction) {
-		let source_space = data.spaces[source]
-		let dest_space = data.spaces[dest]
+		let source_is_sea_port = is_sea_sr_port_space(game, source)
+		let dest_is_sea_port = is_sea_sr_port_space(game, dest)
 		let is_sea_sr =
-			!!source_space &&
-			!!dest_space &&
 			source !== dest &&
-			is_sea_sr_port_space(game, source) &&
-			is_sea_sr_port_space(game, dest)
+			source_is_sea_port &&
+			dest_is_sea_port
 		if (!is_sea_sr) return false
 
 		if (game.events && game.events["royal_navy_blockade"] && faction === CP) {
-			let is_source_port = is_sea_sr_port_space(game, source)
-			let is_dest_port = is_sea_sr_port_space(game, dest)
-			if (is_source_port || is_dest_port) {
-				let source_black_caspian = is_black_sea_port(game, source) || is_caspian_sea_port(game, source)
-				let dest_black_caspian = is_black_sea_port(game, dest) || is_caspian_sea_port(game, dest)
-				if ((is_source_port && !source_black_caspian) || (is_dest_port && !dest_black_caspian)) {
-					return true
-				}
-			}
+			let source_black_caspian = is_black_sea_port(game, source) || is_caspian_sea_port(game, source)
+			let dest_black_caspian = is_black_sea_port(game, dest) || is_caspian_sea_port(game, dest)
+			return !source_black_caspian || !dest_black_caspian
 		}
 		return false
 	}
@@ -2192,7 +2184,7 @@ function get_stack_yildirim_count(pieces) {
 		if (source_caspian || dest_caspian) {
 			if (!source_caspian || !dest_caspian) return false
 		}
-		return !is_sr_destination_blocked_by_events(game, source, dest, faction);
+		return !is_sr_destination_blocked_by_events(game, source, dest, faction)
 	}
 
 	function build_sr_path_reachable_spaces(game, p, source, faction) {
