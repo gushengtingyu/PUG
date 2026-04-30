@@ -961,6 +961,14 @@ module.exports = function (Engine) {
 			if (can_piece_attack_current_fort(game, p, faction) && can_pieces_attack_target(game, pieces, s)) {
 				targets.push(s)
 			}
+			if (
+				is_region(game, s) &&
+				enemy_in_space[s] &&
+				!targets.includes(s) &&
+				can_pieces_attack_target(game, pieces, s)
+			) {
+				targets.push(s)
+			}
 			for (let t of adj) {
 				if (enemy_in_space[t] === 0 && !has_undestroyed_fort(game, t, enemy)) {
 					continue
@@ -1017,6 +1025,7 @@ module.exports = function (Engine) {
 		let region_limit = data.pieces[p].region_limit
 		if (get_black_sea_amphibious_targets(game, p, faction).length > 0) return true
 		if (can_piece_attack_current_fort(game, p, faction)) return true
+		if (is_region(game, s) && enemy_in_space[s] && can_pieces_attack_target(game, [p], s)) return true
 		for (let t of adj) {
 			if (region_limit === "B" && data.spaces[t].area !== "balkans") continue
 			if (region_limit === "I" && !Engine.map.is_india(t)) continue
