@@ -184,7 +184,7 @@ exports.register = function (states, Engine, context) {
 			let pieces = get_pieces_in_space(game, galicia)
 			for (let p of pieces) {
 				let info = data.pieces[p]
-				if (info.nation === "tu" && info.piece_class === "LCU") {
+				if ((info.nation === "tu" || info.nation === "tua") && info.piece_class === "LCU") {
 					let roll = roll_die()
 					let lf = set_has(game.reduced, p) ? info.rlf : info.lf
 					log(`Galicia Attrition roll for ${info.name}: ${roll} (LF: ${lf})`)
@@ -671,7 +671,7 @@ exports.register = function (states, Engine, context) {
 		if (enver_falkenhayn_active && russian_revolution_stage < 4 && get_season(game) === "Summer" && galicia >= 0) {
 			let has_turkish_lcu_in_galicia = get_pieces_in_space(game, galicia).some((p) => {
 				let info = data.pieces[p]
-				return info && info.nation === "tu" && info.piece_class === "LCU"
+				return info && (info.nation === "tu" || info.nation === "tua") && info.piece_class === "LCU"
 			})
 			if (has_turkish_lcu_in_galicia) {
 				game.vp += 1

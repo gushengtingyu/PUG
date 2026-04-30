@@ -3115,72 +3115,115 @@ module.exports = function (Engine) {
 		return !!(info && info.faction === CP && (info.nation === "tu" || info.nation === "tua"))
 	}
 
-	function is_enver_falkenhayn_turkish_lcu_to_galicia(p, s) {
+	function is_enver_falkenhayn_galicia_lcu(p) {
 		let info = data.pieces[p]
-		return !!(info && info.nation === "tu" && info.piece_class === "LCU" && s === GALICIA)
+		return !!(
+			info &&
+			(info.nation === "tu" || info.nation === "tua") &&
+			info.piece_class === "LCU"
+		)
 	}
 
-	function get_enver_falkenhayn_destinations_no_overlay(game, rules, p) {
-		return Engine.map
-			.get_sr_destinations(game, p, CP)
-			.filter((s) => s > 0 && s !== game.pieces[p] && Engine.map.is_balkans(s))
+	function is_enver_falkenhayn_turkish_lcu_to_galicia(p, s) {
+		return s === GALICIA && is_enver_falkenhayn_galicia_lcu(p)
 	}
 
-	function has_enver_falkenhayn_galicia_candidate_no_overlay(game, rules, remaining_points) {
-		for (let p = 1; p < data.pieces.length; p++) {
-			let info = data.pieces[p]
-			if (!info || info.nation !== "tu" || info.piece_class !== "LCU") continue
-			if (!rules.can_sr_piece(game, p, CP)) continue
-			let cost = rules.get_sr_cost(p)
-			if (cost > remaining_points) continue
-			if (get_enver_falkenhayn_destinations_no_overlay(game, rules, p).includes(GALICIA)) return true
+	function create_enver_falkenhayn_sr_planner(game, rules, event) {
+		let destinations_cache = new Map()
+		let legal_destinations_cache = new Map()
+		let cost_cache = new Map()
+		let galicia_candidate_cache = new Map()
+
+		function get_cost(p) {
+			if (!cost_cache.has(p)) {
+				cost_cache.set(p, rules.get_sr_cost(p))
+			}
+			return cost_cache.get(p)
 		}
-		return false
-	}
 
-	function can_enver_falkenhayn_move_no_overlay(game, rules, event, p, s) {
-		let cost = rules.get_sr_cost(p)
-		let remaining_points = event.sr_points - cost
-		if (remaining_points < 0) return false
+		function get_destinations_no_overlay(p) {
+			if (!destinations_cache.has(p)) {
+				destinations_cache.set(
+					p,
+					Engine.map
+						.get_sr_destinations(game, p, CP)
+						.filter((s) => s > 0 && s !== game.pieces[p] && Engine.map.is_balkans(s))
+				)
+			}
+			return destinations_cache.get(p)
+		}
 
-		let is_to_galicia = is_enver_falkenhayn_turkish_lcu_to_galicia(p, s)
-		if (is_to_galicia && event.galicia_lcu_moved) return false
+		function has_galicia_candidate_no_overlay(remaining_points, excluded_piece = 0) {
+			let excluded_key = is_enver_falkenhayn_galicia_lcu(excluded_piece) ? excluded_piece : 0
+			let key = `${remaining_points}|${excluded_key}`
+			if (galicia_candidate_cache.has(key)) return galicia_candidate_cache.get(key)
 
-		if (event.galicia_lcu_moved || is_to_galicia) return true
+			for (let p = 1; p < data.pieces.length; p++) {
+				if (p === excluded_key) continue
+				if (!is_enver_falkenhayn_galicia_lcu(p)) continue
+				if (!rules.can_sr_piece(game, p, CP)) continue
+				if (get_cost(p) > remaining_points) continue
+				if (get_destinations_no_overlay(p).includes(GALICIA)) {
+					galicia_candidate_cache.set(key, true)
+					return true
+				}
+			}
+			galicia_candidate_cache.set(key, false)
+			return false
+		}
 
-		let previous_space = game.pieces[p]
-		game.pieces[p] = s
-		set_add(game.sr_moved, p)
-		let can_finish = has_enver_falkenhayn_galicia_candidate_no_overlay(game, rules, remaining_points)
-		set_delete(game.sr_moved, p)
-		game.pieces[p] = previous_space
-		return can_finish
+		function can_move_no_overlay(p, s) {
+			let cost = get_cost(p)
+			let remaining_points = event.sr_points - cost
+			if (remaining_points < 0) return false
+
+			let is_to_galicia = is_enver_falkenhayn_turkish_lcu_to_galicia(p, s)
+			if (is_to_galicia) return !event.galicia_lcu_moved
+			if (event.galicia_lcu_moved) return true
+			return has_galicia_candidate_no_overlay(remaining_points, p)
+		}
+
+		function get_legal_destinations_no_overlay(p) {
+			if (!event || !is_enver_falkenhayn_piece(p)) return []
+			if (legal_destinations_cache.has(p)) return legal_destinations_cache.get(p)
+			if (!rules.can_sr_piece(game, p, CP)) return []
+			let cost = get_cost(p)
+			if (cost > event.sr_points) return []
+
+			let result = get_destinations_no_overlay(p).filter((s) => can_move_no_overlay(p, s))
+			legal_destinations_cache.set(p, result)
+			return result
+		}
+
+		return {
+			get_legal_destinations(p) {
+				return with_enver_falkenhayn_sr_overlay(game, event, () =>
+					get_legal_destinations_no_overlay(p)
+				)
+			},
+			get_legal_pieces() {
+				return with_enver_falkenhayn_sr_overlay(game, event, () => {
+					let pieces = []
+					for (let p = 1; p < data.pieces.length; p++) {
+						if (get_legal_destinations_no_overlay(p).length > 0) pieces.push(p)
+					}
+					return pieces
+				})
+			},
+			has_galicia_candidate(remaining_points, excluded_piece = 0) {
+				return with_enver_falkenhayn_sr_overlay(game, event, () =>
+					has_galicia_candidate_no_overlay(remaining_points, excluded_piece)
+				)
+			}
+		}
 	}
 
 	function get_enver_falkenhayn_legal_destinations(game, rules, event, p) {
-		if (!event || !is_enver_falkenhayn_piece(p)) return []
-		return with_enver_falkenhayn_sr_overlay(game, event, () => {
-			if (!rules.can_sr_piece(game, p, CP)) return []
-			let cost = rules.get_sr_cost(p)
-			if (cost > event.sr_points) return []
-			return get_enver_falkenhayn_destinations_no_overlay(game, rules, p).filter((s) =>
-				can_enver_falkenhayn_move_no_overlay(game, rules, event, p, s)
-			)
-		})
+		return create_enver_falkenhayn_sr_planner(game, rules, event).get_legal_destinations(p)
 	}
 
 	function get_enver_falkenhayn_legal_pieces(game, rules, event) {
-		let pieces = []
-		for (let p = 1; p < data.pieces.length; p++) {
-			if (get_enver_falkenhayn_legal_destinations(game, rules, event, p).length > 0) pieces.push(p)
-		}
-		return pieces
-	}
-
-	function has_enver_falkenhayn_galicia_candidate(game, rules, event, remaining_points) {
-		return with_enver_falkenhayn_sr_overlay(game, event, () =>
-			has_enver_falkenhayn_galicia_candidate_no_overlay(game, rules, remaining_points)
-		)
+		return create_enver_falkenhayn_sr_planner(game, rules, event).get_legal_pieces()
 	}
 
 	function clear_enver_falkenhayn_sr_state(game) {
@@ -3204,13 +3247,13 @@ module.exports = function (Engine) {
 				return
 			}
 
-			let legal_pieces = get_enver_falkenhayn_legal_pieces(game, rules, event)
+			let planner = create_enver_falkenhayn_sr_planner(game, rules, event)
 			let mandatory_done = !!event.galicia_lcu_moved
 			let mandatory_text = mandatory_done ? "已满足“1个土耳其LCU进入加利西亚”要求。" : "仍必须至少有1个土耳其LCU进入加利西亚。"
 
 			if (game.sr_piece !== undefined && game.sr_piece !== null) {
 				let p = game.sr_piece
-				let destinations = get_enver_falkenhayn_legal_destinations(game, rules, event, p)
+				let destinations = planner.get_legal_destinations(p)
 				res.who(p)
 				res.where(game.pieces[p])
 				res.prompt(
@@ -3221,6 +3264,14 @@ module.exports = function (Engine) {
 				return
 			}
 
+			let has_mandatory_candidate = mandatory_done || planner.has_galicia_candidate(sr_points)
+			if (!has_mandatory_candidate) {
+				res.prompt(`恩维尔-法金汉会晤：当前不存在满足要求的合法战略调整。`)
+				res.action("done")
+				return
+			}
+
+			let legal_pieces = planner.get_legal_pieces()
 			if (legal_pieces.length === 0 && !mandatory_done) {
 				res.prompt(`恩维尔-法金汉会晤：当前不存在满足要求的合法战略调整。`)
 				res.action("done")
@@ -3230,10 +3281,7 @@ module.exports = function (Engine) {
 			res.prompt(`恩维尔-法金汉会晤：选择土耳其/土耳其-阿拉伯单位进行战略调整（剩余 ${sr_points} 点，${mandatory_text}）`)
 			for (let p of legal_pieces) res.piece(p)
 
-			if (
-				mandatory_done ||
-				!has_enver_falkenhayn_galicia_candidate(game, rules, event, sr_points)
-			) {
+			if (mandatory_done) {
 				res.action("done")
 			}
 		},
@@ -3282,7 +3330,7 @@ module.exports = function (Engine) {
 			if (
 				event &&
 				!event.galicia_lcu_moved &&
-				has_enver_falkenhayn_galicia_candidate(game, rules, event, event.sr_points || 0)
+				create_enver_falkenhayn_sr_planner(game, rules, event).has_galicia_candidate(event.sr_points || 0)
 			) {
 				return
 			}

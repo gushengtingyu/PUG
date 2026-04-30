@@ -121,7 +121,6 @@ function read_debug_switch(name, fallback = false) {
 	}
 	return fallback
 }
-let DEBUG_STACK_INTERACTION = read_debug_switch("debug_stack_interaction", true)
 let DEBUG_INTERACTION_PERF = read_debug_switch("debug_interaction_perf", false)
 let DEBUG_TRIBE_RESERVE = read_debug_switch("debug_tribe_reserve", false)
 let interaction_perf_seq = 0
@@ -492,44 +491,6 @@ function get_stack_debug_target(evt) {
 	const tag = t.tagName || "node"
 	const cls = typeof t.className === "string" ? t.className.trim().replace(/\s+/g, ".") : ""
 	return cls ? `${tag}.${cls}` : tag
-}
-
-function get_stack_debug_snapshot(stack) {
-	if (!stack) {
-		return null
-	}
-	return {
-		name: stack.name || "unnamed stack",
-		key: get_stack_key(stack),
-		len: stack.length
-	}
-}
-
-function log_stack_debug(phase, evt, stack, extra = null) {
-	if (!DEBUG_STACK_INTERACTION) {
-		return
-	}
-	const stack_snapshot = get_stack_debug_snapshot(stack)
-	const payload = {
-		phase,
-		focus_key,
-		event_target: get_stack_debug_target(evt),
-		stack_id: stack_snapshot ? stack_snapshot.key : null,
-		stack_name: stack_snapshot ? stack_snapshot.name : null,
-		stack_len: stack_snapshot ? stack_snapshot.len : 0
-	}
-	if (extra && typeof extra === "object") {
-		Object.assign(payload, extra)
-	}
-	console.log("[调试][stack]", JSON.stringify(payload))
-}
-
-function set_stack_debug(enabled) {
-	DEBUG_STACK_INTERACTION = !!enabled
-	if (typeof window !== "undefined" && typeof params !== "undefined" && params && params.title_id) {
-		window.localStorage[`${params.title_id}/debug_stack_interaction`] = DEBUG_STACK_INTERACTION ? "1" : "0"
-	}
-	return DEBUG_STACK_INTERACTION
 }
 
 function now_ms() {
@@ -2993,21 +2954,17 @@ function is_small_stack(stk) {
  */
 function focus_stack(stack) {
 	if (!stack) {
-		log_stack_debug("focus_stack.empty", null, stack)
 		return false
 	}
 	const key = get_stack_key(stack)
-	log_stack_debug("focus_stack.try", null, stack, { next_focus_key: key })
 
 	if (focus_key !== key) {
 		mark_focus_dirty_by_key(focus_key)
 		mark_focus_dirty_by_stack(stack)
 		focus_key = key
-		log_stack_debug("focus_stack.set", null, stack)
 		on_update()
 		return is_small_stack(stack)
 	}
-	log_stack_debug("focus_stack.keep", null, stack)
 	return true
 }
 
@@ -3111,7 +3068,6 @@ function layout_stack(stack, start_x, start_y) {
  * @param {HTMLElement[]} elements - 元素数组。
  */
 function bind_stack_interaction(elements) {
-	const stack_name = elements.name || "unnamed stack"
 	for (const elt of elements) {
 		elt.my_stack = elements
 		if (!elt.stack_bound) {
@@ -3125,10 +3081,8 @@ function bind_stack_interaction(elements) {
 
 					const is_focused = is_stack_focused(elt.my_stack)
 					const is_small = is_small_stack(elt.my_stack)
-					log_stack_debug("stack_element.mousedown", e, elt.my_stack, { stack_name, is_focused, is_small })
 
 					if (!is_focused && !is_small) {
-						log_stack_debug("stack_element.expand", e, elt.my_stack, { stack_name })
 						e.stopPropagation()
 						focus_stack(elt.my_stack)
 					}
@@ -5278,10 +5232,6 @@ function update_card_zones() {
 function on_click_space(evt, s) {
 	if (evt.button === 0) {
 		const perf_id = begin_interaction_perf("click_space", evt, { space: s })
-		const space = spaces[s]
-		const stack = space ? space.stack : null
-		const has_space_action = has_direct_space_intent(s)
-		log_stack_debug("click_space.start", evt, stack, { space: s, has_space_action })
 		if (apply_space_click_intent(evt, s, perf_id, "click_space")) {
 			end_interaction_perf(perf_id, "click_space.done")
 			return
@@ -5318,13 +5268,11 @@ function on_click_piece(e, p) {
 			if (s) {
 				if (s.stack) {
 					stack = s.stack
-					log_stack_debug("click_piece.fallback_space_stack", e, stack, { piece: p, ui_loc })
 				} else if (s.stacks) {
 					for (const nation in s.stacks) {
 						const nation_stack = s.stacks[nation]
 						if (nation_stack.some((elt) => elt.piece === p)) {
 							stack = nation_stack
-							log_stack_debug("click_piece.fallback_group_stack", e, stack, { piece: p, ui_loc, nation })
 							break
 						}
 					}
@@ -5332,9 +5280,7 @@ function on_click_piece(e, p) {
 			}
 		}
 
-		const stack_name = stack ? stack.name || "unnamed stack" : "no stack"
 		const is_focused = stack ? is_stack_focused(stack) : false
-		log_stack_debug("click_piece.start", e, stack, { piece: p, stack_name, is_focused })
 
 		hide_supply()
 		e.stopPropagation()
@@ -5350,7 +5296,6 @@ function on_click_piece(e, p) {
 
 		if (stack && !is_focused && !is_small_stack(stack)) {
 			if (is_reserve_box_loc) {
-				log_stack_debug("click_piece.focus_reserve_stack", e, stack, { piece: p, raw_loc, ui_loc })
 				focus_stack(stack)
 				end_interaction_perf(perf_id, "click_piece.focus_only")
 				return
@@ -5362,18 +5307,12 @@ function on_click_piece(e, p) {
 					return
 				}
 			}
-			log_stack_debug("click_piece.focus_stack", e, stack, { piece: p, raw_loc, ui_loc })
 			focus_stack(stack)
 			end_interaction_perf(perf_id, "click_piece.focus_only")
 			return
 		}
 
 		if (piece_click) {
-			log_stack_debug("click_piece.send_action", e, stack, {
-				piece: p,
-				action: piece_click.action,
-				source: piece_click.source
-			})
 			end_interaction_perf(perf_id, "click_piece.sent_action", {
 				action: piece_click.action,
 				source: piece_click.source
@@ -5399,7 +5338,6 @@ if (map) {
 	map.addEventListener("pointerleave", clear_neutral_marker_peek)
 	map.addEventListener("click", (evt) => {
 		if (evt.button === 0 && evt.target === map) {
-			log_stack_debug("map.click.blur", evt, null)
 			blur_stack()
 			hide_supply()
 		}
@@ -6037,10 +5975,6 @@ function on_click_marker(evt) {
 	const stack = evt.target.my_stack
 	const is_focused = stack ? is_stack_focused(stack) : false
 	const marker_click = get_marker_click_dispatch(marker)
-	log_stack_debug("click_marker.start", evt, stack, {
-		marker: marker ? marker.type || marker.name || "unknown" : "unknown",
-		is_focused
-	})
 
 	evt.stopPropagation()
 	if (marker && marker.space !== undefined) {
@@ -6154,7 +6088,6 @@ Object.assign(window, {
 	open_bug_report_dialog,
 	close_bug_report_dialog,
 	submit_bug_report,
-	set_stack_debug,
 	set_perf_debug,
 	get_bug_report_map_status,
 	get_bug_report_action_summary,
@@ -6174,7 +6107,6 @@ Object.assign(window, {
 	unshift_stack,
 	blur_stack,
 	pugDebug: {
-		setStackDebug: set_stack_debug,
 		setPerfDebug: set_perf_debug,
 		getMapStatus: get_bug_report_map_status,
 		getActionSummary: get_bug_report_action_summary,
