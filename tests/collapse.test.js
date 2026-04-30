@@ -115,7 +115,7 @@ describe("崩溃规则", () => {
 		})
 	})
 
-	test("塞尔维亚崩溃的 AH 选择提示只展示保加利亚入场的两个 AH 师", () => {
+	test("塞尔维亚崩溃的 AH 选择提示展示可移除 AH 师，且不展示 AH 军级单位", () => {
 		const game = createGame()
 		const log = makeLogger(game)
 
@@ -124,6 +124,7 @@ describe("崩溃规则", () => {
 		moveToReserve(game, CP, "AH DIV #1")
 		moveToReserve(game, CP, "AH DIV #4")
 		moveToReserve(game, CP, "AH DIV #5")
+		moveToReserve(game, CP, "AH VIII Corps")
 
 		Engine.collapse.accept_voluntary_collapse(game, "serbia", log)
 
@@ -134,9 +135,11 @@ describe("崩溃规则", () => {
 			rules: createStateRules(game)
 		})
 
+		expect(getPiecesAction(res)).toContain(findPiece(CP, "AH DIV #1"))
 		expect(getPiecesAction(res)).toContain(findPiece(CP, "AH DIV #4"))
 		expect(getPiecesAction(res)).toContain(findPiece(CP, "AH DIV #5"))
-		expect(getPiecesAction(res)).not.toContain(findPiece(CP, "AH DIV #1"))
+		expect(getPiecesAction(res)).not.toContain(findPiece(CP, "AH DIV #6"))
+		expect(getPiecesAction(res)).not.toContain(findPiece(CP, "AH VIII Corps"))
 	})
 
 	test("塞尔维亚崩溃不会把保加利亚单位永久消除，但仍会移除保加利亚入场的 GE/AH 单位", () => {
@@ -153,6 +156,42 @@ describe("崩溃规则", () => {
 		expect(Engine.game_utils.is_permanently_eliminated(game, buArmy)).toBe(false)
 		expect(isRemoved(game, geCorps)).toBe(true)
 		expect(Engine.game_utils.is_permanently_eliminated(game, geCorps)).toBe(false)
+	})
+
+	test("塞尔维亚崩溃在罗马尼亚未参战时保留两个 GE 步兵师并移除 Alpenkorps", () => {
+		const game = createGame()
+		const log = makeLogger(game)
+		const geAlpenkorps = placePiece(game, CP, "GE Alpenkorps", "Vidin")
+		const geDiv1 = moveToReserve(game, CP, "GE DIV #1")
+		const geDiv2 = moveToReserve(game, CP, "GE DIV #2")
+
+		game.events.bulgaria = true
+
+		Engine.collapse.accept_voluntary_collapse(game, "serbia", log)
+
+		expect(isRemoved(game, geAlpenkorps)).toBe(true)
+		expect(isRemoved(game, geDiv1)).toBe(false)
+		expect(isRemoved(game, geDiv2)).toBe(false)
+	})
+
+	test("塞尔维亚崩溃在罗马尼亚未崩溃时仍会自动移除保加利亚入场 AH 军级单位", () => {
+		const game = createGame()
+		const log = makeLogger(game)
+		const ah8 = placePiece(game, CP, "AH VIII Corps", "Galicia")
+		const ah22 = placePiece(game, CP, "AH XXII R Corps", "Galicia")
+		const ahDiv4 = moveToReserve(game, CP, "AH DIV #4")
+		const ahDiv5 = moveToReserve(game, CP, "AH DIV #5")
+
+		game.events.bulgaria = true
+		game.events.romania = true
+
+		Engine.collapse.accept_voluntary_collapse(game, "serbia", log)
+
+		expect(isRemoved(game, ah8)).toBe(true)
+		expect(isRemoved(game, ah22)).toBe(true)
+		expect(isRemoved(game, ahDiv4)).toBe(false)
+		expect(isRemoved(game, ahDiv5)).toBe(false)
+		expect(game.state).toBe("event_serbian_collapse_choice")
 	})
 
 	test("塞尔维亚崩溃会把 SB 单位放进 Removed Box，The Serbs Return 可从 Removed Box 放回", () => {
@@ -181,17 +220,19 @@ describe("崩溃规则", () => {
 		expect(game.pieces[sbArmy]).toBe(apReserve)
 	})
 
-	test("罗马尼亚崩溃的选择提示只展示罗马尼亚入场的 AH 单位名单", () => {
+	test("罗马尼亚崩溃的选择提示展示可移除 AH 师，且自动移除 AH VI R Corps", () => {
 		const game = createGame()
 		const log = makeLogger(game)
 
 		game.events.romania = true
 		game.events.bulgaria = true
+		const ahCorps = placePiece(game, CP, "AH VI R Corps", "Galicia")
 		moveToReserve(game, CP, "Combined BU/AH Div")
 		moveToReserve(game, CP, "AH DIV #1")
 		moveToReserve(game, CP, "AH DIV #2")
 		moveToReserve(game, CP, "AH DIV #3")
 		moveToReserve(game, CP, "AH DIV #4")
+		moveToReserve(game, CP, "AH DIV #5")
 
 		Engine.collapse.accept_voluntary_collapse(game, "romania", log)
 
@@ -203,9 +244,13 @@ describe("崩溃规则", () => {
 		})
 
 		expect(game.state).toBe("event_romanian_collapse_choice")
+		expect(isRemoved(game, ahCorps)).toBe(true)
 		expect(getPiecesAction(res)).toContain(findPiece(CP, "Combined BU/AH Div"))
 		expect(getPiecesAction(res)).toContain(findPiece(CP, "AH DIV #3"))
-		expect(getPiecesAction(res)).not.toContain(findPiece(CP, "AH DIV #4"))
+		expect(getPiecesAction(res)).toContain(findPiece(CP, "AH DIV #4"))
+		expect(getPiecesAction(res)).toContain(findPiece(CP, "AH DIV #5"))
+		expect(getPiecesAction(res)).not.toContain(findPiece(CP, "AH DIV #6"))
+		expect(getPiecesAction(res)).not.toContain(findPiece(CP, "AH VI R Corps"))
 	})
 
 	test("崩溃后的免费 SR 达到 2 个单位后不再提供新的单位或目标地块", () => {
@@ -253,6 +298,23 @@ describe("崩溃规则", () => {
 		expect(game.state).toBe("event_romanian_collapse_sr")
 		expect(isRemoved(game, geCav)).toBe(true)
 		expect(Engine.game_utils.is_permanently_eliminated(game, geCav)).toBe(false)
+	})
+
+	test("罗马尼亚三座关键城市失守时即使有 RU LCU 在罗马尼亚也会自动崩溃", () => {
+		const game = createGame()
+		const log = makeLogger(game)
+		placePiece(game, AP, "RU Dobruja", "Constanta")
+
+		game.events.romania = true
+		setControl(game, "BUCHAREST", CP)
+		setControl(game, "Ploesti", CP)
+		setControl(game, "Constanta", CP)
+
+		const handled = Engine.collapse.handle_national_collapse(game, log)
+
+		expect(handled).toBe(true)
+		expect(game.events.romania_collapse).toBe(6)
+		expect(game.state).toBe("event_romanian_collapse_sr")
 	})
 
 	test("塞尔维亚崩溃后塞军攻击范围会随贝尔格莱德控制权变化", () => {

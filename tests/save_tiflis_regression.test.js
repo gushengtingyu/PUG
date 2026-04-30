@@ -106,6 +106,18 @@ function setupRetreatChoiceState(game, opts = {}) {
 	game.pieces[defenderPiece] = battleSpace
 }
 
+function setupResolvedRetreatChoiceState(game, opts = {}) {
+	setupRetreatChoiceState(game, opts)
+	game.battle_result = {
+		attacker_losses: 0,
+		defender_losses: 0,
+		retreat_needed: true,
+		retreating_faction: AP,
+		retreat_distance: 1,
+		no_advance: true
+	}
+}
+
 // ─── 测试组 1: can_play_save_tiflis 条件检查 ──────────────────────────────
 
 test("SAVE TIFLIS: 当状态不是 retreat_choice_cc_cp 时不能打出", () => {
@@ -179,6 +191,24 @@ test("SAVE TIFLIS: 所有条件满足时可以打出", () => {
 	game.pieces[RU_CAV_1] = TABRIZ // 阿塞拜疆区域，无豁免
 
 	expect(Engine.combat_cards.can_play_combat_card(game, CC_CP_SAVE_TIFLIS)).toBe(true)
+})
+
+test("SAVE TIFLIS: 通过真实 play_cc 动作打出后立即进入回援撤退状态", () => {
+	let game = makeGame()
+	setupResolvedRetreatChoiceState(game)
+	game.pieces[RU_CAV_1] = TABRIZ
+
+	let view = rules.view(game, CP_ROLE)
+	expect(view.actions.play_cc || []).toContain(CC_CP_SAVE_TIFLIS)
+
+	game = rules.action(game, CP_ROLE, "play_cc", CC_CP_SAVE_TIFLIS)
+
+	expect(game.state).toBe("save_tiflis_retreat")
+	expect(game.active).toBe(AP)
+	expect(game.save_tiflis_pieces).toContain(RU_CAV_1)
+	expect(game.events["save_tiflis"]).toBe(game.turn)
+	expect(game.combat_cards.attacker).toContain(CC_CP_SAVE_TIFLIS)
+	expect(game.combat_cards.defender).not.toContain(CC_CP_SAVE_TIFLIS)
 })
 
 test("SAVE TIFLIS: 波斯区域的俄国单位也满足出牌条件", () => {

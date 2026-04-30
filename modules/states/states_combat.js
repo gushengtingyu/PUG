@@ -700,13 +700,12 @@ exports.register = function (states, Engine, context) {
 		return combat_cards.get_army_of_islam_space_options(game)
 	}
 
-	function resume_retreat_choice_state() {
-		let resume_state = game.retreat_choice_resume_state || "retreat"
-		let prev_active = game.retreat_choice_prev_active || AP
+	function continue_after_retreat_choice_cc_window() {
+		game.retreat_choice_cc_cp_done = true
+		game.retreat_choice_cc_done = true
 		delete game.retreat_choice_resume_state
 		delete game.retreat_choice_prev_active
-		game.active = prev_active
-		game.state = resume_state
+		combat.end_battle_sequence(game, log)
 	}
 
 	function resume_window_combat_card_state(return_state) {
@@ -754,12 +753,7 @@ exports.register = function (states, Engine, context) {
 				}
 				return true
 			case "retreat_choice_cc_cp":
-				game.active = CP
-				if (has_window_cc_options("retreat_choice_cc_cp", CP, false)) {
-					game.state = "retreat_choice_cc_cp"
-				} else {
-					resume_retreat_choice_state()
-				}
+				continue_after_retreat_choice_cc_window()
 				return true
 			default:
 				return false
@@ -1408,7 +1402,7 @@ exports.register = function (states, Engine, context) {
 		if (
 			(game.state === "retreat" || game.state === "retreat_cancel") &&
 			!game.retreat_choice_cc_done &&
-			has_window_cc_options("retreat_choice_cc_cp", CP, false)
+			has_window_cc_options("retreat_choice_cc_cp", CP, true)
 		) {
 			game.retreat_choice_resume_state = game.state
 			game.retreat_choice_prev_active = game.active
@@ -1482,10 +1476,10 @@ exports.register = function (states, Engine, context) {
 
 	register_combat_card_state("retreat_choice_cc_cp", {
 		prompt: "同盟国：撤退选择阶段战斗卡",
-		is_attacker: false,
-		get_options: () => collect_window_cc_options(game, "retreat_choice_cc_cp", CP, false),
+		is_attacker: true,
+		get_options: () => collect_window_cc_options(game, "retreat_choice_cc_cp", CP, true),
 		done() {
-			resume_retreat_choice_state()
+			continue_after_retreat_choice_cc_window()
 		}
 	})
 
@@ -2609,10 +2603,6 @@ exports.register = function (states, Engine, context) {
 					(s) => !combat.has_undestroyed_fort(game, s, other_faction(active_faction()))
 				)
 
-				if (game.turkish_retreat_chosen_space !== undefined) {
-					valid = valid.filter((s) => s === game.turkish_retreat_chosen_space)
-				}
-
 				valid = combat.apply_retreat_priorities(game, piece, valid)
 
 				if (valid.length === 0) {
@@ -2686,9 +2676,6 @@ exports.register = function (states, Engine, context) {
 				Engine.sync_neutral_vp_state(game, s)
 				Engine.sync_jihad_city_state(game, s)
 
-				if (game.turkish_retreat_chosen_space === undefined) {
-					game.turkish_retreat_chosen_space = s
-				}
 				if (game.turkish_retreat_mandatory && set_has(game.turkish_retreat_mandatory, p)) {
 					set_delete(game.turkish_retreat_mandatory, p)
 				}

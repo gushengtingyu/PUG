@@ -142,6 +142,55 @@ test("Turkish retreat does not log standard no retreat message", () => {
 	expect(game.state).toBe("turkish_retreat")
 })
 
+test("Turkish Withdrawal lets different TU units retreat to different legal spaces", () => {
+	let game = rules.setup(104, "Historical", { seed: 42 })
+	let trabzon = findSpaceByName("Trabzon")
+	let rize = findSpaceByName("Rize")
+	let giresun = findSpaceByName("Giresun")
+	let tuDiv1 = findPieceByName("TU DIV #1")
+	let tuDiv2 = findPieceByName("TU DIV #2")
+
+	game.state = "turkish_retreat"
+	game.active = rules.CP
+	game.attack = {
+		space: trabzon,
+		pieces: [],
+		attacker: rules.AP,
+		defender: rules.CP
+	}
+	game.battle_result = {
+		turkish_retreat: true,
+		no_advance: false
+	}
+	game.turkish_retreat_pending = true
+	game.turkish_retreat_space = trabzon
+	game.turkish_retreat_mandatory = [tuDiv1, tuDiv2]
+	game.turkish_retreat_optional = []
+	game.retreat_steps_left = {
+		[tuDiv1]: 1,
+		[tuDiv2]: 1
+	}
+	game.selected_piece = tuDiv1
+	game.retreated = []
+	game.pieces[tuDiv1] = trabzon
+	game.pieces[tuDiv2] = trabzon
+
+	let firstView = rules.view(game, CP_ROLE)
+	expect(firstView.actions.space || []).toContain(rize)
+	expect(firstView.actions.space || []).toContain(giresun)
+
+	game = rules.action(game, CP_ROLE, "space", rize)
+	game = rules.action(game, CP_ROLE, "piece", tuDiv2)
+
+	let secondView = rules.view(game, CP_ROLE)
+	expect(secondView.actions.space || []).toContain(giresun)
+
+	game = rules.action(game, CP_ROLE, "space", giresun)
+
+	expect(game.pieces[tuDiv1]).toBe(rize)
+	expect(game.pieces[tuDiv2]).toBe(giresun)
+})
+
 test("Cancelled battle returns other ccs to action availability", () => {
 	let { game, ruDiv3, tuDiv8 } = createBattleGame()
 	let germanHighCommand = findCardByEvent("GERMAN HIGH COMMAND CC")

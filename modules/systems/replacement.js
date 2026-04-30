@@ -95,12 +95,16 @@ module.exports = function (Engine) {
 	}
 
 	function has_romania_collapsed(game) {
-		return !!(Engine.collapse && Engine.collapse.has_romania_collapsed && Engine.collapse.has_romania_collapsed(game))
+		return !!(
+			Engine.collapse &&
+			Engine.collapse.has_romania_collapsed &&
+			Engine.collapse.has_romania_collapsed(game)
+		)
 	}
 
 	function can_rebuild_regular_unit_in_space(game, s, faction) {
 		if (is_besieged(game, s)) return false
-		return !contains_enemy_pieces(game, s, faction);
+		return !contains_enemy_pieces(game, s, faction)
 	}
 
 	function is_ru_lcu_rebuild_space(game, s) {
@@ -116,7 +120,7 @@ module.exports = function (Engine) {
 		if (!info || info.piece_class !== "SCU" || info.type !== "regular") return false
 		if (is_spers_rifles_unit(p)) return false
 		if (is_br_indian_garrison_unit(info)) return false
-		return !is_br_persian_cordon_unit(info);
+		return !is_br_persian_cordon_unit(info)
 	}
 
 	function get_replacement_cost(game, p) {
@@ -188,7 +192,7 @@ module.exports = function (Engine) {
 		let rps = game.rp_cp
 		if (rps.a >= cost) return true
 		if (rps.tu >= cost) return true
-		return rps.ge >= cost;
+		return rps.ge >= cost
 	}
 
 	function spend_any_cp_rp(game, cost) {
@@ -325,7 +329,12 @@ module.exports = function (Engine) {
 			if (info.nation === "ge" || info.nation === "ah") return true
 			if (info.nation === "bu") {
 				if (SOFIA < 0 || !is_controlled_by(game, SOFIA, CP) || is_besieged(game, SOFIA)) return false
-				return can_trace_supply_to_source(game, SOFIA, info.faction, get_galicia_replacement_supply_sources(game, info.faction))
+				return can_trace_supply_to_source(
+					game,
+					SOFIA,
+					info.faction,
+					get_galicia_replacement_supply_sources(game, info.faction)
+				)
 			}
 			return false
 		}
@@ -368,7 +377,8 @@ module.exports = function (Engine) {
 		if (!is_controlled_by(game, CONSTANTINOPLE, CP)) return false
 
 		for (let s of GALICIA_SPACE_IDS) {
-			if (is_controlled_by(game, s, CP) && is_connected_by_rail(game, CONSTANTINOPLE, CP, [s])) return true
+			if (is_controlled_by(game, s, CP) && is_connected_by_rail(game, CONSTANTINOPLE, CP, [s], null, true))
+				return true
 		}
 
 		return false
@@ -454,7 +464,7 @@ module.exports = function (Engine) {
 		return {
 			pool,
 			can_use: options.can_use || (() => true),
-			on_spend: options.on_spend || (() => { })
+			on_spend: options.on_spend || (() => {})
 		}
 	}
 
@@ -621,7 +631,13 @@ module.exports = function (Engine) {
 	function is_replacement_nation_eligible(game, p, nation, force = false) {
 		let info = data.pieces[p]
 		if (!info) return false
-		if (!force && game.events && game.events["turkish_war_weariness"] && (nation === "tu" || nation === "tua") && info.symbol === "triangle") {
+		if (
+			!force &&
+			game.events &&
+			game.events["turkish_war_weariness"] &&
+			(nation === "tu" || nation === "tua") &&
+			info.symbol === "triangle"
+		) {
 			return false
 		}
 		if (nation === "sb" && has_serbia_collapsed(game) && (!game.events || !game.events["the_serbs_return"])) {
@@ -710,7 +726,7 @@ module.exports = function (Engine) {
 				// Rule 22.2.2: Jihad Revolt units placement
 				if (rebel_type === "eg") {
 					if (is_egypt(s) || is_sudan_and_darfur(s)) {
-						let ap_pieces = get_pieces_in_space(game, s).filter(p => data.pieces[p].faction === AP)
+						let ap_pieces = get_pieces_in_space(game, s).filter((p) => data.pieces[p].faction === AP)
 						if (ap_pieces.length === 0) can_rebuild = true
 					}
 				} else {
@@ -767,7 +783,8 @@ module.exports = function (Engine) {
 						can_rebuild = true
 				} else {
 					if (is_hejaz(s) && !is_besieged(game, s)) can_rebuild = true
-					if ((s === AQABA || s === JIDDAH) && is_controlled_by(game, s, AP) && !is_besieged(game, s)) can_rebuild = true
+					if ((s === AQABA || s === JIDDAH) && is_controlled_by(game, s, AP) && !is_besieged(game, s))
+						can_rebuild = true
 				}
 			} else if (nation === "geo" || nation === "arm") {
 				// Rule 22.2.2: GEO and ARM in any AP controlled space in Russia or Caucasia.
@@ -775,12 +792,7 @@ module.exports = function (Engine) {
 					can_rebuild = true
 			} else if (nation === "pe") {
 				// Rule 22.1.3: Irregular Units rebuilt in their Supply Area.
-				if (
-					is_irregular(p) &&
-					is_persia(s) &&
-					is_controlled_by(game, s, AP) &&
-					!is_besieged(game, s)
-				)
+				if (is_irregular(p) && is_persia(s) && is_controlled_by(game, s, AP) && !is_besieged(game, s))
 					can_rebuild = true
 			}
 

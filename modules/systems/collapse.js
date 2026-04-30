@@ -115,17 +115,37 @@ module.exports = function (Engine) {
 		...ROMANIA_ENTRY_PLAN.cp.delayed.map((entry) => entry.name),
 		...ROMANIA_ENTRY_PLAN.cp.ah_units
 	])
-	const ROMANIAN_COLLAPSE_AH_UNIT_NAMES = new Set([...ROMANIA_ENTRY_PLAN.cp.ah_units])
+	const SERBIAN_COLLAPSE_GE_EXCEPTION_NAMES = new Set([
+		"German 11th Army",
+		"GE Mackenson HQ",
+		"GE Hvy Arty",
+		"GE DIV #1",
+		"GE DIV #2"
+	])
+	const SERBIAN_COLLAPSE_AH_DIVISION_NAMES = Object.freeze(
+		data.pieces
+			.filter(
+				(piece) =>
+					piece && piece.nation === "ah" && piece.piece_class === "SCU" && /^AH DIV #\d+$/.test(piece.name)
+			)
+			.map((piece) => piece.name)
+	)
+	const ROMANIAN_COLLAPSE_AH_ENTRY_UNIT_NAMES = new Set(["AH VI R Corps", ...ROMANIA_ENTRY_PLAN.cp.ah_units])
+	const ROMANIAN_COLLAPSE_AH_DIVISION_NAMES = Object.freeze([
+		"Combined BU/AH Div",
+		...SERBIAN_COLLAPSE_AH_DIVISION_NAMES
+	])
 	// 两个崩溃事件的“可选保留/移除”名单并不相同：
-	// 塞尔维亚崩溃看保加利亚入场时的 AH 师，罗马尼亚崩溃看罗马尼亚入场时的 AH 单位。
+	// 塞尔维亚崩溃在罗马尼亚未崩溃时可从 AH 师中选择 2 个移除；罗马尼亚崩溃在塞尔维亚未崩溃时可从 AH 师中选择 3 个移除。
 	const COLLAPSE_OPTIONAL_REMOVAL_PLAN = Object.freeze({
-		serbia: BULGARIA_ENTRY_PLAN.cp.ah_divisions,
-		romania: ROMANIA_ENTRY_PLAN.cp.ah_units
+		serbia: SERBIAN_COLLAPSE_AH_DIVISION_NAMES,
+		romania: ROMANIAN_COLLAPSE_AH_DIVISION_NAMES
 	})
 	const {
 		eliminate_piece,
 		remove_piece_from_game,
 		find_piece,
+		is_eliminated,
 		is_not_on_map,
 		is_in_reserve,
 		is_lcu,
@@ -171,7 +191,10 @@ module.exports = function (Engine) {
 		const hardcodedUnitNames = new Set([
 			...BULGARIAN_ENTRY_UNIT_NAMES,
 			...ROMANIAN_ENTRY_UNIT_NAMES,
-			...ROMANIAN_COLLAPSE_AH_UNIT_NAMES
+			...ROMANIAN_COLLAPSE_AH_ENTRY_UNIT_NAMES,
+			...ROMANIAN_COLLAPSE_AH_DIVISION_NAMES,
+			...SERBIAN_COLLAPSE_GE_EXCEPTION_NAMES,
+			...SERBIAN_COLLAPSE_AH_DIVISION_NAMES
 		])
 		for (let name of hardcodedUnitNames) {
 			if (!pieceNames.has(name)) {
@@ -200,6 +223,11 @@ module.exports = function (Engine) {
 
 	function get_collapse_choice_unit_names(nation) {
 		return COLLAPSE_OPTIONAL_REMOVAL_PLAN[nation] || []
+	}
+
+	function is_collapse_choice_piece_available(game, p) {
+		if (p < 0 || !data.pieces[p]) return false
+		return game.pieces[p] > 0 || is_in_reserve(game, p) || is_eliminated(game, p)
 	}
 
 	function get_romanian_entry_plan() {
@@ -317,7 +345,7 @@ module.exports = function (Engine) {
 
 		let cond_b = are_all_ro_lcus_eliminated(game)
 
-		return (cond_a || cond_b) && !has_ru_lcu_in_romania(game)
+		return cond_a || (cond_b && !has_ru_lcu_in_romania(game))
 	}
 
 	function can_piece_attack_after_serbian_collapse(game, p, target) {
@@ -446,12 +474,8 @@ module.exports = function (Engine) {
 			}
 		}
 
-		const exceptions = ["German 11th Army", "GE Mackenson HQ", "GE Hvy Arty"]
 		let romania_uncollapsed = is_romania_uncollapsed(game)
-		// 19.4.6：若罗马尼亚已参战且尚未崩溃，GE Alpenkorps 也会保留。
-		if (romania_uncollapsed) exceptions.push("GE Alpenkorps")
 
-		let ge_inf_scu_count = 0
 		for (let p = 0; p < data.pieces.length; p++) {
 			let info = data.pieces[p]
 			if (!info) continue
@@ -460,13 +484,16 @@ module.exports = function (Engine) {
 			if (!is_bulgarian_entry) continue
 			if (info.nation !== "ge" && info.nation !== "ah") continue
 
-			let is_exception = exceptions.some((e) => info.name.includes(e))
-			if (!is_exception && info.nation === "ge" && is_scu(p) && ge_inf_scu_count < 2) {
-				is_exception = true
-				ge_inf_scu_count++
+			let is_exception = false
+			if (info.nation === "ge") {
+				// 19.4.6：保留 11th Army、Mackensen HQ、Heavy Artillery、以及 2 个 GE Inf SCU。
+				// GE Alpenkorps 不是这 2 个 GE Inf SCU；只有罗马尼亚已参战且尚未崩溃时才额外保留。
+				is_exception =
+					SERBIAN_COLLAPSE_GE_EXCEPTION_NAMES.has(info.name) ||
+					(romania_uncollapsed && info.name === "GE Alpenkorps")
 			}
-			// 19.4.6：在罗马尼亚尚未崩溃时，AH 单位不立即自动移除，而是交给后续“选择移除 2 个 AH 师”步骤处理。
-			if (info.nation === "ah" && romania_uncollapsed) {
+			// 19.4.6：在罗马尼亚尚未崩溃时，AH 师不立即自动移除，而是交给后续“选择移除 2 个 AH 师”步骤处理。
+			if (info.nation === "ah" && romania_uncollapsed && SERBIAN_COLLAPSE_AH_DIVISION_NAMES.includes(info.name)) {
 				is_exception = true
 			}
 
@@ -507,13 +534,12 @@ module.exports = function (Engine) {
 		if (ge_cav >= 0) remove_piece_from_game(game, ge_cav, log)
 
 		let choice_available = !!game.events["bulgaria"] && !has_serbia_collapsed(game)
-		// 19.5.6：若保加利亚已参战且塞尔维亚尚未崩溃，则罗马尼亚崩溃后不是直接清空 AH 入场单位，
-		// 而是让 CP 从这些单位中选择 3 个移除。
+		// 19.5.6：若保加利亚已参战且塞尔维亚尚未崩溃，则 AH 师进入“选择 3 个移除”步骤；
+		// 非师级的 Romania 入场 AH 单位（例如 AH VI R Corps）仍会立即移除。
 		for (let p = 0; p < data.pieces.length; p++) {
 			let info = data.pieces[p]
-			if (!info || !ROMANIAN_COLLAPSE_AH_UNIT_NAMES.has(info.name)) continue
-			// 名单里包含 Combined BU/AH Div；虽然数据国别是 bu，但规则上它也属于此处“3 个单位中任选移除”的集合。
-			if (choice_available) continue
+			if (!info || !ROMANIAN_COLLAPSE_AH_ENTRY_UNIT_NAMES.has(info.name)) continue
+			if (choice_available && ROMANIAN_COLLAPSE_AH_DIVISION_NAMES.includes(info.name)) continue
 			remove_piece_from_game(game, p, log)
 		}
 
@@ -585,6 +611,7 @@ module.exports = function (Engine) {
 	exports.get_bulgaria_entry_plan = get_bulgaria_entry_plan
 	exports.get_bulgarian_entry_ah_divisions = get_bulgarian_entry_ah_divisions
 	exports.get_collapse_choice_unit_names = get_collapse_choice_unit_names
+	exports.is_collapse_choice_piece_available = is_collapse_choice_piece_available
 	exports.get_romanian_entry_plan = get_romanian_entry_plan
 	exports.get_collapse_sr_limit = get_collapse_sr_limit
 	exports.is_bulgarian_entry_piece = is_bulgarian_entry_piece
