@@ -297,7 +297,9 @@ module.exports = function (Engine) {
 	function pieces_count_as_any_nation_for_rule(game, pieces, nations, purpose = "default") {
 		if (!Array.isArray(pieces)) return false
 		let nation_list = Array.isArray(nations) ? nations : [nations]
-		return pieces.some((p) => nation_list.some((nation) => piece_counts_as_nation_for_rule(game, p, nation, purpose)))
+		return pieces.some((p) =>
+			nation_list.some((nation) => piece_counts_as_nation_for_rule(game, p, nation, purpose))
+		)
 	}
 
 	function can_piece_be_activated(p) {
@@ -383,7 +385,11 @@ module.exports = function (Engine) {
 	function get_pieces_in_reserve(game, faction) {
 		let pieces = []
 		for (let p = 0; p < game.pieces.length; p++) {
-			if (data.pieces[p].faction === faction && get_piece_effective_faction(game, p) === faction && is_in_reserve(game, p)) {
+			if (
+				data.pieces[p].faction === faction &&
+				get_piece_effective_faction(game, p) === faction &&
+				is_in_reserve(game, p)
+			) {
 				pieces.push(p)
 			}
 		}
@@ -582,8 +588,7 @@ module.exports = function (Engine) {
 		let snapshot = runtime_state || capture_lcu_runtime_state(game, lcu)
 		game.pieces[scu] = space
 		transfer_lcu_runtime_state(game, lcu, scu, snapshot)
-		if (log)
-			log(`LCU ${data.pieces[lcu].name} 被替换为 SCU ${data.pieces[scu].name}。`)
+		if (log) log(`LCU ${data.pieces[lcu].name} 被替换为 SCU ${data.pieces[scu].name}。`)
 		return scu
 	}
 
@@ -874,9 +879,24 @@ module.exports = function (Engine) {
 		return ["br", "anz", "in", "in-g", "ar", "pe"].includes(nation)
 	}
 
+	function is_commonwealth_for_combination(nation) {
+		return nation === "br" || nation === "in" || nation === "anz"
+	}
+
+	function is_same_ottoman_group(a, b) {
+		return (a === "tu" || a === "tua") && (b === "tu" || b === "tua")
+	}
+
+	function is_same_nationality_for_first_two(lcu_nation, scu_nation) {
+		if (lcu_nation === scu_nation) return true
+		return is_same_ottoman_group(lcu_nation, scu_nation)
+	}
+
 	function is_same_combination_nationality(lcu_nation, scu_nation) {
 		if (lcu_nation === scu_nation) return true
-		return !!(is_british_empire(lcu_nation) && is_british_empire(scu_nation));
+		if (is_same_ottoman_group(lcu_nation, scu_nation)) return true
+		if (is_commonwealth_for_combination(lcu_nation) && is_commonwealth_for_combination(scu_nation)) return true
+		return false
 	}
 
 	function get_available_lcus_in_reserve(game, faction) {
@@ -926,6 +946,12 @@ module.exports = function (Engine) {
 			) {
 				return null
 			}
+			if (data.spaces[space].terrain === "swamp" && ["tu", "tua", "bu"].includes(lcu_info.nation)) {
+				return null
+			}
+			if (map.is_egypt(space) && (lcu_info.nation === "tu" || lcu_info.nation === "tua")) {
+				return null
+			}
 		}
 
 		// Filter out invalid SCUs (Rule 9.7.2)
@@ -964,7 +990,7 @@ module.exports = function (Engine) {
 			}
 			if (!type_match) return false
 
-			return is_same_combination_nationality(l.nation, s.nation)
+			return is_same_nationality_for_first_two(l.nation, s.nation)
 		}
 
 		function is_matching_third(lcu_id, scu_id) {
@@ -1002,21 +1028,21 @@ module.exports = function (Engine) {
 	function can_combine_in_space(game, s, faction, allowed_lcus = null, allowed_scus = null) {
 		const { map, supply } = Engine
 
+		if (!map.is_controlled_by(game, s, faction)) return false
+
 		let pieces = map.get_pieces_in_space(game, s)
 		// Rule 14.1.9: Limited supply units cannot organize into LCUs.
 		// Rule 14.3.1: OOS units cannot activate (including for combination).
-		let scu_ids = pieces.filter(
-			(p) => {
-				if (!is_scu(p)) return false
-				if (allowed_scus && !set_has(allowed_scus, p)) return false
-				if (is_hq(p) || is_tribe(p)) return false
-				if (get_piece_effective_faction(game, p) !== faction) return false
-				if (set_has(game.moved, p)) return false
-				if (Engine.events.is_arab_desertion_active(game) && data.pieces[p].nation === "tua") return false
-				let status = supply.get_supply_status(game, s, faction, p)
-				return status !== "OOS" && !supply.is_limited_supply_status(status)
-			}
-		)
+		let scu_ids = pieces.filter((p) => {
+			if (!is_scu(p)) return false
+			if (allowed_scus && !set_has(allowed_scus, p)) return false
+			if (is_hq(p) || is_tribe(p)) return false
+			if (get_piece_effective_faction(game, p) !== faction) return false
+			if (set_has(game.moved, p)) return false
+			if (Engine.events.is_arab_desertion_active(game) && data.pieces[p].nation === "tua") return false
+			let status = supply.get_supply_status(game, s, faction, p)
+			return status !== "OOS" && !supply.is_limited_supply_status(status)
+		})
 
 		if (scu_ids.length < 2) {
 			return false
@@ -1053,22 +1079,6 @@ module.exports = function (Engine) {
 			let current_count = map.count_lcu_in_area(game, area, faction)
 			if (current_count >= limit) {
 				// 达到 LCU 限制
-				return false
-			}
-		}
-
-		// Rule 197: Turkish/TU-Arab and Bulgarian SCUs cannot combine in swamp
-		if (terrain === "swamp") {
-			if (scu_ids.some((p) => ["tu", "tua", "bu"].includes(data.pieces[p].nation))) {
-				// 土耳其/阿拉伯/保加利亚单位不能在沼泽组合
-				return false
-			}
-		}
-
-		// Rule 197: Turkish SCUs cannot combine in Egypt or Galicia
-		if (map.is_egypt(s) || map.is_galicia(s)) {
-			if (scu_ids.some((p) => ["tu", "tua"].includes(data.pieces[p].nation))) {
-				// 土耳其单位不能在埃及或加利西亚组合
 				return false
 			}
 		}
