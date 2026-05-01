@@ -2980,19 +2980,35 @@ module.exports = function (Engine) {
 		return total
 	}
 
+	function remember_liberate_suez_required_attack_spaces(game) {
+		let spaces = []
+		if (!game || !game.activated) return spaces
+		if (Array.isArray(game.activated.attack)) {
+			for (let s of game.activated.attack) {
+				if (Engine.map.is_egypt(s)) set_add(spaces, s)
+			}
+		}
+		if (Array.isArray(game.activated.attack_egypt)) {
+			for (let s of game.activated.attack_egypt) set_add(spaces, s)
+		}
+		game.liberate_suez_required_attack_spaces = spaces
+		return spaces
+	}
+
 	states.event_liberate_suez_check_ops = {
 		prompt(ctx) {
 			let { game, res, rules } = ctx
 			if (check_liberate_suez_ops(game, (msg) => res.log(msg))) {
 				delete game.liberate_suez_op_required
 				game.liberate_suez_egypt_attack_activation_valid = true
+				remember_liberate_suez_required_attack_spaces(game)
 				// 2OP Egypt-attack requirement satisfied; merge Egypt-only attacks
-				// into normal attacks so units can freely choose targets
+				// into normal attacks for eligibility while keeping attack_egypt
+				// so target selection remains limited to Egypt.
 				if (Array.isArray(game.activated.attack_egypt) && game.activated.attack_egypt.length > 0) {
 					for (let s of game.activated.attack_egypt) {
 						set_add(game.activated.attack, s)
 					}
-					game.activated.attack_egypt = []
 				}
 				if (game.activated.move.length > 0) {
 					game.state = "choose_move_space"

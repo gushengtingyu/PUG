@@ -765,6 +765,7 @@ exports.register = function (states, Engine, context) {
 		delete game.liberate_suez_op_required
 		delete game.liberate_suez_battle_required
 		delete game.liberate_suez_min_egypt_attack_ops
+		delete game.liberate_suez_required_attack_spaces
 		delete game.liberate_suez_egypt_attacked_spaces
 		delete game.liberate_suez_egypt_attack_activation_valid
 		delete game.liberate_suez_egypt_battle_done

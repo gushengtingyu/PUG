@@ -100,6 +100,47 @@ exports.register = function (states, Engine, context) {
 		return get_attackable_spaces(game.eligible_attackers).length > 0
 	}
 
+	function get_liberate_suez_required_attack_spaces() {
+		if (!game.liberate_suez_battle_required) return []
+		if (Array.isArray(game.liberate_suez_required_attack_spaces)) {
+			return game.liberate_suez_required_attack_spaces.filter((s) => s > 0 && data.spaces[s])
+		}
+		let spaces = []
+		if (Array.isArray(game.activated?.attack)) {
+			for (let s of game.activated.attack) {
+				if (Engine.map.is_egypt(s)) set_add(spaces, s)
+			}
+		}
+		if (Array.isArray(game.activated?.attack_egypt)) {
+			for (let s of game.activated.attack_egypt) set_add(spaces, s)
+		}
+		return spaces
+	}
+
+	function can_liberate_suez_piece_still_attack_egypt(p) {
+		if (set_has(game.attacked, p)) return false
+		if (Array.isArray(game.retreated) && set_has(game.retreated, p)) return false
+		if (is_not_on_map(game, p)) return false
+		if (Engine.game_utils.get_piece_effective_faction(game, p) !== CP) return false
+		if (!is_lcu(p) && !is_scu(p)) return false
+		return get_attackable_spaces([p]).some((s) => Engine.map.is_egypt(s))
+	}
+
+	function get_pending_liberate_suez_attack_spaces() {
+		let pending = []
+		for (let s of get_liberate_suez_required_attack_spaces()) {
+			let pieces = get_pieces_in_space(game, s)
+			if (pieces.some((p) => can_liberate_suez_piece_still_attack_egypt(p))) {
+				set_add(pending, s)
+			}
+		}
+		return pending
+	}
+
+	function has_pending_liberate_suez_attack() {
+		return get_pending_liberate_suez_attack_spaces().length > 0
+	}
+
 	function reset_attack_focus() {
 		game.where = -1
 	}
@@ -173,8 +214,8 @@ exports.register = function (states, Engine, context) {
 				game.where = -1
 			}
 
-			if (game.liberate_suez_battle_required && !game.liberate_suez_egypt_battle_done) {
-				res.prompt("解放苏伊士：必须先在埃及地区完成至少一次战斗，然后才能结束进攻阶段。")
+			if (has_pending_liberate_suez_attack()) {
+				res.prompt("解放苏伊士：已指定进攻埃及的 CP 单位必须攻击埃及目标，然后才能结束进攻阶段。")
 			} else {
 				res.prompt("请选择攻击单位和目标")
 			}
@@ -286,12 +327,8 @@ exports.register = function (states, Engine, context) {
 		},
 		end_attack() {
 			refresh_attack_eligibility()
-			if (
-				game.liberate_suez_battle_required &&
-				!game.liberate_suez_egypt_battle_done &&
-				game.eligible_attackers.length > 0
-			) {
-				log("解放苏伊士：你必须在埃及地区完成至少一次战斗，不能结束进攻阶段。")
+			if (has_pending_liberate_suez_attack()) {
+				log("解放苏伊士：已指定进攻埃及的 CP 单位仍有合法埃及目标，不能结束进攻阶段。")
 				game.state = "attack"
 				return
 			}
@@ -354,12 +391,8 @@ exports.register = function (states, Engine, context) {
 		},
 		pass() {
 			refresh_attack_eligibility()
-			if (
-				game.liberate_suez_battle_required &&
-				!game.liberate_suez_egypt_battle_done &&
-				game.eligible_attackers.length > 0
-			) {
-				log("解放苏伊士：你必须在埃及地区完成至少一次战斗，不能跳过进攻。")
+			if (has_pending_liberate_suez_attack()) {
+				log("解放苏伊士：已指定进攻埃及的 CP 单位仍有合法埃及目标，不能跳过进攻。")
 				game.state = "attack"
 				return
 			}
@@ -397,12 +430,8 @@ exports.register = function (states, Engine, context) {
 		},
 		end_action() {
 			refresh_attack_eligibility()
-			if (
-				game.liberate_suez_battle_required &&
-				!game.liberate_suez_egypt_battle_done &&
-				game.eligible_attackers.length > 0
-			) {
-				log("解放苏伊士：必须在埃及地区完成至少一次战斗，当前不能结束行动轮。")
+			if (has_pending_liberate_suez_attack()) {
+				log("解放苏伊士：已指定进攻埃及的 CP 单位仍有合法埃及目标，当前不能结束行动轮。")
 				game.state = "attack"
 				return
 			}

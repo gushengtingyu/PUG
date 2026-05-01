@@ -1226,6 +1226,15 @@ module.exports = function (Engine) {
 				targets = targets.filter((t) => Engine.map.is_egypt(t))
 			}
 		}
+		if (game.active === CP && Array.isArray(game.liberate_suez_required_attack_spaces)) {
+			let uses_liberate_suez_required_source = pieces.some((p) => {
+				let from = game.pieces[p]
+				return from > 0 && set_has(game.liberate_suez_required_attack_spaces, from)
+			})
+			if (uses_liberate_suez_required_source) {
+				targets = targets.filter((t) => Engine.map.is_egypt(t))
+			}
+		}
 		return apply_balkan_attack_target_restrictions(game, pieces, targets, faction)
 	}
 
@@ -2897,7 +2906,6 @@ module.exports = function (Engine) {
 				) {
 					set_add(game.liberate_suez_egypt_attacked_spaces, from)
 					game.liberate_suez_egypt_battle_done = true
-					delete game.liberate_suez_battle_required
 				}
 			}
 		}
