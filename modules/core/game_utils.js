@@ -436,65 +436,128 @@ module.exports = function (Engine) {
 		return pieces
 	}
 
+	function get_replacement_nations_for_piece(game, p) {
+		let nations = get_piece_nations_for_rule(game, p).filter(Boolean)
+		let unique = []
+		for (let nation of nations) {
+			if (!unique.includes(nation)) unique.push(nation)
+		}
+		return unique
+	}
+
+	function is_british_empire_nation(nation) {
+		return nation === "br" || nation === "in" || nation === "anz"
+	}
+
+	function is_turkish_replacement_nation(nation) {
+		return nation === "tu" || nation === "tua"
+	}
+
+	function has_nation_overlap(a, b) {
+		return a.some((nation) => b.includes(nation))
+	}
+
+	function is_exception_replacement_nation(lcu_nations, scu_nations) {
+		if (
+			lcu_nations.some(is_turkish_replacement_nation) &&
+			scu_nations.some(is_turkish_replacement_nation)
+		)
+			return true
+		return lcu_nations.some(is_british_empire_nation) && scu_nations.some(is_british_empire_nation)
+	}
+
+	function can_scu_replace_lcu_by_rule_1265(game, lcu, scu) {
+		let lcu_info = data.pieces[lcu]
+		let scu_info = data.pieces[scu]
+		if (!lcu_info || !scu_info) return false
+		if (lcu_info.piece_class !== "LCU" || scu_info.piece_class !== "SCU") return false
+		if (scu_info.faction !== lcu_info.faction) return false
+		if (!is_in_reserve(game, scu)) return false
+
+		let lcu_nations = get_replacement_nations_for_piece(game, lcu)
+		let scu_nations = get_replacement_nations_for_piece(game, scu)
+		let same_nation = has_nation_overlap(lcu_nations, scu_nations)
+		let exception_nation = is_exception_replacement_nation(lcu_nations, scu_nations)
+		if (!same_nation && !exception_nation) return false
+
+		// 12.6.5: Special and irregular SCUs may not replace LCUs, except that
+		// dual-nationality SCUs may replace either nationality.
+		if (scu_info.type !== "regular" && !(same_nation && scu_nations.length > 1)) return false
+
+		if (
+			Engine.events &&
+			Engine.events.is_turkish_replacement_blocked &&
+			Engine.events.is_turkish_replacement_blocked(game, scu)
+		)
+			return false
+
+		return true
+	}
+
 	function get_replacement_options(game, p) {
 		let info = data.pieces[p]
 		if (info.piece_class !== "LCU") return []
 
-		let full_options = []
-		let reduced_options = []
-
-		let group = get_nation_group(info.nation)
+		let lcu_nations = get_replacement_nations_for_piece(game, p)
+		let target_badge = get_piece_badge(p)
+		let buckets = {
+			same_type_full: [],
+			same_type_reduced: [],
+			same_full: [],
+			same_reduced: [],
+			exception_type_full: [],
+			exception_type_reduced: [],
+			exception_full: [],
+			exception_reduced: []
+		}
 
 		for (let i = 1; i < data.pieces.length; i++) {
-			if (!is_in_reserve(game, i)) continue
-			let replacement = data.pieces[i]
-			if (replacement.piece_class !== "SCU") continue
-			if (get_nation_group(replacement.nation) !== group) continue
+			if (!can_scu_replace_lcu_by_rule_1265(game, p, i)) continue
 
-			// This check needs events module, we'll pass it or access via Engine
-			if (
-				Engine.events &&
-				Engine.events.is_turkish_replacement_blocked &&
-				Engine.events.is_turkish_replacement_blocked(game, i)
-			)
-				continue
+			let replacement_nations = get_replacement_nations_for_piece(game, i)
+			let same_nation = has_nation_overlap(lcu_nations, replacement_nations)
+			let same_type = target_badge && get_piece_badge(i) === target_badge
+			let reduced = is_piece_reduced(game, i)
 
-			if (is_piece_reduced(game, i)) reduced_options.push(i)
-			else full_options.push(i)
+			if (same_nation && same_type && !reduced) buckets.same_type_full.push(i)
+			else if (same_nation && same_type) buckets.same_type_reduced.push(i)
+			else if (same_nation && !reduced) buckets.same_full.push(i)
+			else if (same_nation) buckets.same_reduced.push(i)
+			else if (same_type && !reduced) buckets.exception_type_full.push(i)
+			else if (same_type) buckets.exception_type_reduced.push(i)
+			else if (!reduced) buckets.exception_full.push(i)
+			else buckets.exception_reduced.push(i)
 		}
 
-		// Rule 12.6.5: If possible, the SCU should also be of the same type as the LCU
-		const sort_by_type = (a, b) => {
-			let type_a = data.pieces[a].type
-			let type_b = data.pieces[b].type
-			let target_type = info.type
-			if (type_a === target_type && type_b !== target_type) return -1
-			if (type_a !== target_type && type_b === target_type) return 1
-			return 0
+		const priority = [
+			"same_type_full",
+			"same_type_reduced",
+			"same_full",
+			"same_reduced",
+			"exception_type_full",
+			"exception_type_reduced",
+			"exception_full",
+			"exception_reduced"
+		]
+
+		let options = []
+		for (let key of priority) {
+			if (buckets[key].length > 0) {
+				options = buckets[key]
+				break
+			}
 		}
 
-		full_options.sort(sort_by_type)
-		reduced_options.sort(sort_by_type)
-
-		if (full_options.length > 1) {
+		if (options.length > 1) {
 			let names = []
-			full_options = full_options.filter((unit) => {
+			options = options.filter((unit) => {
 				if (set_has(names, data.pieces[unit].name)) return false
 				set_add(names, data.pieces[unit].name)
 				return true
 			})
 		}
 
-		if (reduced_options.length > 1) {
-			let names = []
-			reduced_options = reduced_options.filter((unit) => {
-				if (set_has(names, data.pieces[unit].name)) return false
-				set_add(names, data.pieces[unit].name)
-				return true
-			})
-		}
-
-		return full_options.length > 0 ? full_options : reduced_options
+		return options
 	}
 
 	function capture_lcu_runtime_state(game, lcu) {
@@ -626,7 +689,8 @@ module.exports = function (Engine) {
 		let replacement_scu = -1
 
 		if (info.piece_class === "LCU" && !permanent) {
-			// Rule 12.6.5: LCU replaced by SCU only if supplied
+			// Rule 12.6.5 replaces an eliminated LCU with a matching Reserve Box SCU.
+			// Rule 12.6.7 makes combat elimination permanent when the LCU is OOS.
 			if (Engine.map.is_in_supply(game, space, info.faction, p)) {
 				let options = get_replacement_options(game, p)
 				if (options.length > 0) {
@@ -1166,6 +1230,7 @@ module.exports = function (Engine) {
 		get_pieces_in_removed,
 		get_pieces_in_removed_only,
 		get_pieces_in_reinforcements,
+		get_replacement_options,
 		is_permanently_eliminated,
 		is_removed_only,
 		remove_piece: remove_piece_from_game,

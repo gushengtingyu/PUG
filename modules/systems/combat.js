@@ -10,14 +10,12 @@ module.exports = function (Engine) {
 	const {
 		find_space,
 		is_eliminated,
-		is_in_reserve,
 		is_removed,
 		is_not_on_map,
 		piece_name,
 		space_name,
 		get_eliminated_box,
 		get_removed_box,
-		get_nation_group,
 		get_piece_cf,
 		is_turn_event,
 		get_piece_faction,
@@ -35,12 +33,11 @@ module.exports = function (Engine) {
 		get_piece_class,
 		has_rcf,
 		get_piece_lf,
-		get_piece_type,
 		get_piece_effective_faction,
 		is_piece_reduced,
 		has_trench,
 		get_piece_nation_groups_for_rule,
-		get_piece_nations_for_rule,
+		get_replacement_options,
 		piece_counts_as_nation_for_rule,
 		pieces_count_as_any_nation_for_rule,
 		can_piece_be_activated,
@@ -1340,20 +1337,9 @@ module.exports = function (Engine) {
 		function get_available_replacements(unit) {
 			let piece = get_tree_unit_piece(unit)
 			if (get_piece_class(piece) !== "LCU") return { full: [], reduced: [] }
-			let piece_groups = get_piece_nations_for_rule(game, piece).map((nation) => get_nation_group(nation))
-
-			let full = []
-			let reduced = []
-			for (let i = 1; i < data.pieces.length; i++) {
-				if (!is_in_reserve(game, i)) continue
-				if (get_piece_class(i) !== "SCU") continue
-				let rep_group = get_nation_group(get_piece_nation(i))
-				if (!piece_groups.includes(rep_group)) continue
-				if (get_piece_nation(i) === "tua" && game.events && game.events["arab_revolt"]) continue
-
-				if (is_piece_reduced(game, i)) reduced.push(i)
-				else full.push(i)
-			}
+			let options = get_replacement_options(game, piece)
+			let full = options.filter((p) => !is_piece_reduced(game, p))
+			let reduced = options.filter((p) => is_piece_reduced(game, p))
 			return { full, reduced }
 		}
 
