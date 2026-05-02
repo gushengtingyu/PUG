@@ -466,6 +466,14 @@ module.exports = function (Engine) {
 		return lcu_nations.some(is_british_empire_nation) && scu_nations.some(is_british_empire_nation)
 	}
 
+	function is_primary_replacement_nation(lcu_nations, scu_nations) {
+		if (has_nation_overlap(lcu_nations, scu_nations)) return true
+		return (
+			lcu_nations.some(is_turkish_replacement_nation) &&
+			scu_nations.some(is_turkish_replacement_nation)
+		)
+	}
+
 	function can_scu_replace_lcu_by_rule_1265(game, lcu, scu) {
 		let lcu_info = data.pieces[lcu]
 		let scu_info = data.pieces[scu]
@@ -515,14 +523,14 @@ module.exports = function (Engine) {
 			if (!can_scu_replace_lcu_by_rule_1265(game, p, i)) continue
 
 			let replacement_nations = get_replacement_nations_for_piece(game, i)
-			let same_nation = has_nation_overlap(lcu_nations, replacement_nations)
+			let primary_nation = is_primary_replacement_nation(lcu_nations, replacement_nations)
 			let same_type = target_badge && get_piece_badge(i) === target_badge
 			let reduced = is_piece_reduced(game, i)
 
-			if (same_nation && same_type && !reduced) buckets.same_type_full.push(i)
-			else if (same_nation && same_type) buckets.same_type_reduced.push(i)
-			else if (same_nation && !reduced) buckets.same_full.push(i)
-			else if (same_nation) buckets.same_reduced.push(i)
+			if (primary_nation && same_type && !reduced) buckets.same_type_full.push(i)
+			else if (primary_nation && same_type) buckets.same_type_reduced.push(i)
+			else if (primary_nation && !reduced) buckets.same_full.push(i)
+			else if (primary_nation) buckets.same_reduced.push(i)
 			else if (same_type && !reduced) buckets.exception_type_full.push(i)
 			else if (same_type) buckets.exception_type_reduced.push(i)
 			else if (!reduced) buckets.exception_full.push(i)
