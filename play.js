@@ -4315,6 +4315,7 @@ const UI_ACTIONS = [
 	["declare_turkish_retreat", "宣言撤退"],
 	["skip_turkish_retreat", "不宣言撤退"],
 	["retreat", "撤退"],
+	["finish_piece", "完成撤退"],
 	["reroll", "重掷"],
 	["destroy_fort", "摧毁要塞"],
 	["proceed_retreat", "继续撤退"],
