@@ -560,6 +560,7 @@ exports.register = function (states, Engine, context) {
 		"catastrophic_attack_retreat",
 		"catastrophic_attack_advance",
 		"turkish_retreat",
+		"jafar_pasha_retreat",
 		"retreat_cancel",
 		"save_tiflis_retreat",
 		"choose_lcu_replacement",
@@ -1229,19 +1230,24 @@ exports.register = function (states, Engine, context) {
 			if (mode !== "retreat") res.action("reroll")
 		},
 		retreat() {
-			let attackers = game.attack ? game.attack.pieces || [] : []
+			push_undo()
+			if (!game.attack) return
+			let attackers = game.attack.pieces || []
 			let defenders = get_pieces_in_space(game, game.attack.space).filter(
 				(p) => Engine.game_utils.get_piece_effective_faction(game, p) === game.active && !set_has(game.retreated, p)
 			)
-			combat.retreat_units(
-				game,
-				defenders,
-				1,
-				attackers.map((p) => game.pieces[p])
-			)
-			finalize_jafar_pasha_choice()
-			game.cc_jafar_pasha_retreat = true
-			resolve_battle_sequence()
+			if (!Array.isArray(game.retreated)) game.retreated = []
+			game.jafar_pasha_retreat = {
+				pieces: defenders,
+				avoided_spaces: attackers.map((p) => game.pieces[p])
+			}
+			game.retreat_distance = 1
+			game.retreat_from = game.attack.space
+			game.retreat_space = game.attack.space
+			game.retreat_steps_left = null
+			game.selected_piece = null
+			game.state = "jafar_pasha_retreat"
+			if (defenders.length === 0) finish_jafar_pasha_retreat()
 		},
 		reroll() {
 			finalize_jafar_pasha_choice()
@@ -1250,7 +1256,131 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
+	function get_jafar_pasha_retreat_state() {
+		if (!game.jafar_pasha_retreat) {
+			game.jafar_pasha_retreat = { pieces: [], avoided_spaces: [] }
+		}
+		game.jafar_pasha_retreat.pieces = (game.jafar_pasha_retreat.pieces || []).filter(
+			(p) => !is_not_on_map(game, p) && !is_eliminated(game, p)
+		)
+		if (!Array.isArray(game.jafar_pasha_retreat.avoided_spaces)) game.jafar_pasha_retreat.avoided_spaces = []
+		return game.jafar_pasha_retreat
+	}
+
+	function get_jafar_pasha_retreat_spaces(piece) {
+		let state = get_jafar_pasha_retreat_state()
+		let valid = get_valid_retreat_spaces(game, piece, state.avoided_spaces, 1, false)
+		return combat.apply_retreat_priorities(game, piece, valid)
+	}
+
+	function finish_jafar_pasha_retreat() {
+		let advance_space = game.attack?.space
+		delete game.jafar_pasha_retreat
+		delete game.selected_piece
+		delete game.retreat_pieces
+		delete game.retreat_space
+		delete game.retreat_distance
+		delete game.retreat_from
+		game.retreat_steps_left = null
+		finalize_jafar_pasha_choice()
+		game.jafar_pasha_advance_after_cancel = { advance_space }
+		game.cc_jafar_pasha_retreat = true
+		resolve_battle_sequence()
+	}
+
+	states.jafar_pasha_retreat = {
+		prompt(res) {
+			let state = get_jafar_pasha_retreat_state()
+			res.who(state.pieces)
+			res.where(game.retreat_space)
+
+			if (state.pieces.length === 0) {
+				res.prompt("贾法尔帕夏：撤退已完成")
+				res.action("done")
+				return
+			}
+
+			if (game.selected_piece === null || game.selected_piece === undefined) {
+				res.prompt("贾法尔帕夏：选择防守单位后撤 1 格")
+				for (let p of state.pieces) res.piece(p)
+				return
+			}
+
+			let piece = game.selected_piece
+			if (!set_has(state.pieces, piece)) {
+				game.selected_piece = null
+				res.prompt("贾法尔帕夏：选择防守单位后撤 1 格")
+				for (let p of state.pieces) res.piece(p)
+				return
+			}
+
+			res.prompt(`贾法尔帕夏：选择 ${data.pieces[piece].name} 的撤退地块`)
+			let valid = get_jafar_pasha_retreat_spaces(piece)
+			if (valid.length === 0) {
+				res.action("eliminate_retreating")
+			} else {
+				for (let s of valid) res.space(s)
+			}
+			res.piece(piece)
+		},
+		piece(p) {
+			let state = get_jafar_pasha_retreat_state()
+			if (game.selected_piece === p) {
+				game.selected_piece = null
+			} else if (set_has(state.pieces, p)) {
+				game.selected_piece = p
+			}
+		},
+		space(s) {
+			let state = get_jafar_pasha_retreat_state()
+			let p = game.selected_piece
+			if (p === null || p === undefined || !set_has(state.pieces, p)) return
+			let valid = get_jafar_pasha_retreat_spaces(p)
+			if (!set_has(valid, s)) return
+			push_undo()
+			let from = game.pieces[p]
+			ensure_attack_log_section("retreat_log_started", "撤退：")
+			log(`>> ${format_piece_log(p)} → s${s}`)
+			game.pieces[p] = s
+			game.retreat_space = s
+			if (!Engine.map.is_controlled_by(game, s, game.active) && data.pieces[p].type === "regular") {
+				set_control(game, s, game.active)
+			}
+			if (Engine.check_persia_entry_vp_penalty) {
+				Engine.check_persia_entry_vp_penalty(game, s, [p])
+			}
+			if (from > 0) {
+				Engine.sync_neutral_vp_state(game, from)
+				Engine.sync_jihad_city_state(game, from)
+				Engine.sync_region_control(game, from)
+			}
+			Engine.sync_region_control(game, s)
+			Engine.sync_neutral_vp_state(game, s)
+			Engine.sync_jihad_city_state(game, s)
+			set_delete(state.pieces, p)
+			set_add(game.retreated, p)
+			game.selected_piece = null
+			if (state.pieces.length === 0) finish_jafar_pasha_retreat()
+		},
+		eliminate_retreating() {
+			let state = get_jafar_pasha_retreat_state()
+			let p = game.selected_piece
+			if (p === null || p === undefined || !set_has(state.pieces, p)) return
+			push_undo()
+			ensure_attack_log_section("retreat_log_started", "撤退：")
+			log(`>> ${format_piece_log(p, true)} 无法撤退并被消灭`)
+			eliminate_piece(p, true)
+			set_delete(state.pieces, p)
+			game.selected_piece = null
+			if (state.pieces.length === 0) finish_jafar_pasha_retreat()
+		},
+		done() {
+			finish_jafar_pasha_retreat()
+		}
+	}
+
 	function start_attack_sequence() {
+		delete game.jafar_pasha_retreat
 		delete game.turkish_retreat_prev_active
 		delete game.turkish_retreat_chosen_space
 		delete game.retreat_choice_cc_done
@@ -1305,6 +1435,10 @@ exports.register = function (states, Engine, context) {
 		if (combat.is_battle_cancelled_by_cc(game)) {
 			let res = combat.resolve_battle_sequence(game, ctx)
 			if (res === "end" || res === "cancelled") {
+				if (game.jafar_pasha_advance_after_cancel) {
+					continue_after_jafar_pasha_cancelled_battle()
+					return
+				}
 				end_battle_sequence()
 			}
 			return
@@ -2108,6 +2242,8 @@ exports.register = function (states, Engine, context) {
 	function clear_battle_runtime_state() {
 		delete game.reserves_to_front_effected_pieces
 		clear_retreat_runtime_state()
+		delete game.jafar_pasha_retreat
+		delete game.jafar_pasha_advance_after_cancel
 		delete game.advance_pieces
 		delete game.advance_space
 		delete game.advance_count
@@ -2136,6 +2272,18 @@ exports.register = function (states, Engine, context) {
 			log("Russian units could not retreat towards Tiflis; full-strength TU/TUA units may advance.")
 		}
 		clear_save_tiflis_flags()
+	}
+
+	function continue_after_jafar_pasha_cancelled_battle() {
+		let resume = game.jafar_pasha_advance_after_cancel
+		delete game.jafar_pasha_advance_after_cancel
+		if (!resume || !(resume.advance_space > 0)) {
+			goto_attack()
+			return
+		}
+		if (!combat.begin_advance(game, game.battle_result, resume.advance_space)) {
+			goto_attack()
+		}
 	}
 
 	function continue_after_defender_retreat(resume, allow_post_battle_cc) {
