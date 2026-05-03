@@ -334,14 +334,13 @@ module.exports = function (Engine) {
 		if (has_romania_collapsed(game)) return false
 		if (!game.events["romania"]) return false
 
-		let cond_a = (
+		let cond_a =
 			BUCHAREST >= 0 &&
 			is_controlled_by(game, BUCHAREST, CP) &&
 			PLOESTI >= 0 &&
 			is_controlled_by(game, PLOESTI, CP) &&
 			CONSTANTA >= 0 &&
 			is_controlled_by(game, CONSTANTA, CP)
-		)
 
 		let cond_b = are_all_ro_lcus_eliminated(game)
 
@@ -412,16 +411,27 @@ module.exports = function (Engine) {
 			}
 
 			let gebu_xi = find_piece(CP, "German 11th Army")
-			if (gebu_xi >= 0 && !is_not_on_map(game, gebu_xi)) {
-				let s = game.pieces[gebu_xi]
+			if (gebu_xi >= 0) {
+				// 19.3.5：无论在地图上还是在预备盒/消灭盒，GE-BU 第 11 集团军都必须移除。
+				let was_on_map = !is_not_on_map(game, gebu_xi)
+				let s = was_on_map ? game.pieces[gebu_xi] : -1
 				eliminate_piece(game, gebu_xi, log, true)
-				// 19.3.5：GE-BU 第 11 集团军移除后，用预备盒中的一支 GE 步兵 SCU 替换（若可用）。
-				for (let p = 0; p < data.pieces.length; p++) {
-					if (get_piece_nation(p) === "ge" && is_scu(p) && is_in_reserve(game, p)) {
-						game.pieces[p] = s
-						let name = is_piece_reduced(game, p) ? `(${piece_name(p)})` : piece_name(p)
-						log(`德布第11集团军被 ${name} 替换。`)
-						break
+				if (was_on_map) {
+					// 替换仅在它原本在地图上时才执行（需要目标地块）。只能用 GE 步兵师（GE DIV #N），不含 Alpenkorps/HQ/炮兵/骑兵/Yildrim。
+					for (let p = 0; p < data.pieces.length; p++) {
+						let info = data.pieces[p]
+						if (
+							info &&
+							get_piece_nation(p) === "ge" &&
+							is_scu(p) &&
+							is_in_reserve(game, p) &&
+							info.name.startsWith("GE DIV #")
+						) {
+							game.pieces[p] = s
+							let name = is_piece_reduced(game, p) ? `(${piece_name(p)})` : piece_name(p)
+							log(`德布第11集团军被 ${name} 替换。`)
+							break
+						}
 					}
 				}
 			}
@@ -601,7 +611,7 @@ module.exports = function (Engine) {
 			if (result === "resolved") continue
 
 			result = maybe_offer_romanian_collapse(game)
-			return result === "interactive";
+			return result === "interactive"
 		}
 	}
 
