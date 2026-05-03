@@ -283,6 +283,20 @@ module.exports = function (Engine) {
 
 	const CASPIAN_SEA_PORTS = new Set(["Baku", "Central Asia", "Enzeli"])
 
+	// Rule 11.4: RU units may SR between these three regions as if connected by rail.
+	const RU_VIRTUAL_SR_SPACE_NAMES = ["Odessa", "Petrovsk", "Central Asia"]
+
+	function get_ru_virtual_sr_neighbors(s) {
+		if (!data.spaces[s]) return []
+		if (!RU_VIRTUAL_SR_SPACE_NAMES.includes(data.spaces[s].name)) return []
+		let result = []
+		for (let i = 1; i < data.spaces.length; i++) {
+			if (i === s || !data.spaces[i]) continue
+			if (RU_VIRTUAL_SR_SPACE_NAMES.includes(data.spaces[i].name)) result.push(i)
+		}
+		return result
+	}
+
 	function is_aegean_port(s) {
 		let space = data.spaces[s]
 		if (!space) return false
@@ -2015,6 +2029,12 @@ module.exports = function (Engine) {
 			} else {
 				neighbors = get_piece_connected_spaces_for_rule(game, current, p, "sr")
 			}
+			// Rule 11.4: RU units treat Odessa/Petrovsk/Central Asia as rail-connected for SR.
+			if (data.pieces[p]?.nation === "ru") {
+				for (let vn of get_ru_virtual_sr_neighbors(current)) {
+					if (!neighbors.includes(vn)) neighbors = neighbors.concat(vn)
+				}
+			}
 
 			for (let next of neighbors) {
 				let can_continue = true
@@ -2232,6 +2252,12 @@ module.exports = function (Engine) {
 				neighbors = rail_neighbors.filter((n) => nation_set.has(n))
 			} else {
 				neighbors = get_connected_spaces(game, current, nation, faction, p, "sr")
+			}
+			// Rule 11.4: RU units treat Odessa/Petrovsk/Central Asia as rail-connected for SR.
+			if (nation === "ru") {
+				for (let vn of get_ru_virtual_sr_neighbors(current)) {
+					if (!neighbors.includes(vn)) neighbors = neighbors.concat(vn)
+				}
 			}
 			for (let next of neighbors) {
 				let can_continue = true
