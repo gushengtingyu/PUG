@@ -1070,7 +1070,7 @@ module.exports = function (Engine) {
 		return false
 	}
 
-	function get_scu_sr_desert_step(game, current, next, faction) {
+	function get_scu_sr_desert_step(game, current, next, faction, is_source = false) {
 		let is_current_desert = data.spaces[current].terrain === DESERT
 		let is_next_desert = data.spaces[next].terrain === DESERT
 		if (!is_current_desert && !is_next_desert) {
@@ -1078,6 +1078,10 @@ module.exports = function (Engine) {
 		}
 
 		if (is_current_desert) {
+			// Rule 11.1.6 only restricts entering a desert during SR, not departing from the starting space.
+			if (is_source && !is_next_desert) {
+				return { allowed: true, can_continue: true }
+			}
 			let rail_conns = get_rail_connections(game, current, faction)
 			if (!rail_conns.includes(next)) return { allowed: false, can_continue: false }
 			if (!is_rail_connected_to_supply(game, current, faction)) return { allowed: false, can_continue: false }
@@ -2015,7 +2019,7 @@ module.exports = function (Engine) {
 			for (let next of neighbors) {
 				let can_continue = true
 				if (!rail_only) {
-					let desert_step = get_scu_sr_desert_step(game, current, next, faction)
+					let desert_step = get_scu_sr_desert_step(game, current, next, faction, current === from)
 					if (!desert_step.allowed) continue
 					can_continue = desert_step.can_continue
 				}
@@ -2232,7 +2236,7 @@ module.exports = function (Engine) {
 			for (let next of neighbors) {
 				let can_continue = true
 				if (!rail_only) {
-					let desert_step = get_scu_sr_desert_step(game, current, next, faction)
+					let desert_step = get_scu_sr_desert_step(game, current, next, faction, current === source)
 					if (!desert_step.allowed) continue
 					can_continue = desert_step.can_continue
 				}
@@ -3497,7 +3501,8 @@ module.exports = function (Engine) {
 
 	function get_supply_trace_status_to_source(game, start, faction, source, supply_context = null, options = null) {
 		let context = supply_context || create_supply_context(game)
-		let block_connection = options && typeof options.block_connection === "function" ? options.block_connection : null
+		let block_connection =
+			options && typeof options.block_connection === "function" ? options.block_connection : null
 		let sources = Array.isArray(source) ? source : [source]
 		let source_flag = build_space_flag_from_sources(sources)
 		let best_status = "OOS"
