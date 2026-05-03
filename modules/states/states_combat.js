@@ -224,7 +224,12 @@ exports.register = function (states, Engine, context) {
 			function get_cached_attackable_spaces(pieces) {
 				if (!Array.isArray(pieces) || pieces.length === 0) return []
 				let key =
-					pieces.length === 1 ? `p:${pieces[0]}` : `g:${pieces.slice().sort((a, b) => a - b).join(",")}`
+					pieces.length === 1
+						? `p:${pieces[0]}`
+						: `g:${pieces
+								.slice()
+								.sort((a, b) => a - b)
+								.join(",")}`
 				if (!prompt_attackable_cache.has(key)) {
 					prompt_attackable_cache.set(key, get_legal_attackable_spaces(pieces))
 				}
@@ -815,7 +820,16 @@ exports.register = function (states, Engine, context) {
 	}
 
 	// 统一战斗卡打出上下文，避免状态机里散落每张卡的来源处理与收尾逻辑。
-	function create_combat_card_play_context(game, c, info, faction, is_attacker, from_retained, return_state, mark_effected) {
+	function create_combat_card_play_context(
+		game,
+		c,
+		info,
+		faction,
+		is_attacker,
+		from_retained,
+		return_state,
+		mark_effected
+	) {
 		function dispose_after_use(after_use) {
 			if (after_use === "remove") move_card_to_removed(c, faction)
 			else move_card_to_discard(c, faction)
@@ -890,7 +904,16 @@ exports.register = function (states, Engine, context) {
 			set_add(game.combat_cards_effected, card)
 		}
 		let spec = combat_cards.get_combat_card_spec(c)
-		let ctx = create_combat_card_play_context(game, c, info, faction, is_attacker, from_retained, return_state, mark_effected)
+		let ctx = create_combat_card_play_context(
+			game,
+			c,
+			info,
+			faction,
+			is_attacker,
+			from_retained,
+			return_state,
+			mark_effected
+		)
 
 		if (spec?.on_play?.(ctx) === "stop") {
 			return
@@ -994,7 +1017,11 @@ exports.register = function (states, Engine, context) {
 			let army_of_islam_hq = Engine.game_utils.find_piece(CP, "TU Army Islam HQ")
 			if (army_of_islam_hq >= 0) {
 				game.pieces[army_of_islam_hq] = s
-				if (game.attack && Array.isArray(game.attack.pieces) && !game.attack.pieces.includes(army_of_islam_hq)) {
+				if (
+					game.attack &&
+					Array.isArray(game.attack.pieces) &&
+					!game.attack.pieces.includes(army_of_islam_hq)
+				) {
 					game.attack.pieces.push(army_of_islam_hq)
 					combat.remember_attack_piece_origin(game, army_of_islam_hq)
 				}
@@ -1234,7 +1261,9 @@ exports.register = function (states, Engine, context) {
 			if (!game.attack) return
 			let attackers = game.attack.pieces || []
 			let defenders = get_pieces_in_space(game, game.attack.space).filter(
-				(p) => Engine.game_utils.get_piece_effective_faction(game, p) === game.active && !set_has(game.retreated, p)
+				(p) =>
+					Engine.game_utils.get_piece_effective_faction(game, p) === game.active &&
+					!set_has(game.retreated, p)
 			)
 			if (!Array.isArray(game.retreated)) game.retreated = []
 			game.jafar_pasha_retreat = {
@@ -1752,7 +1781,9 @@ exports.register = function (states, Engine, context) {
 			}
 			let defender_faction = game.attack.defender || active_faction()
 			let retreated_defenders = get_pieces_in_space(game, game.attack.space).filter(
-				(p) => Engine.game_utils.get_piece_effective_faction(game, p) === defender_faction && set_has(game.retreated, p)
+				(p) =>
+					Engine.game_utils.get_piece_effective_faction(game, p) === defender_faction &&
+					set_has(game.retreated, p)
 			)
 			if (retreated_defenders.length === 0) {
 				res.prompt(`战斗结算: ${space_name(game.attack.space)}（无此前退却单位）`)
@@ -2068,15 +2099,14 @@ exports.register = function (states, Engine, context) {
 		let exclude_space = options.exclude_space
 		if (!(remaining > 0) || !(from_space > 0)) return []
 		let connected = Engine.map.get_piece_connected_spaces_for_rule(game, from_space, p)
-		let candidates = from_space === cat.defender_space ? connected.filter((s) => s === cat.origin) : connected.slice()
+		let candidates =
+			from_space === cat.defender_space ? connected.filter((s) => s === cat.origin) : connected.slice()
 		let valid = []
 		for (let s of candidates) {
 			if (exclude_space !== undefined && s === exclude_space) continue
 			if (!can_enter_region(game, p, s)) continue
 			let is_retreat_transit =
-				cat.retreat_space &&
-				s === cat.retreat_space &&
-				Engine.map.contains_enemy_pieces(game, s, CP)
+				cat.retreat_space && s === cat.retreat_space && Engine.map.contains_enemy_pieces(game, s, CP)
 			if (!is_retreat_transit && Engine.map.contains_enemy_pieces(game, s, CP)) continue
 			if (!is_retreat_transit && !can_stack_end_in_space(game, s, [p])) continue
 			if (is_retreat_transit) {
@@ -2099,9 +2129,7 @@ exports.register = function (states, Engine, context) {
 		if (!cat) return false
 		let from_space = game.pieces[p]
 		let is_retreat_transit =
-			cat.retreat_space &&
-			to_space === cat.retreat_space &&
-			Engine.map.contains_enemy_pieces(game, to_space, CP)
+			cat.retreat_space && to_space === cat.retreat_space && Engine.map.contains_enemy_pieces(game, to_space, CP)
 		if (is_retreat_transit) {
 			game.pieces[p] = to_space
 		} else if (!advance_piece_into_space(p, from_space, to_space)) {
@@ -2175,11 +2203,11 @@ exports.register = function (states, Engine, context) {
 			}
 		}
 		let retreat_space = game.turkish_retreat_space ?? game.attack?.space
-		let is_valid_turkish_retreat_piece = (p) => retreat_space !== undefined && !is_not_on_map(game, p) && game.pieces[p] === retreat_space
+		let is_valid_turkish_retreat_piece = (p) =>
+			retreat_space !== undefined && !is_not_on_map(game, p) && game.pieces[p] === retreat_space
 		let mandatory = (game.turkish_retreat_mandatory || []).filter(is_valid_turkish_retreat_piece)
 		let optional = (game.turkish_retreat_optional || []).filter(is_valid_turkish_retreat_piece)
-		let can_control = (p) =>
-			set_has(mandatory, p) || set_has(optional, p)
+		let can_control = (p) => set_has(mandatory, p) || set_has(optional, p)
 		let selected_piece =
 			game.selected_piece !== null && game.selected_piece !== undefined && can_control(game.selected_piece)
 				? game.selected_piece
@@ -2196,11 +2224,11 @@ exports.register = function (states, Engine, context) {
 				optional = []
 			} else {
 				mandatory = current_cp_defenders.filter(
-					(p) => (data.pieces[p].nation === "tu" || data.pieces[p].nation === "tua") && data.pieces[p].piece_class === "SCU"
+					(p) =>
+						(data.pieces[p].nation === "tu" || data.pieces[p].nation === "tua") &&
+						data.pieces[p].piece_class === "SCU"
 				)
-				optional = current_cp_defenders.filter(
-					(p) => !set_has(mandatory, p)
-				)
+				optional = current_cp_defenders.filter((p) => !set_has(mandatory, p))
 			}
 		}
 		return {
@@ -2413,9 +2441,8 @@ exports.register = function (states, Engine, context) {
 		cannot_retreat() {
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
-				log(`${data.pieces[p].name} cannot retreat towards Tiflis and is eliminated.`)
+				log(`${data.pieces[p].name} cannot retreat towards Tiflis and remains in place.`)
 				game.save_tiflis_failed = true
-				Engine.game_utils.eliminate_piece(game, p, log)
 				set_delete(game.save_tiflis_pieces, p)
 				game.selected_piece = null
 			}
@@ -2423,10 +2450,10 @@ exports.register = function (states, Engine, context) {
 		done() {
 			delete game.save_tiflis_pieces
 			delete game.selected_piece
-			
+
 			// Restore active faction to attacker (CP)
 			game.active = game.attack.attacker
-			
+
 			// Resume end_battle_sequence to handle losses and normal retreats
 			combat.end_battle_sequence(game, log)
 		}
@@ -2555,7 +2582,9 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 
-			let candidates = (cat.advance_candidates || []).filter((p) => !is_not_on_map(game, p) && !is_eliminated(game, p))
+			let candidates = (cat.advance_candidates || []).filter(
+				(p) => !is_not_on_map(game, p) && !is_eliminated(game, p)
+			)
 			let movable = candidates.filter((p) => get_catastrophic_attack_advance_spaces(p).length > 0)
 			res.where(cat.defender_space)
 			res.who(candidates)
@@ -2776,9 +2805,7 @@ exports.register = function (states, Engine, context) {
 				)
 
 				// Rule 6.1.7: Must retreat to a single adjacent space that is not enemy-occupied and does not contain a fortress.
-				valid = valid.filter(
-					(s) => !combat.has_undestroyed_fort(game, s, other_faction(active_faction()))
-				)
+				valid = valid.filter((s) => !combat.has_undestroyed_fort(game, s, other_faction(active_faction())))
 
 				valid = combat.apply_retreat_priorities(game, piece, valid)
 
@@ -2911,7 +2938,9 @@ exports.register = function (states, Engine, context) {
 					let bonus = count_beachhead_captured_materiel_bonus()
 					if (bonus > 0) {
 						game.tu_rp_bonus = (game.tu_rp_bonus || 0) + bonus
-						log(`空滩头在推进中被同盟国摧毁：${space_name(to_space)}，圣战等级 +2，土耳其奖励RP +${bonus}。`)
+						log(
+							`空滩头在推进中被同盟国摧毁：${space_name(to_space)}，圣战等级 +2，土耳其奖励RP +${bonus}。`
+						)
 					} else {
 						log(`空滩头在推进中被同盟国摧毁：${space_name(to_space)}，圣战等级 +2。`)
 					}
@@ -2943,7 +2972,11 @@ exports.register = function (states, Engine, context) {
 		Engine.sync_neutral_vp_state(game, to_space, undefined, { silent: will_control_to_space })
 		Engine.sync_jihad_city_state(game, to_space)
 		if (!Engine.map.is_controlled_by(game, to_space, active_faction())) {
-			if (!enemy_holds_contested_region && active_faction() === CP && Engine.map.is_russian_vp_space(game, to_space)) {
+			if (
+				!enemy_holds_contested_region &&
+				active_faction() === CP &&
+				Engine.map.is_russian_vp_space(game, to_space)
+			) {
 				game.captured_russian_vp_in_advance = true
 			}
 			if (!combat.has_undestroyed_fort(game, to_space, other_faction(active_faction()))) {
@@ -2977,7 +3010,9 @@ exports.register = function (states, Engine, context) {
 				set_has(game.reserves_to_front_effected_pieces, p)
 
 			if (game.advance_follow_mode) {
-				let selectable = (game.advance_follow_pieces || []).filter((p) => get_follow_advance_spaces(p).length > 0)
+				let selectable = (game.advance_follow_pieces || []).filter(
+					(p) => get_follow_advance_spaces(p).length > 0
+				)
 				res.prompt("选择继续推进的单位")
 				res.action("end_advance")
 				if (selectable.length === 0) {
@@ -3094,14 +3129,11 @@ exports.register = function (states, Engine, context) {
 				let is_heavy_arty = Engine.game_utils.is_heavy_arty(uid)
 				let is_yildirim = data.pieces[uid].symbol === "Y" && data.pieces[uid].nation === "ge"
 				if (is_hq || is_heavy_arty) return false
-				return !(is_yildirim && !game.advance_yildirim_used);
+				return !(is_yildirim && !game.advance_yildirim_used)
 			})
 			let limit_reached = (game.advance_count || 0) >= (game.advance_limit || 3)
 
-			if (
-				game.advance_pieces.length === 0 ||
-				(limit_reached && !count_limited_left)
-			) {
+			if (game.advance_pieces.length === 0 || (limit_reached && !count_limited_left)) {
 				let selectable_follow = (game.advance_follow_pieces || []).filter(
 					(uid) => get_follow_advance_spaces(uid).length > 0
 				)
@@ -3113,9 +3145,11 @@ exports.register = function (states, Engine, context) {
 				let allowed = game.advance_pieces.filter((uid) => {
 					if (data.pieces[uid].type === "hq") return true
 					if (Engine.game_utils.is_heavy_arty(uid)) return true
-					return !game.advance_yildirim_used &&
+					return (
+						!game.advance_yildirim_used &&
 						data.pieces[uid].symbol === "Y" &&
-						data.pieces[uid].nation === "ge";
+						data.pieces[uid].nation === "ge"
+					)
 				})
 				if (allowed.length === 0) {
 					let selectable_follow = (game.advance_follow_pieces || []).filter(
@@ -3144,7 +3178,9 @@ exports.register = function (states, Engine, context) {
 				set_delete(game.advance_follow_pieces, p)
 				game.selected_piece = null
 			}
-			let selectable = (game.advance_follow_pieces || []).filter((uid) => get_follow_advance_spaces(uid).length > 0)
+			let selectable = (game.advance_follow_pieces || []).filter(
+				(uid) => get_follow_advance_spaces(uid).length > 0
+			)
 			if (selectable.length === 0) {
 				game.selected_piece = null
 			}
