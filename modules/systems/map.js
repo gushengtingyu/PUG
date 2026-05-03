@@ -1681,6 +1681,15 @@ module.exports = function (Engine) {
 			!is_in_supply(game, game.move.initial, data.pieces[p].faction, p)
 		)
 			return "沙漠进入需要起始补给"
+		// Rule 9.1: A unit may never move to a space in which it would be Out of Supply.
+		// Exception: amphibious invasion to establish a beachhead.
+		if (!can_ap_initiate_invasion_to_beachhead(game, game.move.current, target, faction)) {
+			let prev_pos = game.pieces[p]
+			game.pieces[p] = target
+			let in_supply = is_in_supply(game, target, data.pieces[p].faction, p)
+			game.pieces[p] = prev_pos
+			if (!in_supply) return "目标格无补给"
+		}
 
 		let s = game.move.current
 		let neighbors = get_piece_connected_spaces_for_rule(game, s, p)
@@ -1781,6 +1790,17 @@ module.exports = function (Engine) {
 		if (!can_enter_region(game, p, target)) return false
 		if (data.spaces[target].terrain === "desert") {
 			if (!is_in_supply(game, game.move.initial, data.pieces[p].faction, p)) return false
+		}
+		// Rule 9.1: A unit may never move to a space in which it would be Out of Supply.
+		// Exception: amphibious invasion to establish a beachhead (potential beachhead is supply-isolated until marker is placed).
+		// For regular moves into enemy territory: check supply as if the unit were already at the target,
+		// since a unit's presence there makes supply traceable through that space.
+		if (!can_ap_initiate_invasion_to_beachhead(game, game.move.current, target, faction)) {
+			let prev_pos = game.pieces[p]
+			game.pieces[p] = target
+			let in_supply = is_in_supply(game, target, data.pieces[p].faction, p)
+			game.pieces[p] = prev_pos
+			if (!in_supply) return false
 		}
 		let s = game.move.current
 		let neighbors = get_piece_connected_spaces_for_rule(game, s, p)
