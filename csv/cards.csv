@@ -1,6 +1,6 @@
 num,faction,commitment,ops,sr,remove,cc,ws,rp_a,rp_br,rp_ru,rp_ah,rp_ge,rp_tu,rp_in,name,event,effect
 1,ap,mobilization,3,4,TRUE,,2,,1,2,,,,1,英俄突袭,RUSSO-BRITISH ASSAULT,(该事件不能完成俄国MO。不能在1914年秋季第一行动轮后当作事件打出)。启动波斯湾滩头的部队进行登陆(如果目标是法奥港则直接摧毁其要塞)，随后激活进行战斗。另外，启动两个包含俄国部队的地区进行战斗。
-2,ap,mobilization,2,2,TRUE,,1,,,1,,,,1,澳新增援,ANZAC REINFORCEMENTS,增援:(澳新步兵师)，1个澳新骑兵师
+2,ap,mobilization,2,2,TRUE,,1,,,1,,,,1,澳新增援,ANZAC REINFORCEMENTS,增援:澳新步兵师，[1个澳新骑兵师]
 3,ap,mobilization,2,2,TRUE,,,,,1,,,,1,埃及政变,EGYPTIAN COUP,-1圣战等级。在地图上放置英国塞浦路斯补给标记，塞浦路斯现在成为协约国岛屿基地。
 4,ap,mobilization,2,2,,TRUE,,,,1,,,,1,海岸炮击,SHORE BOMBARDMENT CC,在或者对东地中海、红海、波斯湾沿岸地区、苏伊士运河沿岸地区或加里波利地区的一次进攻/防御+1drm
 5,ap,mobilization,2,2,,TRUE,,,,1,,,,1,亚美尼亚志愿队,ARMENIAN DRUZHINY CC,一次俄国或者亚美尼亚部队在**巴尔干地区外**的进攻/防御+1drm

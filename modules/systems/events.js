@@ -515,7 +515,7 @@ module.exports = function (Engine) {
 				}
 
 				// 2. 协约国控制的港口 (排除特定地块)
-				if ((space.port) && Engine.map.is_controlled_by(game, s, AP)) {
+				if (space.port && Engine.map.is_controlled_by(game, s, AP)) {
 					// 排除 阿卡巴、吉达、萨洛尼卡、黑海港口、里海港口
 					if (s === AQABA || s === JIDDAH) return false
 					if (s === SALONIKA) return false
@@ -621,7 +621,7 @@ module.exports = function (Engine) {
 				check_reinforcement_space(game, s, AP, (space, s) => {
 					const name = space.name
 					if (["Odessa", "TIFLIS", "Central Asia", "Petrovsk"].includes(name)) return true
-					return !!(name === "Trabzon" && game.vps && game.vps[s] === "ru");
+					return !!(name === "Trabzon" && game.vps && game.vps[s] === "ru")
 				})
 		},
 		is_arab_revolt_rein: {
@@ -742,7 +742,13 @@ module.exports = function (Engine) {
 		is_caucasian_army_reforms_rein: {
 			faction: CP,
 			desc: "安纳托利亚、高加索或加里波利的同盟国控制地区",
-			check: (game, s) => check_reinforcement_space(game, s, CP, (space, s) => is_anatolia(s) || is_caucasus(s) || is_gallipoli(s))
+			check: (game, s) =>
+				check_reinforcement_space(
+					game,
+					s,
+					CP,
+					(space, s) => is_anatolia(s) || is_caucasus(s) || is_gallipoli(s)
+				)
 		},
 		is_secret_treaty_rein: {
 			faction: AP,
@@ -909,12 +915,7 @@ module.exports = function (Engine) {
 	 * @returns {boolean}
 	 */
 	function is_german_subs_reinforcement_turn(game) {
-		return !!(
-			game &&
-			game.events &&
-			game.events["german_subs"] &&
-			game.events["german_subs_turn"] === game.turn
-		)
+		return !!(game && game.events && game.events["german_subs"] && game.events["german_subs_turn"] === game.turn)
 	}
 
 	/**
@@ -1150,7 +1151,7 @@ module.exports = function (Engine) {
 			name: "ANZAC REINFORCEMENTS",
 			add_rein_record: "in_anz",
 			name_cn: "澳新增援",
-			effect_cn: "增援:(澳新步兵师)，1个澳新骑兵师",
+			effect_cn: "增援:澳新步兵师，[1个澳新骑兵师]",
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "anzac_reinf")
 				game.active = AP
@@ -1367,7 +1368,7 @@ module.exports = function (Engine) {
 			name_cn: "阿拉伯起义",
 			effect_cn: "(只能【劳伦斯】后，且圣战等级不大于7时打出)在汉志大区放置3个阿拉伯起义军并全部启动进行战斗。",
 			can_play: function (game) {
-				return !(!game.events["lawrence"] || (game.jihad || 0) > 7);
+				return !(!game.events["lawrence"] || (game.jihad || 0) > 7)
 			},
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "arab_revolt")
@@ -1523,7 +1524,7 @@ module.exports = function (Engine) {
 			effect_cn:
 				"(只能在塞尔维亚崩溃后打出)。增援:6个塞尔维亚步兵师、1个塞尔维亚骑兵师至利姆诺斯岛屿基地、协约国控制的萨洛尼卡或者预备军格。。增援:塞尔维亚第1集团军、第2集团军、第3集团军至预备军格。",
 			can_play: function (game) {
-				return Engine.collapse.has_serbia_collapsed(game);
+				return Engine.collapse.has_serbia_collapsed(game)
 			},
 			handler: function (game, ctx) {
 				game.events["the_serbs_return"] = game.turn
@@ -1694,7 +1695,8 @@ module.exports = function (Engine) {
 		31: {
 			name: "RUSSIAN WINTER OFFENSIVE",
 			name_cn: "俄国冬季攻势",
-			effect_cn: "(只能在冬季打出)。(黄色事件)。当作事件打出时，正常使用此牌记录的OP点数。本轮中适用以下效果:。从山地地区发起的或者向山地地区进行的俄国部队进攻无视恶劣天气修正。。所有俄国进攻+1drm。所有土耳其高加索地区的要塞火力值暂时视为0。如果俄国部队在战斗后得以挺进上述要塞地区，则可以**立即摧毁要塞，无视围攻规则。**",
+			effect_cn:
+				"(只能在冬季打出)。(黄色事件)。当作事件打出时，正常使用此牌记录的OP点数。本轮中适用以下效果:。从山地地区发起的或者向山地地区进行的俄国部队进攻无视恶劣天气修正。。所有俄国进攻+1drm。所有土耳其高加索地区的要塞火力值暂时视为0。如果俄国部队在战斗后得以挺进上述要塞地区，则可以**立即摧毁要塞，无视围攻规则。**",
 			can_play: function (game) {
 				return get_season(game) === "Winter"
 			},
@@ -1826,7 +1828,8 @@ module.exports = function (Engine) {
 		38: {
 			name: "ROYAL FLYING CORPS CC",
 			name_cn: "皇家空军",
-			effect_cn: "任何英国/印度/澳新部队的进攻/防御+1drm。此牌第一次打出后，阻止同盟国在剩余的游戏时间打出【飞行分队】",
+			effect_cn:
+				"任何英国/印度/澳新部队的进攻/防御+1drm。此牌第一次打出后，阻止同盟国在剩余的游戏时间打出【飞行分队】",
 			handler: function (game) {
 				game.events["royal_flying_corps"] = game.turn
 				game.events["royal_flying_corps_permanent"] = true
@@ -2004,12 +2007,13 @@ module.exports = function (Engine) {
 		48: {
 			name: "TURKISH WAR WEARINESS",
 			name_cn: "土耳其厌战",
-			effect_cn: "(只能在联合战争状态大于27时打出。不能在1917年冬季前打出)。在接下来的游戏时间里，每回合土耳其补员点数-2。如果在补员阶段土耳其补员点数因此效果小于0，则必须把地图上或者预备军格的土耳其/土耳其-阿拉伯单位翻至减损面或者消灭。。剩余的游戏时间内，土耳其/土耳其-阿拉伯的**精锐部队(蓝色图标)**和骑兵部队再也无法接受补员。",
+			effect_cn:
+				"(只能在联合战争状态大于27时打出。不能在1917年冬季前打出)。在接下来的游戏时间里，每回合土耳其补员点数-2。如果在补员阶段土耳其补员点数因此效果小于0，则必须把地图上或者预备军格的土耳其/土耳其-阿拉伯单位翻至减损面或者消灭。。剩余的游戏时间内，土耳其/土耳其-阿拉伯的**精锐部队(蓝色图标)**和骑兵部队再也无法接受补员。",
 			can_play: function (game) {
 				let year = get_year(game)
 				if (game.combined_war <= 27) return false
 				if (year < 1917) return false
-				return !(year === 1917 && get_season(game) === "Fall");
+				return !(year === 1917 && get_season(game) === "Fall")
 			},
 			handler: function (game, ctx) {
 				game.events["turkish_war_weariness"] = true
@@ -2019,7 +2023,8 @@ module.exports = function (Engine) {
 		49: {
 			name: "MASSED CAVALRY CHARGE CC",
 			name_cn: "集群骑兵冲锋",
-			effect_cn: "一次由包含澳新沙漠军团的堆叠发起的攻击获得+1drm并取消所有战壕效果**(和沙漠地形效果(LCU沙漠限制效果除外)*这是可选规则的一部分，双方玩家需要在游戏开始前决定是否采用澳新沙漠军团可选规则【该规则较大地加强了澳新沙漠军团】)**。若协约国赢得这场战斗，则所有参与战斗的满员骑兵单位可以挺进最多3格。",
+			effect_cn:
+				"一次由包含澳新沙漠军团的堆叠发起的攻击获得+1drm并取消所有战壕效果**(和沙漠地形效果(LCU沙漠限制效果除外)*这是可选规则的一部分，双方玩家需要在游戏开始前决定是否采用澳新沙漠军团可选规则【该规则较大地加强了澳新沙漠军团】)**。若协约国赢得这场战斗，则所有参与战斗的满员骑兵单位可以挺进最多3格。",
 			handler: function (game) {
 				game.events["massed_cavalry_charge"] = game.turn
 			}
@@ -2063,7 +2068,8 @@ module.exports = function (Engine) {
 		53: {
 			name: "D'ESPEREY",
 			name_cn: "德斯佩雷",
-			effect_cn: "(只能在【劳合乔治接管指挥权】后打出)。增援:法国东方集团军-2 至预备军格。增援:2个法国步兵师，HQ:德斯佩雷。在剩余的游戏时间中，解除协约国在巴尔干地区的攻击限制。",
+			effect_cn:
+				"(只能在【劳合乔治接管指挥权】后打出)。增援:法国东方集团军-2 至预备军格。增援:2个法国步兵师，HQ:德斯佩雷。在剩余的游戏时间中，解除协约国在巴尔干地区的攻击限制。",
 			can_play: function (game) {
 				if (!game.events["lloyd_george_takes_command"]) return false
 				let capacity = 0
@@ -2108,7 +2114,7 @@ module.exports = function (Engine) {
 			name: "ALLENBY",
 			name_cn: "艾伦比",
 			effect_cn:
-			"(只有在【劳合乔治接管指挥权】后才能打出)。增援:英国第20军团、英国第21军团 至 预备军格。增援:2个英国步兵师，1个澳新骑兵师，1个英国骑兵师，HQ:艾伦比。增援:北阿拉伯军 至协约国控制的亚喀巴 或者 被摧毁栏。如果地图上或者预备军格存在英国精锐步兵师，则将其中一个移除游戏(派往西线)。在剩余的游戏时间内协约国MO掷骰+1drm",
+				"(只有在【劳合乔治接管指挥权】后才能打出)。增援:英国第20军团、英国第21军团 至 预备军格。增援:2个英国步兵师，1个澳新骑兵师，1个英国骑兵师，HQ:艾伦比。增援:北阿拉伯军 至协约国控制的亚喀巴 或者 被摧毁栏。如果地图上或者预备军格存在英国精锐步兵师，则将其中一个移除游戏(派往西线)。在剩余的游戏时间内协约国MO掷骰+1drm",
 			can_play: function (game) {
 				return !!game.events["lloyd_george_takes_command"]
 			},
@@ -2153,11 +2159,12 @@ module.exports = function (Engine) {
 		55: {
 			name: "LLOYD GEORGE TAKES COMMAND",
 			name_cn: "劳合乔治接管指挥权",
-			effect_cn: "(不能在1916年秋季回合前打出，除非联合战争状态不小于26)。增援:澳新沙漠军团 至预备军格。增援:1个英国步兵师，1个英国骑兵师。在剩余的游戏时间中，每回合获得额外1点英国补员点数，在剩余的游戏时间内协约国MO掷骰+2drm",
+			effect_cn:
+				"(不能在1916年秋季回合前打出，除非联合战争状态不小于26)。增援:澳新沙漠军团 至预备军格。增援:1个英国步兵师，1个英国骑兵师。在剩余的游戏时间中，每回合获得额外1点英国补员点数，在剩余的游戏时间内协约国MO掷骰+2drm",
 			can_play: function (game) {
 				let year = get_year(game)
 				let season = get_season(game)
-				let is_1916_fall_or_later = year > 1916 || (year === 1916 && (season === "Fall"))
+				let is_1916_fall_or_later = year > 1916 || (year === 1916 && season === "Fall")
 				let is_ws_26_or_higher = (game.combined_war || 0) >= 26
 				return is_1916_fall_or_later || is_ws_26_or_higher
 			},
@@ -2459,7 +2466,7 @@ module.exports = function (Engine) {
 				let salonika = find_space("Salonika")
 				if (salonika >= 0) {
 					let pieces = get_pieces_in_space(game, salonika)
-					return pieces.some(p => data.pieces[p].faction === AP)
+					return pieces.some((p) => data.pieces[p].faction === AP)
 				}
 				return false
 			},
@@ -2468,7 +2475,11 @@ module.exports = function (Engine) {
 
 				let greek_units_to_move = []
 				for (let p = 1; p < game.pieces.length; p++) {
-					if (neutral.is_greek_piece(p) && !neutral.is_greek_cnd(p) && !Engine.game_utils.is_not_on_map(game, p)) {
+					if (
+						neutral.is_greek_piece(p) &&
+						!neutral.is_greek_cnd(p) &&
+						!Engine.game_utils.is_not_on_map(game, p)
+					) {
 						greek_units_to_move.push(p)
 					}
 				}
@@ -2528,8 +2539,7 @@ module.exports = function (Engine) {
 			name: "TURKISH REINFORCEMENTS",
 			add_rein_record: "tu",
 			name_cn: "土耳其增援",
-			effect_cn:
-				"增援: 4个土耳其-阿拉伯精锐步兵师。如果在【阿拉伯起义】后打出，则这些部队以受损面进入。",
+			effect_cn: "增援: 4个土耳其-阿拉伯精锐步兵师。如果在【阿拉伯起义】后打出，则这些部队以受损面进入。",
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "turkish_reinf_73")
 				game.active = CP
@@ -3042,7 +3052,12 @@ module.exports = function (Engine) {
 			can_play: function (game) {
 				let year = get_year(game)
 				let is_after_winter_1917 = year > 1916
-				return is_after_winter_1917 && game.events["british_war_weariness"] && game.events["kaiserschlacht"] && game.vp >= 13
+				return (
+					is_after_winter_1917 &&
+					game.events["british_war_weariness"] &&
+					game.events["kaiserschlacht"] &&
+					game.vp >= 13
+				)
 			},
 			handler: function (game, ctx) {
 				game.mo_ap_modifier = Math.max(0, (game.mo_ap_modifier || 0) - 2)
@@ -3056,7 +3071,8 @@ module.exports = function (Engine) {
 		104: {
 			name: "BERLIN-BAGHDAD RAILROAD",
 			name_cn: "柏林-巴格达铁路",
-			effect_cn: "完成亚达纳和阿勒颇附近的铁路修建(君士坦丁堡-大马士革的铁路完成连通)。。现在同盟国在限制地区内可以存在最多3支LCU。。+1VP",
+			effect_cn:
+				"完成亚达纳和阿勒颇附近的铁路修建(君士坦丁堡-大马士革的铁路完成连通)。。现在同盟国在限制地区内可以存在最多3支LCU。。+1VP",
 			handler: function (game, ctx) {
 				game.events.berlin_baghdad = 1
 				game.vp += 1
@@ -3196,27 +3212,49 @@ module.exports = function (Engine) {
 	exports.bulls_eye_cleanup_scus = bulls_eye_cleanup_scus
 
 	// --- Generic Event Queries (Decoupling from map/game_utils) ---
-	function is_event_active(game, event_id) { return game.events && !!game.events[event_id] }
-	function is_turn_event_active(game, event_id) { return game.events && game.events[event_id] === game.turn }
-
-	exports.is_br_rp_blocked = function (game) { return game.active === Engine.constants.AP && is_turn_event_active(game, "parliamentary_inquiry") }
-	exports.is_ru_rp_blocked = function (game) { return is_turn_event_active(game, "gorlice_tarnow") }
-	exports.is_ge_rp_blocked = function (game) {
-		return !!(
-			game &&
-			game.events &&
-			game.events["kaiserschlacht_rp_block_turn"] === game.turn
-		)
+	function is_event_active(game, event_id) {
+		return game.events && !!game.events[event_id]
 	}
-	exports.get_russian_revolution_level = function (game) { return (game.events && game.events["russian_revolution"]) || 0 }
-	exports.is_royal_navy_blockade_active = function (game) { return is_event_active(game, "royal_navy_blockade") }
-	exports.is_arab_desertion_active = function (game) { return is_event_active(game, "arab_desertion") }
-	exports.is_egyptian_coup_active = function (game) { return is_event_active(game, "egyptian_coup") }
-	exports.is_bulgaria_active = function (game) { return is_event_active(game, "bulgaria") }
-	exports.is_romania_active = function (game) { return is_event_active(game, "romania") }
-	exports.is_afghan_alliance_active = function (game) { return is_event_active(game, "afghan_alliance") }
-	exports.is_rupel_active = function (game) { return is_event_active(game, "rupel") }
-	exports.is_berlin_baghdad_active = function (game) { return is_event_active(game, "berlin_baghdad") }
+	function is_turn_event_active(game, event_id) {
+		return game.events && game.events[event_id] === game.turn
+	}
+
+	exports.is_br_rp_blocked = function (game) {
+		return game.active === Engine.constants.AP && is_turn_event_active(game, "parliamentary_inquiry")
+	}
+	exports.is_ru_rp_blocked = function (game) {
+		return is_turn_event_active(game, "gorlice_tarnow")
+	}
+	exports.is_ge_rp_blocked = function (game) {
+		return !!(game && game.events && game.events["kaiserschlacht_rp_block_turn"] === game.turn)
+	}
+	exports.get_russian_revolution_level = function (game) {
+		return (game.events && game.events["russian_revolution"]) || 0
+	}
+	exports.is_royal_navy_blockade_active = function (game) {
+		return is_event_active(game, "royal_navy_blockade")
+	}
+	exports.is_arab_desertion_active = function (game) {
+		return is_event_active(game, "arab_desertion")
+	}
+	exports.is_egyptian_coup_active = function (game) {
+		return is_event_active(game, "egyptian_coup")
+	}
+	exports.is_bulgaria_active = function (game) {
+		return is_event_active(game, "bulgaria")
+	}
+	exports.is_romania_active = function (game) {
+		return is_event_active(game, "romania")
+	}
+	exports.is_afghan_alliance_active = function (game) {
+		return is_event_active(game, "afghan_alliance")
+	}
+	exports.is_rupel_active = function (game) {
+		return is_event_active(game, "rupel")
+	}
+	exports.is_berlin_baghdad_active = function (game) {
+		return is_event_active(game, "berlin_baghdad")
+	}
 	// ----------------------------------------------------------------
 
 	exports.is_persia_open = is_persia_open
