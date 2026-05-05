@@ -2942,14 +2942,17 @@ module.exports = function (Engine) {
 				return true
 			}
 
-			if (["Medina", "Mecca", "Maan", "Central Asia", "Afghanistan"].includes(name)) {
+			if (["Medina", "Mecca", "Maan", "Afghanistan"].includes(name)) {
+				return true
+			}
+			if (name === "Central Asia" && game.events && game.events["central_asia_rebellion"]) {
 				return true
 			}
 
-			if (info.port && is_controlled_by(game, s, CP)) {
+			if (info.port && is_controlled_by(game, s, CP) && !is_caspian_sea_port(game, s)) {
 				let blockade = !!(game.events && game.events["royal_navy_blockade"])
 				if (!blockade) return true
-				if (is_black_sea_port(game, s) || is_caspian_sea_port(game, s)) return true
+				if (is_black_sea_port(game, s)) return true
 			}
 		}
 
