@@ -1,7 +1,7 @@
 const js = require("@eslint/js")
 
 const baseRules = {
-	"no-unused-vars": "warn"
+	"no-unused-vars": ["warn", { argsIgnorePattern: "^_" }]
 }
 
 const nodeGlobals = {

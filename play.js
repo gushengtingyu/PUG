@@ -66,8 +66,6 @@ for (let s = 1; s < map_space_count; ++s) {
 	UPDATE_SPACE_ID_FLAGS[s] = 1
 }
 
-// Architecture Improvement:
-// 将 layout 的合并逻辑移入 init_layout()，并在 on_init 中调用。
 function init_layout() {
 	if (typeof layout === "undefined") window.layout = {}
 	if (typeof data === "undefined") {
@@ -103,7 +101,6 @@ function init_layout() {
 	}
 }
 
-// 立即初始化 layout，以便后续的 top-level 循环能够使用。
 init_layout()
 
 const DEBUG_SPACES = false

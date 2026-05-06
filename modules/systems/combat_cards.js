@@ -137,14 +137,6 @@ module.exports = function (Engine) {
 		})
 	}
 
-	function has_nation_in_battle(game, nations) {
-		if (!has_attack(game)) return false
-		let attackers = get_attack_pieces(game)
-		let defenders = get_space_pieces(game, game.attack.space)
-		let all = attackers.concat(defenders)
-		return all.some((p) => nations.some((nation) => piece_counts_as_nation_for_rule(game, p, nation)))
-	}
-
 	function get_battle_piece_pool(game) {
 		if (!has_attack(game)) return []
 		let seen = new Set()

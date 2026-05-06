@@ -1,9 +1,7 @@
-const assert = require("node:assert/strict")
 const rules = require("../rules.js")
 const data = require("../data.js")
 const Engine = require("../modules/engine.js")
 
-const AP_ROLE = rules.roles[0]
 const CP_ROLE = rules.roles[1]
 
 function findCardByEvent(eventName) {

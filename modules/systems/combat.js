@@ -5,17 +5,14 @@ module.exports = function (Engine) {
 	const exports = {}
 
 	const { set_has, set_add, set_delete, roll_die } = Engine.utils
-	const { AP, CP, ELIMINATED } = Engine.constants
+	const { AP, CP } = Engine.constants
 	const MO_BALKANS = "balkans"
 	const {
 		find_space,
 		is_eliminated,
-		is_removed,
 		is_not_on_map,
 		piece_name,
 		space_name,
-		get_eliminated_box,
-		get_removed_box,
 		get_piece_cf,
 		is_turn_event,
 		get_piece_faction,
@@ -27,7 +24,6 @@ module.exports = function (Engine) {
 		eliminate_piece,
 		reduce_piece,
 		is_lcu,
-		is_scu,
 		get_piece_mf,
 		get_piece_badge,
 		get_piece_class,
@@ -1626,8 +1622,6 @@ module.exports = function (Engine) {
 		if (result.cancelled) {
 			// Return other combat cards to hands (except the card that cancelled the battle)
 			if (game.combat_cards) {
-				const attacker_faction = game.active
-				const defender_faction = other_faction(attacker_faction)
 				const cancelling_cards = result.cancelling_cards || []
 				const effected_cards = game.combat_cards_effected || []
 
@@ -2805,13 +2799,6 @@ module.exports = function (Engine) {
 			attacking_spaces.add(game.pieces[p])
 		}
 
-		let defenders = get_pieces_in_space(game, target_space).filter(
-			(p) =>
-				get_piece_effective_faction(game, p) === defender_faction &&
-				!(Array.isArray(game.retreated) && set_has(game.retreated, p))
-		)
-		let has_defenders = defenders.length > 0
-		let is_besieged_val = is_besieged(game, target_space) && has_defenders
 		let has_fort = has_undestroyed_fort(game, target_space, defender_faction)
 		let is_region_val = is_region(game, target_space)
 
@@ -3484,7 +3471,6 @@ module.exports = function (Engine) {
 		}
 
 		// Return results for rules.js to handle post-combat (MO, Retreat)
-		let diff = def_losses - att_losses
 		let retreat_needed = false
 		let retreating_faction = null
 		let retreating_units = []

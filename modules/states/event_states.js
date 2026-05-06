@@ -17,15 +17,11 @@ module.exports = function (Engine) {
 	const TO_ABADAN = find_space("to Abadan")
 	const SHAIBA = find_space("Shaiba")
 	const SALONIKA = find_space("Salonika")
-	const LEMNOS = find_space("Lemnos")
 	const KUM_KALE = find_space("Kum Kale")
 	const SEDDUL_BAHR = find_space("Seddul Bahr")
 	const MAIDOS = find_space("Maidos")
 	const CANAKKALE = find_space("Canakkale")
 	const BATUM = find_space("Batum")
-	const BAKU = find_space("Baku")
-	const ENZELI = find_space("Enzeli")
-	const PETROVSK = find_space("Petrovsk")
 	const GALICIA = find_space("Galicia")
 	const GALLIPOLI = find_space("Gallipoli")
 	const BOSPHORUS_FORTS = find_space("The Bosphorus Forts")
@@ -844,7 +840,7 @@ module.exports = function (Engine) {
 
 	states.event_greece_counter = {
 		prompt(ctx) {
-			let { view, res } = ctx
+			let { res } = ctx
 			res.prompt("是否打出【康斯坦丁国王】反制【希腊】？")
 			res.action("play_event", 71)
 			res.action("pass")
@@ -1188,7 +1184,7 @@ module.exports = function (Engine) {
 			game.state = "event_enver_goes_east_select_space"
 		},
 		cancel(ctx) {
-			let { game, rules } = ctx
+			let { game } = ctx
 			let event = use_event(game, "enver_goes_east")
 			delete event.enver_current_space
 			game.state = "event_enver_goes_east_select_space"
@@ -1366,7 +1362,6 @@ module.exports = function (Engine) {
 		},
 		space(ctx) {
 			let { game, rules, arg: s } = ctx
-			let event = use_event(game, "sphere_of_influence")
 			let units = ["RU Elite DIV #3", "RU DIV #11", "RU DIV #12"]
 			rules.push_undo()
 
@@ -1389,7 +1384,7 @@ module.exports = function (Engine) {
 
 	states.event_project_alexandria_place_beachhead = {
 		prompt(ctx) {
-			let { game, res, rules } = ctx
+			let { game, res } = ctx
 			res.prompt("亚历山大计划：将一个滩头标志放置在塞浦路斯旁的滩头地区。")
 			for (let s of get_available_beachhead_placement_spaces(game)) {
 				if (data.spaces[s].beach_for === "Cyprus") res.space(s)
@@ -1567,7 +1562,7 @@ module.exports = function (Engine) {
 
 	states.event_churchill_prevails_place_units = {
 		prompt(ctx) {
-			let { game, res, rules } = ctx
+			let { game, res } = ctx
 			let event = use_event(game, "churchill_prevails")
 			if (!event.reinf_to_place) {
 				event.reinf_to_place = ["BR Elite DIV #1", "BR Elite DIV #2"]
@@ -1654,7 +1649,7 @@ module.exports = function (Engine) {
 
 	states.event_arab_revolt_place = {
 		prompt(ctx) {
-			let { game, res, rules } = ctx
+			let { game, res } = ctx
 			let { units } = get_reinforcement_units(game)
 			if (!units || units.length === 0) {
 				res.prompt("阿拉伯起义：所有单位已放置在麦加。是否启动它们进行战斗？")
@@ -2035,7 +2030,7 @@ module.exports = function (Engine) {
 		done(ctx) {
 			let { game, rules } = ctx
 			let invasion = get_active_event_data(game)
-			let { units, source } = get_reinforcement_units(game)
+			let { source } = get_reinforcement_units(game)
 			if (source) delete source.reinf_to_place
 			if (invasion) delete invasion.direct_to_beachhead
 			rules.goto_end_event()
@@ -2393,7 +2388,7 @@ module.exports = function (Engine) {
 
 	states.event_grand_duke_to_tiflis_sr = {
 		prompt(ctx) {
-			let { game, res, rules } = ctx
+			let { game, res } = ctx
 			let event = use_event(game, "grand_duke_to_tiflis")
 			res.prompt(
 				"尼古拉大公抵达第比利斯 ：可选操作，将 1 个俄国骑兵师战略调整至 " + data.spaces[event.event_port].name
@@ -2565,7 +2560,7 @@ module.exports = function (Engine) {
 
 	states.event_reserves_to_front = {
 		prompt(ctx) {
-			let { game, res, rules } = ctx
+			let { game, res } = ctx
 			let spent = game.reserves_to_front_spent || 0
 			let remaining = 2 - spent
 			res.prompt(`前线预备役: 剩余 ${remaining} 土耳其补员点数`)
@@ -2614,7 +2609,7 @@ module.exports = function (Engine) {
 			}
 		},
 		done(ctx) {
-			let { game, rules } = ctx
+			let { game } = ctx
 			let leftover = 2 - (game.reserves_to_front_spent || 0)
 			if (leftover > 0) {
 				game.rp_cp.tu -= leftover
@@ -3037,7 +3032,7 @@ module.exports = function (Engine) {
 
 	states.event_turkish_reinf_81_combine = {
 		prompt(ctx) {
-			let { game, res, rules } = ctx
+			let { game, res } = ctx
 			let event = use_event(game, "turkish_reinf_81")
 			if (event.combine_used) {
 				res.prompt("土耳其增援：已完成本次事件赠送的 1 次 LCU 组合。")
@@ -3096,7 +3091,7 @@ module.exports = function (Engine) {
 
 	states.event_jerusalem_by_christmas_select_space = {
 		prompt(ctx) {
-			let { game, res, rules } = ctx
+			let { game, res } = ctx
 			let event = use_event(game, "jerusalem_by_christmas")
 			let targets = get_jerusalem_by_christmas_targets(game)
 			res.prompt("圣诞节前收复圣城：选择一个由同盟国控制的圣战城市或补给源。")
@@ -3632,7 +3627,7 @@ module.exports = function (Engine) {
 			}
 		},
 		piece(ctx) {
-			let { game, rules, arg: p } = ctx
+			let { rules, arg: p } = ctx
 			rules.push_undo()
 			rules.remove_piece(p)
 			rules.log(`艾伦比：${data.pieces[p].name} 被移出游戏 (派往西线)。`)
@@ -3841,7 +3836,7 @@ module.exports = function (Engine) {
 			if (!game.event_ctx.data) game.event_ctx.data = { removed: [] }
 			rules.set_add(game.event_ctx.data.removed, p)
 		},
-		space(ctx) {
+		space() {
 			// Dummy handler to prevent "Invalid action: space" if any spaces are highlighted
 		},
 		confirm(ctx) {
@@ -4491,7 +4486,7 @@ module.exports = function (Engine) {
 			if (is_valid) res.action("done")
 		},
 		piece(ctx) {
-			let { game, rules, arg: p } = ctx
+			let { rules, arg: p } = ctx
 			rules.push_undo()
 			let info = data.pieces[p]
 			let cost = Engine.game_utils.is_lcu(p) ? 3 : 1

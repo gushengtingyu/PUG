@@ -8,7 +8,7 @@ const Engine = require("../modules/engine.js")
 
 const { setupGame, findSpace, findApPiece, findCpPiece, clearBoard } = require("./helpers.js")
 
-const { AP, CP } = Engine.constants
+const { AP } = Engine.constants
 const AP_ROLE = rules.roles[0]
 
 function createSupplyStatusViewGame() {

@@ -60,9 +60,6 @@ exports.register = function (states, Engine, context) {
 		goto_review_supply_warnings,
 		start_attrition_phase,
 		get_pieces_in_space,
-		is_stack_counted_piece,
-		is_scu,
-		get_scu_reserve_box,
 		clear_event_ctx,
 		card_name
 	} = context

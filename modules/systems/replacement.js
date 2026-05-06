@@ -59,13 +59,8 @@ module.exports = function (Engine) {
 		is_spers_rifles_unit
 	} = Engine.game_utils
 	const SOFIA = find_space("SOFIA")
-	const BELGRADE = find_space("BELGRADE")
 	const CONSTANTINOPLE = find_space("CONSTANTINOPLE")
-	const ODESSA = find_space("Odessa")
 	const TRABZON = find_space("Trabzon")
-	const LEMNOS = find_space("Lemnos")
-	const SALONIKA = find_space("Salonika")
-	const NIS = find_space("Nis")
 	const BAGHDAD = find_space("Baghdad")
 	const AQABA = find_space("Aqaba")
 	const JIDDAH = find_space("Jiddah")
@@ -92,14 +87,6 @@ module.exports = function (Engine) {
 
 	function has_serbia_collapsed(game) {
 		return !!(Engine.collapse && Engine.collapse.has_serbia_collapsed && Engine.collapse.has_serbia_collapsed(game))
-	}
-
-	function has_romania_collapsed(game) {
-		return !!(
-			Engine.collapse &&
-			Engine.collapse.has_romania_collapsed &&
-			Engine.collapse.has_romania_collapsed(game)
-		)
 	}
 
 	function can_rebuild_regular_unit_in_space(game, s, faction) {

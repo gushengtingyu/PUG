@@ -41,7 +41,6 @@ const MENJIL = 101     // 波斯区域（受影响区域）
 const ENZELI = 78      // 波斯区域，距第比利斯更近（Menjil的撤退目标）
 
 const TU_1_CAUCASIAN = 227    // 土耳其 LCU
-const TU_I_CORPS = 265        // 土耳其 LCU（备用）
 const RU_I_CAUCASIAN = 139    // 俄国 LCU（战斗防守方）
 const RU_CAV_1 = 103          // 俄国 SCU（用于受影响区域）
 const RU_CAV_4 = 106          // 俄国 SCU（备用）

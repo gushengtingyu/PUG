@@ -264,7 +264,7 @@ module.exports = function (Engine) {
 		return false
 	}
 
-	function has_home_supply_privilege(game, p, space_id, faction) {
+	function has_home_supply_privilege(game, p, space_id, _faction) {
 		let piece = data.pieces[p]
 		let space = data.spaces[space_id]
 		if (!piece || !space) return false
@@ -302,7 +302,7 @@ module.exports = function (Engine) {
 		return false
 	}
 
-	function can_rebuild_balkan_unit_in_space(game, p, space_id, faction) {
+	function can_rebuild_balkan_unit_in_space(game, p, space_id, _faction) {
 		const { map } = Engine
 		let piece = data.pieces[p]
 		let space = data.spaces[space_id]
@@ -505,7 +505,7 @@ module.exports = function (Engine) {
 		return true
 	}
 
-	function change_neutral_control(game, nation, new_controller) {
+	function change_neutral_control(game, nation, _new_controller) {
 		// POG and PUG behavior: The UI renders tokens for controlled spaces
 		// However, spaces belonging to a nation joining its DEFAULT faction do not need explicit control tokens.
 		// map.js get_default_controller already handles "if bulgaria event -> bu is CP". 
@@ -754,7 +754,6 @@ module.exports = function (Engine) {
 		if (!is_vp_space(game, s)) return
 		if (!game.vp_partial_disruption) game.vp_partial_disruption = []
 		if (!game.neutral_vp_partial_control) game.neutral_vp_partial_control = []
-		let vp_val = get_effective_vp_value(game, s)
 		let previous =
 			previous_override !== undefined
 				? normalize_vp_owner(previous_override)

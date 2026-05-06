@@ -24,7 +24,6 @@ exports.register = function (states, Engine, context) {
 		log_br,
 		push_undo,
 		active_faction,
-		contains_friendly,
 		get_activation_cost,
 		get_activation_cost_pair,
 		get_pieces_in_space,
@@ -35,7 +34,6 @@ exports.register = function (states, Engine, context) {
 		is_lcu,
 		is_tribe,
 		is_hq,
-		get_region,
 		is_rail_connected_to_supply,
 		get_piece_mf,
 		get_connected_spaces,
@@ -45,15 +43,9 @@ exports.register = function (states, Engine, context) {
 		get_lcu_reserve_box,
 		get_scu_reserve_box,
 		get_eliminated_box,
-		get_removed_box,
 		get_permanently_eliminated_box,
-		is_reserve_space,
-		is_in_reserve,
-		is_eliminated,
-		is_removed,
 		is_not_on_map,
 		goto_end_event,
-		find_space,
 		piece_name,
 		piece_list,
 		get_movement_cost,
@@ -852,7 +844,6 @@ exports.register = function (states, Engine, context) {
 		},
 		activate_attack_with_br(s) {
 			// MO_BRITISH_NO_ATTACK: activate attack including BR units, pay +1 VP penalty once per turn
-			let faction = active_faction()
 			if (game.mo_ap !== "british_no_attack" || game.br_attack_penalty_paid) return
 			if (Engine.map.is_region(game, s)) return  // region activation handled separately
 			let cost = get_activation_cost(game, s, "attack_with_br")

@@ -16,7 +16,6 @@ module.exports = function (Engine) {
 		is_regular,
 		is_hq,
 		is_heavy_arty,
-		is_in_reserve,
 		is_not_on_map,
 		get_piece_nations_for_rule,
 		get_piece_nation_groups_for_rule,
@@ -1878,10 +1877,6 @@ module.exports = function (Engine) {
 		return result
 	}
 
-	function get_ap_aegean_supply_sources(game, source_cache = null) {
-		return get_ap_sea_supply_sources(game, source_cache, "ap_aegean_sources", is_aegean_port)
-	}
-
 	function get_ap_aegean_east_med_supply_sources(game, source_cache = null) {
 		return get_ap_sea_supply_sources(game, source_cache, "ap_aegean_east_med_sources", is_aegean_east_med_port)
 	}
@@ -2928,7 +2923,6 @@ module.exports = function (Engine) {
 		let info = data.spaces[s]
 		if (!info) return false
 		let name = info.name
-		let region = info.region
 
 		if (faction === CP) {
 			if (nation) {
@@ -3125,7 +3119,7 @@ module.exports = function (Engine) {
 		return { western, eastern }
 	}
 
-	function can_trace_supply_to_ap_port(game, start, faction, for_placement_or_sr = false) {
+	function can_trace_supply_to_ap_port(game, start, faction) {
 		if (start <= 0) return false
 		let ports = []
 		for (let s of get_supply_eligible_space_ids()) {
@@ -3144,12 +3138,6 @@ module.exports = function (Engine) {
 		source_cache = null,
 		status_cache = null
 	) {
-		let sources = get_supply_sources_from_data_cached(game, faction, false, source_cache)
-
-		// Add Beachheads
-		let beachheads = get_beachhead_spaces(game, faction)
-		sources = sources.concat(beachheads)
-
 		// Pre-calculate supply for non-tribes
 		for (let p = 0; p < game.pieces.length; p++) {
 			if (is_not_on_map(game, p)) continue // Off map or in special boxes

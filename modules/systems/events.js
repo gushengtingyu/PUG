@@ -37,7 +37,6 @@ module.exports = function (Engine) {
 		is_beachhead_space,
 		get_pieces_in_space,
 		is_balkans,
-		get_region,
 		is_neutral_persia_space,
 		is_anatolia,
 		is_caucasus,
@@ -54,14 +53,10 @@ module.exports = function (Engine) {
 	const LEMNOS = find_space("Lemnos")
 	const BAGHDAD = find_space("Baghdad")
 	const GALICIA = find_space("Galicia")
-	const BAKU = find_space("Baku")
 	const PETROVSK = find_space("Petrovsk")
 	const AP_ELIMINATED = find_space("AP Eliminated")
 	const AP_REMOVED = find_space("AP Removed Box")
 	const AP_PE = find_space("AP Permanently Eliminated Box")
-	const CP_ELIMINATED = find_space("CP Eliminated")
-	const CP_REMOVED = find_space("CP Removed Box")
-	const CP_PE = find_space("CP Permanently Eliminated Box")
 	const AQABA = find_space("Aqaba")
 	const JIDDAH = find_space("Jiddah")
 	const CYPRUS = find_space("Cyprus")
@@ -1848,7 +1843,7 @@ module.exports = function (Engine) {
 			name_cn: "不冻港",
 			effect_cn:
 				"(只能在能通过陆地计算补给线至彼得罗夫斯克的俄国部队控制原本属于土耳其的爱琴海、东地中海和波斯湾港口时打出。不能在俄国革命后打出)。。如果该港口地区不为VP点，则在游戏的剩余时间视其为VP点**(同样在革命结算时算作俄国VP数的一部分)**。现在开始“上帝保佑沙皇”标记永远位于俄国VP数+2的位置。**(即使该港口随后被同盟国夺回)**",
-			can_play: function (game) {
+			can_play: function () {
 				// 温水港机制尚未实装
 				return false
 			},

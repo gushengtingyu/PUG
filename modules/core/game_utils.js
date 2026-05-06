@@ -4,7 +4,7 @@ module.exports = function (Engine) {
 	const { data } = Engine
 	const exports = {}
 
-	const { ELIMINATED, RESERVE, REMOVED, REINFORCEMENTS, AP, CP } = Engine.constants
+	const { ELIMINATED, RESERVE, REMOVED, REINFORCEMENTS, AP } = Engine.constants
 	const { set_add, set_delete, set_has } = Engine.utils
 	const STACKING_LIMIT = 3
 
@@ -206,7 +206,6 @@ module.exports = function (Engine) {
 
 	function is_removed(game, p) {
 		if (p < 0 || !data.pieces[p]) return false
-		let s = game.pieces[p]
 		return is_removed_only(game, p) || is_permanently_eliminated(game, p)
 	}
 
@@ -827,7 +826,7 @@ module.exports = function (Engine) {
 		return []
 	}
 
-	function place_trench(game, s, faction) {
+	function place_trench(game, s) {
 		if (!game.trenches) game.trenches = []
 
 		// Rule 15.4.4: Space may never contain more than one Trench marker.
@@ -946,10 +945,6 @@ module.exports = function (Engine) {
 	}
 
 	// === Unit Logic (Combined from units.js) ===
-
-	function is_british_empire(nation) {
-		return ["br", "anz", "in", "in-g", "ar", "pe"].includes(nation)
-	}
 
 	function is_commonwealth_for_combination(nation) {
 		return nation === "br" || nation === "in" || nation === "anz"

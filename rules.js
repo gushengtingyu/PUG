@@ -1580,9 +1580,6 @@ function log(msg) {
 function logi(msg) {
 	log(">" + msg)
 }
-function logii(msg) {
-	log(">>" + msg)
-}
 function log_br() {
 	if (game && Array.isArray(game.log)) {
 		if (game.log.length === 0 || game.log[game.log.length - 1] !== "") game.log.push("")

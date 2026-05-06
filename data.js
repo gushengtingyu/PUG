@@ -3898,6 +3898,7 @@ var data = {
 		"y": 1232,
 		"nation": "tu",
 		"faction": "cp",
+		"terrain": "mountain",
 		"area": "anatolia",
 		"connections": [
 			150,
@@ -5314,6 +5315,7 @@ var data = {
 		"y": 1791,
 		"nation": "tu",
 		"faction": "cp",
+		"vp": 2,
 		"area": "syria_palestine",
 		"connections": [
 			193,
@@ -6337,11 +6339,12 @@ var data = {
 		],
 		"rail_connections": [
 			228,
+			249,
 			251
 		],
 		"connection_types": {
 			"228": "rail",
-			"249": "",
+			"249": "rail",
 			"251": "conditional_rail"
 		},
 		"connection_flags": {
@@ -6563,10 +6566,12 @@ var data = {
 			244,
 			261
 		],
-		"rail_connections": [],
+		"rail_connections": [
+			241
+		],
 		"connection_types": {
 			"237": "",
-			"241": "",
+			"241": "rail",
 			"244": "",
 			"261": ""
 		}
@@ -8150,6 +8155,8 @@ var data = {
 		"nation": "br",
 		"faction": "ap",
 		"terrain": "desert",
+		"vp": 1,
+		"port": 2,
 		"region": "sudan and darfur",
 		"area": "egypt",
 		"connections": [],
@@ -18207,7 +18214,8 @@ var data = {
 	},
 	{
 		"a": 241,
-		"b": 249
+		"b": 249,
+		"type": "rail"
 	},
 	{
 		"a": 228,

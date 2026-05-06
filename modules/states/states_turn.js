@@ -13,7 +13,6 @@ exports.register = function (states, Engine, context) {
 	const {
 		log,
 		log_h2,
-		log_h3_faction,
 		get_pieces_in_space,
 		find_space,
 		other_faction,
@@ -23,8 +22,6 @@ exports.register = function (states, Engine, context) {
 		is_tribe,
 		is_eliminated,
 		is_not_on_map,
-		is_besieged,
-		find_capital,
 		get_reserve_box,
 		faction_name,
 		log_h1,
@@ -38,7 +35,6 @@ exports.register = function (states, Engine, context) {
 		pieces_count_as_any_nation_for_rule,
 		reinforce,
 		push_undo,
-		pop_undo,
 		roll_die,
 		determine_mo_ap,
 		determine_mo_cp,
@@ -1065,13 +1061,13 @@ exports.register = function (states, Engine, context) {
 			let faction = game.active === AP ? "AP" : "CP"
 			let rps = game.active === AP ? game.rp_ap : game.rp_cp
 			let rp_str = Object.entries(rps)
-				.filter(([k, v]) => v > 0)
+				.filter(([, v]) => v > 0)
 				.map(([k, v]) => `${k.toUpperCase()}:${v}`)
 				.join(", ")
 
 			if (game.active === CP) {
 				let rebel_str = Object.entries(game.rp_rebel || {})
-					.filter(([k, v]) => v > 0)
+					.filter(([, v]) => v > 0)
 					.map(([k, v]) => `${k.toUpperCase()}(Rebel):${v}`)
 					.join(", ")
 				if (rebel_str) {

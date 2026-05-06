@@ -13,7 +13,6 @@ exports.register = function (states, Engine, context) {
 
 	const {
 		log,
-		log_h3_faction,
 		push_undo,
 		active_faction,
 		get_attackable_spaces: get_legal_attackable_spaces,
@@ -22,7 +21,6 @@ exports.register = function (states, Engine, context) {
 		refresh_attack_eligibility,
 		is_scu,
 		is_lcu,
-		is_tribe,
 		is_rail_connected_to_supply,
 		get_connected_spaces,
 		is_in_reserve,
@@ -34,7 +32,6 @@ exports.register = function (states, Engine, context) {
 		goto_end_operations,
 		goto_end_action,
 		get_cc_retained,
-		check_supply,
 		can_enter_region,
 		can_stack_end_in_space,
 		eliminate_piece,
@@ -52,7 +49,6 @@ exports.register = function (states, Engine, context) {
 		move_card_to_removed,
 		move_card_to_discard,
 		get_season,
-		is_turn_event,
 		mo,
 		reduce_piece,
 		get_piece_lf,

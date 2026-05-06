@@ -2,7 +2,7 @@ const rules = require("../rules.js")
 const Engine = require("../modules/engine.js")
 const { setupGame } = require("./helpers.js")
 
-const { AP, CP } = Engine.constants
+const { CP } = Engine.constants
 const AP_ROLE = rules.roles[0]
 const CP_ROLE = rules.roles[1]
 

@@ -5,7 +5,6 @@ module.exports = function (Engine) {
 	const {
 		is_regular,
 		get_piece_nation,
-		get_piece_faction,
 		get_piece_effective_faction,
 		is_not_on_map,
 		piece_counts_as_nation_for_rule,
