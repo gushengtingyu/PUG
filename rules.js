@@ -1,7 +1,9 @@
 "use strict"
 
 let game, view, res
+let _assert_push_undo = 0
 
+const zlib = require("zlib")
 const Engine = require("./modules/engine.js")
 const activation_states = require("./modules/states/states_activation.js")
 const combat_states = require("./modules/states/states_combat.js")
@@ -263,6 +265,8 @@ function move_piece(target_game, p, s) {
 const event_rules = Object.freeze({
 	push_undo,
 	pop_undo,
+	clear_undo,
+	pop_all_undo,
 	gen_action,
 	log,
 	reinforce,
@@ -661,9 +665,11 @@ function normalize_action_arg(arg) {
 }
 
 exports.action = function (state, current, action, arg) {
+	_assert_push_undo = 0
 	game = normalize_game(state)
 	update_supply_if_missing()
 	arg = normalize_action_arg(arg)
+	const seed_before = game.seed
 	if (is_player_role(current)) {
 		let current_faction = short_faction(current)
 		let active = short_faction(game.active)
@@ -686,6 +692,7 @@ exports.action = function (state, current, action, arg) {
 		else throw new Error("Invalid action: " + action)
 	}
 	normalize_transient_state()
+	if (game.seed !== seed_before) clear_undo()
 	// Only map/supply-relevant state changes need a fresh global supply pass.
 	set_supply_dirty_if_needed(supply_dependency_before)
 	game.cache_revision = (Number(game.cache_revision) || 0) + 1
@@ -993,7 +1000,7 @@ exports.view = function (state, current) {
 				turn_points: rollback_entries.filter((r) => r.turn_start).length,
 				action_points: rollback_entries.filter((r) => !r.turn_start).length,
 				total_events: rollback_total_events,
-				state_compressed: false
+				state_compressed: is_rollback_state_compressed()
 			},
 			rollback: rollback_entries.map((r) => {
 				let name = r.turn_start
@@ -1042,12 +1049,7 @@ exports.view = function (state, current) {
 				else next.set_action("undo", 0)
 			}
 
-			if (
-				!game.options.no_supply_warnings &&
-				game.rollback_proposal === undefined &&
-				game.rollback &&
-				game.rollback.length > 0
-			) {
+			if (can_offer_rollback()) {
 				for (let i = 0; i < rollback_entries.length; i++) next.action("propose_rollback", i)
 			}
 
@@ -1324,8 +1326,13 @@ const HISTORY_SNAPSHOT_OMIT_KEYS = new Set([
 	"oos_spaces",
 	"supply_status",
 	"limited_supply",
-	"disrupted_supply"
+	"disrupted_supply",
+	"is_eliminated",
+	"is_in_reserve",
+	"eliminate_piece"
 ])
+
+const ROLLBACK_STATE_PREFIX = "deflate:"
 
 function copy_history_snapshot(source) {
 	let copy = {}
@@ -1341,10 +1348,36 @@ function copy_history_snapshot(source) {
 	return copy
 }
 
+function compress_rollback_state(rollback_state) {
+	if (typeof rollback_state === "string") return rollback_state
+	let json = JSON.stringify(rollback_state || [])
+	let compressed = zlib.deflateSync(Buffer.from(json, "utf8"))
+	return ROLLBACK_STATE_PREFIX + compressed.toString("base64")
+}
+
+function decompress_rollback_state(rollback_state) {
+	if (Array.isArray(rollback_state)) return rollback_state
+	if (typeof rollback_state !== "string") return []
+	if (rollback_state.startsWith(ROLLBACK_STATE_PREFIX)) {
+		let raw = Buffer.from(rollback_state.slice(ROLLBACK_STATE_PREFIX.length), "base64")
+		return JSON.parse(zlib.inflateSync(raw).toString("utf8"))
+	}
+	try {
+		let parsed = JSON.parse(rollback_state)
+		return Array.isArray(parsed) ? parsed : []
+	} catch {
+		return []
+	}
+}
+
+function is_rollback_state_compressed() {
+	return typeof game.rollback_state === "string"
+}
+
 function save_rollback_point() {
 	if (game.options.no_supply_warnings) return
 
-	let rollback_state = game.rollback_state || []
+	let rollback_state = decompress_rollback_state(game.rollback_state)
 	if (!game.rollback) game.rollback = []
 
 	const ap_action_count = Array.isArray(game.ap_actions) ? game.ap_actions.filter(Boolean).length : 0
@@ -1391,12 +1424,12 @@ function save_rollback_point() {
 		}
 	}
 
-	game.rollback_state = rollback_state
+	game.rollback_state = compress_rollback_state(rollback_state)
 }
 
 function restore_rollback(index) {
 	if (!game.rollback || game.rollback.length <= index || index < 0) return
-	let rollback_state = game.rollback_state || []
+	let rollback_state = decompress_rollback_state(game.rollback_state)
 	if (rollback_state.length <= index) return
 
 	let save_rollback = game.rollback
@@ -1414,13 +1447,32 @@ function restore_rollback(index) {
 	game.undo = []
 	game.seed = save_seed
 	game.rollback = save_rollback.slice(0, index + 1)
-	game.rollback_state = rollback_state.slice(0, index + 1)
+	game.rollback_state = compress_rollback_state(rollback_state.slice(0, index + 1))
 
 	set_state_globals()
 }
 
+const ROLLBACK_BLOCKED_STATES = new Set([
+	"flag_supply_warnings",
+	"review_supply_warnings",
+	"review_rollback_proposal",
+	"confirm_rollback",
+	"game_over"
+])
+
+function can_offer_rollback() {
+	return !!(
+		!game.options.no_supply_warnings &&
+		game.rollback_proposal === undefined &&
+		game.rollback &&
+		game.rollback.length > 0 &&
+		!ROLLBACK_BLOCKED_STATES.has(game.state) &&
+		!(typeof game.state === "string" && game.state.startsWith("prewar_variant"))
+	)
+}
+
 function goto_propose_rollback(rollback_index) {
-	if (!game.rollback || game.rollback.length === 0) return
+	if (!can_offer_rollback()) return
 	if (!Number.isInteger(rollback_index)) rollback_index = game.rollback.length - 1
 	if (rollback_index < 0 || rollback_index >= game.rollback.length) return
 	game.rollback_proposal = { faction: game.active, save_state: game.state, index: rollback_index }
@@ -1539,11 +1591,17 @@ states.review_supply_warnings = {
 }
 
 function push_undo() {
+	if (_assert_push_undo) throw new Error("duplicate undo point")
+	_assert_push_undo = 1
 	let copy = copy_history_snapshot(game)
 	if (!game.undo) game.undo = []
 	game.undo.push(copy)
 }
 Engine.push_undo = push_undo
+
+function clear_undo() {
+	if (game && game.undo && game.undo.length > 0) game.undo = []
+}
 
 function pop_undo() {
 	if (game.undo && game.undo.length > 0) {
@@ -1569,6 +1627,11 @@ function pop_undo() {
 		return true
 	}
 	return false
+}
+
+function pop_all_undo() {
+	if (game.undo && game.undo.length > 1) game.undo.length = 1
+	return pop_undo()
 }
 function log(msg) {
 	let text = msg
@@ -2268,6 +2331,9 @@ exports.roles = [AP_ROLE, CP_ROLE]
 exports.save_rollback_point = save_rollback_point
 exports.push_undo = push_undo
 exports.pop_undo = pop_undo
+exports.clear_undo = clear_undo
+exports.pop_all_undo = pop_all_undo
+exports.decompress_rollback_state = decompress_rollback_state
 exports.gen_action = gen_action
 exports.log = log
 exports.reinforce = reinforce
@@ -2360,6 +2426,7 @@ activation_states.register(states, Engine, {
 	logi,
 	log_br,
 	push_undo,
+	clear_undo,
 	active_faction,
 	contains_friendly,
 	get_activation_cost: Engine.map.get_activation_cost,
@@ -2422,6 +2489,7 @@ combat_funcs = combat_states.register(states, Engine, {
 	log,
 	log_h3_faction,
 	push_undo,
+	clear_undo,
 	active_faction,
 	get_attackable_spaces,
 	get_pieces_in_space,
@@ -2532,6 +2600,7 @@ turn_funcs = turn_states.register(states, Engine, {
 	card_names,
 	push_undo,
 	pop_undo,
+	clear_undo,
 	AP,
 	CP
 })
@@ -2544,6 +2613,7 @@ action_funcs = action_states.register(states, Engine, {
 	active_faction,
 	push_undo,
 	pop_undo,
+	clear_undo,
 	can_play_sr_card_this_round,
 	can_play_rp_card_this_round,
 	can_play_event,

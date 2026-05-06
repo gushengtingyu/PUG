@@ -672,7 +672,7 @@ var data = {
 		"faction": "ap",
 		"terrain": "mountain",
 		"vp": 1,
-		"fort": -1,
+		"fort": 1,
 		"port": 2,
 		"area": "russia",
 		"connections": [
@@ -2880,6 +2880,7 @@ var data = {
 		"nation": "ru",
 		"faction": "ap",
 		"terrain": "mountain",
+		"vp": 1,
 		"area": "azerbaijan",
 		"connections": [
 			72,
@@ -3424,6 +3425,7 @@ var data = {
 		"y": 1057,
 		"nation": "tu",
 		"faction": "cp",
+		"vp": 1,
 		"area": "caucasus",
 		"tribal_activity_grid": "Kurds",
 		"connections": [
@@ -3635,6 +3637,7 @@ var data = {
 		"y": 1143,
 		"nation": "tu",
 		"faction": "cp",
+		"vp": 1,
 		"area": "caucasus",
 		"tribal_activity_grid": "Kurds",
 		"connections": [
@@ -4514,6 +4517,7 @@ var data = {
 		"y": 1482,
 		"nation": "tu",
 		"faction": "cp",
+		"terrain": "desert",
 		"area": "mesopotamia",
 		"connections": [
 			154,
@@ -4558,6 +4562,7 @@ var data = {
 		"y": 1483,
 		"nation": "tu",
 		"faction": "cp",
+		"terrain": "mountain",
 		"area": "gallipoli",
 		"connections": [
 			79,
@@ -5839,7 +5844,7 @@ var data = {
 	{
 		"id": 222,
 		"map": "asia",
-		"name": "Dawaniyeh",
+		"name": "Diwaniyeh",
 		"x": 3399,
 		"y": 1979,
 		"nation": "tu",
@@ -28033,7 +28038,7 @@ data.space_name = {
 	"Umtaiye": 219,
 	"Canakkale": 220,
 	"Cape Helles": 221,
-	"Dawaniyeh": 222,
+	"Diwaniyeh": 222,
 	"To Jaffa": 223,
 	"Nablus": 224,
 	"Abadan": 225,

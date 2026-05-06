@@ -44,6 +44,7 @@ exports.register = function (states, Engine, context) {
 		deal_cards,
 		discard_card,
 		card_name,
+		clear_undo,
 		MO_RUSSIA,
 		MO_AP_CHOICE_5,
 		MO_BRITISH_NO_ATTACK,
@@ -1040,6 +1041,7 @@ exports.register = function (states, Engine, context) {
 			this.card(c)
 		},
 		done() {
+			clear_undo()
 			if (!Array.isArray(game.discarded_ccs)) game.discarded_ccs = []
 			if (game.discarded_ccs.length > 0) {
 				log(`${faction_name(game.active)} 弃掉手牌:`)
@@ -1101,6 +1103,7 @@ exports.register = function (states, Engine, context) {
 			}
 		},
 		done() {
+			clear_undo()
 			clear_replacement_points_for_active_faction()
 			if (game.active === AP) {
 				goto_replacement_faction(CP)

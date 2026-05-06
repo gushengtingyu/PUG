@@ -1754,9 +1754,7 @@ module.exports = function (Engine) {
 		}
 		if (!is_last_move_for_stack(game, target, faction)) return true
 		if (can_stack_end_in_space(game, target, game.move.pieces)) return true
-		// PUG 原先在这里直接拒绝“最后一步会超堆叠”的停留。
-		// 这里改为向 POG 靠拢：若该地块后续仍有已激活且可移动的友军能离开，
-		// 则允许把当前堆叠暂时停在这里，最终合法性由移动阶段结束前统一保证。
+		//若该地块后续仍有已激活且可移动的友军能离开，则允许把当前堆叠暂时停在这里，最终合法性由移动阶段结束前统一保证。
 		return can_temporarily_end_move_in_space(game, target, faction, game.move.pieces)
 	}
 

@@ -23,6 +23,7 @@ exports.register = function (states, Engine, context) {
 		active_faction,
 		push_undo,
 		pop_undo,
+		clear_undo,
 		can_play_sr_card_this_round,
 		can_play_rp_card_this_round,
 		can_play_event,
@@ -442,7 +443,6 @@ exports.register = function (states, Engine, context) {
 		play_sr(c) {
 			if (!can_play_sr_card_this_round(active_faction())) {
 				log("不能连续打出 SR 卡。")
-				pop_undo()
 				return
 			}
 			push_undo()
@@ -458,7 +458,6 @@ exports.register = function (states, Engine, context) {
 		play_rps(c) {
 			if (!can_play_rp_card_this_round(active_faction())) {
 				log("不能连续打出 RP 卡。")
-				pop_undo()
 				return
 			}
 			push_undo()
@@ -650,6 +649,7 @@ exports.register = function (states, Engine, context) {
 			res.action("confirm")
 		},
 		confirm() {
+			clear_undo()
 			save_rollback_point()
 			clear_event_ctx()
 			goto_end_operations()

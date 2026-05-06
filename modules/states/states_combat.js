@@ -14,6 +14,7 @@ exports.register = function (states, Engine, context) {
 	const {
 		log,
 		push_undo,
+		clear_undo,
 		active_faction,
 		get_attackable_spaces: get_legal_attackable_spaces,
 		get_pieces_in_space,
@@ -375,6 +376,7 @@ exports.register = function (states, Engine, context) {
 			res.action("cancel")
 		},
 		confirm() {
+			clear_undo()
 			start_attack_sequence()
 		},
 		cancel() {
@@ -1750,6 +1752,7 @@ exports.register = function (states, Engine, context) {
 			mark_reserves_to_front_damage(p)
 		},
 		done() {
+			clear_undo()
 			// Back to attacker using absolute anchor
 			game.active = (game.attack && game.attack.attacker) || AP
 			if (game.attack.second_fire === "defender") {
@@ -1848,6 +1851,7 @@ exports.register = function (states, Engine, context) {
 			mark_reserves_to_front_damage(p)
 		},
 		done() {
+			clear_undo()
 			if (game.attack.second_fire === "attacker") {
 				delete game.attack.second_fire
 				combat.resolve_second_fire(game, log)
@@ -2437,6 +2441,8 @@ exports.register = function (states, Engine, context) {
 		cannot_retreat() {
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
+				// Save Tiflis is a card-specific exception: units that cannot move
+				// closer to Tiflis stay in place, but mark the event as failed.
 				log(`${data.pieces[p].name} cannot retreat towards Tiflis and remains in place.`)
 				game.save_tiflis_failed = true
 				set_delete(game.save_tiflis_pieces, p)
@@ -2709,6 +2715,7 @@ exports.register = function (states, Engine, context) {
 			}
 		},
 		done() {
+			clear_undo()
 			finish_retreat_resolution()
 		},
 		piece(p) {

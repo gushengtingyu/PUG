@@ -23,6 +23,7 @@ exports.register = function (states, Engine, context) {
 		logi,
 		log_br,
 		push_undo,
+		clear_undo,
 		active_faction,
 		get_activation_cost,
 		get_activation_cost_pair,
@@ -1228,6 +1229,7 @@ exports.register = function (states, Engine, context) {
 			res.action("roll")
 		},
 		roll() {
+			clear_undo()
 			let s = game.where
 			let selected = game.entrench_pieces
 			let roll = roll_die(6, game)
@@ -1704,8 +1706,8 @@ exports.register = function (states, Engine, context) {
 		space(s) {
 			push_undo()
 			move_stack_to_space(s)
-			if (game.move && game.state === "choose_pieces_to_move") {
-				game.state = "move_stack"
+			if (game.move && game.move.current === s && game.move.pieces.length > 0) {
+				set_next_state("move_stack")
 			}
 		},
 		stop() {
