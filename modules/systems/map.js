@@ -1648,6 +1648,41 @@ module.exports = function (Engine) {
 		return false
 	}
 
+	function would_control_space_on_entry(game, p, target, faction) {
+		if (!is_regular(p)) return false
+		if (is_controlled_by(game, target, faction)) return false
+		if (has_undestroyed_fort(game, target, other_faction(faction))) return false
+		if (is_gallipoli(target)) return false
+		if (data.spaces[target]?.region && contains_enemy_pieces(game, target, faction)) return false
+		return true
+	}
+
+	function is_in_supply_after_entry(game, p, target, faction) {
+		let prev_pos = game.pieces[p]
+		let had_control_object = !!game.control
+		let had_control =
+			had_control_object && Object.prototype.hasOwnProperty.call(game.control, target)
+		let prev_control = had_control ? game.control[target] : undefined
+		let simulate_control = would_control_space_on_entry(game, p, target, faction)
+
+		game.pieces[p] = target
+		if (simulate_control) {
+			if (!game.control) game.control = {}
+			game.control[target] = faction
+		}
+
+		try {
+			return is_in_supply(game, target, data.pieces[p].faction, p)
+		} finally {
+			game.pieces[p] = prev_pos
+			if (simulate_control) {
+				if (had_control) game.control[target] = prev_control
+				else delete game.control[target]
+				if (!had_control_object) delete game.control
+			}
+		}
+	}
+
 	function get_piece_move_block_reason(game, p, target, faction) {
 		let greek_reason = get_greek_move_restriction_reason(game, p, target, faction)
 		if (greek_reason) return greek_reason
@@ -1683,10 +1718,7 @@ module.exports = function (Engine) {
 		// Rule 9.1: A unit may never move to a space in which it would be Out of Supply.
 		// Exception: amphibious invasion to establish a beachhead.
 		if (!can_ap_initiate_invasion_to_beachhead(game, game.move.current, target, faction)) {
-			let prev_pos = game.pieces[p]
-			game.pieces[p] = target
-			let in_supply = is_in_supply(game, target, data.pieces[p].faction, p)
-			game.pieces[p] = prev_pos
+			let in_supply = is_in_supply_after_entry(game, p, target, faction)
 			if (!in_supply) return "目标格无补给"
 		}
 
@@ -1793,10 +1825,7 @@ module.exports = function (Engine) {
 		// For regular moves into enemy territory: check supply as if the unit were already at the target,
 		// since a unit's presence there makes supply traceable through that space.
 		if (!can_ap_initiate_invasion_to_beachhead(game, game.move.current, target, faction)) {
-			let prev_pos = game.pieces[p]
-			game.pieces[p] = target
-			let in_supply = is_in_supply(game, target, data.pieces[p].faction, p)
-			game.pieces[p] = prev_pos
+			let in_supply = is_in_supply_after_entry(game, p, target, faction)
 			if (!in_supply) return false
 		}
 		let s = game.move.current
