@@ -1648,8 +1648,13 @@ module.exports = function (Engine) {
 		return false
 	}
 
-	function would_control_space_on_entry(game, p, target, faction) {
-		if (!is_regular(p)) return false
+	function get_entry_control_pieces(game, p) {
+		if (game.move && Array.isArray(game.move.pieces) && game.move.pieces.includes(p)) return game.move.pieces
+		return [p]
+	}
+
+	function would_control_space_on_entry(game, pieces, target, faction) {
+		if (!pieces.some((p) => data.pieces[p] && is_regular(p))) return false
 		if (is_controlled_by(game, target, faction)) return false
 		if (has_undestroyed_fort(game, target, other_faction(faction))) return false
 		if (is_gallipoli(target)) return false
@@ -1660,10 +1665,9 @@ module.exports = function (Engine) {
 	function is_in_supply_after_entry(game, p, target, faction) {
 		let prev_pos = game.pieces[p]
 		let had_control_object = !!game.control
-		let had_control =
-			had_control_object && Object.prototype.hasOwnProperty.call(game.control, target)
+		let had_control = had_control_object && Object.prototype.hasOwnProperty.call(game.control, target)
 		let prev_control = had_control ? game.control[target] : undefined
-		let simulate_control = would_control_space_on_entry(game, p, target, faction)
+		let simulate_control = would_control_space_on_entry(game, get_entry_control_pieces(game, p), target, faction)
 
 		game.pieces[p] = target
 		if (simulate_control) {

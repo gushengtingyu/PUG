@@ -25714,6 +25714,7 @@ var data = {
 		"ops": 3,
 		"sr": 4,
 		"remove": true,
+		"ws": 1,
 		"rp_br": 1,
 		"rp_ru": 2,
 		"rp_in": 1,
