@@ -2226,6 +2226,16 @@ module.exports = function (Engine) {
 	function can_sr_from_reserve_to_space(game, p, s, faction) {
 		let info = data.pieces[p]
 		if (info.piece_class === "LCU") return false
+		if (
+			faction === CP &&
+			data.spaces[s] &&
+			data.spaces[s].name === "Afghanistan" &&
+			game.events &&
+			game.events["afghan_alliance"] &&
+			!(info.name && info.name.startsWith("Afghan"))
+		) {
+			return false
+		}
 		if (!is_controlled_by(game, s, faction) && !contains_friendly_pieces(game, s, faction)) return false
 		let status = get_supply_status(game, s, faction, p, true)
 		if (!is_supply_status_in_supply(status)) return false
@@ -2407,6 +2417,8 @@ module.exports = function (Engine) {
 			return filtered
 		}
 
+		if (is_cp_non_afghan_unit_tracing_only_to_afghanistan(game, p, source_cache, supply_context)) return []
+
 		let source_status = get_supply_status(
 			game,
 			source,
@@ -2489,6 +2501,28 @@ module.exports = function (Engine) {
 		return [...destinations]
 	}
 
+	function is_cp_non_afghan_unit_tracing_only_to_afghanistan(
+		game,
+		p,
+		source_cache = null,
+		supply_context = null
+	) {
+		let info = data.pieces[p]
+		if (!info || get_piece_effective_faction(game, p) !== CP) return false
+		if (!(game.events && game.events["afghan_alliance"])) return false
+		if (info.name && info.name.startsWith("Afghan")) return false
+		let s = game.pieces[p]
+		if (s <= 0 || !data.spaces[s]) return false
+		let context = supply_context || create_supply_context(game)
+		let afghanistan_status = get_supply_trace_status_to_source(game, s, CP, AFGHANISTAN_SPACE, context)
+		if (afghanistan_status === "OOS") return false
+		let sources = get_full_supply_sources_for_unit(game, p, true, source_cache).filter(
+			(source) => source !== AFGHANISTAN_SPACE
+		)
+		if (sources.length === 0) return true
+		return get_supply_trace_status_to_source(game, s, CP, sources, context) === "OOS"
+	}
+
 	function can_sr_piece(game, p, faction) {
 		let info = data.pieces[p]
 		if (!info) return false
@@ -2522,6 +2556,14 @@ module.exports = function (Engine) {
 		}
 		let status = get_supply_status(game, s, faction, p, true)
 		if (!is_supply_status_in_supply(status)) return false
+		if (is_cp_non_afghan_unit_tracing_only_to_afghanistan(game, p)) return false
+		if (
+			game.state === "event_enver_falkenhayn_sr" &&
+			faction === CP &&
+			(info.nation === "tu" || info.nation === "tua")
+		) {
+			return true
+		}
 		return !is_limited_supply_status(status)
 	}
 
@@ -2544,6 +2586,7 @@ module.exports = function (Engine) {
 
 		if (source_reserve && dest_reserve) return false
 		if (source_reserve) return can_sr_from_reserve_to_space(game, p, s, faction)
+		if (is_cp_non_afghan_unit_tracing_only_to_afghanistan(game, p)) return false
 
 		if (dest_reserve) {
 			if (info.piece_class === "LCU") return false
@@ -2949,6 +2992,57 @@ module.exports = function (Engine) {
 
 	// --- Supply Source Helpers ---
 
+	function is_ana_unit(info) {
+		return !!(info && info.name === "BR ANA Arab")
+	}
+
+	function is_special_ru_allied_supply_unit(info) {
+		return !!(info && info.name && (info.name.includes("2/4 Special") || info.name.includes("Yugo")))
+	}
+
+	function is_british_supply_nation(nation) {
+		return ["br", "fr", "it", "in", "anz"].includes(nation)
+	}
+
+	function is_ottoman_full_supply_source_name(name) {
+		return ["CONSTANTINOPLE", "Kayseri", "Erzincan", "Damascus", "Baghdad"].includes(name)
+	}
+
+	function is_cp_afghanistan_full_supply_source(game, s) {
+		return !!(
+			data.spaces[s] &&
+			data.spaces[s].name === "Afghanistan" &&
+			game.events &&
+			game.events["afghan_alliance"] &&
+			is_controlled_by(game, s, CP)
+		)
+	}
+
+	function is_cp_port_supply_entry_for_turkish(game, s) {
+		let info = data.spaces[s]
+		if (!info || !info.port || !is_controlled_by(game, s, CP) || is_caspian_sea_port(game, s)) return false
+		let blockade = !!(game.events && game.events["royal_navy_blockade"])
+		return !blockade || is_black_sea_port(game, s)
+	}
+
+	function is_ap_controlled_port(game, s) {
+		return !!(data.spaces[s] && data.spaces[s].port && is_controlled_by(game, s, AP))
+	}
+
+	function add_ap_controlled_ports(game, list, predicate = null) {
+		for (let s of get_supply_eligible_space_ids()) {
+			if (!is_ap_controlled_port(game, s)) continue
+			if (predicate && !predicate(s)) continue
+			if (!list.includes(s)) list.push(s)
+		}
+	}
+
+	function add_cp_afghanistan_if_full(game, list) {
+		if (AFGHANISTAN_SPACE > 0 && is_cp_afghanistan_full_supply_source(game, AFGHANISTAN_SPACE)) {
+			if (!list.includes(AFGHANISTAN_SPACE)) list.push(AFGHANISTAN_SPACE)
+		}
+	}
+
 	function is_base_supply_source(game, s, faction, nation = null, for_placement_or_sr = false) {
 		const { AP, CP } = Engine.constants
 		let info = data.spaces[s]
@@ -2957,8 +3051,11 @@ module.exports = function (Engine) {
 
 		if (faction === CP) {
 			if (nation) {
-				if (nation === "bu" && name === "SOFIA") {
-					return !!(game.events && game.events["bulgaria"])
+				if (is_cp_afghanistan_full_supply_source(game, s)) return true
+				if (nation === "bu") return name === "SOFIA" && !!(game.events && game.events["bulgaria"])
+				if (nation === "ge" || nation === "ah") return is_galicia(s)
+				if (nation === "tu" || nation === "tua") {
+					return is_ottoman_full_supply_source_name(name) || is_cp_port_supply_entry_for_turkish(game, s)
 				}
 			}
 
@@ -3008,11 +3105,16 @@ module.exports = function (Engine) {
 			}
 
 			// Rule 14.1.4 lets AP units trace supply through friendly ports, but those ports are
-			// not automatically full national supply sources during normal operational supply.
-			// Keep them as AP "generic" sources for faction-level checks, and as BR-family
-			// placement/rebuild sources where the rules explicitly allow those ports.
+			// operational sea-supply entries. Placement/rebuild restrictions are handled by
+			// reinforcement and replacement rules, so for_placement_or_sr keeps the narrower
+			// placement/SR source list expected by those callers.
 			if (info.port && (is_controlled_by(game, s, AP) || is_ap_contested_cp_region_port(game, s, AP))) {
 				let is_contested_cp_region_port = is_ap_contested_cp_region_port(game, s, AP)
+				if (!for_placement_or_sr) {
+					if (!nation || is_british_supply_nation(nation) || (nation === "sb" && is_aegean_port(s))) {
+						return true
+					}
+				}
 				let allow_generic_ap_port =
 					!nation || (for_placement_or_sr && ["br", "fr", "it", "in", "anz"].includes(nation))
 				if (
@@ -3055,11 +3157,16 @@ module.exports = function (Engine) {
 	function is_persian_gulf_port(game, s) {
 		if (!data.spaces[s] || !data.spaces[s].port) return false
 		let name = data.spaces[s].name
-		if (["Fao", "Abadan", "Kuwait", "Bahrain"].includes(name)) return true
+		if (["Fao", "Abadan", "Kuwait", "Bahrain", "Bushire"].includes(name)) return true
 		if (s === BASRA) {
 			return is_controlled_by(game, FAO, AP)
 		}
 		return false
+	}
+
+	function is_red_sea_port(s) {
+		if (!data.spaces[s] || !data.spaces[s].port) return false
+		return ["Aqaba", "Jiddah", "Suez"].includes(data.spaces[s].name)
 	}
 
 	function get_supply_sources_from_data(game, faction, for_placement_or_sr = false) {
@@ -3359,6 +3466,7 @@ module.exports = function (Engine) {
 			let name = data.pieces[p].name
 
 			if (name === "GE GeoProtect") return cache_result("FULL")
+			if (name === "BR ANA Arab" && is_hejaz(space)) return cache_result("FULL")
 
 			// Rule 16.1.5: HQs are never out of supply
 			if (is_hq(p)) return cache_result("FULL")
@@ -3499,13 +3607,16 @@ module.exports = function (Engine) {
 			faction = info.faction
 		}
 		let nation = info.nation
+		let is_ana = is_ana_unit(info)
+		let is_special_ru_allied = is_special_ru_allied_supply_unit(info)
 		let allow_ap_beachhead =
-			faction === AP &&
-			(!["ru", "ro"].includes(nation) ||
-				(info.name && (info.name.includes("2/4 Special") || info.name.includes("Yugo"))))
+			faction === AP && (!["ru", "ro"].includes(nation) || is_special_ru_allied)
 
 		let cache_key =
-			source_cache && `full|${faction}|${nation}|${for_placement_or_sr ? 1 : 0}|${allow_ap_beachhead ? 1 : 0}`
+			source_cache &&
+			`full|${faction}|${nation}|${for_placement_or_sr ? 1 : 0}|${allow_ap_beachhead ? 1 : 0}|${
+				is_ana ? 1 : 0
+			}|${is_special_ru_allied ? 1 : 0}`
 		if (source_cache && source_cache.has(cache_key)) return source_cache.get(cache_key)
 		let full_sources = []
 
@@ -3536,11 +3647,28 @@ module.exports = function (Engine) {
 			}
 		}
 
+		if (faction === CP) {
+			add_cp_afghanistan_if_full(game, full_sources)
+		}
+
+		if (faction === AP) {
+			if (is_ana) {
+				for (let s of get_supply_eligible_space_ids()) {
+					if (is_hejaz(s) && !full_sources.includes(s)) full_sources.push(s)
+				}
+			}
+			if (is_british_supply_nation(nation) || is_special_ru_allied || is_ana) {
+				add_ap_controlled_ports(game, full_sources)
+			} else if (nation === "sb") {
+				add_ap_controlled_ports(game, full_sources, is_aegean_port)
+			}
+		}
+
 		// Rule 14.1.4: Beachheads are always Full Supply Sources for AP (except RU/RO)
 		let beachheads = get_beachhead_spaces(game, faction)
 		if (faction === AP && !["ru", "ro"].includes(nation)) {
 			full_sources = full_sources.concat(beachheads)
-		} else if (faction === AP && info.name && (info.name.includes("2/4 Special") || info.name.includes("Yugo"))) {
+		} else if (faction === AP && is_special_ru_allied) {
 			// Special RU units that can use AP beachheads
 			full_sources = full_sources.concat(beachheads)
 		}
@@ -4095,6 +4223,7 @@ module.exports = function (Engine) {
 		get_connection_strait,
 		get_crossing_type,
 		is_aegean_east_med_port,
+		is_red_sea_port,
 		is_black_sea_port,
 		is_caspian_sea_port,
 		has_undestroyed_fort,
@@ -4159,6 +4288,7 @@ module.exports = function (Engine) {
 		is_besieged,
 		create_supply_context,
 		is_base_supply_source,
+		is_cp_non_afghan_unit_tracing_only_to_afghanistan,
 		get_supply_trace_status_to_source,
 		can_trace_supply_to_source,
 		can_trace_piece_supply_to_space,

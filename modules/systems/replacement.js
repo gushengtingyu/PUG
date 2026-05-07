@@ -24,7 +24,8 @@ module.exports = function (Engine) {
 		is_port,
 		get_tribal_spaces,
 		is_limited_supply_status,
-		is_disrupted_supply_status
+		is_disrupted_supply_status,
+		is_cp_non_afghan_unit_tracing_only_to_afghanistan
 	} = Engine.map
 	const { set_has, other_faction } = Engine.utils
 	const { can_stack_end_in_space } = Engine.map
@@ -83,6 +84,10 @@ module.exports = function (Engine) {
 
 	function is_dunsterforce_unit(info) {
 		return !!(info && info.name === "BR Dunsterforce")
+	}
+
+	function is_ana_unit(info) {
+		return !!(info && info.name === "BR ANA Arab")
 	}
 
 	function has_serbia_collapsed(game) {
@@ -289,6 +294,7 @@ module.exports = function (Engine) {
 		let sources = []
 		for (let i = 1; i < data.spaces.length; i++) {
 			if (is_base_supply_source(game, i, AP, "br", true)) sources.push(i)
+			else if (is_port(i) && is_controlled_by(game, i, AP)) sources.push(i)
 		}
 		return sources
 	}
@@ -420,6 +426,8 @@ module.exports = function (Engine) {
 	}
 
 	function can_use_replacement_supply_as_nation(game, p, s, nation) {
+		if (is_cp_non_afghan_unit_tracing_only_to_afghanistan(game, p)) return false
+
 		if (is_central_asia(s) || is_afghanistan(s)) {
 			if (can_trace_supply_to_source(game, s, CP, s)) {
 				let sources = []
@@ -729,6 +737,16 @@ module.exports = function (Engine) {
 					can_rebuild_regular_unit_in_space(game, s, faction)
 				)
 					can_rebuild = true
+			} else if (is_ana_unit(info)) {
+				// Rule 22.2.2: ANA rebuilds only at AP-controlled ports in Syria/Palestine.
+				if (
+					get_area(s) === "syria_palestine" &&
+					is_port(s) &&
+					is_controlled_by(game, s, AP) &&
+					!is_besieged(game, s)
+				) {
+					can_rebuild = true
+				}
 			} else if (nation === "tu" || nation === "tua") {
 				// Rule 22.2.2: TU/TUA units follow Ottoman reinforcement rules (7.7.2)
 				if (is_controlled_by(game, s, CP) && !is_besieged(game, s)) {
@@ -759,20 +777,9 @@ module.exports = function (Engine) {
 				if (neutral_override !== undefined) can_rebuild = neutral_override
 			} else if (nation === "ar") {
 				// Rule 22.2.2: Arab Revolt Irregular Units in Hejaz (even if CP), Aqaba, or Jiddah (if AP).
-				// ANA (Arab Northern Army) in any AP-controlled port in Syria/Palestine.
-				if (info.name && info.name.includes("ANA")) {
-					if (
-						get_area(s) === "syria_palestine" &&
-						is_port(s) &&
-						is_controlled_by(game, s, AP) &&
-						!is_besieged(game, s)
-					)
-						can_rebuild = true
-				} else {
-					if (is_hejaz(s) && !is_besieged(game, s)) can_rebuild = true
-					if ((s === AQABA || s === JIDDAH) && is_controlled_by(game, s, AP) && !is_besieged(game, s))
-						can_rebuild = true
-				}
+				if (is_hejaz(s) && !is_besieged(game, s)) can_rebuild = true
+				if ((s === AQABA || s === JIDDAH) && is_controlled_by(game, s, AP) && !is_besieged(game, s))
+					can_rebuild = true
 			} else if (nation === "geo" || nation === "arm") {
 				// Rule 22.2.2: GEO and ARM in any AP controlled space in Russia or Caucasia.
 				if ((is_russia(s) || is_caucasus(s)) && is_controlled_by(game, s, AP) && !is_besieged(game, s))

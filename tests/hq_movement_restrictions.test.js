@@ -93,13 +93,14 @@ test("Strategic Redeployment still allows HQs and land Heavy Artillery", () => {
 	let game = setupGame(2026042504)
 	let hq = findPiece(CP, "GE Mackenson HQ")
 	let heavy = findPiece(CP, "GE Hvy Arty")
-	let source = findSpace("Adrianople")
+	let source = findSpace("Galicia")
 	let reserve = findSpace("CP Reserve")
 
 	clearBoard(game)
 	game.pieces[hq] = source
 	game.pieces[heavy] = source
 	game.control[source] = CP
+	game.events.bulgaria = true
 	game.active = CP
 
 	expect(Engine.map.can_sr_piece(game, hq, CP)).toBe(true)

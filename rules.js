@@ -1371,7 +1371,7 @@ function decompress_rollback_state(rollback_state) {
 }
 
 function is_rollback_state_compressed() {
-	return typeof game.rollback_state === "string"
+	return typeof game.rollback_state === "string" && game.rollback_state.startsWith(ROLLBACK_STATE_PREFIX)
 }
 
 function save_rollback_point() {

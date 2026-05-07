@@ -48,6 +48,24 @@ test("rollback states are compressed and rollback keeps the current random seed"
 	expect(rules.decompress_rollback_state(game.rollback_state)).toHaveLength(1)
 })
 
+test("rollback meta only reports compressed state for deflate rollback payloads", () => {
+	let game = rules.setup(7004, "Historical", {})
+	game.active = rules.AP
+	game.state = "play_card"
+	game.action_round = 1
+	game.rollback = [{ turn: 1, active: rules.AP, action: 1, log_index: 0, events: [], turn_start: false }]
+	game.rollback_state = JSON.stringify([{ turn: 1, active: rules.AP, state: "play_card", log: game.log.length }])
+
+	let view = rules.view(game, AP_ROLE)
+	expect(view.rollback_meta.state_compressed).toBe(false)
+
+	rules.set_game(game)
+	rules.save_rollback_point()
+	view = rules.view(game, AP_ROLE)
+	expect(view.rollback_meta.state_compressed).toBe(true)
+	expect(game.rollback_state.startsWith("deflate:")).toBe(true)
+})
+
 test("rollback cannot be proposed from transient review states", () => {
 	let game = rules.setup(7003, "Historical", {})
 	game.active = rules.AP
