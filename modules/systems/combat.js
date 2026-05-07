@@ -927,6 +927,20 @@ module.exports = function (Engine) {
 		return can_pieces_attack_target(game, [p], s)
 	}
 
+	function mark_attacked_space(game) {
+		if (!game.attack || !(game.attack.space > 0)) return
+		if (!Array.isArray(game.attacked_spaces)) game.attacked_spaces = []
+		set_add(game.attacked_spaces, game.attack.space)
+	}
+
+	function clear_cancelled_cc_attacked_space(game, result) {
+		if (!game.attack || !(game.attack.space > 0)) return
+		if (!Array.isArray(game.attacked_spaces)) return
+		// Cancel-type CCs must return cancelling_cards so the target space can be attacked again.
+		if (!result || !Array.isArray(result.cancelling_cards) || result.cancelling_cards.length === 0) return
+		set_delete(game.attacked_spaces, game.attack.space)
+	}
+
 	function get_attackable_spaces(game, pieces, faction, get_season_fn, is_rail_connected_to_supply_fn) {
 		if (!pieces || pieces.length === 0) return []
 		let enemy = other_faction(faction)
@@ -1208,6 +1222,10 @@ module.exports = function (Engine) {
 	function get_legal_attackable_spaces(game, pieces, faction, get_season_fn, is_rail_connected_to_supply_fn) {
 		let targets = get_attackable_spaces(game, pieces, faction, get_season_fn, is_rail_connected_to_supply_fn)
 		if (targets.length === 0) return targets
+		if (Array.isArray(game.attacked_spaces) && game.attacked_spaces.length > 0) {
+			targets = targets.filter((s) => !set_has(game.attacked_spaces, s))
+			if (targets.length === 0) return targets
+		}
 		if (is_invalid_multinational_attack(game, pieces)) return []
 		// Liberate Suez: units from attack_egypt spaces can only target Egypt
 		if (Array.isArray(game.activated?.attack_egypt)) {
@@ -1563,6 +1581,7 @@ module.exports = function (Engine) {
 			delete game.attack.reserves_to_front_damaged_pieces
 		}
 		if (game.attack && game.attack.space > 0) {
+			mark_attacked_space(game)
 			if (!game.attack.origin_by_piece || typeof game.attack.origin_by_piece !== "object") {
 				game.attack.origin_by_piece = {}
 			}
@@ -1620,6 +1639,7 @@ module.exports = function (Engine) {
 		}
 
 		if (result.cancelled) {
+			clear_cancelled_cc_attacked_space(game, result)
 			// Return other combat cards to hands (except the card that cancelled the battle)
 			if (game.combat_cards) {
 				const cancelling_cards = result.cancelling_cards || []

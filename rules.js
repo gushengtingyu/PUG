@@ -1895,6 +1895,7 @@ function build_attack_eligibility_cache_key() {
 	}
 
 	let attacked_hash = hash_number_array(game.attacked)
+	let attacked_spaces_hash = hash_number_array(game.attacked_spaces)
 	let activated_attack_hash = hash_number_array(game.activated && game.activated.attack)
 	let activated_attack_egypt_hash = hash_number_array(game.activated && game.activated.attack_egypt)
 	let region_attack_hash = hash_region_attack_activations()
@@ -1918,7 +1919,7 @@ function build_attack_eligibility_cache_key() {
 	let events_hash = hash_events_flags(game.events)
 	let faction_bit = game.active === AP || game.active === "AP" || game.active === "Allied Powers" ? 1 : 2
 
-	return `${faction_bit}|${pieces_hash}|${attacked_hash}|${activated_attack_hash}|${activated_attack_egypt_hash}|${region_attack_hash}|${retreated_hash}|${fort_hash}|${events_hash}`
+	return `${faction_bit}|${pieces_hash}|${attacked_hash}|${attacked_spaces_hash}|${activated_attack_hash}|${activated_attack_egypt_hash}|${region_attack_hash}|${retreated_hash}|${fort_hash}|${events_hash}`
 }
 
 function build_enemy_space_flag(faction) {
@@ -2234,6 +2235,7 @@ function start_ops_from_event(card_index) {
 	game.activation_cost = {}
 	game.moved = []
 	game.attacked = []
+	game.attacked_spaces = []
 	game.retreated = []
 	reset_balkan_attack_targets()
 	if (

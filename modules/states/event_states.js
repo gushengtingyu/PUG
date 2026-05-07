@@ -99,6 +99,7 @@ module.exports = function (Engine) {
 		delete game.activated
 		delete game.activation_cost
 		delete game.attacked
+		delete game.attacked_spaces
 		delete game.attack_eligibility_cache
 		delete game.event_romania_attack_from
 		delete game.romania_event_activation
@@ -1019,6 +1020,9 @@ module.exports = function (Engine) {
 				set_delete(game.attacked, p)
 				set_delete(game.moved, p)
 			}
+			if (game.attack.space > 0 && Array.isArray(game.attacked_spaces)) {
+				set_delete(game.attacked_spaces, game.attack.space)
+			}
 		}
 		delete game.combat_cards
 		delete game.combat_cards_effected
@@ -1055,6 +1059,7 @@ module.exports = function (Engine) {
 		game.activated.attack = []
 		game.activation_cost = {}
 		game.attacked = []
+		game.attacked_spaces = []
 		game.romania_event_activation = true
 		game.event_romania_attack_required = true
 		game.event_next_state = "event_romania_attack_cleanup"
@@ -1319,6 +1324,7 @@ module.exports = function (Engine) {
 			game.activation_cost = {}
 			game.moved = []
 			game.attacked = []
+			game.attacked_spaces = []
 			game.move_from_event = true
 			game.state = "choose_move_space"
 		},
@@ -2928,6 +2934,7 @@ module.exports = function (Engine) {
 			game.activation_cost = {}
 			game.moved = []
 			game.attacked = []
+			game.attacked_spaces = []
 			game.move_from_event = true
 			game.state = "choose_move_space"
 		},
@@ -4062,6 +4069,7 @@ module.exports = function (Engine) {
 			game.activated = { attack: [s], move: [] }
 			game.activation_cost = {}
 			game.attacked = []
+			game.attacked_spaces = []
 			game.event_romania_attack_required = true
 			game.event_next_state = "event_romania_attack_cleanup"
 			game.state = "attack"
