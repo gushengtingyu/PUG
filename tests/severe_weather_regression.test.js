@@ -63,7 +63,7 @@ test("severe weather reduces full-strength regular attackers and logs the check"
 test("Pugnacity and Tenacity prevents severe weather losses for Indian attackers", () => {
 	let { game, indian } = createIndianSummerWeatherAttack()
 	let logs = []
-	game.events["pugnacity_tenacity_no_weather"] = true
+	game.events["pugnacity_tenacity_no_weather"] = game.turn
 
 	Engine.combat.apply_severe_weather(game, (msg) => logs.push(msg), "Summer")
 
@@ -105,7 +105,7 @@ test("Pugnacity and Tenacity only exempts Indian attackers in mixed severe weath
 	let logs = []
 	game.pieces[british] = game.pieces[indian]
 	game.attack.pieces = [indian, british]
-	game.events["pugnacity_tenacity_no_weather"] = true
+	game.events["pugnacity_tenacity_no_weather"] = game.turn
 
 	expect(Engine.combat.can_battle_trigger_severe_weather(game, "Summer")).toBe(true)
 

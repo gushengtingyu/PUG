@@ -3403,12 +3403,12 @@ module.exports = function (Engine) {
 
 		if (
 			game.combat_cards &&
-			((game.combat_cards.attacker && game.combat_cards.attacker.includes(CC_AP_NO_PRISONERS)) ||
-				(game.combat_cards.defender && game.combat_cards.defender.includes(CC_AP_NO_PRISONERS))) &&
+			game.combat_cards.attacker &&
+			game.combat_cards.attacker.includes(CC_AP_NO_PRISONERS) &&
 			no_prisoners_applies(attackers)
 		) {
-			att_loss_mod -= 1
-			def_loss_mod += 1
+			att_loss_mod += 1
+			def_loss_mod -= 1
 			mark_effected(CC_AP_NO_PRISONERS)
 			log_detail(log, "No Prisoners: 进攻方伤害 +1，防守方伤害 -1")
 		}

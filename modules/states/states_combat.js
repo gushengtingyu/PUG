@@ -1137,14 +1137,22 @@ exports.register = function (states, Engine, context) {
 				res.who(game.attack.pieces)
 			}
 			res.action("done")
+			let target = game.surprise.space
 			for (let p = 0; p < data.pieces.length; p++) {
 				if (!data.pieces[p]) continue
 				if (Engine.game_utils.get_piece_effective_faction(game, p) !== CP) continue
 				if (!["tu", "tua"].includes(data.pieces[p].nation)) continue
 				if (!is_scu(p)) continue
-				if (!is_in_reserve(game, p)) continue
-				if (!can_stack_end_in_space(game, game.surprise.space, [p])) continue
-				res.piece(p)
+				if (is_not_on_map(game, p) && !is_in_reserve(game, p)) continue
+				if (!can_stack_end_in_space(game, target, [p])) continue
+				if (is_in_reserve(game, p)) {
+					res.piece(p)
+				} else if (
+					game.pieces[p] !== target &&
+					Engine.map.has_sr_path(game, p, game.pieces[p], target, CP, false)
+				) {
+					res.piece(p)
+				}
 			}
 		},
 		piece(p) {

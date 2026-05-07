@@ -6,17 +6,9 @@ module.exports = function (Engine) {
 	const { set_has } = Engine.utils
 	const { map, game_utils } = Engine
 	const combat = Engine.combat
-	const {
-		is_removed,
-		is_eliminated,
-		get_piece_effective_faction,
-		piece_counts_as_nation_for_rule
-	} = game_utils
+	const { is_removed, is_eliminated, get_piece_effective_faction, piece_counts_as_nation_for_rule } = game_utils
 
-	const STANDARD_CC_STATES = new Set([
-		"play_cc_attacker",
-		"play_cc_defender"
-	])
+	const STANDARD_CC_STATES = new Set(["play_cc_attacker", "play_cc_defender"])
 	const SINAI_SPACES = new Set([
 		"Romani",
 		"Bir el Abd",
@@ -184,8 +176,7 @@ module.exports = function (Engine) {
 	function get_reserves_to_front_piece_cost(game, p) {
 		let info = data.pieces[p]
 		if (!info) return 0
-		let is_elim_or_removed_exception =
-			is_eliminated(game, p) || is_reserves_to_front_removed_exception(game, p)
+		let is_elim_or_removed_exception = is_eliminated(game, p) || is_reserves_to_front_removed_exception(game, p)
 		if (is_elim_or_removed_exception || set_has(game.reduced, p)) {
 			return info.piece_class === "LCU" ? 1 : 0.5
 		}
@@ -193,7 +184,7 @@ module.exports = function (Engine) {
 	}
 
 	function can_play_no_prisoners(game) {
-		if (!can_play_in_standard_cc_window(game)) return false
+		if (!can_play_in_window(game, "play_cc_attacker")) return false
 		let has_ap_arab_attacker = attacker_has_piece(
 			game,
 			(p) => data.pieces[p].faction === AP && data.pieces[p].nation === "ar"
@@ -251,9 +242,7 @@ module.exports = function (Engine) {
 
 	function space_has_ap_nations(game, s, nations) {
 		let pieces = get_space_pieces(game, s).filter((p) => get_piece_effective_faction(game, p) === AP)
-		return nations.every((nation) =>
-			pieces.some((p) => piece_counts_as_nation_for_rule(game, p, nation))
-		)
+		return nations.every((nation) => pieces.some((p) => piece_counts_as_nation_for_rule(game, p, nation)))
 	}
 
 	function can_play_maude(game) {
@@ -405,7 +394,7 @@ module.exports = function (Engine) {
 	}
 
 	function can_play_german_high_command(game) {
-		return can_play_in_standard_cc_window(game, CP);
+		return can_play_in_standard_cc_window(game, CP)
 	}
 
 	function can_play_save_tiflis(game) {
@@ -413,7 +402,10 @@ module.exports = function (Engine) {
 
 		// Turkish LCU must be the attacker
 		let has_tu_lcu_attacker = attacker_has_piece(game, (p) => {
-			return (piece_counts_as_nation_for_rule(game, p, "tu") || piece_counts_as_nation_for_rule(game, p, "tua")) && game_utils.is_lcu(p)
+			return (
+				(piece_counts_as_nation_for_rule(game, p, "tu") || piece_counts_as_nation_for_rule(game, p, "tua")) &&
+				game_utils.is_lcu(p)
+			)
 		})
 		if (!has_tu_lcu_attacker) return false
 
@@ -570,7 +562,7 @@ module.exports = function (Engine) {
 			windows: get_pre_weather_attacker_windows,
 			can_play: can_play_pugnacity,
 			on_play_after_disposition(game, ctx) {
-				game.events["pugnacity_tenacity_no_weather"] = true
+				game.events["pugnacity_tenacity_no_weather"] = game.turn
 				ctx.mark_effected()
 			},
 			modifiers: {
@@ -830,7 +822,11 @@ module.exports = function (Engine) {
 	}
 
 	function can_play_combat_card(game, card) {
-		if (game?.action_state && Array.isArray(game.action_state.used_ccs) && set_has(game.action_state.used_ccs, card)) {
+		if (
+			game?.action_state &&
+			Array.isArray(game.action_state.used_ccs) &&
+			set_has(game.action_state.used_ccs, card)
+		) {
 			return false
 		}
 		let spec = get_combat_card_spec(card)
