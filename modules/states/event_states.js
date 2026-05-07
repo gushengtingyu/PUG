@@ -6,8 +6,6 @@ module.exports = function (Engine) {
 	const { set_add, set_delete } = Engine.utils
 	const { find_piece, find_space, get_capacity, get_piece_badge, get_reserve_box_for_piece } = Engine.game_utils
 
-	const { is_unlimited_stack_space } = Engine.map
-
 	const states = {}
 
 	// === Constants for Space IDs ===
@@ -412,6 +410,35 @@ module.exports = function (Engine) {
 		if (get_gallipoli_target_lcu_for_scu(game, rules, p) < 0) return false
 		if (rules.is_in_reserve(game, p)) return true
 		return game.pieces[p] > 0 && rules.can_sr_piece(game, p, AP)
+	}
+
+	function is_ap_british_empire_scu(p) {
+		let info = data.pieces[p]
+		return !!(
+			info &&
+			info.faction === AP &&
+			info.piece_class === "SCU" &&
+			(info.nation === "br" || info.nation === "in" || info.nation === "anz")
+		)
+	}
+
+	function can_project_alexandria_sr_piece(game, rules, p, event_port, count = 0, max_count = 3) {
+		if (!(event_port > 0)) return false
+		if (!is_ap_british_empire_scu(p)) return false
+		let badge = get_piece_badge(p)
+		if (badge !== "infantry" && badge !== "blue") return false
+		if (!rules.can_sr_piece(game, p, AP)) return false
+		if (game.pieces[p] === event_port) return false
+		let cost = rules.get_sr_cost(p, game.pieces[p], event_port, AP)
+		return count + cost <= max_count
+	}
+
+	function can_salonika_invasion_sr_piece(game, rules, p, island_base) {
+		if (!(island_base > 0)) return false
+		if (!is_ap_british_empire_scu(p)) return false
+		if (!rules.can_sr_piece(game, p, AP)) return false
+		if (game.pieces[p] <= 0 || rules.is_in_reserve(game, p) || game.pieces[p] === island_base) return false
+		return true
 	}
 
 	function finish_gallipoli_invasion(game, rules) {
@@ -1424,20 +1451,7 @@ module.exports = function (Engine) {
 
 			if (event_port > 0) {
 				for (let p = 1; p < data.pieces.length; p++) {
-					let piece = data.pieces[p]
-					if (!piece || !piece.faction) continue
-					if (
-						piece.faction === AP &&
-						(piece.nation === "br" || piece.nation === "in" || piece.nation === "anz") &&
-						piece.piece_class === "SCU" &&
-						(get_piece_badge(p) === "infantry" || get_piece_badge(p) === "blue") &&
-						rules.can_sr_piece(game, p, AP)
-					) {
-						let cost = rules.get_sr_cost(p, game.pieces[p], event_port, AP)
-						if (count + cost <= max_count && game.pieces[p] !== event_port) {
-							res.piece(p)
-						}
-					}
+					if (can_project_alexandria_sr_piece(game, rules, p, event_port, count, max_count)) res.piece(p)
 				}
 			}
 			res.action("done")
@@ -1451,8 +1465,11 @@ module.exports = function (Engine) {
 				rules.goto_end_operations()
 				return
 			}
-			rules.push_undo()
 			let data_event = rules.get_event_data()
+			let count = data_event.count || 0
+			let max_count = 3
+			if (!can_project_alexandria_sr_piece(game, rules, p, event_port, count, max_count)) return
+			rules.push_undo()
 			let cost = rules.get_sr_cost(p, game.pieces[p], event_port, AP)
 			data_event.count = (data_event.count || 0) + cost
 
@@ -2208,12 +2225,7 @@ module.exports = function (Engine) {
 				`萨洛尼卡入侵：你可以将最多 ${sr_count} 个英国/印度/澳新 SCU 战略调整至 ${data.spaces[island_base].name}。`
 			)
 			for (let p = 0; p < data.pieces.length; p++) {
-				let info = data.pieces[p]
-				if (!info || info.faction !== AP || !rules.is_scu(p)) continue
-				if (!["br", "in", "anz"].includes(info.nation)) continue
-				if (!rules.can_sr_piece(game, p, AP)) continue
-				if (game.pieces[p] <= 0 || rules.is_in_reserve(game, p) || game.pieces[p] === island_base) continue
-				res.piece(p)
+				if (can_salonika_invasion_sr_piece(game, rules, p, island_base)) res.piece(p)
 			}
 			res.action("done")
 		},
@@ -2222,6 +2234,7 @@ module.exports = function (Engine) {
 			let invasion = get_active_event_data(game)
 			let island_base = invasion && invasion.invasion_island_base
 			if (!island_base) return
+			if (!can_salonika_invasion_sr_piece(game, rules, p, island_base)) return
 			rules.push_undo()
 			if (!game.sr_moved) game.sr_moved = []
 			rules.set_add(game.sr_moved, p)
@@ -3451,6 +3464,12 @@ module.exports = function (Engine) {
 				res.space(s)
 			}
 
+			function can_place_reinforcement_unit_in_space(s, p_id) {
+				if (p_id < 0) return false
+				if (Engine.map.contains_enemy_pieces(game, s, faction) && !Engine.map.is_region(game, s)) return false
+				return Engine.map.can_stack_end_in_space(game, s, [p_id])
+			}
+
 			if (helper && helper.check) {
 				let enemy_faction = rules.other_faction(helper.faction)
 				let enemy_spaces = []
@@ -3475,27 +3494,17 @@ module.exports = function (Engine) {
 						if (!allow_map) continue
 
 						// Stacking limit check (Rule 7.7.2 & 8.1.3)
-						let pieces = rules.get_pieces_in_space(game, s)
 						let p_id = find_piece(faction, unit)
-						let can_stack = false
-						if (p_id >= 0) {
-							let new_stack = [...pieces, p_id]
-							if (Engine.map.is_reserve_space(s)) {
-								can_stack = true
-							} else if (is_unlimited_stack_space(game, s)) {
-								can_stack = Engine.map.get_stack_composition_reason(game, new_stack) === null
-							} else {
-								can_stack =
-									Engine.map.get_region_activation_stack_block_reason(game, new_stack) === null
-							}
-						}
+						let can_stack = Engine.map.is_reserve_space(s)
+							? p_id >= 0
+							: can_place_reinforcement_unit_in_space(s, p_id)
 
 						if (can_stack) {
 							add_space_option(s)
 						} else if (allow_adjacent_overflow) {
 							// Rule 7.7.2: if full, adjacent placement allowed
 							let neighbors = rules.get_connected_spaces(game, s)
-							let candidates = neighbors.filter((ns) => get_capacity(game, ns) > 0)
+							let candidates = neighbors.filter((ns) => can_place_reinforcement_unit_in_space(ns, p_id))
 
 							if (candidates.length > 0) {
 								// Priority to spaces farthest from enemy units
@@ -3876,10 +3885,18 @@ module.exports = function (Engine) {
 
 		// Find units that can be SR'd
 		for (let p = 0; p < data.pieces.length; p++) {
-			if (Engine.collapse.can_collapse_sr_piece(game, p) && !rules.set_has(moved, p)) {
+			if (can_select_collapse_sr_piece(game, p) && !rules.set_has(moved, p)) {
 				res.piece(p)
 			}
 		}
+	}
+
+	function can_select_collapse_sr_piece(game, p) {
+		let event_ctx = ensure_collapse_sr_ctx(game)
+		let moved = event_ctx.data.moved
+		if (moved.length >= event_ctx.move_limit) return false
+		if (Engine.utils.set_has(moved, p)) return false
+		return Engine.collapse.can_collapse_sr_piece(game, p)
 	}
 
 	function handle_collapse_sr_done(ctx) {
@@ -3943,13 +3960,16 @@ module.exports = function (Engine) {
 		},
 		piece(ctx) {
 			let { game, rules, arg: p } = ctx
+			if (!can_select_collapse_sr_piece(game, p)) return
 			rules.push_undo()
 			game.sr_piece = p
 		},
 		space(ctx) {
 			let { game, rules, arg: s } = ctx
-			rules.push_undo()
 			let p = game.sr_piece
+			if (!can_select_collapse_sr_piece(game, p)) return
+			if (!Engine.collapse.get_collapse_sr_destination_spaces(game).includes(s)) return
+			rules.push_undo()
 			let from = game.pieces[p]
 			rules.move_piece(game, p, s)
 			rules.log(
@@ -3970,13 +3990,16 @@ module.exports = function (Engine) {
 		},
 		piece(ctx) {
 			let { game, rules, arg: p } = ctx
+			if (!can_select_collapse_sr_piece(game, p)) return
 			rules.push_undo()
 			game.sr_piece = p
 		},
 		space(ctx) {
 			let { game, rules, arg: s } = ctx
-			rules.push_undo()
 			let p = game.sr_piece
+			if (!can_select_collapse_sr_piece(game, p)) return
+			if (!Engine.collapse.get_collapse_sr_destination_spaces(game).includes(s)) return
+			rules.push_undo()
 			let from = game.pieces[p]
 			rules.move_piece(game, p, s)
 			rules.log(

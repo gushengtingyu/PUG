@@ -509,8 +509,8 @@ module.exports = function (Engine) {
 					return true
 				}
 
-				// 2. 协约国控制的港口 (排除特定地块)
-				if (space.port && Engine.map.is_controlled_by(game, s, AP)) {
+				// 2. 协约国控制的港口/已建立滩头 (排除特定地块)
+				if (Engine.map.is_ap_controlled_port_or_beachhead(game, s)) {
 					// 排除 阿卡巴、吉达、萨洛尼卡、黑海港口、里海港口
 					if (s === AQABA || s === JIDDAH) return false
 					if (s === SALONIKA) return false
@@ -593,7 +593,7 @@ module.exports = function (Engine) {
 				check_reinforcement_space(game, s, AP, (space, s) => {
 					// Rule 13.3.2: 德国潜艇地中海猎袭期间，不能在特定港口增援
 					if (is_german_subs_blocked_port(game, s)) return false
-					return Engine.map.is_aegean_east_med_port(s)
+					return Engine.map.is_aegean_east_med_port_or_beachhead(game, s)
 				})
 		},
 		is_ru_sphere_rein: {
@@ -923,7 +923,7 @@ module.exports = function (Engine) {
 		if (!is_german_subs_reinforcement_turn(game)) return false
 		// Rule 13.3.2: German Subs in the Med only blocks Allied reinforcements to the
 		// E. Mediterranean or Aegean Sea on the turn the card is played.
-		return Engine.map.is_aegean_east_med_port(s)
+		return Engine.map.is_aegean_east_med_port_or_beachhead(game, s)
 	}
 
 	/**

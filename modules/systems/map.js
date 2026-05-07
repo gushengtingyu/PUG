@@ -310,6 +310,16 @@ module.exports = function (Engine) {
 		return is_aegean_port(s) || is_east_med_port(s)
 	}
 
+	function is_aegean_east_med_beachhead(game, s) {
+		let space = data.spaces[s]
+		if (!space || !is_beachhead_space(game, s)) return false
+		return space.beach_for === "Lemnos" || space.beach_for === "Cyprus"
+	}
+
+	function is_aegean_east_med_port_or_beachhead(game, s) {
+		return is_aegean_east_med_port(s) || is_aegean_east_med_beachhead(game, s)
+	}
+
 	function is_black_sea_port(game_or_space, maybe_space) {
 		let game = maybe_space === undefined ? null : game_or_space
 		let s = maybe_space === undefined ? game_or_space : maybe_space
@@ -586,6 +596,7 @@ module.exports = function (Engine) {
 	function get_space_controller(game, s) {
 		if (is_potential_beachhead_space(s)) {
 			let legal = get_legal_beachhead_controller(game, s)
+			if (is_beachhead_space(game, s) && legal === AP) return AP
 			if (game.control && (game.control[s] === AP || game.control[s] === "neutral")) {
 				return game.control[s]
 			}
@@ -2055,6 +2066,10 @@ module.exports = function (Engine) {
 		)
 	}
 
+	function is_non_reserve_off_map_sr_source(game, p, source = game.pieces[p]) {
+		return is_not_on_map(game, p) && !is_reserve_space(source)
+	}
+
 	function has_sr_path(game, p, from, to, faction, rail_only) {
 		if (from === to) return true
 		let queue = [from]
@@ -2371,6 +2386,7 @@ module.exports = function (Engine) {
 		if (set_has(game.sr_moved || [], p)) return []
 		let info = data.pieces[p]
 		if (!info || get_piece_effective_faction(game, p) !== faction) return []
+		if (is_non_reserve_off_map_sr_source(game, p, source)) return []
 
 		let source_reserve = is_reserve_space(source)
 		let destinations = new Set()
@@ -2529,6 +2545,7 @@ module.exports = function (Engine) {
 		if (info.type === "irregular" || info.type === "tribe") return false
 		if (set_has(game.sr_moved || [], p)) return false
 		let s = game.pieces[p]
+		if (is_non_reserve_off_map_sr_source(game, p, s)) return false
 		if (s === RESERVE) {
 			// SCUs can SR from reserve, LCUs cannot
 			return info.piece_class !== "LCU"
@@ -2572,6 +2589,7 @@ module.exports = function (Engine) {
 		let info = data.pieces[p]
 		if (!info) return false
 		if (get_piece_effective_faction(game, p) !== faction) return false
+		if (is_non_reserve_off_map_sr_source(game, p, source)) return false
 		let source_reserve = is_reserve_space(source)
 		let dest_reserve = is_reserve_space(s)
 
@@ -3059,6 +3077,12 @@ module.exports = function (Engine) {
 		return !!(data.spaces[s] && data.spaces[s].port && is_controlled_by(game, s, AP))
 	}
 
+	function is_ap_controlled_port_or_beachhead(game, s) {
+		if (!data.spaces[s]) return false
+		if (is_beachhead_space(game, s)) return is_controlled_by(game, s, AP)
+		return is_ap_controlled_port(game, s)
+	}
+
 	function add_ap_controlled_ports(game, list, predicate = null) {
 		for (let s of get_supply_eligible_space_ids()) {
 			if (!is_ap_controlled_port(game, s)) continue
@@ -3194,6 +3218,15 @@ module.exports = function (Engine) {
 			return is_controlled_by(game, FAO, AP)
 		}
 		return false
+	}
+
+	function is_persian_gulf_beachhead(game, s) {
+		let space = data.spaces[s]
+		return !!(space && is_beachhead_space(game, s) && space.beach_for === "Bahrain")
+	}
+
+	function is_persian_gulf_port_or_beachhead(game, s) {
+		return is_persian_gulf_port(game, s) || is_persian_gulf_beachhead(game, s)
 	}
 
 	function is_red_sea_port(s) {
@@ -4270,7 +4303,10 @@ module.exports = function (Engine) {
 		get_connection_strait,
 		get_crossing_type,
 		is_aegean_east_med_port,
+		is_aegean_east_med_port_or_beachhead,
 		is_persian_gulf_port,
+		is_persian_gulf_port_or_beachhead,
+		is_ap_controlled_port_or_beachhead,
 		is_red_sea_port,
 		is_black_sea_port,
 		is_caspian_sea_port,

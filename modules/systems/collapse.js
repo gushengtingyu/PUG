@@ -152,6 +152,7 @@ module.exports = function (Engine) {
 		is_scu,
 		is_piece_reduced,
 		get_piece_nation,
+		get_piece_effective_faction,
 		get_capacity,
 		piece_counts_as_nation_for_rule,
 		piece_name
@@ -364,6 +365,8 @@ module.exports = function (Engine) {
 
 	function can_collapse_sr_piece(game, p) {
 		if (!data.pieces[p] || data.pieces[p].faction !== CP) return false
+		if (get_piece_effective_faction(game, p) !== CP) return false
+		if (is_not_on_map(game, p)) return false
 		let s = game.pieces[p]
 		return s > 0 && is_balkans(s)
 	}

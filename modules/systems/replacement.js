@@ -39,8 +39,9 @@ module.exports = function (Engine) {
 		is_persian_region,
 		is_egypt,
 		is_sudan_and_darfur,
-		is_aegean_east_med_port,
-		is_persian_gulf_port,
+		is_aegean_east_med_port_or_beachhead,
+		is_persian_gulf_port_or_beachhead,
+		is_ap_controlled_port_or_beachhead,
 		is_black_sea_port,
 		is_caspian_sea_port,
 		get_area,
@@ -105,7 +106,7 @@ module.exports = function (Engine) {
 	}
 
 	function is_british_empire_scu_rebuild_port(game, s) {
-		if (!is_port(s) || !is_controlled_by(game, s, AP) || is_besieged(game, s)) return false
+		if (!is_ap_controlled_port_or_beachhead(game, s) || is_besieged(game, s)) return false
 		if (s === AQABA || s === JIDDAH) return false
 		if (is_black_sea_port(game, s) || is_caspian_sea_port(game, s)) return false
 		return true
@@ -804,12 +805,16 @@ module.exports = function (Engine) {
 				} else if (is_controlled_by(game, s, AP) && !is_besieged(game, s)) {
 					// Rule 22.2.2: BR, IN, and ANZ LCUs may be rebuilt only at AP-controlled BR Supply Sources or ports in E.Med, Aegean, or Persian Gulf.
 					if (is_base_supply_source(game, s, AP, "br", true)) can_rebuild = true
-					if (is_aegean_east_med_port(s)) can_rebuild = true
-					if (is_persian_gulf_port(game, s)) can_rebuild = true
+					if (is_aegean_east_med_port_or_beachhead(game, s)) can_rebuild = true
+					if (is_persian_gulf_port_or_beachhead(game, s)) can_rebuild = true
 				}
 			} else if (nation === "fr" || nation === "it") {
 				// Rule 22.2.2: FR and IT units may be rebuilt at any AP-controlled port on the Aegean or E. Mediterranean.
-				if (is_controlled_by(game, s, AP) && !is_besieged(game, s) && is_aegean_east_med_port(s)) {
+				if (
+					is_controlled_by(game, s, AP) &&
+					!is_besieged(game, s) &&
+					is_aegean_east_med_port_or_beachhead(game, s)
+				) {
 					can_rebuild = true
 				}
 			} else if (Engine.neutral && typeof Engine.neutral.can_rebuild_balkan_unit_in_space === "function") {
