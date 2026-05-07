@@ -164,8 +164,9 @@ exports.register = function (states, Engine, context) {
 			game.vp += 1
 			log("AP failed Mandated Offensive: VP +1")
 		}
-		if (game.british_mandate_violated) {
+		if (game.british_mandate_violated && !game.br_attack_penalty_paid) {
 			game.vp += 1
+			game.br_attack_penalty_paid = true
 			log("AP violated British No Attack Mandate: VP +1")
 		}
 

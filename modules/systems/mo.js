@@ -357,7 +357,7 @@ module.exports = function (Engine) {
 		if (game.mo_ap === MO_BRITISH_NO_ATTACK) {
 			if (check_british_participation(game, pieces) && !game.british_mandate_violated) {
 				game.british_mandate_violated = true
-				if (log) log("AP violated British No Attack Mandate! (VP Penalty pending)")
+				if (log && !game.br_attack_penalty_paid) log("AP violated British No Attack Mandate! (VP Penalty pending)")
 			}
 			return
 		}
@@ -733,6 +733,78 @@ module.exports = function (Engine) {
 		}
 	}
 
+	function is_british_no_attack_unpaid(game, faction = AP) {
+		return !!(
+			game &&
+			faction === AP &&
+			game.mo_ap === MO_BRITISH_NO_ATTACK &&
+			!game.br_attack_penalty_paid
+		)
+	}
+
+	function get_pending_mo_penalty(game, faction) {
+		if (!game) return null
+
+		if (faction === AP) {
+			if (!game.mo_ap || game.mo_ap === MO_NONE || game.mo_ap === MO_BRITISH_NO_ATTACK || game.mo_ap_fulfilled) {
+				return null
+			}
+			if (check_mo_validity(game, AP, game.mo_ap) !== MO_VALID) return null
+			return { faction: AP, mo: game.mo_ap, vp: "+1", pending: [{ mo: game.mo_ap }] }
+		}
+
+		if (faction === CP) {
+			if (!game.mo_cp || game.mo_cp === MO_NONE || game.mo_cp_fulfilled) return null
+
+			if (game.mo_cp === MO_ENVER) {
+				const pending = []
+				if (
+					!game.mo_cp_1_fulfilled &&
+					game.mo_cp_1 &&
+					game.mo_cp_1 !== MO_NONE &&
+					check_mo_validity(game, CP, game.mo_cp_1) === MO_VALID
+				) {
+					pending.push({ index: 1, mo: game.mo_cp_1 })
+				}
+				if (
+					!game.mo_cp_2_fulfilled &&
+					game.mo_cp_2 &&
+					game.mo_cp_2 !== MO_NONE &&
+					check_mo_validity(game, CP, game.mo_cp_2) === MO_VALID
+				) {
+					pending.push({ index: 2, mo: game.mo_cp_2 })
+				}
+				if (pending.length === 0) return null
+				return { faction: CP, mo: game.mo_cp, vp: "-1", pending }
+			}
+
+			if (check_mo_validity(game, CP, game.mo_cp) !== MO_VALID) return null
+			return { faction: CP, mo: game.mo_cp, vp: "-1", pending: [{ mo: game.mo_cp }] }
+		}
+
+		return null
+	}
+
+	function get_final_round_mo_warning(game, faction) {
+		const penalty = get_pending_mo_penalty(game, faction)
+		if (!penalty) return ""
+
+		if (faction === AP) {
+			return ` ${mo_name(penalty.mo)} 强制进攻：最后一轮！`
+		}
+
+		if (faction === CP && penalty.mo === MO_ENVER) {
+			const detail = penalty.pending.map((entry) => `#${entry.index} ${mo_name(entry.mo)}`).join("、")
+			return ` 恩维尔亲临前线：同盟国强制进攻最后一轮（${detail}）！`
+		}
+
+		if (faction === CP) {
+			return ` ${mo_name(penalty.mo)} 强制进攻：最后一轮！`
+		}
+
+		return ""
+	}
+
 	Object.assign(exports, {
 		MO_NONE,
 		MO_RUSSIA,
@@ -757,6 +829,9 @@ module.exports = function (Engine) {
 		check_mo_criteria,
 		check_mo_validity,
 		update_mo_fulfillment_status,
+		is_british_no_attack_unpaid,
+		get_pending_mo_penalty,
+		get_final_round_mo_warning,
 		check_mo_on_attack_declared,
 		check_mo_fulfillment,
 		register,

@@ -4079,8 +4079,10 @@ module.exports = function (Engine) {
 		if (faction === "Central Powers" || faction === "CP") faction = CP
 
 		// MO_BRITISH_NO_ATTACK logic
-		const MO_BRITISH_NO_ATTACK = "british_no_attack"
-		const mo_br_no_attack = faction === AP && game.mo_ap === MO_BRITISH_NO_ATTACK && !game.br_attack_penalty_paid
+		const mo_br_no_attack =
+			Engine.mo && typeof Engine.mo.is_british_no_attack_unpaid === "function"
+				? Engine.mo.is_british_no_attack_unpaid(game, faction)
+				: faction === AP && game.mo_ap === "british_no_attack" && !game.br_attack_penalty_paid
 		let move_pieces = []
 		let attack_pieces = [] // without BR (when MO active and penalty not paid)
 		let attack_pieces_with_br = [] // with BR included (for the "pay VP" mode)

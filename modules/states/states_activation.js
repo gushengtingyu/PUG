@@ -257,12 +257,19 @@ exports.register = function (states, Engine, context) {
 		return get_piece_mf(p) > 0
 	}
 
+	function is_british_no_attack_unpaid_for(faction) {
+		if (Engine.mo && typeof Engine.mo.is_british_no_attack_unpaid === "function") {
+			return Engine.mo.is_british_no_attack_unpaid(game, faction)
+		}
+		return faction === AP && game.mo_ap === "british_no_attack" && !game.br_attack_penalty_paid
+	}
+
 	function can_piece_attack_in_activation(p, s, faction) {
 		if (!can_piece_participate_in_activation(p, faction)) return false
 		if (Engine.map.is_limited_supply_status(get_piece_activation_supply_status(p, faction))) return false
 		if (Engine.neutral.is_greek_piece(p) && !Engine.neutral.can_attack_piece_for_faction(game, p, faction)) return false
 		// MO_BRITISH_NO_ATTACK: BR units cannot attack unless penalty has been paid
-		if (game.mo_ap === "british_no_attack" && !game.br_attack_penalty_paid && faction === active_faction()) {
+		if (is_british_no_attack_unpaid_for(faction)) {
 			let nations = Engine.game_utils.get_piece_nations_for_rule(game, p, "activation")
 			if (nations.some((n) => n === "br")) return false
 		}
@@ -845,7 +852,7 @@ exports.register = function (states, Engine, context) {
 		},
 		activate_attack_with_br(s) {
 			// MO_BRITISH_NO_ATTACK: activate attack including BR units, pay +1 VP penalty once per turn
-			if (game.mo_ap !== "british_no_attack" || game.br_attack_penalty_paid) return
+			if (!is_british_no_attack_unpaid_for(active_faction())) return
 			if (Engine.map.is_region(game, s)) return  // region activation handled separately
 			let cost = get_activation_cost(game, s, "attack_with_br")
 			if (cost === undefined || game.ops < cost) return
@@ -853,6 +860,7 @@ exports.register = function (states, Engine, context) {
 			// Pay the VP penalty (once per turn)
 			game.vp += 1
 			game.br_attack_penalty_paid = true
+			game.british_mandate_violated = true
 			log("BR部队突破进攻限制：CP +1 VP")
 			game.ops -= cost
 			set_add(game.activated.attack, s)

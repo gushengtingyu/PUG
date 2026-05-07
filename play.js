@@ -5395,6 +5395,22 @@ const activation_action_menu = Array.from(
 	document.getElementById("activation_popup").querySelectorAll("li[data-action]")
 ).map((e) => e.dataset.action)
 
+const MAP_SPACE_CLICK_ACTIONS = new Set([
+	"activate_move",
+	"activate_attack",
+	"activate_attack_egypt",
+	"activate_attack_with_br",
+	"deactivate",
+	"combine",
+	"safe_withdraw",
+	"withdraw_under_fire",
+	"remove_beachhead"
+])
+
+function is_map_space_click_action(action) {
+	return MAP_SPACE_CLICK_ACTIONS.has(action)
+}
+
 /**
  * 统一空间点击意图判定，确保“可执行动作”优先于“展开堆叠”。
  * 这用于处理激活阶段、移动落点阶段等需要直接执行空间语义的场景。
@@ -5408,7 +5424,7 @@ function get_space_click_intent(s) {
 	if (is_reserve_box_space_id(s) && has_clickable_piece_intent_in_space(s)) {
 		return { type: "none" }
 	}
-	if (Array.isArray(view.actions.space) && view.actions.space.includes(s)) {
+	if (get_action_noun("space", s) !== undefined) {
 		return { type: "send_space" }
 	}
 	const can_continue_region_attack =
@@ -5426,10 +5442,13 @@ function get_space_click_intent(s) {
 		return { type: "send_action", action: "activate_move" }
 	}
 	for (let action in view.actions) {
-		if (!Array.isArray(view.actions[action]) || !view.actions[action].includes(s)) {
+		if (!is_map_space_click_action(action)) {
 			continue
 		}
 		if (activation_action_menu.includes(action)) {
+			continue
+		}
+		if (get_action_noun(action, s) === undefined) {
 			continue
 		}
 		return { type: "send_action", action }

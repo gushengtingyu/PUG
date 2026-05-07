@@ -3,7 +3,7 @@
 const rules = require("../rules.js")
 const Engine = require("../modules/engine.js")
 
-const { setupGame } = require("./helpers.js")
+const { setupGame, clearBoard } = require("./helpers.js")
 
 const { AP, CP } = Engine.constants
 const AP_ROLE = rules.roles[0]
@@ -28,7 +28,8 @@ test("第六行动轮 AP 未完成 MO 时提示最后一轮强制进攻警告", 
 	let view = rules.view(game, AP_ROLE)
 	expect(view.prompt).toContain("最后一轮")
 	expect(view.prompt).toContain(Engine.mo.mo_name(Engine.mo.MO_RUSSIA))
-	expect(view.prompt).toContain("VP +1")
+	expect(view.prompt).toContain("强制进攻")
+	expect(view.prompt).not.toContain("VP")
 })
 
 test("第六行动轮已完成 MO 时不显示最后一轮警告", () => {
@@ -38,6 +39,17 @@ test("第六行动轮已完成 MO 时不显示最后一轮警告", () => {
 
 	let view = rules.view(game, AP_ROLE)
 	expect(view.prompt).not.toContain("最后一轮")
+})
+
+test("final-round AP warning is suppressed when the MO penalty is no longer live", () => {
+	let game = setupActionPromptGame(AP)
+	clearBoard(game)
+	game.mo_ap = Engine.mo.MO_RUSSIA
+	game.mo_ap_fulfilled = false
+
+	let view = rules.view(game, AP_ROLE)
+	expect(view.prompt).not.toContain("最后一轮")
+	expect(game.mo_ap_fulfilled).toBe(false)
 })
 
 test("第六行动轮 CP 恩维尔 MO 只提示尚未完成的攻势", () => {
@@ -51,8 +63,9 @@ test("第六行动轮 CP 恩维尔 MO 只提示尚未完成的攻势", () => {
 
 	let view = rules.view(game, CP_ROLE)
 	expect(view.prompt).toContain("最后一轮")
+	expect(view.prompt).toContain("恩维尔亲临前线")
 	expect(view.prompt).toContain("#2")
 	expect(view.prompt).toContain(Engine.mo.mo_name(Engine.mo.MO_TURKEY))
-	expect(view.prompt).toContain("VP -1")
+	expect(view.prompt).not.toContain("VP")
 	expect(view.prompt).not.toContain("#1")
 })
