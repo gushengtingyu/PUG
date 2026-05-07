@@ -86,7 +86,7 @@ test("German Subs in the Med 不会阻止 AP 在正常补员阶段于 Port Said 
 	game.events.german_subs = true
 	game.events.german_subs_turn = game.turn
 
-	let validSpaces = Engine.replacement.get_valid_rebuild_spaces(game, brLcu, AP)
+	let validSpaces = Engine.map.get_valid_rebuild_spaces(game, brLcu, AP)
 	expect(validSpaces).toContain(portSaid)
 })
 

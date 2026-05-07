@@ -42,7 +42,7 @@ test("Disrupted Supply adds +1 OPS, +1 SR, and doubles RP repair cost", () => {
 	expect(Engine.map.get_supply_status(game, tiflis, AP, ruDiv)).toBe("DISRUPTED")
 	expect(Engine.map.get_activation_cost_pair(game, tiflis)).toEqual({ move: 2, attack: 2 })
 	expect(Engine.map.get_sr_cost(game, ruDiv, tiflis, findSpace("AP Reserve"), AP)).toBe(2)
-	expect(Engine.replacement.get_replacement_cost(game, ruDiv)).toBe(1)
+	expect(Engine.map.get_replacement_cost(game, ruDiv)).toBe(1)
 })
 
 test("Irregulars and tribes do not disrupt supply when accompanied by a same-side regular combat unit", () => {
@@ -102,7 +102,7 @@ test("Limited and Disrupted Supply coexist and apply both rule sets", () => {
 	).toBe(false)
 	expect(Engine.map.can_sr_piece(game, brDiv1, AP)).toBe(false)
 	expect(Engine.game_utils.can_combine_in_space(game, bolgrad, AP)).toBe(false)
-	expect(Engine.replacement.can_afford_replacement(game, brDiv1, Engine.replacement.get_replacement_cost(game, brDiv1))).toBe(false)
+	expect(Engine.map.can_afford_replacement(game, brDiv1, Engine.map.get_replacement_cost(game, brDiv1))).toBe(false)
 
 	Engine.map.check_supply(game)
 	expect(game.oos || []).not.toContain(brDiv1)

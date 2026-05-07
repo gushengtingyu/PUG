@@ -2503,7 +2503,7 @@ module.exports = function (Engine) {
 					if (info.nation !== "tu" && info.nation !== "tua") continue
 					if (info.symbol === "dot") continue
 					if (info.notreplaceable) continue
-					if (rules.is_capital_restricted(game, info.nation)) continue
+					if (rules.is_replacement_capital_restricted(game, info.nation)) continue
 
 					let cost = rules.get_replacement_cost(game, p)
 					if (cost > 0 && cost <= remaining) {

@@ -356,7 +356,6 @@ Engine.movement = Engine.map
 
 Engine.events = require("./systems/events.js")(Engine)
 Engine.combat = require("./systems/combat.js")(Engine)
-Engine.replacement = require("./systems/replacement.js")(Engine)
 Engine.mo = require("./systems/mo.js")(Engine)
 Engine.setup = require("./systems/setup.js")(Engine)
 Engine.collapse = require("./systems/collapse.js")(Engine)

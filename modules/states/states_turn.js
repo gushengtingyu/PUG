@@ -866,10 +866,10 @@ exports.register = function (states, Engine, context) {
 		if (!info) return spaces
 
 		if (is_eliminated(game, p)) {
-			for (let s of Engine.replacement.get_valid_rebuild_spaces(game, p, info.faction)) {
+			for (let s of Engine.map.get_valid_rebuild_spaces(game, p, info.faction)) {
 				spaces.add(s)
 			}
-			if (Engine.replacement.can_rebuild_in_reserve_box(p)) {
+			if (Engine.map.can_rebuild_in_reserve_box(p)) {
 				spaces.add(get_reserve_box(info.faction))
 			}
 		} else {
@@ -883,14 +883,14 @@ exports.register = function (states, Engine, context) {
 
 	function is_piece_replaceable_in_rp_phase(p, faction = game.active) {
 		if (!data.pieces[p] || data.pieces[p].faction !== faction) return false
-		let cost = Engine.replacement.get_replacement_cost(game, p)
+		let cost = Engine.map.get_replacement_cost(game, p)
 		if (cost <= 0) return false
 		if (is_eliminated(game, p)) {
 			if (get_rebuild_spaces(p).size === 0) return false
 		} else if (!set_has(game.reduced, p)) {
 			return false
 		}
-		return Engine.replacement.can_afford_replacement(game, p, cost)
+		return Engine.map.can_afford_replacement(game, p, cost)
 	}
 
 	function has_valid_replacements(faction) {
@@ -1100,9 +1100,9 @@ exports.register = function (states, Engine, context) {
 			let info = data.pieces[p]
 			if (!info || info.faction !== game.active) return
 			if (!is_piece_replaceable_in_rp_phase(p)) return
-			let cost = Engine.replacement.get_replacement_cost(game, p)
+			let cost = Engine.map.get_replacement_cost(game, p)
 			push_undo()
-			Engine.replacement.spend_replacement_points(game, p, cost)
+			Engine.map.spend_replacement_points(game, p, cost)
 			if (is_eliminated(game, p)) {
 				log(`${faction_name(game.active)} 残血重建 ${info.name}`)
 				game.rebuild_piece = p

@@ -123,8 +123,8 @@ const {
 	can_afford_replacement,
 	get_valid_rebuild_spaces,
 	spend_replacement_points,
-	is_capital_restricted
-} = Engine.replacement
+	is_replacement_capital_restricted
+} = Engine.map
 
 const {
 	get_piece_mf,
@@ -381,7 +381,7 @@ const event_rules = Object.freeze({
 	},
 	get_replacement_cost,
 	can_afford_replacement,
-	is_capital_restricted,
+	is_replacement_capital_restricted,
 	get_valid_rebuild_spaces,
 	spend_replacement_points,
 	is_eliminated,

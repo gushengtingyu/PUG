@@ -16,7 +16,7 @@ function clearSpace(game, name) {
 }
 
 function getRebuildNames(game, piece) {
-	return Engine.replacement.get_valid_rebuild_spaces(game, piece, AP).map((s) => Engine.data.spaces[s].name)
+	return Engine.map.get_valid_rebuild_spaces(game, piece, AP).map((s) => Engine.data.spaces[s].name)
 }
 
 test("RU LCU 只能在俄国补给点重建，不能直接重建到一般港口或黑海港口", () => {

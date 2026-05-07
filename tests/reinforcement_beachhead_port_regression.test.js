@@ -13,7 +13,7 @@ function legalSpaceNames(game) {
 }
 
 function rebuildSpaceNames(game, piece, faction = AP) {
-	return Engine.replacement.get_valid_rebuild_spaces(game, piece, faction).map((s) => Engine.data.spaces[s].name)
+	return Engine.map.get_valid_rebuild_spaces(game, piece, faction).map((s) => Engine.data.spaces[s].name)
 }
 
 function setBeachheads(game, names) {
@@ -22,8 +22,6 @@ function setBeachheads(game, names) {
 }
 
 test("British Empire reinforcements treat established beachheads as AP-controlled ports", () => {
-	let besikaBay = findSpace("Besika Bay")
-
 	let noMarker = setupGame(2026050701, "Historical", { no_supply_warnings: true })
 	Engine.events.get_event_by_id(2).handler(noMarker, null)
 	expect(legalSpaceNames(noMarker)).not.toContain("Besika Bay")

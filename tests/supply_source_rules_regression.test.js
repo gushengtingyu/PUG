@@ -12,7 +12,7 @@ function placeUnitAtControlledSpace(game, piece, space, faction) {
 }
 
 function rebuildSpaceNames(game, piece, faction = AP) {
-	return Engine.replacement.get_valid_rebuild_spaces(game, piece, faction).map((s) => Engine.data.spaces[s].name)
+	return Engine.map.get_valid_rebuild_spaces(game, piece, faction).map((s) => Engine.data.spaces[s].name)
 }
 
 test("AP-controlled ports provide full operational supply without becoming unrestricted LCU rebuild ports", () => {
@@ -209,13 +209,13 @@ test("CP replacement supply uses named Ottoman sources, not generic CP ports or 
 
 	placeUnitAtControlledSpace(game, geDiv, haifa, CP)
 	expect(Engine.map.get_supply_status(game, haifa, CP, geDiv)).toBe("LIMITED")
-	expect(Engine.replacement.can_afford_replacement(game, geDiv, 0.5)).toBe(false)
+	expect(Engine.map.can_afford_replacement(game, geDiv, 0.5)).toBe(false)
 
 	placeUnitAtControlledSpace(game, tuDiv, galicia, CP)
-	expect(Engine.replacement.can_afford_replacement(game, tuDiv, 0.5)).toBe(false)
+	expect(Engine.map.can_afford_replacement(game, tuDiv, 0.5)).toBe(false)
 
 	placeUnitAtControlledSpace(game, geDiv, erzincan, CP)
-	expect(Engine.replacement.can_afford_replacement(game, geDiv, 0.5)).toBe(false)
+	expect(Engine.map.can_afford_replacement(game, geDiv, 0.5)).toBe(false)
 })
 
 test("Serbian units use AP supply sources after collapse without widening rebuild locations", () => {
@@ -279,7 +279,7 @@ test("Afghan Alliance supplies non-Afghan CP units but still blocks their SR and
 
 	expect(Engine.map.get_supply_status(game, afghanistan, CP, tuDiv)).toBe("FULL")
 	expect(Engine.map.can_sr_piece(game, tuDiv, CP)).toBe(false)
-	expect(Engine.replacement.can_afford_replacement(game, tuDiv, 1)).toBe(false)
+	expect(Engine.map.can_afford_replacement(game, tuDiv, 1)).toBe(false)
 })
 
 test("ANA uses Hejaz supply and rebuilds only at AP-controlled Syria/Palestine ports", () => {

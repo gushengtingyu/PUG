@@ -142,7 +142,7 @@ describe("中立国统一框架", () => {
 		game.events.serbian_collapse = true
 		game.pieces[sbArmy] = ELIMINATED
 
-		expect(Engine.replacement.get_valid_rebuild_spaces(game, sbArmy, AP)).toEqual([])
+		expect(Engine.map.get_valid_rebuild_spaces(game, sbArmy, AP)).toEqual([])
 	})
 
 	test("罗军在罗马尼亚崩溃后失去敖德萨重建资格", () => {
@@ -155,7 +155,7 @@ describe("中立国统一框架", () => {
 		game.pieces[roDiv] = ELIMINATED
 		game.control[odessa] = AP
 
-		expect(Engine.replacement.get_valid_rebuild_spaces(game, roDiv, AP)).not.toContain(odessa)
+		expect(Engine.map.get_valid_rebuild_spaces(game, roDiv, AP)).not.toContain(odessa)
 	})
 
 	test("保加利亚与罗马尼亚事件会通过统一接口切换国家归属与默认控制", () => {
