@@ -250,13 +250,11 @@ module.exports = function (Engine) {
 
 	const EAST_MED_PORTS = new Set([
 		"Antalya",
-		"Mersin",
 		"Adana",
 		"Alexandretta",
 		"Beirut",
 		"Haifa",
 		"Jaffa",
-		"Gaza",
 		"Port Said",
 		"Alexandria",
 		"Mersa Matruh",
@@ -299,8 +297,7 @@ module.exports = function (Engine) {
 	function is_aegean_port(s) {
 		let space = data.spaces[s]
 		if (!space) return false
-		if (AEGEAN_PORTS.has(space.name)) return true
-		return space.area === "gallipoli"
+		return AEGEAN_PORTS.has(space.name)
 	}
 
 	function is_east_med_port(s) {
@@ -3008,6 +3005,39 @@ module.exports = function (Engine) {
 		return ["CONSTANTINOPLE", "Kayseri", "Erzincan", "Damascus", "Baghdad"].includes(name)
 	}
 
+	function is_named_ru_supply_source(game, s) {
+		let info = data.spaces[s]
+		if (!info) return false
+		let name = info.name
+		if (["Odessa", "TIFLIS", "Central Asia", "Petrovsk"].includes(name)) return true
+		return name === "Trabzon" && game.vps && game.vps[s] === "ru"
+	}
+
+	function has_ap_controlled_ru_supply_source_on_sea(game, port_predicate) {
+		for (let s of get_supply_eligible_space_ids()) {
+			if (!is_named_ru_supply_source(game, s)) continue
+			if (!is_controlled_by(game, s, AP)) continue
+			if (port_predicate(game, s)) return true
+		}
+		return false
+	}
+
+	function add_ru_sea_supply_entries(game, list) {
+		let has_black_sea_source = has_ap_controlled_ru_supply_source_on_sea(game, is_black_sea_port)
+		let has_caspian_source = has_ap_controlled_ru_supply_source_on_sea(game, is_caspian_sea_port)
+		if (!has_black_sea_source && !has_caspian_source) return
+
+		for (let s of get_supply_eligible_space_ids()) {
+			if (!is_controlled_by(game, s, AP)) continue
+			if (has_black_sea_source && is_black_sea_port(game, s)) {
+				if (!list.includes(s)) list.push(s)
+			}
+			if (has_caspian_source && is_caspian_sea_port(game, s)) {
+				if (!list.includes(s)) list.push(s)
+			}
+		}
+	}
+
 	function is_cp_afghanistan_full_supply_source(game, s) {
 		return !!(
 			data.spaces[s] &&
@@ -3033,6 +3063,12 @@ module.exports = function (Engine) {
 		for (let s of get_supply_eligible_space_ids()) {
 			if (!is_ap_controlled_port(game, s)) continue
 			if (predicate && !predicate(s)) continue
+			if (!list.includes(s)) list.push(s)
+		}
+	}
+
+	function add_supply_sources(list, sources) {
+		for (let s of sources) {
 			if (!list.includes(s)) list.push(s)
 		}
 	}
@@ -3084,15 +3120,8 @@ module.exports = function (Engine) {
 
 			// Russian Supply Sources (14.2.2) (RU)
 			if (!nation || nation === "ru" || nation === "ro" || nation === "sb") {
-				if (["Odessa", "TIFLIS", "Central Asia", "Petrovsk"].includes(name)) return true
-				if (name === "Trabzon" && game.vps && game.vps[s] === "ru") return true
+				if (is_named_ru_supply_source(game, s)) return true
 				if (is_black_sea_marines_special_fort(game, s)) return true
-				// Rule 14.2.2: BATUM (so long as the fortress is not destroyed)
-				if (name === "Batum" && !set_has(game.forts.destroyed, s)) return true
-				// Black Sea and Caspian Sea ports are always supply sources for RU (14.1.4)
-				if (is_black_sea_port(game, s) || is_caspian_sea_port(game, s)) {
-					if (is_controlled_by(game, s, AP)) return true
-				}
 			}
 
 			// British Supply Sources (14.2.3) (BR)
@@ -3130,6 +3159,9 @@ module.exports = function (Engine) {
 
 			// Special: Greece (14.2.6)
 			if (info.nation === "gr") {
+				if (nation === "gr" && s === ATHENS && is_controlled_by(game, s, AP)) {
+					return true
+				}
 				if (
 					Engine.neutral.is_greek_controlled_by_faction(game, AP) ||
 					(Engine.neutral.is_greece_neutral(game) &&
@@ -3198,6 +3230,7 @@ module.exports = function (Engine) {
 				ru_sources.push(s)
 			}
 		}
+		add_ru_sea_supply_entries(game, ru_sources)
 		return ru_sources
 	}
 
@@ -3660,7 +3693,19 @@ module.exports = function (Engine) {
 			if (is_british_supply_nation(nation) || is_special_ru_allied || is_ana) {
 				add_ap_controlled_ports(game, full_sources)
 			} else if (nation === "sb") {
-				add_ap_controlled_ports(game, full_sources, is_aegean_port)
+				add_supply_sources(
+					full_sources,
+					get_supply_sources_from_data_cached(game, AP, false, source_cache)
+				)
+			}
+			if (nation === "ru" || nation === "ro" || nation === "sb") {
+				add_ru_sea_supply_entries(game, full_sources)
+			}
+			if (nation === "gr" && Engine.neutral.is_greek_controlled_by_faction(game, AP)) {
+				add_supply_sources(
+					full_sources,
+					get_supply_sources_from_data_cached(game, AP, false, source_cache)
+				)
 			}
 		}
 
@@ -4223,6 +4268,7 @@ module.exports = function (Engine) {
 		get_connection_strait,
 		get_crossing_type,
 		is_aegean_east_med_port,
+		is_persian_gulf_port,
 		is_red_sea_port,
 		is_black_sea_port,
 		is_caspian_sea_port,

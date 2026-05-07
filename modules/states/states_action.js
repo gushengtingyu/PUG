@@ -78,6 +78,44 @@ exports.register = function (states, Engine, context) {
 		console.log("[调试][action-perf]", payload)
 	}
 
+	function get_mo_name(mo) {
+		if (Engine.mo && typeof Engine.mo.mo_name === "function") return Engine.mo.mo_name(mo)
+		return mo || "None"
+	}
+
+	function is_mo_none(mo) {
+		let none = Engine.mo && Engine.mo.MO_NONE ? Engine.mo.MO_NONE : "none"
+		return !mo || mo === none
+	}
+
+	function get_final_round_mo_warning() {
+		if (game.action_round !== 6) return ""
+
+		let faction = active_faction()
+		if (faction === AP) {
+			let british_no_attack = Engine.mo && Engine.mo.MO_BRITISH_NO_ATTACK ? Engine.mo.MO_BRITISH_NO_ATTACK : "british_no_attack"
+			if (is_mo_none(game.mo_ap) || game.mo_ap === british_no_attack || game.mo_ap_fulfilled) return ""
+			return ` 这是最后一轮完成 ${get_mo_name(game.mo_ap)} 强制进攻的机会，未完成将 VP +1。`
+		}
+
+		if (faction === CP) {
+			if (is_mo_none(game.mo_cp) || game.mo_cp_fulfilled) return ""
+
+			let enver = Engine.mo && Engine.mo.MO_ENVER ? Engine.mo.MO_ENVER : "enver"
+			if (game.mo_cp === enver) {
+				let pending = []
+				if (!game.mo_cp_1_fulfilled && !is_mo_none(game.mo_cp_1)) pending.push(`#1 ${get_mo_name(game.mo_cp_1)}`)
+				if (!game.mo_cp_2_fulfilled && !is_mo_none(game.mo_cp_2)) pending.push(`#2 ${get_mo_name(game.mo_cp_2)}`)
+				let detail = pending.length > 0 ? pending.join("、") : get_mo_name(game.mo_cp)
+				return ` 这是最后一轮完成同盟国恩维尔强制进攻的机会：${detail}，未完成将 VP -1。`
+			}
+
+			return ` 这是最后一轮完成 ${get_mo_name(game.mo_cp)} 强制进攻的机会，未完成将 VP -1。`
+		}
+
+		return ""
+	}
+
 	function begin_ops_action(card, ops) {
 		let t0 = DEBUG_ACTION_TRACE ? action_now() : 0
 		if (card === undefined || card === null) {
@@ -394,7 +432,7 @@ exports.register = function (states, Engine, context) {
 			if (res && res._is_noop) return
 			let t0 = DEBUG_ACTION_TRACE ? action_now() : 0
 			let event_check_count = 0
-			res.prompt(`第 ${game.turn} 回合, 行动轮 ${game.action_round}: 请选择一项行动`)
+			res.prompt(`第 ${game.turn} 回合, 行动轮 ${game.action_round}: 请选择一项行动${get_final_round_mo_warning()}`)
 			let hand = game.active === AP ? game.hand_ap : game.hand_cp
 			let allow_sr = can_play_sr_card_this_round(active_faction())
 			let allow_rp = can_play_rp_card_this_round(active_faction())

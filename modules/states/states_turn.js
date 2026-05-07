@@ -1077,11 +1077,20 @@ exports.register = function (states, Engine, context) {
 				}
 			}
 
+			let replaceable_pieces = []
+			for (let p = 0; p < game.pieces.length; p++) {
+				if (is_piece_replaceable_in_rp_phase(p)) replaceable_pieces.push(p)
+			}
+
+			if (replaceable_pieces.length === 0) {
+				res.prompt(`${faction} 补员阶段: 完成。`)
+				res.action("done")
+				return
+			}
+
 			res.prompt(`${faction} 补员阶段: ${rp_str || "无可用RP"}`)
 
-			for (let p = 0; p < game.pieces.length; p++) {
-				if (is_piece_replaceable_in_rp_phase(p)) res.piece(p)
-			}
+			for (let p of replaceable_pieces) res.piece(p)
 			res.action("done")
 		},
 		piece(p) {

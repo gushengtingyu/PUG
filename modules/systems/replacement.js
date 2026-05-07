@@ -36,10 +36,13 @@ module.exports = function (Engine) {
 		is_baluchistan,
 		is_afghanistan,
 		is_persia,
-		is_mesopotamia,
+		is_persian_region,
 		is_egypt,
 		is_sudan_and_darfur,
 		is_aegean_east_med_port,
+		is_persian_gulf_port,
+		is_black_sea_port,
+		is_caspian_sea_port,
 		get_area,
 		is_hejaz,
 		is_russia,
@@ -65,11 +68,18 @@ module.exports = function (Engine) {
 	const BAGHDAD = find_space("Baghdad")
 	const AQABA = find_space("Aqaba")
 	const JIDDAH = find_space("Jiddah")
+	const LEMNOS = find_space("Lemnos")
 	const GALICIA_SPACE_IDS = []
 	for (let s = 1; s < data.spaces.length; s++) {
 		if (is_galicia(s)) GALICIA_SPACE_IDS.push(s)
 	}
-	const TURKEY_REPLACEMENT_AREAS = new Set(["anatolia", "syria_palestine", "mesopotamia"])
+	const OTTOMAN_REPLACEMENT_SUPPLY_SOURCE_NAMES = new Set([
+		"CONSTANTINOPLE",
+		"Kayseri",
+		"Erzincan",
+		"Damascus",
+		"Baghdad"
+	])
 	const AP_FALLBACK_REPLACEMENT_NATIONS = new Set(["fr", "ro", "sb", "pe", "arm", "geo", "it"])
 	const AP_SHARED_BRITISH_REPLACEMENT_NATIONS = new Set(["anz", "ar", "gr"])
 	const CP_GALICIA_SHARED_REPLACEMENT_NATIONS = new Set(["ah", "bu"])
@@ -88,6 +98,23 @@ module.exports = function (Engine) {
 
 	function is_ana_unit(info) {
 		return !!(info && info.name === "BR ANA Arab")
+	}
+
+	function is_special_ru_allied_rebuild_unit(info) {
+		return !!(info && info.name && (info.name.includes("2/4 Special") || info.name.includes("Yugo")))
+	}
+
+	function is_british_empire_scu_rebuild_port(game, s) {
+		if (!is_port(s) || !is_controlled_by(game, s, AP) || is_besieged(game, s)) return false
+		if (s === AQABA || s === JIDDAH) return false
+		if (is_black_sea_port(game, s) || is_caspian_sea_port(game, s)) return false
+		return true
+	}
+
+	function is_special_ru_allied_rebuild_space(game, s) {
+		if (s === LEMNOS) return is_controlled_by(game, s, AP) && !is_besieged(game, s)
+		let space = data.spaces[s]
+		return !!(space && space.nation === "gr" && is_port(s) && is_controlled_by(game, s, AP) && !is_besieged(game, s))
 	}
 
 	function has_serbia_collapsed(game) {
@@ -274,8 +301,9 @@ module.exports = function (Engine) {
 	function get_turkish_replacement_supply_sources(game, faction) {
 		let sources = []
 		for (let i = 1; i < data.spaces.length; i++) {
-			if (!is_base_supply_source(game, i, faction)) continue
-			if (!TURKEY_REPLACEMENT_AREAS.has(get_area(i))) continue
+			let info = data.spaces[i]
+			if (!info || !OTTOMAN_REPLACEMENT_SUPPLY_SOURCE_NAMES.has(info.name)) continue
+			if (!is_controlled_by(game, i, faction) || is_besieged(game, i)) continue
 			sources.push(i)
 		}
 		return sources
@@ -733,7 +761,7 @@ module.exports = function (Engine) {
 				if (is_india(s) && can_rebuild_regular_unit_in_space(game, s, faction)) can_rebuild = true
 			} else if (is_br_persian_cordon_unit(info)) {
 				if (
-					(is_persia(s) || is_india(s) || is_baluchistan(s) || name === "Baluchistan") &&
+					(is_persian_region(s) || is_india(s) || is_baluchistan(s) || name === "Baluchistan") &&
 					can_rebuild_regular_unit_in_space(game, s, faction)
 				)
 					can_rebuild = true
@@ -758,14 +786,26 @@ module.exports = function (Engine) {
 				// Rule 22.2.2: GE and AH units may be rebuilt only in Galicia.
 				if (is_galicia(s) && is_controlled_by(game, s, CP) && !is_besieged(game, s)) can_rebuild = true
 			} else if (nation === "ru") {
-				// Rule 22.2.2: RU LCUs rebuild only on named RU Supply Sources, plus Russian-controlled Trabzon.
+				// Rule 7.7.6 / 22.2.1: the special RU Allied SCUs can rebuild at Lemnos or AP-controlled Greek ports.
+				if (info.piece_class === "SCU" && is_special_ru_allied_rebuild_unit(info)) {
+					if (is_special_ru_allied_rebuild_space(game, s)) can_rebuild = true
+				}
+				// Rule 22.2.2: RU units rebuild on named RU Supply Sources, plus Russian-controlled Trabzon.
 				if (is_ru_lcu_rebuild_space(game, s)) can_rebuild = true
 			} else if (nation === "br" || nation === "in" || nation === "anz") {
-				// Rule 22.2.2: BR, IN, and ANZ LCUs may be rebuilt only at AP-controlled BR Supply Sources or ports in E.Med, Aegean, or Persian Gulf.
-				if (is_controlled_by(game, s, AP) && !is_besieged(game, s)) {
+				if (info.piece_class === "SCU") {
+					// Rule 22.2.1 / 7.7.5: BR, IN, and ANZ SCUs rebuild like reinforcements.
+					if (
+						is_base_supply_source(game, s, AP, "br", true) &&
+						can_rebuild_regular_unit_in_space(game, s, faction)
+					)
+						can_rebuild = true
+					if (is_british_empire_scu_rebuild_port(game, s)) can_rebuild = true
+				} else if (is_controlled_by(game, s, AP) && !is_besieged(game, s)) {
+					// Rule 22.2.2: BR, IN, and ANZ LCUs may be rebuilt only at AP-controlled BR Supply Sources or ports in E.Med, Aegean, or Persian Gulf.
 					if (is_base_supply_source(game, s, AP, "br", true)) can_rebuild = true
 					if (is_aegean_east_med_port(s)) can_rebuild = true
-					if (is_mesopotamia(s) && is_port(s)) can_rebuild = true // Persian Gulf ports
+					if (is_persian_gulf_port(game, s)) can_rebuild = true
 				}
 			} else if (nation === "fr" || nation === "it") {
 				// Rule 22.2.2: FR and IT units may be rebuilt at any AP-controlled port on the Aegean or E. Mediterranean.
