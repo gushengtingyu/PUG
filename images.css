@@ -66,6 +66,9 @@
 .marker.cp.mandatory_offensive {
 	background-image: url(pieces/MCPMO.png);
 }
+.marker.cp.enver_mandatory_offensive {
+	background-image: url(pieces/MEnver.png);
+}
 .marker.ap.war_status {
 	background-image: url(pieces/MAPWS.png);
 }

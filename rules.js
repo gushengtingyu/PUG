@@ -912,9 +912,13 @@ exports.view = function (state, current) {
 			action_round: game.action_round,
 			mo_ap: game.mo_ap,
 			mo_cp: game.mo_cp,
+			mo_cp_1: game.mo_cp_1,
+			mo_cp_2: game.mo_cp_2,
 			mo_ap_modifier: game.mo_ap_modifier,
 			mo_ap_fulfilled: game.mo_ap_fulfilled,
 			mo_cp_fulfilled: game.mo_cp_fulfilled,
+			mo_cp_1_fulfilled: game.mo_cp_1_fulfilled,
+			mo_cp_2_fulfilled: game.mo_cp_2_fulfilled,
 			ru_revolution: game.ru_revolution,
 			parvus_to_berlin:
 				game.events && game.events["parvus_to_berlin"] !== undefined && !game.events["russian_revolution"]

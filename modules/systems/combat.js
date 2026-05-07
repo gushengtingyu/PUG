@@ -3289,10 +3289,10 @@ module.exports = function (Engine) {
 
 			if (att_has_special && !def_has_special) {
 				att_drm += 1
-				log_detail(log, "Cavalry/Camel/Armored Car: Attacker +1 DRM")
+				log_detail(log, "骑兵/骆驼兵/装甲旅: 进攻方 +1 DRM")
 			} else if (def_has_special && !att_has_special) {
 				def_drm += 1
-				log_detail(log, "Cavalry/Camel/Armored Car: Defender +1 DRM")
+				log_detail(log, "骑兵/骆驼兵/装甲旅: 防守方 +1 DRM")
 			}
 		}
 

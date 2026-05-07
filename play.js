@@ -1469,12 +1469,19 @@ function position_marker_at_layout(elt, rec) {
 	if (!elt || !rec) {
 		return
 	}
+	position_marker_at_layout_offset(elt, rec, 0, 0)
+}
+
+function position_marker_at_layout_offset(elt, rec, dx = 0, dy = 0) {
+	if (!elt || !rec) {
+		return
+	}
 	const [x, y] = layout_center(rec)
 	const w = rec[2] || elt.my_size || 75
 	const h = rec[3] || elt.my_size || 75
 	const border = style_dims[style].border
-	elt.style.left = `${x - w / 2 - border}px`
-	elt.style.top = `${y - h / 2 - border}px`
+	elt.style.left = `${x - w / 2 - border + dx}px`
+	elt.style.top = `${y - h / 2 - border + dy}px`
 }
 
 /**
@@ -2074,8 +2081,35 @@ const MO_CP_SPACE = {
 	none: "CP MO None"
 }
 
+function is_live_mo_marker_target(mo, fulfilled) {
+	return !!mo && mo !== "none" && !fulfilled
+}
+
+function get_cp_mo_marker_layout_keys(view) {
+	if (view?.mo_cp === "enver") {
+		let enver = "CP MO Enver"
+		let regular = "CP MO None"
+
+		if (is_live_mo_marker_target(view.mo_cp_1, view.mo_cp_1_fulfilled)) {
+			enver = MO_CP_SPACE[view.mo_cp_1] || "CP MO Enver"
+		}
+		if (is_live_mo_marker_target(view.mo_cp_2, view.mo_cp_2_fulfilled)) {
+			regular = MO_CP_SPACE[view.mo_cp_2] || "CP MO None"
+		}
+
+		return { regular, enver }
+	}
+
+	let regular = "CP MO None"
+	if (is_live_mo_marker_target(view?.mo_cp, view?.mo_cp_fulfilled)) {
+		regular = MO_CP_SPACE[view.mo_cp] || "CP MO None"
+	}
+	return { regular, enver: "CP MO Enver" }
+}
+
 let ap_mo_marker = null
 let cp_mo_marker = null
+let cp_enver_mo_marker = null
 let ap_mo_modifier_marker = null
 let reserve_beachhead_markers = []
 let ui_frame_state = null
@@ -4145,13 +4179,12 @@ function update_system_markers() {
 	update_record_marker(lcu_limit_cp_stacks, "lcu_limit_cp", view.lcu_limit_cp, 1, 3, view.lcu_limit_cp === undefined)
 
 	let ap_key = MO_AP_SPACE[view.mo_ap] || "AP MO None"
-	let cp_key = MO_CP_SPACE[view.mo_cp] || "CP MO None"
+	const cp_marker_keys = get_cp_mo_marker_layout_keys(view)
+	let cp_key = cp_marker_keys.regular
+	let cp_enver_key = cp_marker_keys.enver
 
 	if (view.mo_ap_fulfilled && view.mo_ap !== "none" && view.mo_ap !== "british_no_attack") {
 		ap_key = "AP MO Made"
-	}
-	if (view.mo_cp_fulfilled && view.mo_cp !== "none") {
-		cp_key = "CP MO Made"
 	}
 
 	if (!ap_mo_marker) {
@@ -4162,8 +4195,14 @@ function update_system_markers() {
 		cp_mo_marker = build_unique_marker("marker cp mandatory_offensive", 75 * SCALE)
 		cp_mo_marker.marker = { name: "Mandatory Offensive" }
 	}
+	if (!cp_enver_mo_marker) {
+		cp_enver_mo_marker = build_unique_marker("marker cp enver_mandatory_offensive", 75 * SCALE)
+		cp_enver_mo_marker.marker = { name: "Enver Mandatory Offensive" }
+	}
 	const ap_rec = layout[ap_key]
-	const cp_rec = layout[cp_key]
+	const cp_rec = cp_key ? layout[cp_key] : null
+	const cp_enver_rec = layout[cp_enver_key]
+	const cp_enver_overlap = !!(cp_rec && cp_enver_rec && cp_key === cp_enver_key && view.mo_cp === "enver")
 	if (ap_rec) {
 		ap_mo_marker.style.display = "block"
 		position_marker_at_layout(ap_mo_marker, ap_rec)
@@ -4172,9 +4211,24 @@ function update_system_markers() {
 	}
 	if (cp_rec) {
 		cp_mo_marker.style.display = "block"
-		position_marker_at_layout(cp_mo_marker, cp_rec)
+		position_marker_at_layout_offset(cp_mo_marker, cp_rec, cp_enver_overlap ? -9 * SCALE : 0, cp_enver_overlap ? 7 * SCALE : 0)
+		cp_mo_marker.style.zIndex = cp_enver_overlap ? "111" : ""
 	} else {
 		cp_mo_marker.style.display = "none"
+		cp_mo_marker.style.zIndex = ""
+	}
+	if (cp_enver_rec) {
+		cp_enver_mo_marker.style.display = "block"
+		position_marker_at_layout_offset(
+			cp_enver_mo_marker,
+			cp_enver_rec,
+			cp_enver_overlap ? 9 * SCALE : 0,
+			cp_enver_overlap ? -7 * SCALE : 0
+		)
+		cp_enver_mo_marker.style.zIndex = cp_enver_overlap ? "110" : ""
+	} else {
+		cp_enver_mo_marker.style.display = "none"
+		cp_enver_mo_marker.style.zIndex = ""
 	}
 
 	// AP MO 修正

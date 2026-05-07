@@ -2213,23 +2213,32 @@ module.exports = function (Engine) {
 			effect_cn:
 				"(只能在当前MO为“恩维尔亲临前线”时打出)取消本回合的**一次**“恩维尔亲临前线”规定的的恩维尔攻势(没有VP惩罚)**(意味着还有一次规定的恩维尔攻势依然必须完成)**，从协约国玩家手中选择三张手牌观看并归还。",
 			can_play: function (game) {
-				return game.mo_cp === "enver" && !game.mo_cp_fulfilled
+				return (
+					game.mo_cp === "enver" &&
+					!game.mo_cp_fulfilled &&
+					!game.mo_cp_1_fulfilled &&
+					game.mo_cp_1 !== null &&
+					game.mo_cp_1 !== undefined &&
+					game.mo_cp_1 !== "none"
+				)
 			},
 			handler: function (game, ctx) {
-				if (game.mo_cp === "enver" && !game.mo_cp_fulfilled) {
-					if (!game.mo_cp_1_fulfilled && game.mo_cp_1 !== null && game.mo_cp_1 !== undefined) {
-						game.mo_cp_1_fulfilled = true
-						log(game, `ENVER TO CONSTANTINOPLE: Enver Mandate #1 (${game.mo_cp_1}) cancelled.`, ctx)
-					} else if (!game.mo_cp_2_fulfilled && game.mo_cp_2 !== null && game.mo_cp_2 !== undefined) {
-						game.mo_cp_2_fulfilled = true
-						log(game, `ENVER TO CONSTANTINOPLE: Enver Mandate #2 (${game.mo_cp_2}) cancelled.`, ctx)
-					}
+				if (
+					game.mo_cp === "enver" &&
+					!game.mo_cp_fulfilled &&
+					!game.mo_cp_1_fulfilled &&
+					game.mo_cp_1 !== null &&
+					game.mo_cp_1 !== undefined &&
+					game.mo_cp_1 !== "none"
+				) {
+					game.mo_cp_1_fulfilled = true
+					log(game, `ENVER TO CONSTANTINOPLE: Enver Mandate #1 (${game.mo_cp_1}) cancelled.`, ctx)
 					if (game.mo_cp_1_fulfilled && game.mo_cp_2_fulfilled) {
 						game.mo_cp_fulfilled = true
 						log(game, "ENVER TO CONSTANTINOPLE: CP Enver Mandate fully fulfilled.", ctx)
 					}
 				} else {
-					log(game, "ENVER TO CONSTANTINOPLE: no active Enver mandate to cancel.", ctx)
+					log(game, "ENVER TO CONSTANTINOPLE: no active Enver #1 mandate to cancel.", ctx)
 				}
 				let hand = Array.isArray(game.hand_ap) ? game.hand_ap.slice() : []
 				if (hand.length === 0) {
@@ -2947,6 +2956,10 @@ module.exports = function (Engine) {
 			handler: function (game) {
 				game.mo_cp_cancelled = true
 				game.events["talaat_pasha"] = true
+				game.mo_cp = "none"
+				game.mo_cp_fulfilled = true
+				game.mo_cp_1_fulfilled = true
+				game.mo_cp_2_fulfilled = true
 			}
 		},
 		97: {
