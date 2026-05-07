@@ -117,6 +117,19 @@ module.exports = function (Engine) {
 		}
 	}
 
+	function format_cp_mo_result(game) {
+		if (game && game.mo_cp === MO_ENVER) {
+			return `恩维尔（#1 ${mo_name(game.mo_cp_1)}，#2 ${mo_name(game.mo_cp_2)}）`
+		}
+		return mo_name(game && game.mo_cp)
+	}
+
+	function log_mo_results(game, log) {
+		if (!game || !log) return
+		log(`AP：${mo_name(game.mo_ap)}`)
+		log(`CP：${format_cp_mo_result(game)}`)
+	}
+
 	function determine_mo_ap(roll) {
 		// PUG Rules (2.0):
 		// 1-2: Russia
@@ -463,25 +476,21 @@ module.exports = function (Engine) {
 	function resolve_enver_2(game, log) {
 		if (!game) return
 		const roll = roll_die(6, game)
-		if (log) log(`恩维尔第二次掷骰: ${roll}`)
 		let second = determine_mo_cp(roll)
 		if (second === MO_RUSSIA && is_russian_mo_ignored_for_cp(game)) {
 			second = MO_NONE
-			if (log) log("恩维尔 #2 俄国攻势在俄国革命第4阶段后被忽略")
 		}
 
 		if (second === MO_ENVER) {
 			game.active = CP
 			game.state = "mo_enver_choose_2"
-			if (log) log("恩维尔再次被掷出：同盟国选择第二个攻势目标")
 		} else {
 			game.mo_cp_2 = second
-			if (log) log(`恩维尔 #2 攻势目标为 ${mo_name(game.mo_cp_2)}`)
-			end_mo_enver(game)
+			end_mo_enver(game, log)
 		}
 	}
 
-	function end_mo_enver(game) {
+	function end_mo_enver(game, log) {
 		if (!game) return
 		if (game.mo_cp_1 === MO_NONE) game.mo_cp_1_fulfilled = true
 		if (game.mo_cp_2 === MO_NONE) game.mo_cp_2_fulfilled = true
@@ -489,13 +498,15 @@ module.exports = function (Engine) {
 		game.active = AP
 		delete game.initiative_winner
 		game.state = "acknowledge_mo_results"
+		log_mo_results(game, log)
 	}
 
-	function end_mo_choice(game) {
+	function end_mo_choice(game, log) {
 		if (!game) return
 		game.active = AP
 		delete game.initiative_winner
 		game.state = "acknowledge_mo_results"
+		log_mo_results(game, log)
 	}
 
 	function register(global_states) {
@@ -514,21 +525,17 @@ module.exports = function (Engine) {
 		choose_enver_russia(game, log) {
 			if (is_russian_mo_ignored_for_cp(game)) {
 				game.mo_cp_1 = MO_NONE
-				log("协约国为恩维尔 #1 选择俄国，在俄国革命第4阶段后被忽略")
 			} else {
 				game.mo_cp_1 = MO_RUSSIA
-				log("协约国为恩维尔 #1 选择俄国")
 			}
 			resolve_enver_2(game, log)
 		},
 		choose_enver_british(game, log) {
 			game.mo_cp_1 = MO_BRITISH
-			log("协约国为恩维尔 #1 选择大英帝国")
 			resolve_enver_2(game, log)
 		},
 		choose_enver_turkey(game, log) {
 			game.mo_cp_1 = MO_TURKEY
-			log("协约国为恩维尔 #1 选择土耳其")
 			resolve_enver_2(game, log)
 		}
 	}
@@ -543,22 +550,18 @@ module.exports = function (Engine) {
 		choose_enver_russia(game, log) {
 			if (is_russian_mo_ignored_for_cp(game)) {
 				game.mo_cp_2 = MO_NONE
-				log("同盟国为恩维尔 #2 选择俄国，在俄国革命第4阶段后被忽略")
 			} else {
 				game.mo_cp_2 = MO_RUSSIA
-				log("同盟国为恩维尔 #2 选择俄国")
 			}
-			end_mo_enver(game)
+			end_mo_enver(game, log)
 		},
 		choose_enver_british(game, log) {
 			game.mo_cp_2 = MO_BRITISH
-			log("同盟国为恩维尔 #2 选择大英帝国")
-			end_mo_enver(game)
+			end_mo_enver(game, log)
 		},
 		choose_enver_turkey(game, log) {
 			game.mo_cp_2 = MO_TURKEY
-			log("同盟国为恩维尔 #2 选择土耳其")
-			end_mo_enver(game)
+			end_mo_enver(game, log)
 		}
 	}
 
@@ -571,18 +574,15 @@ module.exports = function (Engine) {
 		},
 		choose_mesopotamia(game, log) {
 			game.mo_ap = MO_BRITISH_MESOPOTAMIA
-			log("协约国选择大英帝国 (美索不达米亚)")
-			end_mo_choice(game)
+			end_mo_choice(game, log)
 		},
 		choose_egypt(game, log) {
 			game.mo_ap = MO_BRITISH_EGYPT
-			log("协约国选择大英帝国 (埃及)")
-			end_mo_choice(game)
+			end_mo_choice(game, log)
 		},
 		choose_russia(game, log) {
 			game.mo_ap = MO_RUSSIA_CAUCASUS
-			log("协约国选择俄国 (高加索)")
-			end_mo_choice(game)
+			end_mo_choice(game, log)
 		}
 	}
 
@@ -823,6 +823,7 @@ module.exports = function (Engine) {
 		MO_AP_CHOICE_5,
 		MO_BRITISH_NO_ATTACK,
 		mo_name,
+		log_mo_results,
 		determine_mo_ap,
 		determine_mo_cp,
 		create_attack_context,

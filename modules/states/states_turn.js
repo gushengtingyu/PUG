@@ -137,6 +137,12 @@ exports.register = function (states, Engine, context) {
 		return adjustments
 	}
 
+	function log_mandated_offensive_results() {
+		if (Engine.mo && typeof Engine.mo.log_mo_results === "function") {
+			Engine.mo.log_mo_results(game, log)
+		}
+	}
+
 	states.revolution_phase = {
 		active: CP,
 		prompt(res) {
@@ -515,13 +521,11 @@ exports.register = function (states, Engine, context) {
 		game.mo_cp_fulfilled = true
 
 		if (game.turn === 1) {
-			log("第一回合：无MO掷骰")
-			log("AP：俄罗斯")
-			log("CP：俄罗斯")
 			game.mo_ap = MO_RUSSIA
 			game.mo_cp = MO_RUSSIA
 			game.mo_ap_fulfilled = false
 			game.mo_cp_fulfilled = false
+			log_mandated_offensive_results()
 			game.active = CP
 			game.player_order = [AP, CP]
 			if (!game.cp_opening_mobilization_pick_done) {
@@ -534,16 +538,13 @@ exports.register = function (states, Engine, context) {
 
 		let ap_roll = roll_die()
 		if (game.mo_ap_modifier) {
-			log(`AP MO Modifier: ${game.mo_ap_modifier}`)
 			ap_roll += game.mo_ap_modifier
 		}
 		let cp_roll = roll_die()
 		if (game.mo_cp_cancelled) {
-			log("CP: 无")
 			game.mo_cp = MO_NONE
 			game.mo_cp_fulfilled = true
 		} else {
-			log(`MO 掷骰: AP ${ap_roll}, CP ${cp_roll}`)
 			let mo_ap = determine_mo_ap(ap_roll)
 			let mo_cp = determine_mo_cp(cp_roll)
 
@@ -554,10 +555,8 @@ exports.register = function (states, Engine, context) {
 				if (game.mo_ap_modifier) ap_roll += game.mo_ap_modifier
 				mo_ap = determine_mo_ap(ap_roll)
 				status_ap = check_mo_validity(game, AP, mo_ap)
-				log(`AP 掷骰: ${ap_roll} -> ${mo_ap}`)
 			}
 			if (status_ap === "NONE") {
-				log(`AP ${mo_ap} nation not on map: None`)
 				mo_ap = MO_NONE
 			}
 
@@ -566,10 +565,8 @@ exports.register = function (states, Engine, context) {
 				cp_roll = roll_die()
 				mo_cp = determine_mo_cp(cp_roll)
 				status_cp = check_mo_validity(game, CP, mo_cp)
-				log(`CP MO Area empty, rerolling: ${cp_roll} -> ${mo_cp}`)
 			}
 			if (status_cp === "NONE") {
-				log(`CP MO ${mo_cp} nation not on map: None`)
 				mo_cp = MO_NONE
 			}
 
@@ -578,38 +575,27 @@ exports.register = function (states, Engine, context) {
 		}
 
 		if (game.mo_ap === MO_RUSSIA && game.events["russian_revolution"]) {
-			log("AP: 俄国革命开始后视为“无”")
 			game.mo_ap = MO_NONE
 		}
 		if (game.mo_cp === MO_RUSSIA && game.events["russian_revolution"] >= 4) {
-			log("CP: 俄国革命阶段4后视为“无”")
 			game.mo_cp = MO_NONE
 		}
 
 		if (game.mo_ap !== MO_NONE) {
-			if (game.mo_ap === MO_AP_CHOICE_5) {
-				log("AP: Choice needed")
-			} else {
-				log(`AP: ${game.mo_ap}`)
-			}
 			game.mo_ap_fulfilled = game.mo_ap === MO_BRITISH_NO_ATTACK
 		} else {
-			log(`AP: None`)
 			game.mo_ap_fulfilled = true
 		}
 
 		if (game.mo_cp !== MO_NONE) {
-			log(`CP: ${game.mo_cp}`)
 			game.mo_cp_fulfilled = false
 		} else {
-			log(`CP: None`)
 			game.mo_cp_fulfilled = true
 		}
 		// Handle Enver (CP Roll 6)
 		if (game.mo_cp === MO_ENVER) {
 			game.active = AP
 			game.state = "mo_enver_choose_1"
-			log("MO CP: Enver - AP chooses first mandate")
 			return
 		}
 
@@ -622,6 +608,7 @@ exports.register = function (states, Engine, context) {
 
 		game.active = AP
 		game.state = "acknowledge_mo_results"
+		log_mandated_offensive_results()
 	}
 
 	states.cp_opening_mobilization_pick = {
