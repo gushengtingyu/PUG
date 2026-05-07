@@ -1579,6 +1579,7 @@ module.exports = function (Engine) {
 			delete game.attack.flank_failed
 			delete game.attack.severe_weather_checked
 			delete game.attack.reserves_to_front_damaged_pieces
+			delete game.attack.reserves_to_front_initial_reduced_pieces
 		}
 		if (game.attack && game.attack.space > 0) {
 			mark_attacked_space(game)
@@ -1594,6 +1595,13 @@ module.exports = function (Engine) {
 					get_piece_effective_faction(game, p) === defender_faction &&
 					!(Array.isArray(game.retreated) && set_has(game.retreated, p))
 			)
+			game.attack.reserves_to_front_initial_reduced_pieces = []
+			for (let p of game.attack.pieces || []) {
+				if (is_piece_reduced(game, p)) set_add(game.attack.reserves_to_front_initial_reduced_pieces, p)
+			}
+			for (let p of game.attack.initial_defenders || []) {
+				if (is_piece_reduced(game, p)) set_add(game.attack.reserves_to_front_initial_reduced_pieces, p)
+			}
 		}
 
 		// Keep combat context (cards played) for continued sequence (like Enver Goes East)

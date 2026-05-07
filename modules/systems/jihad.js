@@ -108,6 +108,11 @@ module.exports = function (Engine) {
 		)
 	}
 
+	function normalize_jihad_city_owner(owner) {
+		const { AP, CP } = Engine.constants
+		return owner === AP || owner === CP || owner === "neutral" ? owner : undefined
+	}
+
 	function sync_jihad_city_state(game, s, previous_override, helpers = {}) {
 		if (!data.spaces[s] || !data.spaces[s].jihad_city) return
 		const { AP, CP } = Engine.constants
@@ -120,11 +125,12 @@ module.exports = function (Engine) {
 
 		if (!Array.isArray(game.jihad_city_effective_owner)) game.jihad_city_effective_owner = []
 
+		let stored_previous = normalize_jihad_city_owner(game.jihad_city_effective_owner[s])
 		let previous =
 			previous_override !== undefined
-				? previous_override || 0
-				: game.jihad_city_effective_owner[s] !== undefined
-					? game.jihad_city_effective_owner[s] || 0
+				? normalize_jihad_city_owner(previous_override) || 0
+				: stored_previous !== undefined
+					? stored_previous
 					: map.get_space_controller(game, s) || 0
 		let next = get_jihad_city_effective_owner(game, s) || 0
 

@@ -173,11 +173,18 @@ module.exports = function (Engine) {
 		return is_removed(game, p) && (info.symbol === "dot" || info.symbol === "triangle")
 	}
 
+	function was_reserves_to_front_initially_reduced(game, p) {
+		return !!(game.attack && set_has(game.attack.reserves_to_front_initial_reduced_pieces, p))
+	}
+
 	function get_reserves_to_front_piece_cost(game, p) {
 		let info = data.pieces[p]
 		if (!info) return 0
 		let is_elim_or_removed_exception = is_eliminated(game, p) || is_reserves_to_front_removed_exception(game, p)
-		if (is_elim_or_removed_exception || set_has(game.reduced, p)) {
+		if (is_elim_or_removed_exception) {
+			return info.piece_class === "LCU" ? 1 : 0.5
+		}
+		if (set_has(game.reduced, p) && !was_reserves_to_front_initially_reduced(game, p)) {
 			return info.piece_class === "LCU" ? 1 : 0.5
 		}
 		return 0
@@ -874,6 +881,7 @@ module.exports = function (Engine) {
 		get_battle_piece_pool,
 		get_reserves_to_front_piece_pool,
 		is_reserves_to_front_removed_exception,
+		was_reserves_to_front_initially_reduced,
 		get_reserves_to_front_piece_cost,
 		is_middle_east_area,
 		is_desert_or_swamp_battle,
