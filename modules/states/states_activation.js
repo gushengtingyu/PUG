@@ -1841,6 +1841,16 @@ exports.register = function (states, Engine, context) {
 		let pieces_moving = []
 		let pieces_stopped = []
 		let creates_beachhead = should_create_beachhead_on_entry(from_space, target)
+		let siege_departure_reason = Engine.map.get_siege_departure_block_reason(
+			game,
+			from_space,
+			game.move.pieces,
+			active_faction()
+		)
+		if (siege_departure_reason) {
+			log(`Cannot leave ${space_name(from_space)}: ${siege_departure_reason}.`)
+			return
+		}
 
 		let is_siege_entry =
 			has_undestroyed_fort(game, target, other_faction(active_faction())) && !Engine.map.is_besieged(game, target)

@@ -53,6 +53,33 @@ function createBattleGame() {
 	return { game, ruDiv3, tuDiv8, bayburt }
 }
 
+function createSpecialUnitDrmGame(active, attackers, defenders) {
+	let game = rules.setup(103, "Historical", { seed: 42, no_supply_warnings: true })
+	let oltu = findSpaceByName("Oltu")
+	let bayburt = findSpaceByName("Bayburt")
+
+	for (let p = 0; p < game.pieces.length; p++) game.pieces[p] = 0
+	for (let p of attackers) game.pieces[p] = oltu
+	for (let p of defenders) game.pieces[p] = bayburt
+
+	game.control[oltu] = active
+	game.control[bayburt] = active === rules.AP ? rules.CP : rules.AP
+	game.reduced = []
+	game.retreated = []
+	game.events = {}
+	game.attacked = []
+	game.active = active
+	game.attack = {
+		space: bayburt,
+		pieces: attackers,
+		attacker: active,
+		defender: active === rules.AP ? rules.CP : rules.AP
+	}
+	game.combat_cards = { attacker: [], defender: [] }
+
+	return game
+}
+
 function createBesiegedFortAttackGame() {
 	let game = rules.setup(102, "Historical", { seed: 42 })
 	let kars = findSpaceByName("Kars")
@@ -82,6 +109,55 @@ function createBesiegedFortAttackGame() {
 
 	return { game, kars, tuICorps }
 }
+
+function createBesiegedFortMaintenanceGame(attackerNames) {
+	let game = rules.setup(105, "Historical", { seed: 42 })
+	let kars = findSpaceByName("Kars")
+	let sarikamis = findSpaceByName("Sarikamis")
+	let attackers = attackerNames.map(findPieceByName)
+	let ruDiv3 = findPieceByName("RU DIV #3")
+
+	for (let p = 0; p < game.pieces.length; p++) game.pieces[p] = 0
+	for (let p of attackers) game.pieces[p] = kars
+	game.pieces[ruDiv3] = sarikamis
+
+	game.control = game.control || []
+	game.control[kars] = rules.CP
+	game.control[sarikamis] = rules.AP
+	game.forts = { destroyed: [] }
+	game.reduced = []
+	game.retreated = []
+	game.events = {}
+	game.attacked = []
+	game.active = rules.CP
+
+	return { game, kars, sarikamis, attackers }
+}
+
+test("cavalry camel armored DRM log names the first matching unit badge", () => {
+	let anzCamel = findPieceByName("ANZ Imp Camel")
+	let anzCavalry = findPieceByName("ANZ Cavalry #1")
+	let tuDiv8 = findPieceByName("TU DIV #8")
+	let logs = []
+	let game = createSpecialUnitDrmGame(rules.AP, [anzCamel, anzCavalry], [tuDiv8])
+
+	Engine.combat.resolve_battle_sequence(game, { log: (msg) => logs.push(msg) })
+
+	expect(logs).toContain("  骆驼兵: 进攻方 +1 DRM")
+	expect(logs.join("\n")).not.toContain("骑兵/骆驼兵/装甲旅")
+})
+
+test("cavalry camel armored DRM log names armored defenders", () => {
+	let tuDiv8 = findPieceByName("TU DIV #8")
+	let brDunsterforce = findPieceByName("BR Dunsterforce")
+	let logs = []
+	let game = createSpecialUnitDrmGame(rules.CP, [tuDiv8], [brDunsterforce])
+
+	Engine.combat.resolve_battle_sequence(game, { log: (msg) => logs.push(msg) })
+
+	expect(logs).toContain("  装甲旅: 防守方 +1 DRM")
+	expect(logs.join("\n")).not.toContain("骑兵/骆驼兵/装甲旅")
+})
 
 test("German High Command cannot be reused in same action", () => {
 	let { game } = createBattleGame()
@@ -231,6 +307,109 @@ test("unit inside besieged enemy fort can target the fort in its own space", () 
 
 	let targetView = rules.view(game, CP_ROLE)
 	expect(targetView.actions.space || []).toContain(kars)
+})
+
+test("besieged fort attack uses fort owner instead of current control marker", () => {
+	let { game, kars, tuICorps } = createBesiegedFortAttackGame()
+	game.control[kars] = rules.CP
+
+	expect(Engine.map.is_controlled_by(game, kars, rules.CP)).toBe(true)
+	expect(Engine.map.has_undestroyed_fort(game, kars, rules.AP)).toBe(true)
+	expect(Engine.map.is_besieged(game, kars)).toBe(true)
+	expect(Engine.combat.can_piece_attack_current_fort(game, tuICorps, rules.CP)).toBe(true)
+
+	let initialView = rules.view(game, CP_ROLE)
+	expect(initialView.actions.piece || []).toContain(tuICorps)
+
+	rules.action(game, CP_ROLE, "piece", tuICorps)
+
+	let targetView = rules.view(game, CP_ROLE)
+	expect(targetView.actions.space || []).toContain(kars)
+})
+
+test("besieging SCU cannot attack out if remaining units cannot maintain the siege", () => {
+	let { game, kars, sarikamis, attackers } = createBesiegedFortMaintenanceGame([
+		"TU DIV #1",
+		"TU DIV #2",
+		"TU DIV #3"
+	])
+	let selected = [attackers[0]]
+	let remaining = attackers.slice(1)
+
+	expect(Engine.map.is_besieged(game, kars)).toBe(true)
+	expect(Engine.map.can_besiege(game, kars, remaining)).toBe(false)
+
+	let targets = Engine.combat.get_legal_attackable_spaces(game, selected, rules.CP, () => "winter", () => true)
+	expect(targets).toContain(kars)
+	expect(targets).not.toContain(sarikamis)
+})
+
+test("besieging unit may attack out if remaining units still maintain the siege", () => {
+	let { game, kars, sarikamis, attackers } = createBesiegedFortMaintenanceGame(["TU DIV #1", "TU I Corps"])
+	let selected = [attackers[0]]
+	let remaining = [attackers[1]]
+
+	expect(Engine.map.is_besieged(game, kars)).toBe(true)
+	expect(Engine.map.can_besiege(game, kars, remaining)).toBe(true)
+
+	let targets = Engine.combat.get_legal_attackable_spaces(game, selected, rules.CP, () => "winter", () => true)
+	expect(targets).toContain(kars)
+	expect(targets).toContain(sarikamis)
+})
+
+test("besieging units cannot move out if remaining units cannot maintain the siege", () => {
+	let { game, kars, sarikamis, attackers } = createBesiegedFortMaintenanceGame([
+		"TU DIV #1",
+		"TU DIV #2",
+		"TU DIV #3"
+	])
+	let ruDiv3 = findPieceByName("RU DIV #3")
+	game.pieces[ruDiv3] = 0
+	game.control[sarikamis] = rules.CP
+	game.moved = []
+	game.move = {
+		initial: kars,
+		current: kars,
+		pieces: [attackers[0]],
+		spaces_moved: 0,
+		touched_spaces: []
+	}
+
+	expect(Engine.map.is_besieged(game, kars)).toBe(true)
+	expect(Engine.map.can_stack_move_to(game, sarikamis, rules.CP)).toBe(false)
+	expect(Engine.map.get_piece_move_block_reason(game, attackers[0], sarikamis, rules.CP)).toContain("围攻兵力不足")
+
+	game.move.pieces = attackers.slice()
+	expect(Engine.map.can_stack_move_to(game, sarikamis, rules.CP)).toBe(true)
+})
+
+test("besieging unit cannot SR out if remaining units cannot maintain the siege", () => {
+	let { game, kars, attackers } = createBesiegedFortMaintenanceGame(["TU DIV #1", "TU DIV #2", "TU DIV #3"])
+	let ruDiv3 = findPieceByName("RU DIV #3")
+	let route = ["Sarikamis", "Oltu", "Koprukoy", "Erzurum"].map(findSpaceByName)
+	for (let s of route) game.control[s] = rules.CP
+	game.pieces[ruDiv3] = 0
+	game.sr_moved = []
+
+	expect(Engine.map.is_besieged(game, kars)).toBe(true)
+	expect(Engine.map.get_supply_status(game, kars, rules.CP, attackers[0], true)).toBe("FULL")
+	expect(Engine.map.can_sr_piece(game, attackers[0], rules.CP)).toBe(false)
+})
+
+test("below-minimum units and tribes do not keep an enemy fort besieged", () => {
+	let { game, kars } = createBesiegedFortMaintenanceGame(["TU DIV #1", "TU DIV #2"])
+	let bakhtiari = findPieceByName("Bakhtiari")
+	let logs = []
+	game.seed = 1
+	game.pieces[bakhtiari] = kars
+
+	expect(Engine.map.can_besiege(game, kars, Engine.map.get_pieces_in_space(game, kars))).toBe(false)
+	expect(Engine.map.is_besieged(game, kars)).toBe(false)
+
+	Engine.combat.resolve_siege(game, kars, (msg) => logs.push(msg))
+
+	expect(logs).toEqual([])
+	expect(game.forts.destroyed || []).not.toContain(kars)
 })
 
 test("same-space fort attack does not open an advance step", () => {

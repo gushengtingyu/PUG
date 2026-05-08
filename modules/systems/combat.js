@@ -59,6 +59,8 @@ module.exports = function (Engine) {
 		is_balkans,
 		is_caucasus,
 		has_undestroyed_fort,
+		get_fort_owner,
+		can_besiege,
 		can_trace_supply_to_source,
 		get_gr_supply_sources,
 		get_supply_sources_from_data,
@@ -927,6 +929,49 @@ module.exports = function (Engine) {
 		return can_pieces_attack_target(game, [p], s)
 	}
 
+	function get_remaining_besieging_pieces(game, space, attacking_pieces) {
+		let fort_owner = get_fort_owner(game, space)
+		if (fort_owner !== AP && fort_owner !== CP) return []
+		let besieging_faction = other_faction(fort_owner)
+		return get_pieces_in_space(game, space).filter((p) => {
+			if (set_has(attacking_pieces, p)) return false
+			if (Array.isArray(game.attacked) && set_has(game.attacked, p)) return false
+			if (is_not_on_map(game, p)) return false
+			if (get_piece_effective_faction(game, p) !== besieging_faction) return false
+			return !is_tribe(p)
+		})
+	}
+
+	function apply_besieged_origin_attack_restrictions(game, pieces, targets) {
+		let besieged_spaces = []
+		for (let p of pieces) {
+			let s = game.pieces[p]
+			if (s > 0 && data.spaces[s] && is_besieged(game, s)) set_add(besieged_spaces, s)
+		}
+		if (besieged_spaces.length === 0) return targets
+
+		if (besieged_spaces.length === 1 && pieces.every((p) => game.pieces[p] === besieged_spaces[0])) {
+			let siege_space = besieged_spaces[0]
+			let remaining = get_remaining_besieging_pieces(game, siege_space, pieces)
+			if (can_besiege(game, siege_space, remaining)) {
+				if (!set_has(targets, siege_space) && can_pieces_attack_target(game, pieces, siege_space)) {
+					targets.push(siege_space)
+				}
+			} else {
+				targets = can_pieces_attack_target(game, pieces, siege_space) ? [siege_space] : []
+			}
+		}
+
+		for (let siege_space of besieged_spaces) {
+			let remaining = get_remaining_besieging_pieces(game, siege_space, pieces)
+			if (!can_besiege(game, siege_space, remaining)) {
+				targets = targets.filter((target) => target === siege_space)
+			}
+		}
+
+		return targets
+	}
+
 	function mark_attacked_space(game) {
 		if (!game.attack || !(game.attack.space > 0)) return
 		if (!Array.isArray(game.attacked_spaces)) game.attacked_spaces = []
@@ -1009,7 +1054,7 @@ module.exports = function (Engine) {
 				if (common_targets.length === 0) return []
 			}
 		}
-		return common_targets || []
+		return apply_besieged_origin_attack_restrictions(game, pieces, common_targets || [])
 	}
 
 	function can_activate_piece_in_space_to_attack(game, p, s, faction, get_season_fn, is_rail_connected_to_supply_fn) {
@@ -2495,7 +2540,7 @@ module.exports = function (Engine) {
 
 				// Determine besieging faction
 				let besieging_faction = null
-				let fort_owner = Engine.map.get_space_controller(game, s)
+				let fort_owner = Engine.map.get_fort_owner(game, s)
 
 				// Find an enemy unit to determine who captured it
 				let pieces = get_pieces_in_space(game, s)
@@ -3277,22 +3322,25 @@ module.exports = function (Engine) {
 		}
 
 		if (!involves_beachhead) {
-			let has_special_unit = (pieces) => {
-				return pieces.some((p) => {
+			let get_special_unit_label = (pieces) => {
+				for (let p of pieces) {
 					let badge = get_piece_badge(p)
-					return badge === "cavalry" || badge === "camel" || badge === "armored"
-				})
+					if (badge === "cavalry") return "骑兵"
+					if (badge === "camel") return "骆驼兵"
+					if (badge === "armored" || badge === "armor_brigade") return "装甲旅"
+				}
+				return null
 			}
 
-			let att_has_special = has_special_unit(attackers)
-			let def_has_special = has_special_unit(defenders)
+			let att_special_label = get_special_unit_label(attackers)
+			let def_special_label = get_special_unit_label(defenders)
 
-			if (att_has_special && !def_has_special) {
+			if (att_special_label && !def_special_label) {
 				att_drm += 1
-				log_detail(log, "骑兵/骆驼兵/装甲旅: 进攻方 +1 DRM")
-			} else if (def_has_special && !att_has_special) {
+				log_detail(log, `${att_special_label}: 进攻方 +1 DRM`)
+			} else if (def_special_label && !att_special_label) {
 				def_drm += 1
-				log_detail(log, "骑兵/骆驼兵/装甲旅: 防守方 +1 DRM")
+				log_detail(log, `${def_special_label}: 防守方 +1 DRM`)
 			}
 		}
 

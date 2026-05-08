@@ -90,9 +90,14 @@ test("RU Black Sea counts as 3 SCUs only on its amphibious assault fort and enab
 	expect(Engine.map.can_besiege(game, trabzon, [ruBlackSea])).toBe(true)
 	expect(Engine.map.can_besiege(game, erzurum, [ruBlackSea])).toBe(false)
 	expect(Engine.map.is_base_supply_source(game, trabzon, AP, "ru")).toBe(true)
+	expect(Engine.map.get_supply_status(game, trabzon, AP, ruBlackSea)).toBe("FULL")
+	expect(Engine.map.get_supply_trace_status_to_source(game, trabzon, AP, trabzon)).toBe("FULL")
 	expect(Engine.map.get_sr_destinations(game, ruDiv3, AP)).toContain(trabzon)
 	expect(Engine.map.get_sr_destinations(game, ruBlackSea, AP)).toContain(odessa)
 	expect(Engine.combat.get_valid_retreat_spaces(game, ruBlackSea, [], 1)).toContain(odessa)
+
+	game.pieces[ruDiv3] = trabzon
+	expect(Engine.map.get_supply_status(game, trabzon, AP, ruDiv3)).toBe("FULL")
 })
 
 test("RU Black Sea amphibious invasion cannot be used a second time", () => {

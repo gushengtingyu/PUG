@@ -56,6 +56,39 @@ test("Aegean and East Med rebuild ports exclude Gallipoli spaces and non-port en
 	}
 })
 
+test("direct supply trace cannot pass through a friendly besieged fort", () => {
+	let game = setupGame(2026050811, "Historical", { no_supply_warnings: true })
+	clearBoard(game)
+
+	let kars = findSpace("Kars")
+	let sarikamis = findSpace("Sarikamis")
+	let aleksandropol = findSpace("Aleksandropol")
+	let besiegers = ["TU DIV #1", "TU DIV #2", "TU DIV #3"].map((name) => findPiece(CP, name))
+
+	Engine.set_control(game, kars, AP)
+	Engine.set_control(game, sarikamis, AP)
+	Engine.set_control(game, aleksandropol, AP)
+	game.forts = { destroyed: [] }
+	for (let p of besiegers) game.pieces[p] = kars
+
+	let allowed_edges = new Set([`${sarikamis}-${kars}`, `${kars}-${sarikamis}`, `${kars}-${aleksandropol}`, `${aleksandropol}-${kars}`])
+	let only_through_kars = {
+		block_connection: (_game, current, next) => !allowed_edges.has(`${current}-${next}`)
+	}
+
+	expect(Engine.map.is_besieged(game, kars)).toBe(true)
+	expect(
+		Engine.map.get_supply_trace_status_to_source(
+			game,
+			sarikamis,
+			AP,
+			aleksandropol,
+			Engine.map.create_supply_context(game),
+			only_through_kars
+		)
+	).toBe("OOS")
+})
+
 test("BR Persian Cordon rebuilds only in Persian regions, India, or Baluchistan", () => {
 	let game = setupGame(2026050708, "Historical", { no_supply_warnings: true })
 	clearBoard(game)

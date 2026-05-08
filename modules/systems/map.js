@@ -387,6 +387,16 @@ module.exports = function (Engine) {
 		return get_active_black_sea_marines_fort(game) === s
 	}
 
+	function is_black_sea_marines_supply_nation(nation) {
+		return nation === "ru" || nation === "ro" || nation === "sb"
+	}
+
+	function is_black_sea_marines_supply_source(game, s, faction) {
+		// Rule 13.3.4: while RU Black Sea besieges Trabzon/Bosphorus, the Fort
+		// functions as a Russian/AP supply/SR port without granting AP full control.
+		return faction === AP && is_black_sea_marines_special_fort(game, s)
+	}
+
 	// --- Region Logic ---
 
 	function is_island_base(game, s) {
@@ -643,17 +653,19 @@ module.exports = function (Engine) {
 		)
 	}
 
+	function get_fort_owner(game, s) {
+		if (s === undefined || s === null || !data.spaces[s]) return null
+		if (!data.spaces[s].fort || data.spaces[s].fort <= 0) return null
+		// Rule 15.1.8: an undestroyed Fort keeps its printed/default owner even if
+		// the current control marker has drifted during a siege.
+		let owner = get_default_controller(game, s)
+		return owner === AP || owner === CP ? owner : null
+	}
+
 	function has_undestroyed_fort(game, s, faction) {
 		if (s === undefined || s === null || !data.spaces[s]) return false
-		if (data.spaces[s].fort && data.spaces[s].fort > 0) {
-			if (data.spaces[s].nation === "tu" || data.spaces[s].nation === "tua") {
-				if (faction === CP && !set_has(game.forts.destroyed, s)) return true
-			} else {
-				let owner = get_space_controller(game, s)
-				if (owner === faction && !set_has(game.forts.destroyed, s)) return true
-			}
-		}
-		return false
+		if (get_fort_owner(game, s) !== faction) return false
+		return !(game.forts && Array.isArray(game.forts.destroyed) && set_has(game.forts.destroyed, s))
 	}
 
 	function destroy_fort(game, s) {
@@ -1709,6 +1721,22 @@ module.exports = function (Engine) {
 		}
 	}
 
+	function get_siege_departure_block_reason(game, from, moving_pieces, faction) {
+		if (!game || !(from > 0) || !Array.isArray(moving_pieces) || moving_pieces.length === 0) return null
+		if (!is_besieged(game, from)) return null
+		if (get_fort_owner(game, from) !== other_faction(faction)) return null
+
+		// Rule 15.2.4: units may leave a besieged enemy Fort only if either the
+		// space is vacated or enough un-moving units remain to maintain the siege.
+		let moving = new Set(moving_pieces)
+		let remaining = get_pieces_in_space(game, from).filter(
+			(p) => !moving.has(p) && get_piece_effective_faction(game, p) === faction
+		)
+		if (remaining.length === 0) return null
+		if (can_besiege(game, from, remaining)) return null
+		return "要塞围攻兵力不足"
+	}
+
 	function get_piece_move_block_reason(game, p, target, faction) {
 		let greek_reason = get_greek_move_restriction_reason(game, p, target, faction)
 		if (greek_reason) return greek_reason
@@ -1725,6 +1753,15 @@ module.exports = function (Engine) {
 				faction
 			)
 			if (departure_reason) return departure_reason
+		}
+		if (game.move && Array.isArray(game.move.pieces)) {
+			let siege_departure_reason = get_siege_departure_block_reason(
+				game,
+				game.move.current,
+				game.move.pieces,
+				faction
+			)
+			if (siege_departure_reason) return siege_departure_reason
 		}
 		if (contains_enemy_pieces(game, target, faction) && !is_region(game, target)) return "目标有敌军"
 		let source = game.move.current
@@ -1806,6 +1843,7 @@ module.exports = function (Engine) {
 		if (contains_enemy_pieces(game, target, faction) && !is_region(game, target)) return false
 		if (game.move.pieces.length === 0) return false
 		if (get_hq_heavy_artillery_departure_reason(game, game.move.current, game.move.pieces, faction)) return false
+		if (get_siege_departure_block_reason(game, game.move.current, game.move.pieces, faction)) return false
 		if (get_hq_heavy_artillery_enemy_entry_reason(game, target, game.move.pieces, faction)) return false
 		for (let p of game.move.pieces) {
 			if (!can_piece_move_to(game, p, target, faction)) return false
@@ -1885,15 +1923,22 @@ module.exports = function (Engine) {
 
 	function can_besiege(game, s, pieces) {
 		const { game_utils } = Engine
+		if (!data.spaces[s] || !data.spaces[s].fort || data.spaces[s].fort <= 0) return false
+		if (game.forts && Array.isArray(game.forts.destroyed) && set_has(game.forts.destroyed, s)) return false
+		let fort_owner = get_fort_owner(game, s)
+		if (fort_owner !== AP && fort_owner !== CP) return false
 		if (!pieces || pieces.length === 0) return false
+		let besieging_faction = other_faction(fort_owner)
+		if (pieces.some((p) => get_piece_effective_faction(game, p) !== besieging_faction)) return false
 		if (!pieces.some((p) => !is_tribe(p))) return false // Tribes cannot besiege
 
 		// Rule 15.2.1: 1 LCU or SCUs equal to Fort's strength.
 		// Rule 13.3.4: RU Black Sea counts as 3 SCUs.
-		if (pieces.some((p) => game_utils.is_lcu(p))) return true
+		if (pieces.some((p) => !is_tribe(p) && game_utils.is_lcu(p))) return true
 
 		let scu_count = 0
 		for (let p of pieces) {
+			if (is_tribe(p)) continue
 			if (game_utils.is_scu(p)) {
 				if (data.pieces[p].name === "RU Black Sea" && is_black_sea_marines_special_fort(game, s)) {
 					scu_count += 3
@@ -1905,6 +1950,18 @@ module.exports = function (Engine) {
 
 		let fort_level = data.spaces[s].fort || 0
 		return scu_count >= fort_level
+	}
+
+	function get_besieging_pieces(game, s, fort_owner) {
+		if (!game || !Array.isArray(game.pieces)) return []
+		let besiegers = []
+		let besieging_faction = other_faction(fort_owner)
+		for (let p = 0; p < game.pieces.length; p++) {
+			if (game.pieces[p] !== s) continue
+			if (get_piece_effective_faction(game, p) !== besieging_faction) continue
+			besiegers.push(p)
+		}
+		return besiegers
 	}
 
 	// Strategic Redeployment (SR)
@@ -2229,7 +2286,7 @@ module.exports = function (Engine) {
 				let has_friendly_pieces = context.friendly[faction][next] === 1
 				let is_disrupted_by_enemy = context.disrupted[faction][next] === 1
 
-				if (is_friendly && is_besieged_enemy) continue
+				if (is_friendly && is_besieged_enemy && get_fort_owner(game, next) === faction) continue
 				if (!is_friendly && !is_besieged_enemy && !has_friendly_pieces && !is_disrupted_by_enemy) continue
 
 				let current_is_desert = data.spaces[current].terrain === DESERT
@@ -2550,6 +2607,18 @@ module.exports = function (Engine) {
 		return get_supply_trace_status_to_source(game, s, CP, sources, context) === "OOS"
 	}
 
+	function can_piece_leave_siege_by_sr(game, p, faction) {
+		let s = game.pieces[p]
+		if (!(s > 0 && data.spaces[s])) return true
+		if (!is_besieged(game, s)) return true
+		if (data.pieces[p].name === "RU Black Sea" && is_black_sea_marines_special_fort(game, s)) return true
+		// Apply the same Rule 15.2.4 maintenance check to SR of a single unit.
+		let remaining = get_pieces_in_space(game, s).filter(
+			(q) => q !== p && get_piece_effective_faction(game, q) === faction
+		)
+		return can_besiege(game, s, remaining)
+	}
+
 	function can_sr_piece(game, p, faction) {
 		let info = data.pieces[p]
 		if (!info) return false
@@ -2585,6 +2654,7 @@ module.exports = function (Engine) {
 		let status = get_supply_status(game, s, faction, p, true)
 		if (!is_supply_status_in_supply(status)) return false
 		if (is_cp_non_afghan_unit_tracing_only_to_afghanistan(game, p)) return false
+		if (!can_piece_leave_siege_by_sr(game, p, faction)) return false
 		if (
 			game.state === "event_enver_falkenhayn_sr" &&
 			faction === CP &&
@@ -2615,6 +2685,7 @@ module.exports = function (Engine) {
 
 		if (source_reserve && dest_reserve) return false
 		if (source_reserve) return can_sr_from_reserve_to_space(game, p, s, faction)
+		if (source !== s && !can_piece_leave_siege_by_sr(game, p, faction)) return false
 		if (is_cp_non_afghan_unit_tracing_only_to_afghanistan(game, p)) return false
 
 		if (dest_reserve) {
@@ -2784,13 +2855,14 @@ module.exports = function (Engine) {
 			memo[s] = false
 			return false
 		}
-		let fort_owner = get_space_controller(game, s)
-		if (fort_owner === AP) {
-			memo[s] = supply_context.non_tribe[CP][s] === 1
-			return memo[s]
-		}
-		if (fort_owner === CP) {
-			memo[s] = supply_context.non_tribe[AP][s] === 1
+		let fort_owner = get_fort_owner(game, s)
+		if (fort_owner === AP || fort_owner === CP) {
+			let besieging_faction = other_faction(fort_owner)
+			if (supply_context.non_tribe[besieging_faction][s] !== 1) {
+				memo[s] = false
+				return false
+			}
+			memo[s] = can_besiege(game, s, get_besieging_pieces(game, s, fort_owner))
 			return memo[s]
 		}
 		memo[s] = is_besieged(game, s)
@@ -2822,19 +2894,10 @@ module.exports = function (Engine) {
 		if (game.forts && game.forts.destroyed && set_has(game.forts.destroyed, s)) return false
 
 		// Check if it contains enemy units of the fort owner
-		let fort_owner = get_space_controller(game, s)
+		let fort_owner = get_fort_owner(game, s)
+		if (!fort_owner) return false
 
-		// Check enemy presence
-		// Must have at least one valid besieging unit (Regular or Irregular, but NOT Tribe)
-		for (let p = 0; p < game.pieces.length; p++) {
-			if (game.pieces[p] === s) {
-				if (get_piece_effective_faction(game, p) !== fort_owner) {
-					// Found an enemy unit. Check if it is a valid besieger.
-					if (!is_tribe(p)) return true
-				}
-			}
-		}
-		return false
+		return can_besiege(game, s, get_besieging_pieces(game, s, fort_owner))
 	}
 
 	function get_beachhead_spaces(game, faction) {
@@ -2911,6 +2974,9 @@ module.exports = function (Engine) {
 			if (is_ap_supply_beachhead(game, s, faction)) {
 				is_friendly = true
 			}
+			if (is_black_sea_marines_supply_source(game, s, faction)) {
+				is_friendly = true
+			}
 			if (is_contested_cp_region_port) {
 				is_friendly = true
 			}
@@ -2958,7 +3024,7 @@ module.exports = function (Engine) {
 				let is_disrupted_by_enemy = context.disrupted[faction][next] === 1
 
 				// Rule 14.1.3: Friendly besieged Fort blocks supply trace.
-				if (is_friendly && is_besieged_enemy) continue
+				if (is_friendly && is_besieged_enemy && get_fort_owner(game, next) === faction) continue
 
 				// Supply trace pass if: friendly controlled OR contains friendly pieces OR is disrupted (partial control) OR besieged fort
 				// Note: "friendly pieces" includes irregulars which provide partial control.
@@ -3159,7 +3225,8 @@ module.exports = function (Engine) {
 			// Russian Supply Sources (14.2.2) (RU)
 			if (!nation || nation === "ru" || nation === "ro" || nation === "sb") {
 				if (is_named_ru_supply_source(game, s)) return true
-				if (is_black_sea_marines_special_fort(game, s)) return true
+				if (is_black_sea_marines_supply_nation(nation) && is_black_sea_marines_special_fort(game, s))
+					return true
 			}
 
 			// British Supply Sources (14.2.3) (BR)
@@ -3807,6 +3874,7 @@ module.exports = function (Engine) {
 			}
 			if (
 				is_ap_supply_beachhead(game, start, faction) ||
+				is_black_sea_marines_supply_source(game, start, faction) ||
 				is_controlled_by(game, start, faction) ||
 				is_ap_contested_cp_region_port(game, start, faction, context)
 			) {
@@ -3842,6 +3910,9 @@ module.exports = function (Engine) {
 				let is_besieged_enemy = is_besieged_with_context(game, next, context)
 				let has_friendly_pieces = context.friendly[faction][next] === 1
 				let is_disrupted_by_enemy = context.disrupted[faction][next] === 1
+
+				// Rule 14.1.3: Friendly besieged Fort blocks supply trace.
+				if (is_friendly && is_besieged_enemy && get_fort_owner(game, next) === faction) continue
 
 				// Supply trace pass if: friendly controlled OR contains friendly pieces OR is disrupted (partial control) OR besieged fort
 				if (!is_friendly && !is_besieged_enemy && !has_friendly_pieces && !is_disrupted_by_enemy) continue
@@ -5073,6 +5144,7 @@ module.exports = function (Engine) {
 		get_legal_beachhead_controller,
 		get_default_controller,
 		get_space_controller,
+		get_fort_owner,
 		is_controlled_by,
 		is_russia_controlled_space,
 		has_allied_control_of_balfour_spaces,
@@ -5131,6 +5203,7 @@ module.exports = function (Engine) {
 		is_unrestricted_submarine_warfare_penalized_space,
 		prune_exhausted_move_stack,
 		has_unmoved_pieces_in_space,
+		get_siege_departure_block_reason,
 		get_piece_move_block_reason,
 		can_stack_move_to,
 		can_piece_move_to,
