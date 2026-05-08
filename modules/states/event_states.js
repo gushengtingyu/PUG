@@ -1942,7 +1942,7 @@ module.exports = function (Engine) {
 			mark_ap_invasion_event_used_this_turn(game)
 			let event = get_active_event_data(game)
 			if (event) {
-				event.reinf_to_place = ["BR XVI Corps", "BR XII Corps", "FR DIV #1", "FR DIV #2"]
+				event.reinf_to_place = ["BR XVI Corps", "BR XII Corps", "FR DIV #3", "FR DIV #4"]
 				event.allow_sr_to_island = 3
 				event.beachheads_to_place = 1
 			}
@@ -1954,7 +1954,7 @@ module.exports = function (Engine) {
 			rules.log("萨洛尼卡入侵：用作增援")
 			let event = get_active_event_data(game)
 			if (event) {
-				event.reinf_to_place = ["BR XVI Corps", "BR XII Corps", "FR DIV #1", "FR DIV #2"]
+				event.reinf_to_place = ["BR XVI Corps", "BR XII Corps", "FR DIV #3", "FR DIV #4"]
 				event.reinf_logic = "is_ap_invasion_rein"
 				event.reinf_prompt_prefix = "萨洛尼卡入侵（增援）"
 			}

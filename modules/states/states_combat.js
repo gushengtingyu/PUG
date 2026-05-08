@@ -1720,7 +1720,7 @@ exports.register = function (states, Engine, context) {
 				fort_strength = data.spaces[game.attack.space].fort || 0
 			}
 
-			let options = combat.get_loss_options(game, defenders, needed, fort_strength)
+			let options = combat.get_loss_options(game, defenders, needed, fort_strength, "defender")
 			for (let p of options) res.piece(p)
 
 			// POG 12.4.6: Fort destruction as loss option if all units eliminated and remaining losses >= Fort LF
@@ -1749,6 +1749,7 @@ exports.register = function (states, Engine, context) {
 			push_undo()
 			let lf = get_piece_lf(game, p)
 			let was_reduced = Engine.game_utils.is_piece_reduced(game, p)
+			combat.remember_variable_loss_other_unit_hit(game, "defender", p)
 			ensure_attack_log_section("defender_loss_log_started", "防守方承伤：")
 			reduce_piece(p)
 			if (was_reduced) {
@@ -1836,7 +1837,7 @@ exports.register = function (states, Engine, context) {
 				`攻击方承伤 (已承受: ${game.attack.attacker_losses_absorbed} / 需要: ${game.attack.attacker_losses})`
 			)
 			let attackers = game.attack.pieces.filter((p) => !is_not_on_map(game, p) && data.pieces[p].type !== "hq")
-			let options = combat.get_loss_options(game, attackers, needed, 0)
+			let options = combat.get_loss_options(game, attackers, needed, 0, "attacker")
 			for (let p of options) res.piece(p)
 
 			if (options.length === 0) {
@@ -1848,6 +1849,7 @@ exports.register = function (states, Engine, context) {
 			push_undo()
 			let lf = get_piece_lf(game, p)
 			let was_reduced = Engine.game_utils.is_piece_reduced(game, p)
+			combat.remember_variable_loss_other_unit_hit(game, "attacker", p)
 			ensure_attack_log_section("attacker_loss_log_started", "进攻方承伤：")
 			reduce_piece(p)
 			if (was_reduced) {

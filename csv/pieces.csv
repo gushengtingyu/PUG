@@ -268,18 +268,17 @@ id,faction,nation,name,cf,lf,mf,rcf,rlf,rmf,symbol,region_limit,type,badge,piece
 265,cp,tu,TU III Corps,4,3,4,3,3,4,triangle,,regular,blue,LCU,TUIIIC.png,TUIIICR.png
 266,cp,tu,TU IV Corps,3,2,3,2,2,3,,,regular,infantry,LCU,TUIVC.png,TUIVCR.png
 267,cp,tu,TU IX Corps,3,2,3,2,2,3,,,regular,infantry,LCU,TUIXC.png,TUIXCR.png
-268,cp,tu,TU Stanke Bey,2,?,4,1,1,4,,,regular,yellow,SCU,TUStBey.png,TUStBeyR.png
+268,cp,tu,TU Stanke Bey,2,?,4,1,1,4,dot,,regular,yellow,SCU,TUStBey.png,TUStBeyR.png
 269,cp,tu,TU V Corps,3,2,3,2,2,3,,,regular,infantry,LCU,TUVC.png,TUVCR.png
 270,cp,tu,TU X Corps,3,2,3,2,2,3,,,regular,infantry,LCU,TUXC.png,TUXCR.png
 271,cp,tu,TU XI Corps,3,2,3,2,2,3,,,regular,infantry,LCU,TUXIC.png,TUXICR.png
-272,cp,tu,TU XIII Corps,4,3,4,3,3,4,triangle,,regular,blue,LCU,TUIIIC.png,TUIIICR.png
 273,cp,tu,TU XIV Corps,3,3,3,2,3,3,,,regular,infantry,LCU,TUXIVC.png,TUXIVCR.png
 274,cp,tu,TU XV Corps,3,3,3,2,3,3,,,regular,infantry,LCU,TUXVC.png,TUXVCR.png
 275,cp,tu,TU XVI Corps,3,3,3,2,3,3,,,regular,infantry,LCU,TUXVIC.png,TUXVICR.png
 276,cp,tu,TU XVII Corps,3,2,3,2,2,3,,,regular,infantry,LCU,TUXVIIC.png,TUXVIICR.png
 277,cp,tu,TU XX Corps,3,2,3,2,2,3,,,regular,infantry,LCU,TUXXC.png,TUXXCR.png
 278,cp,tu,TU XXII Corps,3,3,3,2,3,3,,,regular,infantry,LCU,TUXXIIC.png,TUXXIICR.png
-279,cp,tua,TU-A Camel Corps,1,1,5,0,1,5,triangle,,regular,cavalry,SCU,TUACCDiv.png,TUACCDivR.png
+279,cp,tua,TU-A Camel Corps,1,1,8,0,1,8,triangle,,regular,cavalry,SCU,TUACCDiv.png,TUACCDivR.png
 280,cp,tua,TU-A Cavalry,1,1,5,0,1,5,triangle,,regular,cavalry,SCU,TUACDiv.png,TUACDivR.png
 281,cp,tua,TU-A DIV #1,1,1,4,0,1,4,,,regular,infantry,SCU,TUADiv.png,TUADivR.png
 282,cp,tua,TU-A DIV #2,1,1,4,0,1,4,,,regular,infantry,SCU,TUADiv.png,TUADivR.png

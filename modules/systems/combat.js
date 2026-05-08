@@ -204,6 +204,34 @@ module.exports = function (Engine) {
 		return game.pieces[p]
 	}
 
+	function get_loss_piece_space(game, p) {
+		if (game.attack && game.attack.origin_by_piece && game.attack.origin_by_piece[p] > 0) {
+			return game.attack.origin_by_piece[p]
+		}
+		return game.pieces[p]
+	}
+
+	function is_variable_loss_piece(game, p, reduced_override = null) {
+		let info = data.pieces[p]
+		if (!info) return false
+		let reduced = reduced_override === null ? is_piece_reduced(game, p) : reduced_override
+		let lf = reduced ? info.rlf : info.lf
+		return lf === null || lf === "?"
+	}
+
+	function remember_variable_loss_other_unit_hit(game, loss_side, p) {
+		if (!game.attack || is_variable_loss_piece(game, p)) return
+		let space = get_loss_piece_space(game, p)
+		if (!(space > 0)) return
+		if (!game.attack.variable_loss_other_hit_spaces) {
+			game.attack.variable_loss_other_hit_spaces = { attacker: [], defender: [] }
+		}
+		if (!Array.isArray(game.attack.variable_loss_other_hit_spaces[loss_side])) {
+			game.attack.variable_loss_other_hit_spaces[loss_side] = []
+		}
+		set_add(game.attack.variable_loss_other_hit_spaces[loss_side], space)
+	}
+
 	function is_catastrophic_attack_empire_piece(game, p) {
 		return (
 			piece_counts_as_nation_for_rule(game, p, "br") ||
@@ -1362,7 +1390,7 @@ module.exports = function (Engine) {
 	 * 4. PUG 规则: game.attack.attacker_losses / defender_losses 记录总伤害，
 	 *    game.attack.attacker_losses_absorbed / defender_losses_absorbed 记录已承受的 LF 总和。
 	 */
-	function get_loss_options(game, pieces, to_satisfy, fort_strength = 0) {
+	function get_loss_options(game, pieces, to_satisfy, fort_strength = 0, loss_side = null) {
 		// Rule 337: "?" loss value units must be hit last in combat
 		// Wait, if they must be hit last, we should just prioritize non-variable first.
 		// However, for correct "absorb as much as possible" logic, we need to generate valid paths.
@@ -1392,6 +1420,45 @@ module.exports = function (Engine) {
 			return get_piece_lf(game, piece)
 		}
 
+		function get_tree_unit_space(unit) {
+			if (typeof unit === "object" && unit.simulated) return get_tree_unit_space(unit.parent)
+			let piece = get_tree_unit_piece(unit)
+			return get_loss_piece_space(game, piece)
+		}
+
+		function is_tree_variable_loss_unit(unit) {
+			if (typeof unit === "object" && unit.simulated) return false
+			let piece = get_tree_unit_piece(unit)
+			let reduced_override = typeof unit === "object" && unit.tree_reduced ? true : null
+			return is_variable_loss_piece(game, piece, reduced_override)
+		}
+
+		function variable_loss_space_is_unlocked(parent, unit) {
+			let space = get_tree_unit_space(unit)
+			if (!(space > 0)) return false
+			let unlocked = game.attack?.variable_loss_other_hit_spaces?.[loss_side]
+			if (Array.isArray(unlocked) && set_has(unlocked, space)) return true
+			return parent.picked.some((picked) => {
+				if (is_tree_variable_loss_unit(picked)) return false
+				return get_tree_unit_space(picked) === space
+			})
+		}
+
+		function variable_loss_unit_must_wait(parent, unit) {
+			if (!is_tree_variable_loss_unit(unit)) return false
+			if (variable_loss_space_is_unlocked(parent, unit)) return false
+			let space = get_tree_unit_space(unit)
+			if (!(space > 0)) return false
+			let other_units = parent.full_strength.concat(parent.reduced)
+			return other_units.some(
+				(other) =>
+					other !== unit &&
+					get_tree_unit_space(other) === space &&
+					!is_tree_variable_loss_unit(other) &&
+					get_tree_unit_lf(other) <= parent.to_satisfy
+			)
+		}
+
 		// Helper to get reserve SCUs for an LCU
 		function get_available_replacements(unit) {
 			let piece = get_tree_unit_piece(unit)
@@ -1417,6 +1484,7 @@ module.exports = function (Engine) {
 			for (let i = 0; i < parent.full_strength.length; i++) {
 				let unit = parent.full_strength[i]
 				let unit_lf = get_tree_unit_lf(unit)
+				if (variable_loss_unit_must_wait(parent, unit)) continue
 				if (unit_lf <= parent.to_satisfy) {
 					let node = {
 						picked: [...parent.picked, unit],
@@ -1433,6 +1501,7 @@ module.exports = function (Engine) {
 			for (let i = 0; i < parent.reduced.length; i++) {
 				let unit = parent.reduced[i]
 				let unit_lf = get_tree_unit_lf(unit)
+				if (variable_loss_unit_must_wait(parent, unit)) continue
 				if (unit_lf <= parent.to_satisfy) {
 					let node = {
 						picked: [...parent.picked, unit],
@@ -1509,17 +1578,6 @@ module.exports = function (Engine) {
 				}
 			}
 		})
-
-		// Rule 337: "?" loss value units must be hit last.
-		// If we have any non-? units in valid_units, we should remove the ? units.
-		let has_variable_loss = (p) => {
-			let lf = get_piece_lf(game, p)
-			return lf === null || lf === "?"
-		}
-		let non_variable = valid_units.filter((p) => !has_variable_loss(p))
-		if (non_variable.length > 0) {
-			valid_units = non_variable
-		}
 
 		return valid_units
 	}
@@ -1625,6 +1683,7 @@ module.exports = function (Engine) {
 			delete game.attack.severe_weather_checked
 			delete game.attack.reserves_to_front_damaged_pieces
 			delete game.attack.reserves_to_front_initial_reduced_pieces
+			delete game.attack.variable_loss_other_hit_spaces
 		}
 		if (game.attack && game.attack.space > 0) {
 			mark_attacked_space(game)
@@ -4022,6 +4081,8 @@ module.exports = function (Engine) {
 		can_choose_attack_with_piece,
 		register_balkan_attack_target,
 		get_loss_options,
+		is_variable_loss_piece,
+		remember_variable_loss_other_unit_hit,
 		fmt_attack_odds,
 		start_attack_sequence,
 		resolve_flank_attempt,
