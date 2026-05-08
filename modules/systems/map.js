@@ -654,10 +654,23 @@ module.exports = function (Engine) {
 	function get_fort_owner(game, s) {
 		if (s === undefined || s === null || !data.spaces[s]) return null
 		if (!data.spaces[s].fort || data.spaces[s].fort <= 0) return null
+		if (game && game.forts && game.forts.owner && (game.forts.owner[s] === AP || game.forts.owner[s] === CP)) {
+			return game.forts.owner[s]
+		}
 		// Rule 15.1.8: an undestroyed Fort keeps its printed/default owner even if
 		// the current control marker has drifted during a siege.
 		let owner = get_default_controller(game, s)
 		return owner === AP || owner === CP ? owner : null
+	}
+
+	function set_fort_owner(game, s, faction) {
+		if (s === undefined || s === null || !data.spaces[s]) return false
+		if (!data.spaces[s].fort || data.spaces[s].fort <= 0) return false
+		if (!game.forts) game.forts = { destroyed: [], besieged: [] }
+		if (!game.forts.owner || typeof game.forts.owner !== "object" || Array.isArray(game.forts.owner)) game.forts.owner = {}
+		if (faction === AP || faction === CP) game.forts.owner[s] = faction
+		else delete game.forts.owner[s]
+		return true
 	}
 
 	function has_undestroyed_fort(game, s, faction) {
@@ -5143,6 +5156,7 @@ module.exports = function (Engine) {
 		get_default_controller,
 		get_space_controller,
 		get_fort_owner,
+		set_fort_owner,
 		is_controlled_by,
 		is_russia_controlled_space,
 		has_allied_control_of_balfour_spaces,

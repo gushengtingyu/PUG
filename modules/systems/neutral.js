@@ -378,6 +378,7 @@ module.exports = function (Engine) {
 
 	function trigger_greece_entry(game, target, entering_faction, reason, log_fn) {
 		if (!is_greece_neutral(game)) return false
+		if (game && game.event_ctx && game.event_ctx.key === "rupel") return false
 		set_greece_faction(game, entering_faction)
 		game.entry_gr = true
 		if (typeof log_fn === "function") {

@@ -252,6 +252,22 @@ module.exports = function (Engine) {
 		return null
 	}
 
+	function move_rupel_greek_unit(game, p, s) {
+		if (game.pieces[p] === s) return
+		let from = game.pieces[p]
+		game.pieces[p] = s
+		if (from > 0) {
+			Engine.sync_neutral_vp_state(game, from)
+			Engine.sync_jihad_city_state(game, from)
+			Engine.sync_region_control(game, from)
+		}
+		Engine.sync_neutral_vp_state(game, s)
+		Engine.sync_jihad_city_state(game, s)
+		Engine.sync_region_control(game, s)
+		if (!game.move_animation) game.move_animation = []
+		game.move_animation.push([p, s])
+	}
+
 	function get_yildrim_spaces(game) {
 		let spaces = new Set()
 		for (let name of ["GE Yildrim #1", "GE Yildrim #2", "GE Yildrim #3"]) {
@@ -4026,10 +4042,11 @@ module.exports = function (Engine) {
 			let event = get_active_event_data(game)
 			if (!event || !Array.isArray(event.greek_units) || event.greek_units.length === 0) {
 				let event72 = Engine.events.get_event_by_id(72)
-				if (event72 && typeof event72.advance_cp_units === "function") {
-					event72.advance_cp_units(game, ctx)
+				if (event72 && typeof event72.begin_cp_advance === "function") {
+					event72.begin_cp_advance(game, ctx)
+				} else {
+					rules.goto_end_event()
 				}
-				rules.goto_end_event()
 				return
 			}
 
@@ -4047,15 +4064,91 @@ module.exports = function (Engine) {
 
 			rules.push_undo()
 			for (let p of event.greek_units) {
-				rules.move_piece(game, p, s)
+				move_rupel_greek_unit(game, p, s)
 			}
 
 			rules.log(`鲁贝尔堡的背叛：所有希腊部队（希腊国防军除外）移动至 ${rules.space_name(s)}。`)
 
 			let event72 = Engine.events.get_event_by_id(72)
-			if (event72 && typeof event72.advance_cp_units === "function") {
-				event72.advance_cp_units(game, ctx)
+			if (event72 && typeof event72.begin_cp_advance === "function") {
+				event72.begin_cp_advance(game, ctx)
+			} else {
+				rules.goto_end_event()
 			}
+		}
+	}
+
+	states.event_rupel_advance_cp_units = {
+		prompt(ctx) {
+			let { game, res, rules } = ctx
+			let event = get_active_event_data(game) || rules.get_event_data()
+			let event72 = Engine.events.get_event_by_id(72)
+			if (!event72 || typeof event72.get_advance_pieces !== "function") {
+				res.prompt("鲁贝尔堡的背叛：没有可挺进的同盟国单位")
+				res.action("done")
+				return
+			}
+			if (!Array.isArray(event.rupel_advanced_pieces)) event.rupel_advanced_pieces = []
+
+			let selected = event.rupel_selected_piece
+			let legal_pieces = event72.get_advance_pieces(game, event)
+			if (selected && !legal_pieces.includes(selected)) {
+				delete event.rupel_selected_piece
+				selected = null
+			}
+
+			if (selected) {
+				let targets = event72.get_advance_targets(game, selected)
+				res.prompt(`鲁贝尔堡的背叛：选择 ${rules.piece_name(selected)} 的挺进目标`)
+				res.who(selected)
+				for (let target of targets) res.space(target)
+				res.piece(selected)
+				res.action("cancel")
+				return
+			}
+
+			res.prompt("鲁贝尔堡的背叛：选择与多里安或鲁贝尔堡相邻的同盟国单位进行挺进")
+			for (let p of legal_pieces) res.piece(p)
+			res.action("done")
+		},
+		piece(ctx) {
+			let { game, rules, arg: p } = ctx
+			let event = get_active_event_data(game) || rules.get_event_data()
+			let event72 = Engine.events.get_event_by_id(72)
+			if (!event72 || typeof event72.get_advance_pieces !== "function") return
+			let legal_pieces = event72.get_advance_pieces(game, event)
+			if (!legal_pieces.includes(p)) return
+			rules.push_undo()
+			if (event.rupel_selected_piece === p) delete event.rupel_selected_piece
+			else event.rupel_selected_piece = p
+		},
+		space(ctx) {
+			let { game, rules, arg: s } = ctx
+			let event = get_active_event_data(game) || rules.get_event_data()
+			let event72 = Engine.events.get_event_by_id(72)
+			let p = event.rupel_selected_piece
+			if (!event72 || typeof event72.resolve_cp_advance !== "function") return
+			if (!p) return
+			let targets = event72.get_advance_targets(game, p)
+			if (!targets.includes(s)) return
+			rules.push_undo()
+			if (event72.resolve_cp_advance(game, p, s, ctx)) {
+				delete event.rupel_selected_piece
+				if (event72.get_advance_pieces(game, event).length === 0) rules.goto_end_event()
+			}
+		},
+		cancel(ctx) {
+			let { game, rules } = ctx
+			let event = get_active_event_data(game) || rules.get_event_data()
+			if (!event.rupel_selected_piece) return
+			rules.push_undo()
+			delete event.rupel_selected_piece
+		},
+		done(ctx) {
+			let { game, rules } = ctx
+			let event = get_active_event_data(game) || rules.get_event_data()
+			rules.push_undo()
+			delete event.rupel_selected_piece
 			rules.goto_end_event()
 		}
 	}

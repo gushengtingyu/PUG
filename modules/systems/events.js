@@ -61,6 +61,7 @@ module.exports = function (Engine) {
 	const JIDDAH = find_space("Jiddah")
 	const CYPRUS = find_space("Cyprus")
 	const DOIRAN = find_space("Doiran")
+	const FORT_RUPEL = find_space("Ft. Rupel")
 	const LAMIA = find_space("Lamia")
 	const ATHENS = find_space("ATHENS")
 	const THERMAIKOS_BAY = find_space("Thermaikos Bay")
@@ -2461,7 +2462,7 @@ module.exports = function (Engine) {
 			name: "TREACHERY AT FORT RUPEL",
 			name_cn: "鲁贝尔堡的背叛",
 			effect_cn:
-				"(只有在希腊仍保持中立，协约国部队占据萨洛尼卡时才能打出)所有希腊部队(希腊国防军除外)移动至拉米亚或者雅典(同盟国玩家选择其一)，随后所有与多里安相邻的同盟国部队进入多里安并接收当地阵地。打出该卡不会侵犯希腊的中立。",
+				"(只有在希腊仍保持中立，协约国部队占据萨洛尼卡时才能打出)所有希腊部队(希腊国防军除外)移动至拉米亚或者雅典(同盟国玩家选择其一)，随后与多里安或鲁贝尔堡相邻的同盟国部队可以挺进一格，进入相邻的多里安或鲁贝尔堡。挺进多里安时接收当地2级战壕，该战壕不会降级；挺进鲁贝尔堡时同盟国直接控制鲁贝尔堡，该要塞转为同盟国控制且不需要进攻。打出该卡不会侵犯希腊的中立。",
 			can_play: function (game) {
 				const { neutral } = Engine
 				if (game.events["constantine"]) return false
@@ -2489,53 +2490,87 @@ module.exports = function (Engine) {
 				}
 
 				game.events["rupel"] = true
+				start_event_data(game, ctx, "rupel", {
+					greek_units: greek_units_to_move,
+					destinations: [LAMIA, ATHENS],
+					rupel_advanced_pieces: []
+				})
 
 				if (greek_units_to_move.length > 0) {
-					start_event_data(game, ctx, "rupel", {
-						greek_units: greek_units_to_move,
-						destinations: [LAMIA, ATHENS]
-					})
 					game.active = CP
 					game.state = "event_rupel_move_greek_units"
 					return
 				}
 
-				events_by_id[72].advance_cp_units(game, ctx)
-				finish_event(ctx)
+				events_by_id[72].begin_cp_advance(game, ctx)
 			},
-			advance_cp_units: function (game, ctx) {
-				const { map } = Engine
-				if (DOIRAN < 0) return
+			begin_cp_advance: function (game, ctx) {
+				let event = start_event_data(game, ctx, "rupel")
+				if (!Array.isArray(event.rupel_advanced_pieces)) event.rupel_advanced_pieces = []
+				delete event.rupel_selected_piece
+				game.active = CP
+				game.state = "event_rupel_advance_cp_units"
+			},
+			get_advance_targets: function (game, p) {
+				if (!data.pieces[p]) return []
+				if (Engine.game_utils.is_not_on_map(game, p)) return []
+				if (Engine.game_utils.get_piece_effective_faction(game, p) !== CP) return []
+				let from = game.pieces[p]
+				if (!(from > 0) || !data.spaces[from]) return []
+				let connections = data.spaces[from].connections || []
+				return [DOIRAN, FORT_RUPEL].filter((target) => target > 0 && connections.includes(target))
+			},
+			get_advance_pieces: function (game, event) {
+				let advanced = Array.isArray(event && event.rupel_advanced_pieces) ? event.rupel_advanced_pieces : []
+				let pieces = []
+				for (let p = 1; p < game.pieces.length; p++) {
+					if (advanced.includes(p)) continue
+					if (events_by_id[72].get_advance_targets(game, p).length > 0) pieces.push(p)
+				}
+				return pieces
+			},
+			resolve_cp_advance: function (game, p, target, ctx) {
+				let targets = events_by_id[72].get_advance_targets(game, p)
+				if (!targets.includes(target)) return false
 
-				let adjacents = data.spaces[DOIRAN].connections || []
-				let cp_units_to_advance = []
+				let event = start_event_data(game, ctx, "rupel")
+				if (!Array.isArray(event.rupel_advanced_pieces)) event.rupel_advanced_pieces = []
+				if (event.rupel_advanced_pieces.includes(p)) return false
 
-				for (let adj of adjacents) {
-					let pieces = map.get_pieces_in_space(game, adj)
-					for (let p of pieces) {
-						if (data.pieces[p].faction === CP) {
-							cp_units_to_advance.push({ piece: p, from: adj })
-						}
-					}
+				let from = game.pieces[p]
+				game.pieces[p] = target
+				if (from > 0) {
+					Engine.sync_neutral_vp_state(game, from)
+					Engine.sync_jihad_city_state(game, from)
+					Engine.sync_region_control(game, from)
+				}
+				Engine.sync_neutral_vp_state(game, target)
+				Engine.sync_jihad_city_state(game, target)
+				Engine.sync_region_control(game, target)
+				if (!game.move_animation) game.move_animation = []
+				game.move_animation.push([p, target])
+
+				Engine.utils.set_add(event.rupel_advanced_pieces, p)
+				let effects = []
+				if (Engine.game_utils.has_trench(game, target) > 0) {
+					Engine.game_utils.remove_trench(game, target)
+					if (Engine.game_utils.has_trench(game, target) > 0) effects.push("接收当地战壕")
+					else effects.push("清除当地战壕")
+				}
+				if (typeof Engine.set_control === "function") Engine.set_control(game, target, CP)
+				if (data.spaces[target].fort && typeof Engine.map.set_fort_owner === "function") {
+					Engine.map.set_fort_owner(game, target, CP)
+					if (game.forts && Array.isArray(game.forts.destroyed)) Engine.utils.set_delete(game.forts.destroyed, target)
+					effects.push("接收当地要塞")
 				}
 
-				if (cp_units_to_advance.length > 0) {
-					for (let entry of cp_units_to_advance) {
-						game.pieces[entry.piece] = DOIRAN
-					}
-					if (typeof Engine.set_control === "function") {
-						Engine.set_control(game, DOIRAN, CP)
-					}
-					if (data.spaces[DOIRAN].fort && typeof map.destroy_fort === "function") {
-						map.destroy_fort(game, DOIRAN)
-					} else if (data.spaces[DOIRAN].fort && game.forts && game.forts.destroyed) {
-						Engine.utils.set_add(game.forts.destroyed, DOIRAN)
-					} else {
-						log(game, "鲁贝尔堡的背叛：同盟国部队挺进多里安并接收当地阵地。", ctx)
-						return
-					}
-					log(game, "鲁贝尔堡的背叛：同盟国部队挺进多里安并破坏当地要塞。", ctx)
-				}
+				let suffix = effects.length > 0 ? `，${effects.join("并")}。` : "。"
+				log(
+					game,
+					`鲁贝尔堡的背叛：${piece_name(p)} 从 ${space_name(from)} 挺进 ${space_name(target)}${suffix}`,
+					ctx
+				)
+				return true
 			},
 			defer_end: true
 		},

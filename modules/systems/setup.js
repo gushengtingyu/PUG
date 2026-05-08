@@ -430,6 +430,7 @@ module.exports = function (Engine) {
 		if (!Array.isArray(state.control)) state.control = Array(data.spaces.length).fill(null)
 		if (!Array.isArray(state.reduced)) state.reduced = []
 		if (!state.forts) state.forts = { destroyed: [], besieged: [] }
+		if (!state.forts.owner || typeof state.forts.owner !== "object" || Array.isArray(state.forts.owner)) state.forts.owner = {}
 		if (!Array.isArray(state.trenches)) state.trenches = []
 		if (!Array.isArray(state.trenches_2)) state.trenches_2 = []
 		if (!Array.isArray(state.deck_ap)) state.deck_ap = []
@@ -583,7 +584,7 @@ module.exports = function (Engine) {
 			piece_y: Array(data.pieces.length).fill(undefined),
 			control: Array(data.spaces.length).fill(null),
 			reduced: [],
-			forts: { destroyed: [], besieged: [] },
+			forts: { destroyed: [], besieged: [], owner: {} },
 			trenches: [],
 			trenches_2: [],
 			deck_ap: [],
