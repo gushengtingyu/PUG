@@ -177,8 +177,6 @@ module.exports = function (Engine) {
 		if (is_region(game, s)) {
 			let owner = get_region_disruption_owner(game, s)
 			if (owner === enemy) return has_disrupting_piece_for_faction(game, s, enemy)
-			// Fallback: direct check when region_disruption hasn't been synced yet
-			if (owner === null && has_disrupting_piece_for_faction(game, s, enemy)) return true
 			return false
 		}
 		let found = false
@@ -2813,7 +2811,7 @@ module.exports = function (Engine) {
 			}
 			if (is_disrupting_piece(p)) {
 				let owner = is_region(game, s) ? get_region_disruption_owner(game, s) : null
-				if (!is_region(game, s) || owner === ef || owner === null) {
+				if (!is_region(game, s) || owner === ef) {
 					disrupting[opp][s] = 1
 				}
 			}

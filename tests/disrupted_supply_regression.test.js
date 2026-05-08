@@ -117,9 +117,32 @@ test("Afghanistan limited source preserves disrupted trace information", () => {
 	let armenianUprising = findApPiece("Armenian Uprising")
 
 	game.active = CP
-	game.pieces[tuDiv] = afghanistan
 	game.pieces[armenianUprising] = afghanistan
+	Engine.sync_region_control(game, afghanistan)
+	expect(game.region_disruption[afghanistan]).toBe(AP)
+
+	game.pieces[tuDiv] = afghanistan
+	Engine.sync_region_control(game, afghanistan)
 
 	expect(Engine.map.is_disrupted_by_enemy(game, afghanistan, CP)).toBe(true)
 	expect(Engine.map.get_supply_status(game, afghanistan, CP, tuDiv)).toBe("LIMITED_DISRUPTED")
+})
+
+test("Placing NW Frontier into AP-occupied India does not disrupt the region", () => {
+	let game = setupGame(2026050801)
+	let india = findSpace("INDIA")
+	let nwFrontier = findCpPiece("NW Frontier")
+	let apPieces = rules.get_pieces_in_space(game, india).filter((p) => Engine.game_utils.get_piece_effective_faction(game, p) === AP)
+	let apUnit = apPieces[0]
+
+	expect(Engine.map.get_space_controller(game, india)).toBe(AP)
+	expect(apPieces.length).toBeGreaterThan(0)
+
+	game.pieces[nwFrontier] = india
+	Engine.sync_region_control(game, india)
+
+	expect(game.region_disruption[india]).toBeUndefined()
+	expect(Engine.map.is_disrupted_by_enemy(game, india, AP)).toBe(false)
+	expect(Engine.map.create_supply_context(game).disrupted[AP][india]).toBe(0)
+	expect(Engine.map.get_supply_status(game, india, AP, apUnit)).toBe("FULL")
 })
