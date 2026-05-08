@@ -427,7 +427,6 @@ module.exports = function (Engine) {
 		if (game.events && game.events["grand_duke_to_tiflis"]) return false
 
 		// At least one Russian unit in Azerbaijan, Persia, or Turkey
-		// Excluding units in intact forts or with Yudenitch HQ
 		let has_ru_in_affected_area = false
 		for (let p = 0; p < game.pieces.length; p++) {
 			let piece_data = data.pieces[p]
@@ -441,14 +440,6 @@ module.exports = function (Engine) {
 			let is_in_area =
 				space_data.area === "azerbaijan" || space_data.area === "persia" || space_data.nation === "tu"
 			if (!is_in_area) continue
-
-			// Exempt: Intact fort
-			if (map.has_undestroyed_fort(game, space_id, AP)) continue
-
-			// Exempt: Yudenitch HQ in space
-			let pieces_in_space = get_space_pieces(game, space_id)
-			let has_yudenitch = pieces_in_space.some((p2) => data.pieces[p2].name === "RU Yudenitch HQ")
-			if (has_yudenitch) continue
 
 			has_ru_in_affected_area = true
 			break

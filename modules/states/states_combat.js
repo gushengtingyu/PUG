@@ -2413,18 +2413,27 @@ exports.register = function (states, Engine, context) {
 				const TIFLIS = 12
 				let current_dist = Engine.map.get_distance(game.pieces[piece], TIFLIS)
 				let valid = []
-				let legal_retreats = combat.get_valid_retreat_spaces(game, piece, [], 1, true)
+				let legal_retreats = combat.get_valid_retreat_spaces(game, piece, [], 1, false)
 				for (let s of legal_retreats) {
 					if (Engine.map.get_distance(s, TIFLIS) < current_dist) {
 						valid.push(s)
 					}
 				}
 
+				let piece_space = game.pieces[piece]
+				let pieces_here = get_pieces_in_space(game, piece_space)
+				let with_yudenitch = pieces_here.some((p2) => data.pieces[p2].name === "RU Yudenitch HQ")
+				let in_fort =
+					combat.has_undestroyed_fort(game, piece_space, AP) ||
+					combat.has_undestroyed_fort(game, piece_space, CP)
+				let can_decline = with_yudenitch || in_fort || valid.length === 0
+
 				if (valid.length === 0) {
 					res.prompt(`无法让 ${data.pieces[piece].name} 向第比利斯方向撤退。`)
-					res.action("cannot_retreat")
+					res.action("decline_retreat")
 				} else {
 					for (let s of valid) res.space(s)
+					if (can_decline) res.action("decline_retreat")
 				}
 				res.piece(piece)
 			}
@@ -2451,10 +2460,16 @@ exports.register = function (states, Engine, context) {
 		cannot_retreat() {
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
-				// Save Tiflis is a card-specific exception: units that cannot move
-				// closer to Tiflis stay in place, but mark the event as failed.
 				log(`${data.pieces[p].name} cannot retreat towards Tiflis and remains in place.`)
 				game.save_tiflis_failed = true
+				set_delete(game.save_tiflis_pieces, p)
+				game.selected_piece = null
+			}
+		},
+		decline_retreat() {
+			let p = game.selected_piece
+			if (p !== null && p !== undefined) {
+				log(`${data.pieces[p].name} declines to retreat towards Tiflis.`)
 				set_delete(game.save_tiflis_pieces, p)
 				game.selected_piece = null
 			}

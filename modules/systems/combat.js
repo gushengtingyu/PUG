@@ -418,6 +418,7 @@ module.exports = function (Engine) {
 		delete game.save_tiflis_resolved
 		delete game.save_tiflis_failed
 		delete game.save_tiflis_pieces
+		if (game.events) delete game.events["save_tiflis"]
 	}
 
 	function ensure_combat_card_context(game) {
@@ -1945,14 +1946,6 @@ module.exports = function (Engine) {
 					let s = game.pieces[p]
 					let s_data = data.spaces[s]
 					if (!s_data) continue
-
-					// Exempt: Intact fort
-					if (has_undestroyed_fort(game, s, AP)) continue
-
-					// Exempt: Yudenitch HQ in space
-					let pieces_in_space = get_pieces_in_space(game, s)
-					let has_yudenitch = pieces_in_space.some((p2) => data.pieces[p2].name === "RU Yudenitch HQ")
-					if (has_yudenitch) continue
 
 					// Affected area: Azerbaijan, Persia, or Turkey (nation: tu)
 					if (s_data.area === "azerbaijan" || s_data.area === "persia" || s_data.nation === "tu") {
