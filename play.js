@@ -6224,6 +6224,16 @@ if (mapwrap) {
 	})
 }
 
+function keep_inner_scroll_from_panning_map(selector) {
+	for (const el of document.querySelectorAll(selector)) {
+		for (const event_name of ["touchstart", "touchmove", "touchend", "touchcancel"]) {
+			el.addEventListener(event_name, (evt) => evt.stopPropagation(), { passive: true })
+		}
+	}
+}
+
+keep_inner_scroll_from_panning_map(".panel-body, .dialog_body, #reinforcements_wrap")
+
 /**
  * 扩大矩形区域。
  * @param {number[]} rect - [x, y, w, h] 格式的矩形。
