@@ -5,7 +5,6 @@
 	"main": "rules.js",
 	"scripts": {
 		"test": "vitest",
-		"test:ui": "vitest --ui",
 		"test:fuzz": "node tests/runtime_fuzz_loop.js",
 		"start:map-editor": "node tools/server_map_editor.js",
 		"typecheck": "tsc -p tsconfig.json",
@@ -29,7 +28,6 @@
 	"devDependencies": {
 		"@eslint/js": "^9.19.0",
 		"@types/node": "^22.0.0",
-		"@vitest/ui": "^3.0.0",
 		"autoprefixer": "^10.4.27",
 		"eslint": "^9.19.0",
 		"eslint-config-prettier": "^9.1.0",

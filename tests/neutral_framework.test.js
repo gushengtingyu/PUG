@@ -203,4 +203,74 @@ describe("中立国统一框架", () => {
 		expect(view.entry_ro).toBe(true)
 		expect(view.entry_gr).toBe(true)
 	})
+
+	test("MO 攻击上下文不会把目标格中的保加利亚/罗马尼亚中立单位算作防守方", () => {
+		let game = setupGame(2026041703, "Historical")
+		let vidin = findSpace("Vidin")
+		let geArmy = findPiece(CP, "German 11th Army")
+		let buArmy = findPiece(CP, "BU 1 Army")
+		let roArmy = findPiece(AP, "RO 1 Army")
+
+		game.pieces[buArmy] = vidin
+		game.pieces[roArmy] = vidin
+		game.attack = {
+			attacker: CP,
+			defender: AP,
+			pieces: [geArmy],
+			space: vidin
+		}
+
+		expect(Engine.game_utils.get_piece_effective_faction(game, buArmy)).toBe("neutral")
+		expect(Engine.game_utils.get_piece_effective_faction(game, roArmy)).toBe("neutral")
+
+		let ctx = Engine.mo.create_attack_context(game)
+
+		expect(ctx.attacker).toBe(CP)
+		expect(ctx.space).toBe(vidin)
+		expect(ctx.defender_pieces).toEqual([])
+
+		game.mo_cp = Engine.mo.MO_RUSSIA
+		Engine.mo.check_mo_on_attack_declared(game)
+		expect(game.mo_cp_fulfilled).toBe(false)
+	})
+
+	test("协约国首次进入中立波斯只扣 1 VP 且只触发一次", () => {
+		let game = setupGame(2026042803)
+		let astara = findSpace("Astara")
+		let kazvin = findSpace("Kazvin")
+		let ruPiece = findPiece(AP, "RU Persian coss")
+		let initialVp = game.vp
+
+		Engine.check_persia_entry_vp_penalty(game, astara, [ruPiece])
+		Engine.check_persia_entry_vp_penalty(game, kazvin, [ruPiece])
+
+		expect(game.events.neutral_persia_first_entry_penalty).toBe(AP)
+		expect(game.vp).toBe(initialVp + 1)
+	})
+
+	test("同盟国首次进入中立波斯只扣 1 VP 且只触发一次", () => {
+		let game = setupGame(2026042804)
+		let astara = findSpace("Astara")
+		let kazvin = findSpace("Kazvin")
+		let tuPiece = findPiece(CP, "TU-A DIV #10")
+		let initialVp = game.vp
+
+		Engine.check_persia_entry_vp_penalty(game, astara, [tuPiece])
+		Engine.check_persia_entry_vp_penalty(game, kazvin, [tuPiece])
+
+		expect(game.events.neutral_persia_first_entry_penalty).toBe(CP)
+		expect(game.vp).toBe(initialVp - 1)
+	})
+
+	test("进入非中立波斯不会触发中立波斯首次进入 VP 惩罚", () => {
+		let game = setupGame(2026042805)
+		let meshed = findSpace("Meshed")
+		let ruPiece = findPiece(AP, "RU Persian coss")
+		let initialVp = game.vp
+
+		Engine.check_persia_entry_vp_penalty(game, meshed, [ruPiece])
+
+		expect(game.events.neutral_persia_first_entry_penalty).toBeUndefined()
+		expect(game.vp).toBe(initialVp)
+	})
 })

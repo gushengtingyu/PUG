@@ -2586,6 +2586,7 @@ module.exports = function (Engine) {
 			let { game, rules, arg: s } = ctx
 			let p = game.rebuild_piece
 			game.pieces[p] = s
+			rules.set_add(game.reduced, p)
 			rules.log(`${rules.piece_name(p)} 在 ${rules.space_name(s)} 重建。`)
 			game.rebuild_piece = null
 			game.state = "event_fresh_recruits"

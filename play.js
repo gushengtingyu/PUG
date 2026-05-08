@@ -6214,14 +6214,15 @@ document.querySelectorAll(".dialog").forEach((dialog) => {
 	}
 })
 
-// Auto-fit map
+// Start desktop sessions with the large map fitted to the viewport width.
 let mapwrap = document.getElementById("mapwrap")
-if (mapwrap) {
+if (mapwrap && window.innerWidth > 800) {
 	mapwrap.dataset.fitCycle = "width-both"
 	mapwrap.dataset.fit = "width"
 	window.addEventListener("load", () => {
 		if (typeof window.update_zoom === "function") window.update_zoom()
 	})
+	if (typeof window.update_zoom === "function") window.update_zoom()
 }
 
 function keep_inner_scroll_from_panning_map(selector) {
@@ -6232,7 +6233,7 @@ function keep_inner_scroll_from_panning_map(selector) {
 	}
 }
 
-keep_inner_scroll_from_panning_map(".panel-body, .dialog_body, #reinforcements_wrap")
+keep_inner_scroll_from_panning_map(".dialog_body")
 
 /**
  * 扩大矩形区域。

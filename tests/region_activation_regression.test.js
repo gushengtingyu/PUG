@@ -22,6 +22,20 @@ function setupGaliciaPieces(game) {
 	return { galicia, gePieces, ahPieces, geHq }
 }
 
+function prepareRegionActivation(game, faction, ops = 2) {
+	game.events.bulgaria = 1
+	game.active = faction
+	game.state = "activate_spaces"
+	game.ops = ops
+	game.card_ops = ops
+	game.activated = { move: [], attack: [] }
+	game.activation_cost = {}
+	game.region_activations = { move: {}, attack: {} }
+	game.moved = []
+	game.attacked = []
+	game.retreated = []
+}
+
 test("大区可以按 3 单位堆叠花 1 OPS 激活移动，且不会连带同区其他单位", () => {
 	let game = setupGame(2026041908, "Historical")
 	let { galicia, gePieces, ahPieces } = setupGaliciaPieces(game)
@@ -205,4 +219,45 @@ test("大区进攻第一次确认后，仍可继续追加第二组 attack stack"
 	expect(game.region_activations.attack[shiraz]).toHaveLength(2)
 	expect(game.region_activations.attack[shiraz][0].pieces).toEqual(brPieces.slice(0, 3))
 	expect(game.region_activations.attack[shiraz][1].pieces).toEqual(brPieces.slice(3))
+})
+
+test("view.activated.attack 会暴露已确认的大区攻击激活，便于前端显示 marker", () => {
+	let game = setupGame(2026042212, "Historical")
+	let { galicia, gePieces } = setupGaliciaPieces(game)
+	prepareRegionActivation(game, CP, 2)
+
+	rules.action(game, CP_ROLE, "activate_attack", galicia)
+	for (let p of gePieces) rules.action(game, CP_ROLE, "piece", p)
+	rules.action(game, CP_ROLE, "confirm")
+
+	let view = rules.view(game, CP_ROLE)
+	expect(game.activated.attack).toEqual([])
+	expect(view.activated.attack).toContain(galicia)
+})
+
+test("大区第二次点击攻击激活不会丢掉已确认的第一堆叠", () => {
+	let game = setupGame(2026042213, "Historical")
+	let { galicia, gePieces } = setupGaliciaPieces(game)
+	prepareRegionActivation(game, CP, 2)
+
+	rules.action(game, CP_ROLE, "activate_attack", galicia)
+	for (let p of gePieces) rules.action(game, CP_ROLE, "piece", p)
+	rules.action(game, CP_ROLE, "confirm")
+
+	let ops_after_first = game.ops
+	expect(game.region_activations.attack[galicia]).toHaveLength(1)
+	expect(game.state).toBe("activate_spaces")
+
+	rules.action(game, CP_ROLE, "activate_attack", galicia)
+	expect(game.state).toBe("activate_region_stack")
+	expect(game.ops).toBe(ops_after_first)
+	expect(game.region_activations.attack[galicia]).toHaveLength(1)
+	expect(game.region_activations.attack[galicia][0].pieces.sort((a, b) => a - b)).toEqual(
+		gePieces.slice().sort((a, b) => a - b)
+	)
+
+	rules.action(game, CP_ROLE, "cancel")
+	expect(game.state).toBe("activate_spaces")
+	expect(game.region_activations.attack[galicia]).toHaveLength(1)
+	expect(game.ops).toBe(ops_after_first)
 })
