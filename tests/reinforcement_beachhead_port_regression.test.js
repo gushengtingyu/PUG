@@ -92,3 +92,21 @@ test("reinforcement overflow adjacent spaces exclude enemy-occupied spaces", () 
 		expect(spaces).not.toContain(Engine.data.spaces[s].name)
 	}
 })
+
+test("reinforcement overflow adjacent spaces exclude unestablished potential beachheads", () => {
+	let game = setupGame(2026050801, "Historical", { no_supply_warnings: true })
+	let haifa = findSpace("Haifa")
+	let toHaifa = findSpace("To Haifa")
+	let fillerUnits = ["BR DIV #1", "BR DIV #2", "BR DIV #3"]
+
+	game.control[haifa] = AP
+	for (let name of fillerUnits) {
+		let p = findPiece(AP, name)
+		game.pieces[p] = haifa
+	}
+
+	Engine.events.get_event_by_id(2).handler(game, null)
+
+	expect(game.beachheads || []).not.toContain(toHaifa)
+	expect(legalSpaceNames(game)).not.toContain("To Haifa")
+})

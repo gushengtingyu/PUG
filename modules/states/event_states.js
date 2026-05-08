@@ -437,7 +437,12 @@ module.exports = function (Engine) {
 		if (!(island_base > 0)) return false
 		if (!is_ap_british_empire_scu(p)) return false
 		if (!rules.can_sr_piece(game, p, AP)) return false
-		if (game.pieces[p] <= 0 || rules.is_in_reserve(game, p) || game.pieces[p] === island_base) return false
+		if (game.pieces[p] === island_base) return false
+		if (rules.is_in_reserve(game, p)) {
+			if (!rules.can_use_reserve_sr_for_piece(p)) return false
+			return rules.can_sr_to_space(game, p, island_base, AP)
+		}
+		if (game.pieces[p] <= 0) return false
 		return true
 	}
 
@@ -3466,6 +3471,7 @@ module.exports = function (Engine) {
 
 			function can_place_reinforcement_unit_in_space(s, p_id) {
 				if (p_id < 0) return false
+				if (Engine.map.is_potential_beachhead_space(s) && !Engine.map.is_beachhead_space(game, s)) return false
 				if (Engine.map.contains_enemy_pieces(game, s, faction) && !Engine.map.is_region(game, s)) return false
 				return Engine.map.can_stack_end_in_space(game, s, [p_id])
 			}

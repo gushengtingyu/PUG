@@ -254,20 +254,25 @@ header.Central_Powers {
 }
 
 @media (max-width: 800px) {
+	#cc-list,
 	.panel-list {
+		max-width: 100vw;
 		min-width: 100vw;
 		width: 100vw;
+	}
+	#cc-list {
+		grid-template-columns: 1fr;
 	}
 	.panel {
 		margin: 12px 0;
 		max-width: 100vw;
+		box-sizing: border-box;
 	}
 	.panel-body {
+		gap: 8px;
 		padding: 8px;
-	}
-	.card {
-		/* 在小屏幕上稍微缩小卡牌，或者保持 250px 但确保容器不溢出 */
-		zoom: 0.8;
+		min-width: 0;
+		min-height: 296px;
 	}
 }
 
@@ -304,6 +309,14 @@ header.Central_Powers {
 	cursor: pointer;
 }
 
+@media (max-width: 800px) {
+	.card {
+		width: 200px;
+		height: 280px;
+		border-radius: 12px;
+	}
+}
+
 #tooltip {
 	pointer-events: none;
 	position: fixed;
@@ -319,6 +332,12 @@ header.Central_Powers {
 		right: 0;
 		bottom: 0;
 		margin: auto;
+	}
+	#tooltip.card {
+		width: min(200px, calc(100vw - 32px));
+		height: auto;
+		aspect-ratio: 5 / 7;
+		max-height: calc(100dvh - 32px);
 	}
 }
 
@@ -505,6 +524,24 @@ header.Central_Powers {
 	height: auto;
 }
 
+@media (max-width: 800px) {
+	#reinforcements_wrap {
+		box-sizing: border-box;
+		width: 100vw;
+		max-width: 100vw;
+		margin: 12px 0 24px;
+		border-width: 6px;
+		overflow-x: auto;
+		overflow-y: hidden;
+		-webkit-overflow-scrolling: touch;
+	}
+	#reinforcements,
+	.reinforcement_block {
+		width: max-content;
+		min-width: 1080px;
+	}
+}
+
 .reinforcement_block {
 	margin-bottom: 15px;
 }
@@ -666,15 +703,22 @@ header.Central_Powers {
 
 @media (max-width: 800px) {
 	.dialog {
-		position: static;
+		position: static !important;
 		grid-column: 1;
 		grid-row: 2/4;
 		width: auto;
+		min-width: 0;
+		max-width: none;
 		box-shadow: none;
 		border: none;
 	}
+	.dialog_header {
+		cursor: default;
+	}
 	.dialog_body {
 		height: auto;
+		max-height: calc(100dvh - 124px);
+		overflow: auto;
 	}
 }
 
@@ -1092,25 +1136,58 @@ header.Central_Powers {
 /* Mobile Adaptation */
 @media (max-width: 800px) {
 	#track_dialog {
-		min-width: 95vw;
+		justify-self: center;
+		width: 95vw;
+		min-width: 0;
 		max-width: 95vw;
-		left: 2.5vw !important;
-		top: 10vh !important;
+		left: auto !important;
+		top: auto !important;
+	}
+	#track_dialog .dialog_header {
+		gap: 8px;
+		padding: 0 10px;
+	}
+	#track_dialog .dialog_body {
+		overflow-x: auto;
+	}
+	.track_title,
+	.track_turn_num {
+		font-size: 16px;
+	}
+	.track_container {
+		gap: 14px;
+		padding: 12px;
+		min-width: 0;
+	}
+	.track_rounds {
+		gap: 12px;
 	}
 	.track_row {
-		gap: 8px;
+		gap: 4px;
+		padding-left: 0;
 	}
 	.track_row_label {
-		width: 60px;
-		font-size: 12px;
-		padding-right: 8px;
+		flex: 0 0 42px;
+		width: 42px;
+		font-size: 11px;
+		padding: 4px 0;
 	}
 	.track_slot {
-		width: 45px;
-		height: 65px;
+		width: 36px;
+		height: 50px;
+		border-width: 1px;
+		padding-top: 2px;
 	}
 	.track_slot_label {
 		font-size: 10px;
+	}
+	.track_stats {
+		grid-template-columns: 1fr;
+		gap: 10px;
+		padding-top: 10px;
+	}
+	.track_faction_stats {
+		padding: 10px;
 	}
 	.track_stat_val {
 		font-size: 18px;

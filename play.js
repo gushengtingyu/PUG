@@ -672,9 +672,17 @@ function show_dialog(id, dialog_generator) {
 		return
 	}
 	dialog.hidden = false
+	const compact_layout = window.matchMedia("(max-width: 800px)").matches
+
+	if (compact_layout) {
+		dialog.style.position = ""
+		dialog.style.zIndex = ""
+		dialog.style.left = ""
+		dialog.style.top = ""
+	}
 
 	// Position sub-dialogs (like card lists) near mouse if they just appeared
-	if (id.includes("_dialog") && window.last_mouse_event) {
+	if (!compact_layout && id.includes("_dialog") && window.last_mouse_event) {
 		const x = window.last_mouse_event.clientX
 		const y = window.last_mouse_event.clientY
 
