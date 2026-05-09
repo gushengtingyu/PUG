@@ -444,7 +444,11 @@ module.exports = function (Engine) {
 	function can_gallipoli_scu_flip_lcu(game, rules, p) {
 		if (get_gallipoli_target_lcu_for_scu(game, rules, p) < 0) return false
 		if (rules.is_in_reserve(game, p)) return true
-		return game.pieces[p] > 0 && rules.can_sr_piece(game, p, AP) && rules.can_sr_to_space(game, p, rules.get_reserve_box(AP), AP)
+		return (
+			game.pieces[p] > 0 &&
+			rules.can_sr_piece(game, p, AP) &&
+			rules.can_sr_to_space(game, p, rules.get_reserve_box(AP), AP)
+		)
 	}
 
 	function is_ap_british_empire_scu(p) {
@@ -905,48 +909,6 @@ module.exports = function (Engine) {
 		}
 		game.active = AP
 		game.state = "event_grand_duke_to_tiflis_sr"
-	}
-
-	states.event_greece_counter = {
-		prompt(ctx) {
-			let { res } = ctx
-			res.prompt("是否打出【康斯坦丁国王】反制【希腊】？")
-			res.action("play_event", 71)
-			res.action("pass")
-		},
-		play_event(ctx) {
-			let { game, rules } = ctx
-			let c = 71
-			game.hand_cp.splice(game.hand_cp.indexOf(c), 1)
-			if (!game.removed) game.removed = []
-			game.removed.push(c) // CONSTANTINE is an asterisk card, removed after play
-			rules.log("同盟国打出【康斯坦丁国王】反制【希腊】")
-			game.events["greece_event_played"] = true
-
-			const { neutral } = Engine
-			if (neutral.is_greece_neutral(game) && neutral.check_constantine_entry_conditions(game)) {
-				neutral.trigger_greece_entry(game, null, CP, "康斯坦丁国王事件", (msg) => rules.log(msg))
-			} else {
-				let salonika = Engine.game_utils.find_space("Salonika")
-				if (salonika >= 0 && typeof Engine.set_control === "function") {
-					Engine.set_control(game, salonika, CP)
-				}
-				game.vp += 1
-				rules.log("同盟国控制萨洛尼卡，获得 1 VP。")
-			}
-			game.active = AP
-			rules.goto_end_event()
-		},
-		pass(ctx) {
-			let { game, rules } = ctx
-			rules.log("同盟国放弃反制。")
-			const { neutral } = Engine
-			game.vp -= 1
-			neutral.trigger_greece_entry(game, null, AP, "希腊事件", (msg) => rules.log(msg))
-			game.events["greece_event_played"] = true
-			game.active = AP
-			rules.goto_end_event()
-		}
 	}
 
 	// === EVENT: RUSSO-BRITISH ASSAULT (ID 1) ===
@@ -4320,14 +4282,14 @@ module.exports = function (Engine) {
 
 			let return_turn = game.turn + 4
 			if (!game.delayed_reinforcements) game.delayed_reinforcements = []
-			game.delayed_reinforcements.push({ turn: return_turn, piece: p, space: rules.get_reserve_box(AP) })
+			game.delayed_reinforcements.push({ turn: return_turn, piece: p, space: get_reserve_box_for_piece(p) })
 
 			if (!game.events) game.events = {}
 			game.events["gorlice_tarnow_return"] = return_turn
 			game.events["gorlice_tarnow_piece"] = p
 			game.active = use_event(game, "gorlice_tarnow").origin_active ?? CP
 
-			rules.log(`${data.pieces[p].name} 被移除并派往东线，将在 ${return_turn} 回合返回预备军格。`)
+			rules.log(`${data.pieces[p].name} 被移除并派往东线，将在 ${return_turn} 回合返回军资产格。`)
 			rules.goto_end_event()
 		},
 		done(ctx) {

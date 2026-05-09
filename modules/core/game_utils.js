@@ -1045,10 +1045,10 @@ module.exports = function (Engine) {
 
 			// Rule 25.2.5 Substitution (Infantry > Cavalry)
 			let type_match
-			if (l_badge === "blue") {
-				type_match = s_badge === "blue"
-			} else if (l_badge === "infantry") {
+			if (l_badge === "yellow" || l_badge === "infantry") {
 				type_match = s_badge === "infantry" || s_badge === "blue"
+			} else if (l_badge === "blue") {
+				type_match = s_badge === "blue"
 			} else if (l_badge === "cavalry") {
 				type_match = s_badge === "cavalry" || s_badge === "infantry" || s_badge === "blue"
 			} else {
@@ -1063,9 +1063,6 @@ module.exports = function (Engine) {
 			let l = data.pieces[lcu_id]
 			let s = data.pieces[scu_id]
 			let l_badge = l.badge ? l.badge.toLowerCase() : ""
-
-			// Rule 9.7.6: Special Ottoman LCU third SCU may be TU-A
-			if (l.nation === "tu" && l_badge === "yellow" && (s.nation === "tu" || s.nation === "tua")) return true
 
 			return is_same_combination_nationality(l.nation, s.nation)
 		}

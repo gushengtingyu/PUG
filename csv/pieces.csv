@@ -33,7 +33,7 @@ id,faction,nation,name,cf,lf,mf,rcf,rlf,rmf,symbol,region_limit,type,badge,piece
 32,ap,br,BR IN Garrison #1,2,2,0,0,2,0,,I,regular,yellow,SCU,BRINGarr.png,BRINGarrR.png
 33,ap,br,BR IN Garrison #2,2,2,0,0,2,0,,I,regular,yellow,SCU,BRINGarr.png,BRINGarrR.png
 34,ap,br,BR IN Garrison #3,2,2,0,0,2,0,,I,regular,yellow,SCU,BRINGarr.png,BRINGarrR.png
-35,ap,br,BR IX Corps,4,3,4,3,3,4,,,regular,infantry,LCU,BRIXC.png,BRIXCR.png
+35,ap,br,BR IX Corps,4,3,4,3,3,4,,,regular,yellow,LCU,BRIXC.png,BRIXCR.png
 36,ap,br,BR Maude HQ,0,1,4,0,0,4,,,hq,,SCU,BRMAUDEHQ.png,BRMAUDEHQR.png
 37,ap,br,BR Persian Cordon #1,1,1,1,0,1,1,,P,regular,yellow,SCU,BRPERC.png,BRPERCR.png
 38,ap,br,BR Persian Cordon #2,1,1,1,0,1,1,,P,regular,yellow,SCU,BRPERC.png,BRPERCR.png
@@ -225,8 +225,8 @@ id,faction,nation,name,cf,lf,mf,rcf,rlf,rmf,symbol,region_limit,type,badge,piece
 224,cp,tr,Senussi #2,1,1,3,0,1,3,,,tribe,,SCU,TSenu113.png,TSenu113R.png
 225,cp,tr,Sinjabi,1,2,0,0,2,0,,,tribe,,SCU,TSinj.png,TSinjR.png
 226,cp,tr,Tangistani,1,1,0,0,1,0,,,tribe,,SCU,TTang.png,TTangR.png
-227,cp,tu,TU 1 Caucasian,3,3,3,2,3,3,,,regular,infantry,LCU,TU1CaucC.png,TU1CaucCR.png
-228,cp,tu,TU 2 Caucasian,3,3,3,2,3,3,,,regular,infantry,LCU,TU2CaucC.png,TU2CaucCR.png
+227,cp,tu,TU 1 Caucasian,3,3,3,2,3,3,,,regular,yellow,LCU,TU1CaucC.png,TU1CaucCR.png
+228,cp,tu,TU 2 Caucasian,3,3,3,2,3,3,,,regular,yellow,LCU,TU2CaucC.png,TU2CaucCR.png
 229,cp,tu,TU Army Islam HQ,0,1,4,0,0,4,,,hq,,SCU,TUAoI.png,TUAoIR.png
 230,cp,tu,TU Cavalry #1,1,1,5,0,1,5,triangle,,regular,cavalry,SCU,TUCDiv.png,TUCDivR.png
 231,cp,tu,TU Cavalry #2,1,1,5,0,1,5,triangle,,regular,cavalry,SCU,TUCDiv.png,TUCDivR.png
@@ -272,12 +272,12 @@ id,faction,nation,name,cf,lf,mf,rcf,rlf,rmf,symbol,region_limit,type,badge,piece
 271,cp,tu,TU V Corps,3,2,3,2,2,3,,,regular,infantry,LCU,TUVC.png,TUVCR.png
 272,cp,tu,TU X Corps,3,2,3,2,2,3,,,regular,infantry,LCU,TUXC.png,TUXCR.png
 273,cp,tu,TU XI Corps,3,2,3,2,2,3,,,regular,infantry,LCU,TUXIC.png,TUXICR.png
-274,cp,tu,TU XIV Corps,3,3,3,2,3,3,,,regular,infantry,LCU,TUXIVC.png,TUXIVCR.png
-275,cp,tu,TU XV Corps,3,3,3,2,3,3,,,regular,infantry,LCU,TUXVC.png,TUXVCR.png
-276,cp,tu,TU XVI Corps,3,3,3,2,3,3,,,regular,infantry,LCU,TUXVIC.png,TUXVICR.png
+274,cp,tu,TU XIV Corps,3,3,3,2,3,3,,,regular,yellow,LCU,TUXIVC.png,TUXIVCR.png
+275,cp,tu,TU XV Corps,3,3,3,2,3,3,,,regular,yellow,LCU,TUXVC.png,TUXVCR.png
+276,cp,tu,TU XVI Corps,3,3,3,2,3,3,,,regular,yellow,LCU,TUXVIC.png,TUXVICR.png
 277,cp,tu,TU XVII Corps,3,2,3,2,2,3,,,regular,infantry,LCU,TUXVIIC.png,TUXVIICR.png
 278,cp,tu,TU XX Corps,3,2,3,2,2,3,,,regular,infantry,LCU,TUXXC.png,TUXXCR.png
-279,cp,tu,TU XXII Corps,3,3,3,2,3,3,,,regular,infantry,LCU,TUXXIIC.png,TUXXIICR.png
+279,cp,tu,TU XXII Corps,3,3,3,2,3,3,,,regular,yellow,LCU,TUXXIIC.png,TUXXIICR.png
 280,cp,tua,TU-A Camel Corps,1,1,8,0,1,8,triangle,,regular,camel,SCU,TUACCDiv.png,TUACCDivR.png
 281,cp,tua,TU-A Cavalry,1,1,5,0,1,5,triangle,,regular,cavalry,SCU,TUACDiv.png,TUACDivR.png
 282,cp,tua,TU-A DIV #1,1,1,4,0,1,4,,,regular,infantry,SCU,TUADiv.png,TUADivR.png

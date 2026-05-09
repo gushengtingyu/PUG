@@ -1962,22 +1962,26 @@ module.exports = function (Engine) {
 			},
 			handler: function (game, ctx) {
 				const { neutral } = Engine
-				// 如果 CP 手中有“康斯坦丁国王”(ID: 71) 且满足打出条件，则进入打断状态，询问 CP 是否打出以反制。
-				let has_constantine = game.hand_cp.includes(71)
-				if (has_constantine) {
-					game.state = "event_greece_counter"
-					game.active = CP
-					Engine.log(game, "协约国打出【希腊】事件，等待同盟国响应...")
-					return "interactive"
+
+				let gr_snapshot = {}
+				for (let p = 0; p < data.pieces.length; p++) {
+					if (data.pieces[p] && data.pieces[p].nation === “gr”) {
+						gr_snapshot[p] = {
+							space: game.pieces[p],
+							reduced: !!(game.reduced && game.reduced.includes(p))
+						}
+					}
+				}
+				game.events[“greece_snapshot”] = {
+					pieces: gr_snapshot,
+					turn: game.turn,
+					action_round: game.action_round
 				}
 
 				game.vp -= 1
-				neutral.trigger_greece_entry(game, null, AP, "希腊事件", (msg) => log(game, msg, ctx))
-				game.events["greece_event_played"] = true
-				if (ctx && typeof ctx.goto_end_event === "function") ctx.goto_end_event()
-				else if (ctx && typeof ctx.goto_end_operations === "function") ctx.goto_end_operations()
-			},
-			defer_end: true
+				neutral.trigger_greece_entry(game, null, AP, “希腊事件”, (msg) => log(game, msg, ctx))
+				game.events[“greece_event_played”] = true
+			}
 		},
 		46: {
 			name: "ARAB DESERTION",
@@ -2454,23 +2458,63 @@ module.exports = function (Engine) {
 			name: "CONSTANTINE",
 			name_cn: "康斯坦丁国王",
 			effect_cn:
-				"只有当【鲁贝尔堡的背叛】在弃牌堆或者已移出游戏时才能打出。同盟国控制塞萨洛尼基。增援: 3个希腊师，1个希腊骑兵师。+1VP",
+				"只有当【鲁贝尔堡的背叛】在弃牌堆或者已移出游戏时才能打出。或者在希腊事件打出后的紧接着的CP行动轮打出，取消希腊的所有效果。同盟国控制塞萨洛尼基。增援: 3个希腊师，1个希腊骑兵师。+1VP",
 			can_play: function (game) {
-				return game.events["rupel"]
+				let snap = game.events["greece_snapshot"]
+				if (snap && snap.turn === game.turn && snap.action_round === game.action_round) {
+					return true
+				}
+				return Engine.neutral.check_constantine_entry_conditions(game)
 			},
 			handler: function (game, ctx) {
 				const { neutral } = Engine
 
-				// Rule 19.2.1: Neutral Greece becomes a CP ally if King Constantine is played when conditions met.
+				let snap = game.events["greece_snapshot"]
+				if (snap && snap.turn === game.turn && snap.action_round === game.action_round) {
+					game.vp += 1
+					log(game, "康斯坦丁国王取消【希腊】事件效果，+1 VP 恢复。", ctx)
+
+					for (let p_str in snap.pieces) {
+						let p = Number(p_str)
+						let saved = snap.pieces[p_str]
+						game.pieces[p] = saved.space
+						if (saved.reduced) {
+							if (!game.reduced) game.reduced = []
+							if (!game.reduced.includes(p)) game.reduced.push(p)
+						} else if (game.reduced) {
+							let idx = game.reduced.indexOf(p)
+							if (idx >= 0) game.reduced.splice(idx, 1)
+						}
+					}
+
+					delete game.events["greece"]
+					delete game.events["greece_event_played"]
+					delete game.entry_gr
+
+					for (let s = 1; s < data.spaces.length; s++) {
+						if (data.spaces[s] && data.spaces[s].nation === "gr") {
+							if (game.control && game.control[s] !== undefined) {
+								delete game.control[s]
+							}
+						}
+					}
+
+					if (game.removed_ap) {
+						let idx = game.removed_ap.indexOf(45)
+						if (idx >= 0) {
+							game.removed_ap.splice(idx, 1)
+							if (!game.discard_ap) game.discard_ap = []
+							game.discard_ap.push(45)
+						}
+					}
+
+					log(game, "【希腊】从移除牌堆回到弃牌堆，希腊单位恢复原状。", ctx)
+					delete game.events["greece_snapshot"]
+				}
+
 				if (neutral.is_greece_neutral(game) && neutral.check_constantine_entry_conditions(game)) {
 					neutral.trigger_greece_entry(game, null, CP, "康斯坦丁国王事件", (msg) => log(game, msg, ctx))
-				}
-				game.vp += 1 // CP gains 1 VP
-
-				// Control Salonika
-				let salonika = find_space("Salonika")
-				if (salonika >= 0 && typeof Engine.set_control === "function") {
-					Engine.set_control(game, salonika, CP)
+					game.vp += 1
 				}
 
 				game.events["constantine"] = true

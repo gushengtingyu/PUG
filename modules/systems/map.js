@@ -3475,7 +3475,9 @@ module.exports = function (Engine) {
 	}
 
 	function is_ap_controlled_port(game, s) {
-		return !!(data.spaces[s] && data.spaces[s].port && is_controlled_by(game, s, AP))
+		if (!data.spaces[s] || !data.spaces[s].port || !is_controlled_by(game, s, AP)) return false
+		if (s === BASRA && !is_controlled_by(game, FAO, AP)) return false
+		return true
 	}
 
 	function is_ap_controlled_port_or_beachhead(game, s) {
@@ -3563,7 +3565,11 @@ module.exports = function (Engine) {
 			// operational sea-supply entries. Placement/rebuild restrictions are handled by
 			// reinforcement and replacement rules, so for_placement_or_sr keeps the narrower
 			// placement/SR source list expected by those callers.
-			if (info.port && (is_controlled_by(game, s, AP) || is_ap_contested_cp_region_port(game, s, AP))) {
+			if (
+				info.port &&
+				!(s === BASRA && !is_controlled_by(game, FAO, AP)) &&
+				(is_controlled_by(game, s, AP) || is_ap_contested_cp_region_port(game, s, AP))
+			) {
 				let is_contested_cp_region_port = is_ap_contested_cp_region_port(game, s, AP)
 				if (!for_placement_or_sr) {
 					if (!nation || is_british_supply_nation(nation) || (nation === "sb" && is_aegean_port(s))) {

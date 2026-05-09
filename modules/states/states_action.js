@@ -231,7 +231,7 @@ exports.register = function (states, Engine, context) {
 	function is_piece_on_shore_or_beachhead(p) {
 		let s = game.pieces[p]
 		if (s <= 0 || !data.spaces[s]) return false
-		return !Engine.map.is_island_base(game, s);
+		return !Engine.map.is_island_base(game, s)
 	}
 
 	function is_piece_supplied_solely_through_beachhead(p, beachhead) {
@@ -402,7 +402,9 @@ exports.register = function (states, Engine, context) {
 			if (res && res._is_noop) return
 			let t0 = DEBUG_ACTION_TRACE ? action_now() : 0
 			let event_check_count = 0
-			res.prompt(`第 ${game.turn} 回合, 行动轮 ${game.action_round}: 请选择一项行动${get_final_round_mo_warning()}`)
+			res.prompt(
+				`第 ${game.turn} 回合, 行动轮 ${game.action_round}: 请选择一项行动${get_final_round_mo_warning()}`
+			)
 			let hand = game.active === AP ? game.hand_ap : game.hand_cp
 			let allow_sr = can_play_sr_card_this_round(active_faction())
 			let allow_rp = can_play_rp_card_this_round(active_faction())
@@ -712,7 +714,9 @@ exports.register = function (states, Engine, context) {
 				game.pieces[p] = Engine.constants.REINFORCEMENTS
 				if (!game.sr_moved) game.sr_moved = []
 				Engine.utils.set_add(game.sr_moved, p)
-				log(`${piece_name(p)} Suez delayed SR: will arrive during the Replacement Phase of turn ${game.turn + 1}.`)
+				log(
+					`${piece_name(p)} Suez delayed SR: will arrive during the Replacement Phase of turn ${game.turn + 1}.`
+				)
 				game.sr_piece = null
 				game.state = "sr_phase"
 				if (game.sr === 0) goto_end_operations()
@@ -723,7 +727,13 @@ exports.register = function (states, Engine, context) {
 
 			// 战略调整进入雅典，触发希腊参战（规则 19.2.1：进入方的对手成为希腊盟友）
 			if (Engine.neutral.is_greece_neutral(game) && Engine.neutral.is_athens_space(s)) {
-				Engine.neutral.trigger_greece_entry(game, s, active_faction() === AP ? CP : AP, "战略调整进入雅典", (msg) => log(msg))
+				Engine.neutral.trigger_greece_entry(
+					game,
+					s,
+					active_faction() === AP ? CP : AP,
+					"战略调整进入雅典",
+					(msg) => log(msg)
+				)
 			}
 
 			if (!game.sr_moved) game.sr_moved = []
@@ -812,6 +822,9 @@ exports.register = function (states, Engine, context) {
 				game.action_round++
 				game.jihad_cities_flipped = []
 				game.active = player_order[0]
+				if (game.events && game.events["greece_snapshot"]) {
+					delete game.events["greece_snapshot"]
+				}
 			}
 
 			// 在对手下个行动轮开始前检查是否有补给警告

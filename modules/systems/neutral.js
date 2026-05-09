@@ -102,7 +102,11 @@ module.exports = function (Engine) {
 
 	function is_syrian_politics_beachhead(space_id) {
 		let landing_space = get_beachhead_landing_space(space_id)
-		return !!(landing_space > 0 && data.spaces[landing_space] && data.spaces[landing_space].area === "syria_palestine")
+		return !!(
+			landing_space > 0 &&
+			data.spaces[landing_space] &&
+			data.spaces[landing_space].area === "syria_palestine"
+		)
 	}
 
 	function apply_syrian_politics_penalty(game, space_id, faction) {
@@ -207,15 +211,19 @@ module.exports = function (Engine) {
 		let info = data.pieces[p]
 		if (!info) return undefined
 		if (Engine.collapse && typeof Engine.collapse.is_bulgarian_entry_piece === "function") {
-			if (Engine.collapse.is_bulgarian_entry_piece(info) && !(game && game.events && game.events["bulgaria"]) && is_on_bulgaria_entry_display(game, p)) {
+			if (
+				Engine.collapse.is_bulgarian_entry_piece(info) &&
+				!(game && game.events && game.events["bulgaria"]) &&
+				is_on_bulgaria_entry_display(game, p)
+			) {
 				return "neutral"
 			}
 		}
 		if (!is_supported_neutral_nation(info.nation)) return undefined
 		if (info.nation === "gr") {
+			if (is_greek_cnd(p)) return AP
 			let greece_faction = get_greece_faction(game)
 			if (greece_faction) return greece_faction
-			if (is_greek_cnd(p)) return AP
 			return "neutral"
 		}
 		let nation_faction = get_nation_faction(game, info.nation)
@@ -247,7 +255,7 @@ module.exports = function (Engine) {
 		let nation = space.nation
 		if (nation === "gr") {
 			if (is_athens_space(s) && is_greece_neutral(game)) return false
-			return !(piece.faction === CP && is_greece_neutral(game) && has_greek_units_in_space(game, s));
+			return !(piece.faction === CP && is_greece_neutral(game) && has_greek_units_in_space(game, s))
 		}
 		if (!is_supported_neutral_nation(nation)) return undefined
 		return has_nation_entered(game, nation)
@@ -344,8 +352,7 @@ module.exports = function (Engine) {
 				let serbs_return = !!(game.events && game.events["the_serbs_return"])
 				let belgrade_recaptured = BELGRADE >= 0 && map.is_controlled_by(game, BELGRADE, AP)
 				let can_use_port = !besieged && (space_id === LEMNOS || (space_id === SALONIKA && ap_controlled))
-				let can_use_serbia_cities =
-					(space_id === BELGRADE || space_id === NIS) && ap_controlled && !besieged
+				let can_use_serbia_cities = (space_id === BELGRADE || space_id === NIS) && ap_controlled && !besieged
 
 				if (!serbia_collapsed) return can_use_port || can_use_serbia_cities
 				if (!serbs_return) return false
@@ -362,14 +369,18 @@ module.exports = function (Engine) {
 		let larissa = find_space("Larissa")
 		if (
 			larissa >= 0 &&
-			map.get_pieces_in_space(game, larissa).some((p) => Engine.game_utils.get_piece_effective_faction(game, p) === CP)
+			map
+				.get_pieces_in_space(game, larissa)
+				.some((p) => Engine.game_utils.get_piece_effective_faction(game, p) === CP)
 		) {
 			return true
 		}
+		let belgrade = find_space("Belgrade")
+		let skopje = find_space("Skopje")
 		let balkan_vp_spaces = []
 		for (let s = 1; s < data.spaces.length; s++) {
 			let info = data.spaces[s]
-			if (info.vp && info.region === "Balkans" && info.nation !== "gr") {
+			if (info.vp && info.region === "Balkans" && info.nation !== "gr" && s !== belgrade && s !== skopje) {
 				balkan_vp_spaces.push(s)
 			}
 		}
@@ -506,19 +517,26 @@ module.exports = function (Engine) {
 		return true
 	}
 
-	function change_neutral_control(game, nation, _new_controller) {
-		// POG and PUG behavior: The UI renders tokens for controlled spaces
-		// However, spaces belonging to a nation joining its DEFAULT faction do not need explicit control tokens.
-		// map.js get_default_controller already handles "if bulgaria event -> bu is CP". 
-		// We only need to call set_control if the new_controller differs from the default controller AFTER the event,
-		// but since the event just fired, the default controller is already the new_controller.
-		// Actually, we shouldn't explicitly set control for all spaces because that places physical tokens.
-		// We just let get_default_controller do its job.
-		// To be safe and clean up any pre-existing enemy control tokens if needed (rare), we could do:
+	function change_neutral_control(game, nation, new_controller) {
+		const { map } = Engine
+		let enemy = new_controller === AP ? CP : AP
 		for (let s = 1; s < data.spaces.length; s++) {
 			if (data.spaces[s] && data.spaces[s].nation === nation) {
+				if (nation === "gr") {
+					let pieces = map.get_pieces_in_space(game, s)
+					let has_enemy = pieces.some((p) => {
+						let info = data.pieces[p]
+						if (!info) return false
+						if (info.nation === nation) return false
+						return info.faction === enemy
+					})
+					if (has_enemy) {
+						if (!game.control) game.control = {}
+						game.control[s] = enemy
+						continue
+					}
+				}
 				if (game.control && game.control[s] !== undefined) {
-					// Clear explicit control token so it falls back to the new default
 					delete game.control[s]
 				}
 			}
@@ -532,7 +550,8 @@ module.exports = function (Engine) {
 		change_neutral_control(game, "ro", AP)
 
 		let plan = Engine.collapse.get_romanian_entry_plan()
-		let russian_revolution_active = game.events.russian_revolution_level !== undefined && game.events.russian_revolution_level >= 1
+		let russian_revolution_active =
+			game.events.russian_revolution_level !== undefined && game.events.russian_revolution_level >= 1
 
 		place_entry_placements(game, AP, plan.ap.immediate, (entry) => {
 			if (russian_revolution_active && (entry.name === "RU Dobruja" || entry.name === "RU/SB Yugo Infantry")) {
@@ -579,11 +598,8 @@ module.exports = function (Engine) {
 		change_neutral_control(game, "sb", AP)
 
 		let plan = Engine.collapse.get_bulgaria_entry_plan()
-		place_entry_placements(
-			game,
-			CP,
-			plan.cp.placements,
-			(entry) => (entry.name === plan.cp.third_army_name ? null : entry)
+		place_entry_placements(game, CP, plan.cp.placements, (entry) =>
+			entry.name === plan.cp.third_army_name ? null : entry
 		)
 		place_entry_placements(game, AP, plan.ap.placements)
 	}
@@ -696,7 +712,9 @@ module.exports = function (Engine) {
 		// direction (BR/FR/IN/IT/ANZ into Russian sphere) is handled by bullet 1's hard
 		// prohibition in can_enter_region and requires no VP penalty.
 		if (!game.events["russian_british_sphere_penalty"]) {
-			let has_russian_entry = entered_pieces.some((p) => Engine.game_utils.piece_counts_as_nation_for_rule(game, p, "ru"))
+			let has_russian_entry = entered_pieces.some((p) =>
+				Engine.game_utils.piece_counts_as_nation_for_rule(game, p, "ru")
+			)
 			if (Engine.map.is_arabistan(s) && has_russian_entry) {
 				game.events["russian_british_sphere_penalty"] = true
 				game.vp += 1
@@ -876,7 +894,7 @@ module.exports = function (Engine) {
 			remove_ru_control_marker(game, s)
 			return
 		}
-		
+
 		let old_contribution = get_vp_owner_contribution(game, s, previous_vp_owner)
 
 		let default_owner = normalize_vp_owner(Engine.map.get_default_controller(game, s))
