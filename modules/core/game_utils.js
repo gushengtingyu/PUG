@@ -954,9 +954,13 @@ module.exports = function (Engine) {
 		return can_ottoman_substitute(lcu_nation, scu_nation)
 	}
 
+	function is_ottoman_group(nation) {
+		return nation === "tu" || nation === "tua"
+	}
+
 	function is_same_combination_nationality(lcu_nation, scu_nation) {
 		if (lcu_nation === scu_nation) return true
-		if (can_ottoman_substitute(lcu_nation, scu_nation)) return true
+		if (is_ottoman_group(lcu_nation) && is_ottoman_group(scu_nation)) return true
 		if (is_commonwealth_for_combination(lcu_nation) && is_commonwealth_for_combination(scu_nation)) return true
 		return false
 	}
