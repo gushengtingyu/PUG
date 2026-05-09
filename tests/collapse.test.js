@@ -350,6 +350,7 @@ describe("崩溃规则", () => {
 		}
 		setControl(game, "BELGRADE", CP)
 		setControl(game, "SOFIA", CP)
+		setControl(game, "Nis", CP)
 		setControl(game, "Skopje", AP)
 
 		expect(Engine.collapse.handle_national_collapse(game, rules.log)).toBe(true)
@@ -395,6 +396,7 @@ describe("崩溃规则", () => {
 		placePiece(game, AP, "RO 1 Army", "BUCHAREST")
 		setControl(game, "SOFIA", CP)
 		setControl(game, "BELGRADE", CP)
+		setControl(game, "Nis", CP)
 
 		expect(Engine.collapse.handle_national_collapse(game, rules.log)).toBe(true)
 		expect(game.state).toBe("war_status_romanian_collapse_offer")

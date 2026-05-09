@@ -47,6 +47,9 @@ module.exports = function (Engine) {
 	const AQABA = find_space("Aqaba")
 	const JIDDAH = find_space("Jiddah")
 	const LEMNOS = find_space("Lemnos")
+	const PORT_SAID = find_space("Port Said")
+	const ISMAILIA = find_space("Ismailia")
+	const SUEZ = find_space("Suez")
 	const GALICIA_REPLACEMENT_SPACE_IDS = []
 	for (let s = 1; s < data.spaces.length; s++) {
 		if (is_galicia(s)) GALICIA_REPLACEMENT_SPACE_IDS.push(s)
@@ -177,6 +180,29 @@ module.exports = function (Engine) {
 		if (enemy === CP && has_uprising_marker(game, "persian_uprising_markers", s)) return true
 		if (enemy === AP && has_uprising_marker(game, "armenian_uprising_markers", s)) return true
 		return false
+	}
+
+	function is_friendly_partial_control(game, s, faction) {
+		if (!(s > 0 && data.spaces[s])) return false
+		if (is_controlled_by(game, s, faction)) return false
+		if (is_region(game, s)) {
+			return get_region_disruption_owner(game, s) === faction && has_disrupting_piece_for_faction(game, s, faction)
+		}
+		return has_disrupting_piece_for_faction(game, s, faction)
+	}
+
+	function is_contested_region_for_faction(game, s, faction) {
+		if (!is_region(game, s)) return false
+		return has_friendly_pieces(game, s, faction) && contains_enemy_pieces(game, s, faction)
+	}
+
+	function is_enemy_controlled_contested_region(game, s, faction) {
+		if (!is_contested_region_for_faction(game, s, faction)) return false
+		return is_controlled_by(game, s, other_faction(faction))
+	}
+
+	function is_sr_besieged_enemy_fort(game, s, faction) {
+		return is_besieged(game, s) && get_fort_owner(game, s) === other_faction(faction)
 	}
 
 	function is_disrupted_by_enemy(game, s, faction) {
@@ -364,6 +390,56 @@ module.exports = function (Engine) {
 		if (!space) return false
 		if (!space.port && !(game && is_beachhead_space(game, s))) return false
 		return CASPIAN_SEA_PORTS.has(space.name)
+	}
+
+	function is_suez_canal_blocked(game) {
+		return (
+			(PORT_SAID > 0 && is_controlled_by(game, PORT_SAID, CP)) ||
+			(ISMAILIA > 0 && is_controlled_by(game, ISMAILIA, CP)) ||
+			(SUEZ > 0 && is_controlled_by(game, SUEZ, CP))
+		)
+	}
+
+	function is_ismailia_port_closed_by_suez_rule(game, s) {
+		return (
+			s === ISMAILIA &&
+			PORT_SAID > 0 &&
+			SUEZ > 0 &&
+			is_controlled_by(game, PORT_SAID, CP) &&
+			is_controlled_by(game, SUEZ, CP)
+		)
+	}
+
+	function has_effective_sr_port(game, s) {
+		let space = data.spaces[s]
+		if (!space) return false
+		if (is_ismailia_port_closed_by_suez_rule(game, s)) return false
+		return !!space.port || is_beachhead_space(game, s) || is_black_sea_port(game, s) || is_caspian_sea_port(game, s)
+	}
+
+	function is_india_port(game, s) {
+		return has_effective_sr_port(game, s) && is_india(s)
+	}
+
+	function is_red_sea_port_or_region_port(game, s) {
+		if (!has_effective_sr_port(game, s)) return false
+		return is_red_sea_port(s) || is_sudan_and_darfur(s)
+	}
+
+	function is_ap_black_sea_gateway_open(game) {
+		if (BOSPHORUS_FORTS_SPACE < 0 || !is_controlled_by(game, BOSPHORUS_FORTS_SPACE, AP)) return false
+		init_strait_edges()
+		return strait_numbers.every((n) => faction_controls_strait(game, n, AP))
+	}
+
+	function piece_can_use_ap_black_sea_sr(game, p) {
+		let nations = get_piece_nations_for_rule(game, p, "sr")
+		if (nations.length === 0 && data.pieces[p]) nations = [data.pieces[p].nation]
+		return nations.some((nation) => nation === "ru" || nation === "br" || nation === "in" || nation === "anz")
+	}
+
+	function is_special_ru_aegean_reserve_sr_unit(info) {
+		return is_special_ru_allied_supply_unit(info)
 	}
 
 	function clear_black_sea_marines_fort(game) {
@@ -2193,6 +2269,28 @@ module.exports = function (Engine) {
 		return neighbors
 	}
 
+	function is_sr_path_space_passable(game, p, s, faction) {
+		if (is_controlled_by(game, s, faction)) return true
+		if (is_friendly_partial_control(game, s, faction)) return true
+		if (is_sr_besieged_enemy_fort(game, s, faction)) return true
+		if (is_enemy_controlled_contested_region(game, s, faction)) return true
+		return false
+	}
+
+	function can_sr_path_continue_from_space(game, p, s, faction) {
+		if (has_enemy_uprising_marker(game, s, faction)) return false
+		if (is_enemy_controlled_contested_region(game, s, faction)) return false
+		return true
+	}
+
+	function is_sr_end_space_allowed(game, p, s, faction) {
+		if (is_controlled_by(game, s, faction)) return true
+		if (is_friendly_partial_control(game, s, faction)) return true
+		if (is_sr_besieged_enemy_fort(game, s, faction)) return true
+		if (is_enemy_controlled_contested_region(game, s, faction)) return true
+		return contains_friendly_pieces(game, s, faction)
+	}
+
 	function visit_sr_path_spaces(game, p, source, faction, rail_only, visit) {
 		let queue = [source]
 		let queue_head = 0
@@ -2208,10 +2306,9 @@ module.exports = function (Engine) {
 					can_continue = desert_step.can_continue
 				}
 				if (visited.has(next) && can_continue) continue
-				let passable = is_controlled_by(game, next, faction) || is_besieged(game, next)
-				if (!passable) continue
+				if (!is_sr_path_space_passable(game, p, next, faction)) continue
 				if (visit(next) === false) return false
-				if (has_enemy_uprising_marker(game, next, faction)) can_continue = false
+				if (!can_sr_path_continue_from_space(game, p, next, faction)) can_continue = false
 				if (can_continue) {
 					visited.add(next)
 					queue.push(next)
@@ -2235,6 +2332,45 @@ module.exports = function (Engine) {
 		return found
 	}
 
+	function find_sr_path(game, p, from, to, faction, rail_only) {
+		if (from === to) return [from]
+		let queue = [from]
+		let queue_head = 0
+		let visited = new Set([from])
+		let previous = new Map()
+
+		while (queue_head < queue.length) {
+			let current = queue[queue_head++]
+			for (let next of get_sr_path_neighbors(game, p, current, faction, rail_only)) {
+				let can_continue = true
+				if (!rail_only) {
+					let desert_step = get_scu_sr_desert_step(game, current, next, faction, current === from)
+					if (!desert_step.allowed) continue
+					can_continue = desert_step.can_continue
+				}
+				if (visited.has(next)) continue
+				if (!is_sr_path_space_passable(game, p, next, faction)) continue
+				visited.add(next)
+				previous.set(next, current)
+				if (next === to) {
+					let path = [to]
+					let cursor = to
+					while (cursor !== from) {
+						cursor = previous.get(cursor)
+						path.push(cursor)
+					}
+					path.reverse()
+					return path
+				}
+				if (can_continue && can_sr_path_continue_from_space(game, p, next, faction)) {
+					queue.push(next)
+				}
+			}
+		}
+
+		return null
+	}
+
 	function is_same_sr_nationality(a, b) {
 		if (a === b) return true
 		let be = ["br", "in", "anz"]
@@ -2251,6 +2387,26 @@ module.exports = function (Engine) {
 			}
 		}
 		return false
+	}
+
+	function get_sr_nation_faction(nation) {
+		return ["tu", "tua", "ge", "ah", "bu"].includes(nation) ? CP : AP
+	}
+
+	function is_reserve_sr_capital_restricted(game, nation) {
+		let faction = get_sr_nation_faction(nation)
+		let enemy = other_faction(faction)
+		let capital = find_capital(nation === "tua" ? "tu" : nation)
+		return capital >= 0 && is_controlled_by(game, capital, enemy)
+	}
+
+	function can_use_reserve_sr_for_piece(game, p, faction = null) {
+		let info = data.pieces[p]
+		if (!info || info.piece_class === "LCU") return false
+		if (faction && get_piece_effective_faction(game, p) !== faction) return false
+		let nations = get_piece_nations_for_rule(game, p, "sr")
+		if (nations.length === 0) nations = [info.nation]
+		return nations.some((nation) => !is_reserve_sr_capital_restricted(game, nation))
 	}
 
 	function is_supply_status_in_supply(status) {
@@ -2355,9 +2511,31 @@ module.exports = function (Engine) {
 		return false
 	}
 
+	function is_reserve_sr_port_destination(game, p, s, faction) {
+		let info = data.pieces[p]
+		if (!info || faction !== AP) return false
+		if (!is_controlled_by(game, s, AP)) return false
+		if (!has_effective_sr_port(game, s)) return false
+		if (info.nation === "br" || info.nation === "in" || info.nation === "anz") {
+			return (
+				is_aegean_east_med_port_or_beachhead(game, s) ||
+				is_red_sea_port_or_region_port(game, s) ||
+				is_persian_gulf_port_or_beachhead(game, s)
+			)
+		}
+		if (info.nation === "fr" || info.nation === "it") {
+			return is_aegean_east_med_port_or_beachhead(game, s)
+		}
+		if (is_special_ru_aegean_reserve_sr_unit(info)) {
+			return is_aegean_port(s)
+		}
+		return false
+	}
+
 	function can_sr_from_reserve_to_space(game, p, s, faction) {
 		let info = data.pieces[p]
 		if (info.piece_class === "LCU") return false
+		if (!can_use_reserve_sr_for_piece(game, p, faction)) return false
 		if (
 			faction === CP &&
 			data.spaces[s] &&
@@ -2368,16 +2546,15 @@ module.exports = function (Engine) {
 		) {
 			return false
 		}
-		if (!is_controlled_by(game, s, faction) && !contains_friendly_pieces(game, s, faction)) return false
+		if (!is_sr_end_space_allowed(game, p, s, faction)) return false
 		let status = get_supply_status(game, s, faction, p, true)
 		if (!is_supply_status_in_supply(status)) return false
 		if (!can_enter_region(game, p, s)) return false
 		if (!can_stack_end_in_space(game, s, [p], IGNORE_HQ_HEAVY_ARTILLERY_SUPPORT)) return false
-		let full_sources = get_full_supply_sources_for_unit(game, p, true)
-		if (full_sources.includes(s)) return true
 		if (data.spaces[s].terrain === DESERT) {
 			if (!can_trace_reserve_sr_desert_supply(game, p, s)) return false
 		}
+		if (is_reserve_sr_port_destination(game, p, s, faction)) return true
 		return has_same_nationality_supplied_unit_in_space(game, p, s)
 	}
 
@@ -2386,13 +2563,7 @@ module.exports = function (Engine) {
 	}
 
 	function is_sea_sr_port_space(game, s) {
-		return (
-			!!data.spaces[s] &&
-			(!!data.spaces[s].port ||
-				is_beachhead_space(game, s) ||
-				is_black_sea_port(game, s) ||
-				is_caspian_sea_port(game, s))
-		)
+		return !!data.spaces[s] && has_effective_sr_port(game, s)
 	}
 
 	function is_sr_destination_blocked_by_events(game, source, dest, faction) {
@@ -2409,15 +2580,123 @@ module.exports = function (Engine) {
 		return false
 	}
 
+	function can_use_cp_red_or_persian_gulf_sea_sr(game, source, dest) {
+		if (is_suez_canal_blocked(game)) return true
+		return !(
+			is_red_sea_port_or_region_port(game, source) ||
+			is_red_sea_port_or_region_port(game, dest) ||
+			is_persian_gulf_port_or_beachhead(game, source) ||
+			is_persian_gulf_port_or_beachhead(game, dest)
+		)
+	}
+
+	function is_british_empire_scu(info) {
+		return !!(
+			info &&
+			info.piece_class === "SCU" &&
+			(info.nation === "br" || info.nation === "in" || info.nation === "anz")
+		)
+	}
+
+	function is_sea_sr_port_allowed_for_piece(game, p, s, faction) {
+		if (!is_sea_sr_port_space(game, s)) return false
+		if (is_controlled_by(game, s, faction)) return true
+		if (faction === AP && is_black_sea_marines_special_fort(game, s)) return true
+		let info = data.pieces[p]
+		return is_ap_british_empire_sea_sr_region_exception(game, info, s, faction)
+	}
+
+	function is_ap_british_empire_sea_sr_region_exception(game, info, s, faction) {
+		return (
+			faction === AP &&
+			is_british_empire_scu(info) &&
+			is_region(game, s) &&
+			is_controlled_by(game, s, CP) &&
+			has_effective_sr_port(game, s)
+		)
+	}
+
+	function is_ap_suez_sr_blocked(game, source, dest) {
+		if (!is_suez_canal_blocked(game)) return false
+		let source_west = is_aegean_east_med_port_or_beachhead(game, source)
+		let dest_west = is_aegean_east_med_port_or_beachhead(game, dest)
+		let source_east =
+			is_india_port(game, source) ||
+			is_persian_gulf_port_or_beachhead(game, source) ||
+			is_red_sea_port_or_region_port(game, source)
+		let dest_east =
+			is_india_port(game, dest) ||
+			is_persian_gulf_port_or_beachhead(game, dest) ||
+			is_red_sea_port_or_region_port(game, dest)
+		return (source_west && dest_east) || (source_east && dest_west)
+	}
+
+	function get_suez_sr_arrival_zone(game, s) {
+		if (is_aegean_east_med_port_or_beachhead(game, s)) return "aegean_east_med"
+		if (is_india_port(game, s)) return "india"
+		if (is_persian_gulf_port_or_beachhead(game, s)) return "persian_gulf"
+		if (is_red_sea_port_or_region_port(game, s)) return "red_sea"
+		return null
+	}
+
+	function is_suez_sr_arrival_zone_port(game, s, zone) {
+		if (!is_controlled_by(game, s, AP)) return false
+		if (zone === "aegean_east_med") return is_aegean_east_med_port_or_beachhead(game, s)
+		if (zone === "india") return is_india_port(game, s)
+		if (zone === "persian_gulf") return is_persian_gulf_port_or_beachhead(game, s)
+		if (zone === "red_sea") return is_red_sea_port_or_region_port(game, s)
+		return false
+	}
+
+	function get_suez_delayed_sr_arrival_ports(game, entry) {
+		let ports = []
+		let allow_any = !!(entry && entry.allow_any_friendly_port)
+		let zone = entry && entry.arrival_zone
+		for (let s = 1; s < data.spaces.length; s++) {
+			if (!data.spaces[s]) continue
+			if (!is_controlled_by(game, s, AP)) continue
+			if (!is_sea_sr_port_space(game, s)) continue
+			if (allow_any || is_suez_sr_arrival_zone_port(game, s, zone)) ports.push(s)
+		}
+		return ports
+	}
+
+	function can_suez_delayed_sr_to_space(game, p, source, dest, faction) {
+		let info = data.pieces[p]
+		if (!info || faction !== AP) return false
+		if (info.piece_class === "LCU" || info.symbol === "H") return false
+		if (!is_sea_sr_port_allowed_for_piece(game, p, source, faction)) return false
+		if (!is_sea_sr_port_allowed_for_piece(game, p, dest, faction)) return false
+		if (!is_ap_suez_sr_blocked(game, source, dest)) return false
+		return !!get_suez_sr_arrival_zone(game, dest)
+	}
+
 	function has_sr_sea_port_route(game, p, source, dest, faction) {
 		let info = data.pieces[p]
-		if (!is_sea_sr_port_space(game, source) || !is_sea_sr_port_space(game, dest)) return false
+		if (!is_sea_sr_port_allowed_for_piece(game, p, source, faction)) return false
+		if (!is_sea_sr_port_allowed_for_piece(game, p, dest, faction)) return false
 		if (info.piece_class === "LCU") return false
 		if (info.symbol === "H") return false
 		let source_caspian = is_caspian_sea_port(source)
 		let dest_caspian = is_caspian_sea_port(dest)
 		if (source_caspian || dest_caspian) {
 			if (!source_caspian || !dest_caspian) return false
+		}
+		if (faction === CP) {
+			if (game.events && game.events["royal_navy_blockade"]) {
+				if (source_caspian && dest_caspian) return true
+				return is_black_sea_port(game, source) && is_black_sea_port(game, dest)
+			}
+			if (!can_use_cp_red_or_persian_gulf_sea_sr(game, source, dest)) return false
+		}
+		if (faction === AP) {
+			if (is_ap_suez_sr_blocked(game, source, dest)) return false
+			let source_black = is_black_sea_port(game, source)
+			let dest_black = is_black_sea_port(game, dest)
+			if (source_black !== dest_black) {
+				if (!piece_can_use_ap_black_sea_sr(game, p)) return false
+				if (!is_ap_black_sea_gateway_open(game)) return false
+			}
 		}
 		return !is_sr_destination_blocked_by_events(game, source, dest, faction)
 	}
@@ -2449,7 +2728,11 @@ module.exports = function (Engine) {
 			return can_sr_to_space(game, p, dest, faction)
 		}
 		if (!skip_sea_sr_event_block && is_sr_destination_blocked_by_events(game, source, dest, faction)) return false
-		if (!is_controlled_by(game, dest, faction) && !contains_friendly_pieces(game, dest, faction)) return false
+		let sea_sr_destination =
+			source !== dest &&
+			is_sea_sr_port_allowed_for_piece(game, p, source, faction) &&
+			is_sea_sr_port_allowed_for_piece(game, p, dest, faction)
+		if (!is_sr_end_space_allowed(game, p, dest, faction) && !sea_sr_destination) return false
 		let dest_status = get_supply_status(
 			game,
 			dest,
@@ -2461,7 +2744,11 @@ module.exports = function (Engine) {
 			source_cache,
 			status_cache
 		)
-		if (!is_supply_status_in_supply(dest_status)) return false
+		if (
+			!is_supply_status_in_supply(dest_status) &&
+			!is_ap_british_empire_sea_sr_region_exception(game, data.pieces[p], dest, faction)
+		)
+			return false
 		if (!can_enter_region(game, p, dest)) return false
 		return can_stack_end_in_space(game, dest, [p], IGNORE_HQ_HEAVY_ARTILLERY_SUPPORT)
 	}
@@ -2483,16 +2770,14 @@ module.exports = function (Engine) {
 
 		if (source_reserve) {
 			if (info.piece_class === "LCU") return []
+			if (!can_use_reserve_sr_for_piece(game, p, faction)) return []
 			let candidates = new Set()
-			for (let s of get_full_supply_sources_for_unit(game, p, true)) {
-				if (s > 0 && data.spaces[s]) candidates.add(s)
-			}
 			for (let q = 0; q < game.pieces.length; q++) {
 				let q_space = game.pieces[q]
 				if (q_space <= 0 || !data.spaces[q_space]) continue
 				let q_info = data.pieces[q]
 				if (!q_info || get_piece_effective_faction(game, q) !== faction) continue
-				if (!is_same_sr_nationality(info.nation, q_info.nation)) continue
+				if (!pieces_share_sr_nationality(game, p, q)) continue
 				let q_status = get_supply_status(
 					game,
 					q_space,
@@ -2506,6 +2791,9 @@ module.exports = function (Engine) {
 				)
 				if (!is_supply_status_in_supply(q_status) || is_limited_supply_status(q_status)) continue
 				candidates.add(q_space)
+			}
+			for (let s = 1; s < data.spaces.length; s++) {
+				if (is_reserve_sr_port_destination(game, p, s, faction)) candidates.add(s)
 			}
 			let filtered = []
 			for (let s of candidates) {
@@ -2578,7 +2866,9 @@ module.exports = function (Engine) {
 		if (info.piece_class !== "LCU" && info.symbol !== "H" && is_sea_sr_port_space(game, source)) {
 			for (let s = 1; s < data.spaces.length; s++) {
 				if (!is_sea_sr_port_space(game, s)) continue
-				if (!has_sr_sea_port_route(game, p, source, s, faction)) continue
+				let has_direct_route = has_sr_sea_port_route(game, p, source, s, faction)
+				let has_delayed_route = can_suez_delayed_sr_to_space(game, p, source, s, faction)
+				if (!has_direct_route && !has_delayed_route) continue
 				if (
 					can_sr_to_non_reserve_space_with_context(
 						game,
@@ -2646,7 +2936,7 @@ module.exports = function (Engine) {
 		if (is_non_reserve_off_map_sr_source(game, p, s)) return false
 		if (s === RESERVE) {
 			// SCUs can SR from reserve, LCUs cannot
-			return info.piece_class !== "LCU"
+			return info.piece_class !== "LCU" && can_use_reserve_sr_for_piece(game, p, faction)
 		}
 		if (s <= 0 || !data.spaces[s]) return false
 
@@ -2664,7 +2954,7 @@ module.exports = function (Engine) {
 			return false
 		}
 		if (is_reserve_space(s)) {
-			return info.piece_class !== "LCU"
+			return info.piece_class !== "LCU" && can_use_reserve_sr_for_piece(game, p, faction)
 		}
 		let status = get_supply_status(game, s, faction, p, true)
 		if (!is_supply_status_in_supply(status)) return false
@@ -2700,6 +2990,7 @@ module.exports = function (Engine) {
 
 		if (source_reserve && dest_reserve) return false
 		if (source_reserve) return can_sr_from_reserve_to_space(game, p, s, faction)
+		if (dest_reserve && !can_use_reserve_sr_for_piece(game, p, faction)) return false
 		if (source !== s && !can_piece_leave_siege_by_sr(game, p, faction)) return false
 		if (is_cp_non_afghan_unit_tracing_only_to_afghanistan(game, p)) return false
 
@@ -2712,38 +3003,59 @@ module.exports = function (Engine) {
 			return !is_limited_supply_status(source_status)
 		}
 
-		if (!is_controlled_by(game, s, faction) && !contains_friendly_pieces(game, s, faction)) return false
+		let sea_sr = source !== s && is_sea_sr_port_space(game, source) && is_sea_sr_port_space(game, s)
+		let sea_sr_destination =
+			sea_sr &&
+			is_sea_sr_port_allowed_for_piece(game, p, source, faction) &&
+			is_sea_sr_port_allowed_for_piece(game, p, s, faction)
+		if (!is_sr_end_space_allowed(game, p, s, faction) && !sea_sr_destination) return false
 
 		// Rule 19.2.3: AP units may not end a move in a space with Greek units while neutral.
 		if (faction === AP && is_greece_neutral(game) && has_greek_units_in_space(game, s)) return false
 
 		let dest_status = get_supply_status(game, s, faction, p, true)
-		if (!is_supply_status_in_supply(dest_status)) return false
+		if (
+			!is_supply_status_in_supply(dest_status) &&
+			!is_ap_british_empire_sea_sr_region_exception(game, info, s, faction)
+		)
+			return false
 		if (!can_enter_region(game, p, s)) return false
 		if (!can_stack_end_in_space(game, s, [p], IGNORE_HQ_HEAVY_ARTILLERY_SUPPORT)) return false
 
 		let rail_only = info.piece_class === "LCU"
 		if (has_sr_path(game, p, source, s, faction, rail_only)) return true
 
-		let sea_sr = source !== s && is_sea_sr_port_space(game, source) && is_sea_sr_port_space(game, s)
 		if (!sea_sr) return false
-		if (is_sr_destination_blocked_by_events(game, source, s, faction)) return false
-		if (info.piece_class === "LCU") return false
-		if (info.symbol === "H") return false
+		return has_sr_sea_port_route(game, p, source, s, faction)
+	}
 
-		// Rule 11.5: Caspian Sea transport restrictions.
-		let source_caspian = is_caspian_sea_port(source)
-		let dest_caspian = is_caspian_sea_port(s)
-		if (source_caspian || dest_caspian) {
-			if (!source_caspian || !dest_caspian) return false
+	function apply_sr_control_effects(game, p, from, to, faction) {
+		let info = data.pieces[p]
+		if (!info) return
+		let spaces = []
+		if (from > 0 && data.spaces[from] && to > 0 && data.spaces[to]) {
+			let rail_only = info.piece_class === "LCU"
+			let path = find_sr_path(game, p, from, to, faction, rail_only)
+			if (path) spaces = path
+		}
+		if (spaces.length === 0) {
+			if (from > 0 && data.spaces[from]) spaces.push(from)
+			if (to > 0 && data.spaces[to] && to !== from) spaces.push(to)
 		}
 
-		return true
+		for (let s of spaces) {
+			if (!is_friendly_partial_control(game, s, faction)) continue
+			Engine.set_control(game, s, faction)
+			if (Array.isArray(game.region_disruption) && game.region_disruption[s] === faction) {
+				delete game.region_disruption[s]
+			}
+			if (typeof Engine.sync_region_control === "function") Engine.sync_region_control(game, s)
+		}
 	}
 
 	function contains_friendly_pieces(game, s, faction) {
 		let pieces = get_pieces_in_space(game, s)
-		return pieces.some((p) => data.pieces[p].faction === faction)
+		return pieces.some((p) => get_piece_effective_faction(game, p) === faction)
 	}
 
 	function can_trace_piece_supply_to_space(game, p, destination, options = {}) {
@@ -3332,7 +3644,7 @@ module.exports = function (Engine) {
 
 	function is_red_sea_port(s) {
 		if (!data.spaces[s] || !data.spaces[s].port) return false
-		return ["Aqaba", "Jiddah", "Suez"].includes(data.spaces[s].name)
+		return ["Aqaba", "Jiddah", "Suez"].includes(data.spaces[s].name) || is_sudan_and_darfur(s)
 	}
 
 	function get_supply_sources_from_data(game, faction, for_placement_or_sr = false) {
@@ -5238,6 +5550,12 @@ module.exports = function (Engine) {
 		has_sr_path,
 		can_sr_piece,
 		can_sr_to_space,
+		can_use_reserve_sr_for_piece,
+		is_reserve_sr_capital_restricted,
+		can_suez_delayed_sr_to_space,
+		get_suez_delayed_sr_arrival_ports,
+		get_suez_sr_arrival_zone,
+		apply_sr_control_effects,
 		get_sr_destinations,
 		get_activation_cost,
 		get_activation_cost_pair,

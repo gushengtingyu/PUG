@@ -278,7 +278,11 @@ module.exports = function (Engine) {
 		game.warm_water_port_vp = s
 		game.events["warm_water_port"] = true
 		if (game.events["parvus_to_berlin"] !== undefined) sync_russian_revolution_markers(game)
-		log(game, `Warm Water Port established at ${data.spaces[s].name}.`)
+		log(game, `不冻港：已在 ${data.spaces[s].name} 建立。`)
+	}
+
+	function format_mo_log_name(mo) {
+		return Engine.mo && typeof Engine.mo.mo_name === "function" ? Engine.mo.mo_name(mo) : mo
 	}
 
 	function start_event_data(game, ctx, key, data) {
@@ -840,7 +844,7 @@ module.exports = function (Engine) {
 						let p = scus.pop()
 						game.pieces[p] = get_scu_reserve_box(CP)
 						let name = is_piece_reduced(game, p) ? `(${piece_name(p)})` : piece_name(p)
-						log(game, `Bull's Eye Cleanup: ${name} returned to reserve from ${space_name(s)}`)
+						log(game, `靶心指令清理：${name} 从 ${space_name(s)} 返回预备格。`)
 					}
 				}
 			}
@@ -2233,17 +2237,17 @@ module.exports = function (Engine) {
 					game.mo_cp_1 !== "none"
 				) {
 					game.mo_cp_1_fulfilled = true
-					log(game, `ENVER TO CONSTANTINOPLE: Enver Mandate #1 (${game.mo_cp_1}) cancelled.`, ctx)
+					log(game, `恩维尔坐镇君士坦丁堡：取消恩维尔强制攻势 #1（${format_mo_log_name(game.mo_cp_1)}）。`, ctx)
 					if (game.mo_cp_1_fulfilled && game.mo_cp_2_fulfilled) {
 						game.mo_cp_fulfilled = true
-						log(game, "ENVER TO CONSTANTINOPLE: CP Enver Mandate fully fulfilled.", ctx)
+						log(game, "恩维尔坐镇君士坦丁堡：同盟国恩维尔强制攻势已全部完成。", ctx)
 					}
 				} else {
-					log(game, "ENVER TO CONSTANTINOPLE: no active Enver #1 mandate to cancel.", ctx)
+					log(game, "恩维尔坐镇君士坦丁堡：没有可取消的恩维尔强制攻势 #1。", ctx)
 				}
 				let hand = Array.isArray(game.hand_ap) ? game.hand_ap.slice() : []
 				if (hand.length === 0) {
-					log(game, "ENVER TO CONSTANTINOPLE: AP hand is empty.", ctx)
+					log(game, "恩维尔坐镇君士坦丁堡：协约国没有手牌。", ctx)
 					return
 				}
 				let reveal_count = Math.min(3, hand.length)
@@ -2254,7 +2258,7 @@ module.exports = function (Engine) {
 					hand.splice(index, 1)
 				}
 				let revealed_names = card_names(revealed, ctx)
-				log(game, `ENVER TO CONSTANTINOPLE: reveals AP cards [${revealed_names.join(", ")}]`, ctx)
+				log(game, `协约国手牌：[${revealed_names.join(", ")}]`, ctx)
 			}
 		},
 		59: {
@@ -3119,7 +3123,7 @@ module.exports = function (Engine) {
 			handler: function (game, ctx) {
 				game.events.berlin_baghdad = 1
 				game.vp += 1
-				log(game, "CP gains 1 VP.", ctx)
+				log(game, "柏林-巴格达铁路：CP 获得 1 VP。", ctx)
 			}
 		},
 		105: {

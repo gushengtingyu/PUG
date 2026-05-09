@@ -538,7 +538,7 @@ module.exports = function (Engine) {
 				if (ctx.faction !== AP || ctx.from_retained) return false
 				ctx.remove_card_from_hand()
 				ctx.add_cc_retained(CP, "discard")
-				ctx.log("No Prisoners: Card given to CP, kept face-up for one use.")
+				ctx.log("不留活口：卡牌交给同盟国，正面朝上保留一次使用。")
 				return true
 			}
 		},

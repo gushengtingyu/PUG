@@ -691,13 +691,33 @@ exports.register = function (states, Engine, context) {
 			let paid_cost = get_sr_cost(p, is_in_reserve(game, p) ? null : from, null, active_faction())
 			let total_cost = get_sr_cost(p, is_in_reserve(game, p) ? null : from, s, active_faction())
 			let extra_cost = total_cost - paid_cost
-			if (!Engine.map.can_sr_to_space(game, p, s, active_faction())) return
+			let legal_destinations = get_sr_destinations(game, p, active_faction())
+			if (!legal_destinations.includes(s)) return
+			let delayed_suez_sr = Engine.map.can_suez_delayed_sr_to_space(game, p, from, s, active_faction())
+			if (!delayed_suez_sr && !Engine.map.can_sr_to_space(game, p, s, active_faction())) return
 			if (game.sr < extra_cost) return
 			game.sr -= extra_cost
 			let was_sea_sr = is_sea_sr_move(from, s)
 			let from_was_non_balkan_beachhead =
 				Engine.map.is_beachhead_space(game, from) && Engine.map.is_non_balkan_beachhead(from)
 			let from_was_ottoman_port = is_ottoman_port_source(from)
+			Engine.map.apply_sr_control_effects(game, p, from, s, active_faction())
+			if (delayed_suez_sr) {
+				if (!game.suez_delayed_sr) game.suez_delayed_sr = []
+				game.suez_delayed_sr.push({
+					turn: game.turn + 1,
+					piece: p,
+					arrival_zone: Engine.map.get_suez_sr_arrival_zone(game, s)
+				})
+				game.pieces[p] = Engine.constants.REINFORCEMENTS
+				if (!game.sr_moved) game.sr_moved = []
+				Engine.utils.set_add(game.sr_moved, p)
+				log(`${piece_name(p)} Suez delayed SR: will arrive during the Replacement Phase of turn ${game.turn + 1}.`)
+				game.sr_piece = null
+				game.state = "sr_phase"
+				if (game.sr === 0) goto_end_operations()
+				return
+			}
 			// Move piece
 			game.pieces[p] = s
 

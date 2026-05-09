@@ -561,9 +561,7 @@ function can_play_rp_card_this_round(faction) {
 }
 
 function can_use_reserve_sr_for_piece(p) {
-	let info = data.pieces[p]
-	if (!info || info.piece_class === "LCU") return false
-	return !any_capital_occupied_or_besieged(game, info.nation)
+	return Engine.map.can_use_reserve_sr_for_piece(game, p, active_faction())
 }
 
 function record_action(type, card) {

@@ -368,18 +368,17 @@ module.exports = function (Engine) {
 		if (get_piece_effective_faction(game, p) !== CP) return false
 		if (is_not_on_map(game, p)) return false
 		let s = game.pieces[p]
-		return s > 0 && is_balkans(s)
+		return s > 0 && is_balkans(s) && Engine.map.can_sr_piece(game, p, CP)
 	}
 
-	function get_collapse_sr_destination_spaces(game) {
-		let list = []
-		for (let s = 1; s < data.spaces.length; s++) {
-			if (!data.spaces[s] || !is_balkans(s)) continue
-			if (!is_controlled_by(game, s, CP)) continue
-			if (get_capacity(game, s) <= 0) continue
-			list.push(s)
-		}
-		return list
+	function get_collapse_sr_destination_spaces(game, p = null) {
+		if (p === null || p === undefined || p < 0 || !data.pieces[p]) return []
+		return Engine.map.get_sr_destinations(game, p, CP).filter((s) => {
+			if (!data.spaces[s] || !is_balkans(s)) return false
+			if (!is_controlled_by(game, s, CP)) return false
+			if (s === game.pieces[p]) return false
+			return Engine.map.can_sr_to_space(game, p, s, CP)
+		})
 	}
 
 	function create_collapse_choice_ctx(collapse_nation, choice_limit) {

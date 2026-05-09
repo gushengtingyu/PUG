@@ -411,6 +411,7 @@ module.exports = function (Engine) {
 		if (!info || info.faction !== AP || !rules.is_scu(p)) return false
 		if (game.pieces[p] <= 0 || rules.is_in_reserve(game, p)) return false
 		if (!rules.can_sr_piece(game, p, AP)) return false
+		if (!rules.can_sr_to_space(game, p, rules.get_reserve_box(AP), AP)) return false
 
 		let pending_lcus = get_gallipoli_invasion_lcus(game, rules).filter((lcu) =>
 			Engine.game_utils.is_piece_reduced(game, lcu)
@@ -443,7 +444,7 @@ module.exports = function (Engine) {
 	function can_gallipoli_scu_flip_lcu(game, rules, p) {
 		if (get_gallipoli_target_lcu_for_scu(game, rules, p) < 0) return false
 		if (rules.is_in_reserve(game, p)) return true
-		return game.pieces[p] > 0 && rules.can_sr_piece(game, p, AP)
+		return game.pieces[p] > 0 && rules.can_sr_piece(game, p, AP) && rules.can_sr_to_space(game, p, rules.get_reserve_box(AP), AP)
 	}
 
 	function is_ap_british_empire_scu(p) {
@@ -462,6 +463,7 @@ module.exports = function (Engine) {
 		let badge = get_piece_badge(p)
 		if (badge !== "infantry" && badge !== "blue") return false
 		if (!rules.can_sr_piece(game, p, AP)) return false
+		if (!rules.can_sr_to_space(game, p, event_port, AP)) return false
 		if (game.pieces[p] === event_port) return false
 		let cost = rules.get_sr_cost(p, game.pieces[p], event_port, AP)
 		return count + cost <= max_count
@@ -477,7 +479,7 @@ module.exports = function (Engine) {
 			return rules.can_sr_to_space(game, p, island_base, AP)
 		}
 		if (game.pieces[p] <= 0) return false
-		return true
+		return rules.can_sr_to_space(game, p, island_base, AP)
 	}
 
 	function finish_gallipoli_invasion(game, rules) {
@@ -1295,7 +1297,7 @@ module.exports = function (Engine) {
 			let { game, rules } = ctx
 			let event = use_event(game, "enver_goes_east")
 			let next = event.enver_queue.shift()
-			rules.log(`Enver Goes East: ${rules.space_name(next.from)} attacks ${rules.space_name(next.to)}.`)
+			rules.log(`恩维尔东方攻势：${rules.space_name(next.from)} 攻击 ${rules.space_name(next.to)}。`)
 			game.attack = {
 				space: next.to,
 				pieces: next.pieces.slice(),
@@ -1473,7 +1475,7 @@ module.exports = function (Engine) {
 			event.event_port = s
 			game.state = "event_project_alexandria_sr"
 			Engine.neutral.on_beachhead_placed(game, s, AP)
-			rules.log(`Beachhead placed at ${data.spaces[s].name}.`)
+			rules.log(`滩头放置在 ${data.spaces[s].name}。`)
 		}
 	}
 
@@ -1515,6 +1517,7 @@ module.exports = function (Engine) {
 			if (!game.sr_moved) game.sr_moved = []
 			rules.set_add(game.sr_moved, p)
 
+			Engine.map.apply_sr_control_effects(game, p, game.pieces[p], event_port, AP)
 			game.pieces[p] = event_port
 			rules.log(`${rules.piece_name(p)} 战略调整至滩头 (Cost: ${cost}).`)
 
@@ -1877,7 +1880,7 @@ module.exports = function (Engine) {
 				rules.set_control(game, s, AP)
 				if (!game.events) game.events = {}
 				game.events["salonika_is_port"] = true
-				rules.log("Salonika is now an AP port.")
+				rules.log("萨洛尼卡现在是协约国港口。")
 			}
 
 			if (units.length === 0) {
@@ -2062,7 +2065,7 @@ module.exports = function (Engine) {
 					game.state = "event_invasion_place_units_island"
 				}
 			}
-			rules.log(`Beachhead placed at ${data.spaces[s].name}.`)
+			rules.log(`滩头放置在 ${data.spaces[s].name}。`)
 			Engine.neutral.on_beachhead_placed(game, s, AP)
 		}
 	}
@@ -2237,6 +2240,7 @@ module.exports = function (Engine) {
 			if (!rules.is_in_reserve(game, p)) {
 				if (!game.sr_moved) game.sr_moved = []
 				rules.set_add(game.sr_moved, p)
+				Engine.map.apply_sr_control_effects(game, p, game.pieces[p], rules.get_reserve_box(AP), AP)
 				game.pieces[p] = rules.get_reserve_box(AP)
 				rules.log(`${data.pieces[p].name} 战略调整回预备军格。`)
 			}
@@ -2277,6 +2281,7 @@ module.exports = function (Engine) {
 			rules.push_undo()
 			if (!game.sr_moved) game.sr_moved = []
 			rules.set_add(game.sr_moved, p)
+			Engine.map.apply_sr_control_effects(game, p, game.pieces[p], island_base, AP)
 			game.pieces[p] = island_base
 			rules.log(`${data.pieces[p].name} 战略调整至 ${data.spaces[island_base].name}.`)
 			let sr_count = (invasion && invasion.allow_sr_to_island) || 0
@@ -2307,7 +2312,7 @@ module.exports = function (Engine) {
 			let event = use_event(game, "grand_duke_to_tiflis")
 			rules.push_undo()
 			event.event_port = s
-			rules.log(`AP selects ${data.spaces[s].name} for reinforcements.`)
+			rules.log(`尼古拉大公抵达第比利斯：协约国选择 ${data.spaces[s].name} 作为增援港口。`)
 
 			rules.reinforce(game, "RU DIV #14", AP, s)
 			rules.reinforce(game, "RU Cavalry #8", AP, s)
@@ -2470,9 +2475,11 @@ module.exports = function (Engine) {
 		piece(ctx) {
 			let { game, rules, arg: p } = ctx
 			let event = use_event(game, "grand_duke_to_tiflis")
+			if (!event || !Engine.map.can_sr_to_space(game, p, event.event_port, AP)) return
 			rules.push_undo()
 			if (!game.sr_moved) game.sr_moved = []
 			set_add(game.sr_moved, p)
+			Engine.map.apply_sr_control_effects(game, p, game.pieces[p], event.event_port, AP)
 			game.pieces[p] = event.event_port
 			rules.log(`${rules.piece_name(p)} 战略调整至 ${data.spaces[event.event_port].name}`)
 			game.state = "event_grand_duke_to_tiflis_place_cordons"
@@ -2692,7 +2699,7 @@ module.exports = function (Engine) {
 			let { game, rules } = ctx
 			rules.push_undo()
 			let roll = rules.roll_die(6, game)
-			rules.log(`GOEBEN bombardment roll: ${roll}`)
+			rules.log(`戈本号炮击掷骰：${roll}`)
 			let success = false
 			if (roll % 2 !== 0) {
 				// 奇数时摧毁要塞
@@ -2703,9 +2710,9 @@ module.exports = function (Engine) {
 				if (!game.forts.destroyed.includes(BATUM)) {
 					game.forts.destroyed.push(BATUM)
 				}
-				rules.log("Batum's fortress is destroyed by GOEBEN bombardment!")
+				rules.log("戈本号炮击摧毁巴统要塞！")
 			} else {
-				rules.log("GOEBEN bombardment failed to destroy Batum's fortress.")
+				rules.log("戈本号炮击未能摧毁巴统要塞。")
 			}
 			game.goeben_result = { roll, success }
 			game.state = "event_goeben_result"
@@ -3386,6 +3393,7 @@ module.exports = function (Engine) {
 
 			let cost = rules.get_sr_cost(p)
 			rules.push_undo()
+			Engine.map.apply_sr_control_effects(game, p, game.pieces[p], s, CP)
 			game.pieces[p] = s
 			event.sr_points -= cost
 			if (!Array.isArray(event.moved)) event.moved = []
@@ -3713,12 +3721,30 @@ module.exports = function (Engine) {
 
 	// === EVENT: BULL'S EYE DIRECTIVE (ID 58) ===
 
+	function can_bulls_eye_sr_piece_to_target(game, p, target) {
+		let info = data.pieces[p]
+		if (!info || info.piece_class !== "SCU") return false
+		if (info.nation !== "tu" && info.nation !== "tua") return false
+		if (!Engine.game_utils.is_in_reserve(game, p)) return false
+		return Engine.map.can_sr_to_space(game, p, target, CP)
+	}
+
+	function has_bulls_eye_sr_piece_for_target(game, target) {
+		let reserve = Engine.game_utils.get_scu_reserve_box(CP)
+		for (let p of Engine.map.get_pieces_in_space(game, reserve)) {
+			if (can_bulls_eye_sr_piece_to_target(game, p, target)) return true
+		}
+		return false
+	}
+
 	states.event_bulls_eye_sr = {
 		prompt(ctx) {
 			let { game, res } = ctx
 			res.prompt("靶心指令: SR 1 TU/TU-A SCU 至每个已激活的战斗地块 (选择地块)")
 			res.action("done")
-			for (let s of Engine.events.bulls_eye_get_sr_spaces(game)) res.space(s)
+			for (let s of Engine.events.bulls_eye_get_sr_spaces(game)) {
+				if (has_bulls_eye_sr_piece_for_target(game, s)) res.space(s)
+			}
 		},
 		space(ctx) {
 			let { game, rules, arg: s } = ctx
@@ -3750,17 +3776,19 @@ module.exports = function (Engine) {
 			let reserve = rules.find_space("CP Reserve")
 			let pieces = rules.get_pieces_in_space(game, reserve)
 			for (let p of pieces) {
-				if (rules.is_scu(p) && (data.pieces[p].nation === "tu" || data.pieces[p].nation === "tua")) {
+				if (can_bulls_eye_sr_piece_to_target(game, p, game.bulls_eye_target)) {
 					res.piece(p)
 				}
 			}
 		},
 		piece(ctx) {
 			let { game, rules, arg: p } = ctx
+			if (!can_bulls_eye_sr_piece_to_target(game, p, game.bulls_eye_target)) return
+			rules.push_undo()
 			// Move piece to target space
 			game.pieces[p] = game.bulls_eye_target
 			Engine.events.bulls_eye_record_sr_space(game, game.bulls_eye_target)
-			rules.log(`Bull's Eye Directive: ${data.pieces[p].name} SR to ${data.spaces[game.bulls_eye_target].name}`)
+			rules.log(`靶心指令：${data.pieces[p].name} 战略调整至 ${data.spaces[game.bulls_eye_target].name}。`)
 
 			game.bulls_eye_target = null
 			game.state = "event_bulls_eye_sr"
@@ -3785,7 +3813,7 @@ module.exports = function (Engine) {
 		space(ctx) {
 			let { game, arg: s, rules } = ctx
 			if (!Array.isArray(game.warm_water_port_options) || !game.warm_water_port_options.includes(s)) {
-				if (rules && typeof rules.log === "function") rules.log("Invalid Warm Water Port selection.")
+				if (rules && typeof rules.log === "function") rules.log("不冻港：选择无效。")
 				return
 			}
 			rules.push_undo()
@@ -3913,7 +3941,7 @@ module.exports = function (Engine) {
 
 		if (game.sr_piece !== undefined && game.sr_piece !== null) {
 			// 已选定 SR 单位时，只高亮目的地，避免在同一步骤里再次选择其他单位。
-			let destinations = Engine.collapse.get_collapse_sr_destination_spaces(game)
+			let destinations = Engine.collapse.get_collapse_sr_destination_spaces(game, game.sr_piece)
 			for (let s of destinations) {
 				res.space(s)
 			}
@@ -4005,9 +4033,10 @@ module.exports = function (Engine) {
 			let { game, rules, arg: s } = ctx
 			let p = game.sr_piece
 			if (!can_select_collapse_sr_piece(game, p)) return
-			if (!Engine.collapse.get_collapse_sr_destination_spaces(game).includes(s)) return
+			if (!Engine.collapse.get_collapse_sr_destination_spaces(game, p).includes(s)) return
 			rules.push_undo()
 			let from = game.pieces[p]
+			Engine.map.apply_sr_control_effects(game, p, from, s, CP)
 			rules.move_piece(game, p, s)
 			rules.log(
 				`塞尔维亚崩溃：${data.pieces[p].name} 从 ${data.spaces[from].name} 战略调整至 ${data.spaces[s].name}`
@@ -4035,9 +4064,10 @@ module.exports = function (Engine) {
 			let { game, rules, arg: s } = ctx
 			let p = game.sr_piece
 			if (!can_select_collapse_sr_piece(game, p)) return
-			if (!Engine.collapse.get_collapse_sr_destination_spaces(game).includes(s)) return
+			if (!Engine.collapse.get_collapse_sr_destination_spaces(game, p).includes(s)) return
 			rules.push_undo()
 			let from = game.pieces[p]
+			Engine.map.apply_sr_control_effects(game, p, from, s, CP)
 			rules.move_piece(game, p, s)
 			rules.log(
 				`罗马尼亚崩溃：${data.pieces[p].name} 从 ${data.spaces[from].name} 战略调整至 ${data.spaces[s].name}`

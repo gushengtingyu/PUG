@@ -607,7 +607,7 @@ module.exports = function (Engine) {
 			Engine.set_control(game, space_id, AP)
 			if (!game.events) game.events = {}
 			game.events["salonika_is_port"] = true
-			Engine.log(game, "Salonika is now an AP port.")
+			Engine.log(game, "萨洛尼卡现在是协约国港口。")
 		}
 		if (should_trigger_greece_entry_on_beachhead(game, space_id, faction)) {
 			trigger_greece_entry(game, space_id, faction, "雅典滩头登陆事件", (msg) => Engine.log(game, msg))
@@ -680,10 +680,10 @@ module.exports = function (Engine) {
 		game.events[NEUTRAL_PERSIA_FIRST_ENTRY_PENALTY] = entering_faction
 		if (entering_faction === AP) {
 			game.vp += 1
-			Engine.log(game, "Neutral Persia: AP entered first, CP +1 VP.")
+			Engine.log(game, "中立波斯：协约国率先进入，+1 VP。")
 		} else {
 			game.vp -= 1
-			Engine.log(game, "Neutral Persia: CP entered first, AP +1 VP.")
+			Engine.log(game, "中立波斯：同盟国率先进入，-1 VP。")
 		}
 	}
 
@@ -856,7 +856,7 @@ module.exports = function (Engine) {
 				game.armenian_uprising_ru_vp_markers.push(s)
 				game.russian_vp = (Number(game.russian_vp) || 0) + 1
 				if (!options.silent) {
-					Engine.log(game, `Armenian Uprising captured VP as Russian VP +1 (current: ${game.russian_vp})`)
+					Engine.log(game, `亚美尼亚起义占领VP点，俄国VP +1（当前：${game.russian_vp}）。`)
 				}
 			}
 			add_ru_control_marker(game, s)
@@ -867,7 +867,7 @@ module.exports = function (Engine) {
 		remove_ru_control_marker(game, s)
 		game.russian_vp = (Number(game.russian_vp) || 0) - 1
 		if (!options.silent) {
-			Engine.log(game, `Armenian Uprising no longer controls VP as Russian VP -1 (current: ${game.russian_vp})`)
+			Engine.log(game, `亚美尼亚起义不再控制VP点，俄国VP -1（当前：${game.russian_vp}）。`)
 		}
 	}
 

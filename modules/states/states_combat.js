@@ -1255,12 +1255,7 @@ exports.register = function (states, Engine, context) {
 				if (!is_scu(p)) continue
 				if (is_not_on_map(game, p) && !is_in_reserve(game, p)) continue
 				if (!can_stack_end_in_space(game, target, [p])) continue
-				if (is_in_reserve(game, p)) {
-					res.piece(p)
-				} else if (
-					game.pieces[p] !== target &&
-					Engine.map.has_sr_path(game, p, game.pieces[p], target, CP, false)
-				) {
+				if (game.pieces[p] !== target && Engine.map.can_sr_to_space(game, p, target, CP)) {
 					res.piece(p)
 				}
 			}

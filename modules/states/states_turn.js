@@ -760,7 +760,45 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
+	function begin_suez_delayed_sr_arrivals() {
+		if (!Array.isArray(game.suez_delayed_sr) || game.suez_delayed_sr.length === 0) return false
+
+		let remaining = []
+		let pending = []
+		for (let entry of game.suez_delayed_sr) {
+			if (!entry || entry.turn > game.turn) {
+				remaining.push(entry)
+				continue
+			}
+			let p = entry.piece
+			if (!data.pieces[p]) continue
+			let ports = Engine.map.get_suez_delayed_sr_arrival_ports(game, entry)
+			if (ports.length === 0) {
+				entry.turn = game.turn + 1
+				entry.allow_any_friendly_port = true
+				remaining.push(entry)
+				log(`${data.pieces[p].name} Suez delayed SR: no friendly port is available in the destination area; delayed to turn ${entry.turn}.`)
+				continue
+			}
+			pending.push(entry)
+		}
+
+		game.suez_delayed_sr = remaining
+		if (pending.length === 0) return false
+		game.suez_delayed_sr_pending = pending
+		game.active = AP
+		game.state = "suez_delayed_sr_arrival"
+		return true
+	}
+
+	function finish_suez_delayed_sr_arrival() {
+		if (Array.isArray(game.suez_delayed_sr_pending) && game.suez_delayed_sr_pending.length > 0) return
+		delete game.suez_delayed_sr_pending
+		start_replacement_phase()
+	}
+
 	function start_replacement_phase() {
+		if (begin_suez_delayed_sr_arrivals()) return
 		log_h1("补员阶段")
 
 		let deficit = Engine.events.apply_turkish_war_weariness_rp(game, log)
@@ -916,6 +954,32 @@ exports.register = function (states, Engine, context) {
 		game.active = CP
 		clear_replacement_points_for_active_faction()
 		finish_replacement_phase()
+	}
+
+	states.suez_delayed_sr_arrival = {
+		prompt(res) {
+			let entry = Array.isArray(game.suez_delayed_sr_pending) ? game.suez_delayed_sr_pending[0] : null
+			if (!entry || !data.pieces[entry.piece]) {
+				if (Array.isArray(game.suez_delayed_sr_pending)) game.suez_delayed_sr_pending.shift()
+				finish_suez_delayed_sr_arrival()
+				return
+			}
+			let ports = Engine.map.get_suez_delayed_sr_arrival_ports(game, entry)
+			res.who(entry.piece)
+			res.prompt(`Suez delayed SR: choose the arrival port for ${data.pieces[entry.piece].name}.`)
+			for (let s of ports) res.space(s)
+		},
+		space(s) {
+			let entry = Array.isArray(game.suez_delayed_sr_pending) ? game.suez_delayed_sr_pending[0] : null
+			if (!entry || !data.pieces[entry.piece]) return
+			let ports = Engine.map.get_suez_delayed_sr_arrival_ports(game, entry)
+			if (!ports.includes(s)) return
+			push_undo()
+			game.pieces[entry.piece] = s
+			log(`${data.pieces[entry.piece].name} Suez delayed SR arrives at ${data.spaces[s].name}.`)
+			game.suez_delayed_sr_pending.shift()
+			finish_suez_delayed_sr_arrival()
+		}
 	}
 
 	states.turkish_war_weariness_penalty = {
