@@ -700,6 +700,16 @@ module.exports = function (Engine) {
 				return !has_enemy_units_in_space(game, s, CP)
 			}
 		},
+		is_bu_bulgaria: {
+			faction: CP,
+			desc: "任何保加利亚境内同盟国控制地区",
+			check: function (game, s) {
+				let space = data.spaces[s]
+				if (!space || space.nation !== "bu") return false
+				if (is_besieged(game, s)) return false
+				return Engine.map.is_controlled_by(game, s, CP)
+			}
+		},
 		is_serbian_entry_rein: {
 			faction: AP,
 			desc: "任何未驻有同盟国单位的塞尔维亚地块",
@@ -2237,7 +2247,11 @@ module.exports = function (Engine) {
 					game.mo_cp_1 !== "none"
 				) {
 					game.mo_cp_1_fulfilled = true
-					log(game, `恩维尔坐镇君士坦丁堡：取消恩维尔强制攻势 #1（${format_mo_log_name(game.mo_cp_1)}）。`, ctx)
+					log(
+						game,
+						`恩维尔坐镇君士坦丁堡：取消恩维尔强制攻势 #1（${format_mo_log_name(game.mo_cp_1)}）。`,
+						ctx
+					)
 					if (game.mo_cp_1_fulfilled && game.mo_cp_2_fulfilled) {
 						game.mo_cp_fulfilled = true
 						log(game, "恩维尔坐镇君士坦丁堡：同盟国恩维尔强制攻势已全部完成。", ctx)
@@ -2564,7 +2578,8 @@ module.exports = function (Engine) {
 				if (typeof Engine.set_control === "function") Engine.set_control(game, target, CP)
 				if (data.spaces[target].fort && typeof Engine.map.set_fort_owner === "function") {
 					Engine.map.set_fort_owner(game, target, CP)
-					if (game.forts && Array.isArray(game.forts.destroyed)) Engine.utils.set_delete(game.forts.destroyed, target)
+					if (game.forts && Array.isArray(game.forts.destroyed))
+						Engine.utils.set_delete(game.forts.destroyed, target)
 					effects.push("接收当地要塞")
 				}
 
@@ -2801,15 +2816,18 @@ module.exports = function (Engine) {
 			effect_cn:
 				"(只能在君士坦丁堡-加利西亚的铁路相连时打出)。增援:(保加利亚第4集团军)至任何保加利亚境内同盟国控制地区。同盟国获得并使用最多8点战略调整点数将土耳其/土耳其-阿拉伯部队战略调整至巴尔干。*这其中至少应包含一个至加利西亚的土耳其LCU*。每个回合损耗结算阶段，若俄国革命还未达到第4阶段，则位于加利西亚的土耳其LCU需要进行一次伤害结算，因为其在加利西亚战线对抗俄国军队经历了激烈的战斗。*进行一次掷骰来决定受到伤害的多少。**。每个夏季回合的战争状态结算阶段，若有土耳其LCU仍位于加利西亚，则由于土耳其军队在东线对抗俄国的战果，可以获得+1VP(在俄国革命阶段达到第4阶段时，无法继续获得VP)。- **(注:土耳其单位只能通过该事件进入加利西亚大区。土耳其永远不能在加利西亚重建LCU或者进行LCU组合。当能够通过己方控制地区连接至君士坦丁堡等土耳其补给源时，加利西亚的受损土耳其LCU可以接受补员)",
 			can_play: function (game) {
-				return game.events["berlin_constantinople_railway"] || game.events.berlin_baghdad
+				return Engine.map.is_rail_connected_to_galicia(game)
 			},
 			handler: function (game, ctx) {
-				reinforce(game, "BU 4 Army", CP)
 				game.active = CP
 				let event = start_event_data(game, ctx, "enver_falkenhayn_summit")
 				event.sr_points = 8
 				game.events["enver_falkenhayn_summit_active"] = true
-				game.state = "event_enver_falkenhayn_sr"
+				event.reinf_logic = "is_bu_bulgaria"
+				event.reinf_to_place = ["BU 4 Army"]
+				event.reinf_placement = "map"
+				event.reinf_next_state = "event_enver_falkenhayn_sr"
+				game.state = "event_place_reinforcements"
 			},
 			defer_end: true
 		},

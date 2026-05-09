@@ -5602,6 +5602,7 @@ module.exports = function (Engine) {
 		is_reserve_space,
 		check_supply,
 		is_connected_by_rail,
+		is_rail_connected_to_galicia,
 		is_in_supply,
 		is_in_limited_supply,
 		is_limited_supply_status,
