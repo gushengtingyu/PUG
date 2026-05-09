@@ -457,20 +457,14 @@ module.exports = function (Engine) {
 	}
 
 	function is_exception_replacement_nation(lcu_nations, scu_nations) {
-		if (
-			lcu_nations.some(is_turkish_replacement_nation) &&
-			scu_nations.some(is_turkish_replacement_nation)
-		)
+		if (lcu_nations.some(is_turkish_replacement_nation) && scu_nations.some(is_turkish_replacement_nation))
 			return true
 		return lcu_nations.some(is_british_empire_nation) && scu_nations.some(is_british_empire_nation)
 	}
 
 	function is_primary_replacement_nation(lcu_nations, scu_nations) {
 		if (has_nation_overlap(lcu_nations, scu_nations)) return true
-		return (
-			lcu_nations.some(is_turkish_replacement_nation) &&
-			scu_nations.some(is_turkish_replacement_nation)
-		)
+		return lcu_nations.some(is_turkish_replacement_nation) && scu_nations.some(is_turkish_replacement_nation)
 	}
 
 	function can_scu_replace_lcu_by_rule_1265(game, lcu, scu) {
@@ -950,18 +944,19 @@ module.exports = function (Engine) {
 		return nation === "br" || nation === "in" || nation === "anz"
 	}
 
-	function is_same_ottoman_group(a, b) {
-		return (a === "tu" || a === "tua") && (b === "tu" || b === "tua")
+	// Rule 9.7.5: TU infantry > TU-A infantry, better can substitute for worse (one-directional)
+	function can_ottoman_substitute(lcu_nation, scu_nation) {
+		return lcu_nation === "tua" && scu_nation === "tu"
 	}
 
 	function is_same_nationality_for_first_two(lcu_nation, scu_nation) {
 		if (lcu_nation === scu_nation) return true
-		return is_same_ottoman_group(lcu_nation, scu_nation)
+		return can_ottoman_substitute(lcu_nation, scu_nation)
 	}
 
 	function is_same_combination_nationality(lcu_nation, scu_nation) {
 		if (lcu_nation === scu_nation) return true
-		if (is_same_ottoman_group(lcu_nation, scu_nation)) return true
+		if (can_ottoman_substitute(lcu_nation, scu_nation)) return true
 		if (is_commonwealth_for_combination(lcu_nation) && is_commonwealth_for_combination(scu_nation)) return true
 		return false
 	}
@@ -1063,6 +1058,10 @@ module.exports = function (Engine) {
 		function is_matching_third(lcu_id, scu_id) {
 			let l = data.pieces[lcu_id]
 			let s = data.pieces[scu_id]
+			let l_badge = l.badge ? l.badge.toLowerCase() : ""
+
+			// Rule 9.7.6: Special Ottoman LCU third SCU may be TU-A
+			if (l.nation === "tu" && l_badge === "yellow" && (s.nation === "tu" || s.nation === "tua")) return true
 
 			return is_same_combination_nationality(l.nation, s.nation)
 		}
