@@ -234,6 +234,7 @@ exports.register = function (states, Engine, context) {
 	function has_move_activation_options_in_space(s, faction) {
 		if (has_unmoved_move_eligible_pieces_in_space(s, faction)) return true
 		if (Engine.game_utils.can_combine_in_space(game, s, faction)) return true
+		if (can_space_remove_uprising_marker_in_activation(s)) return true
 		return can_space_entrench_in_activation(s)
 	}
 
@@ -282,6 +283,76 @@ exports.register = function (states, Engine, context) {
 		return Engine.game_utils.get_entrenching_units_in_space(game, s, active_faction()).some((p) =>
 			can_piece_participate_in_activation(p, active_faction())
 		)
+	}
+
+	const UPRISING_MARKER_RULES = [
+		{ key: "persian_uprising_markers", enemies: [AP], label: "Persian Uprising" },
+		{ key: "armenian_uprising_markers", enemies: [CP], label: "Armenian Uprising" }
+	]
+
+	function get_enemy_uprising_marker_rule(s, faction = active_faction()) {
+		for (let rule of UPRISING_MARKER_RULES) {
+			if (!rule.enemies.includes(faction)) continue
+			let markers = game[rule.key]
+			if (Array.isArray(markers) && markers.includes(s)) return rule
+		}
+		return null
+	}
+
+	function get_uprising_marker_removal_units(s, faction = active_faction()) {
+		if (!get_enemy_uprising_marker_rule(s, faction)) return []
+		return get_pieces_in_space(game, s).filter((p) => {
+			if (set_has(game.moved, p) || set_has(game.attacked, p)) return false
+			if (!Engine.game_utils.can_piece_be_activated(p)) return false
+			return can_piece_participate_in_activation(p, faction)
+		})
+	}
+
+	function can_space_remove_uprising_marker_in_activation(s) {
+		return get_uprising_marker_removal_units(s).length > 0
+	}
+
+	function can_selected_move_pieces_remove_uprising_marker() {
+		if (!game.move || !Array.isArray(game.move.pieces) || game.move.pieces.length !== 1) return false
+		let s = game.move.initial
+		return get_uprising_marker_removal_units(s).includes(game.move.pieces[0])
+	}
+
+	function remove_enemy_uprising_marker(s, faction = active_faction()) {
+		let rule = get_enemy_uprising_marker_rule(s, faction)
+		if (!rule) return null
+		game[rule.key] = game[rule.key].filter((marker_space) => marker_space !== s)
+		return rule
+	}
+
+	function finish_uprising_marker_removal(p, rule, s) {
+		if (!Array.isArray(game.moved)) game.moved = []
+		set_add(game.moved, p)
+		delete game.attack_eligibility_cache
+		log(`${piece_name(p)} removes ${rule.label} marker in ${space_name(s)}.`)
+
+		let initial = game.move.initial
+		let allowed_activation_pieces = Array.isArray(game.move.allowed_activation_pieces)
+			? game.move.allowed_activation_pieces.slice()
+			: null
+		delete game.move
+		game.where = initial
+		let has_remaining_pieces = allowed_activation_pieces
+			? has_unmoved_allowed_move_pieces_in_space(initial, allowed_activation_pieces, active_faction())
+			: has_unmoved_move_eligible_pieces_in_space(initial, active_faction())
+		if (has_remaining_pieces) {
+			game.move = {
+				initial,
+				current: initial,
+				spaces_moved: 0,
+				pieces: [],
+				touched_spaces: [initial],
+				allowed_activation_pieces
+			}
+			game.state = "choose_pieces_to_move"
+		} else {
+			game.state = "choose_move_space"
+		}
 	}
 
 	function ensure_region_activations() {
@@ -1004,22 +1075,27 @@ exports.register = function (states, Engine, context) {
 		prompt(res) {
 			let can_entrench = false
 			let can_combine = false
+			let can_remove_uprising_marker = false
 			res.prompt("移动已激活的单位.")
 
 			let can_move = false
 			for (let s of game.activated.move) {
 				let pieces = get_pieces_in_space(game, s)
 				let has_movable = false
+				let removal_units = get_uprising_marker_removal_units(s)
 				for (let p of pieces) {
-					if (can_piece_move_in_activation(p, active_faction()) && !set_has(game.moved, p)) {
+					let can_select_for_move = can_piece_move_in_activation(p, active_faction()) && !set_has(game.moved, p)
+					let can_select_for_removal = removal_units.includes(p) && !set_has(game.moved, p)
+					if (can_select_for_move || can_select_for_removal) {
 						res.piece(p)
-						can_move = true
+						if (can_select_for_move) can_move = true
 						has_movable = true
 					}
 				}
 				let can_combine_here = Engine.game_utils.can_combine_in_space(game, s, active_faction())
 				let can_entrench_here = can_space_entrench_in_activation(s)
-				if (has_movable || can_combine_here || can_entrench_here) {
+				let can_remove_uprising_marker_here = can_space_remove_uprising_marker_in_activation(s)
+				if (has_movable || can_combine_here || can_entrench_here || can_remove_uprising_marker_here) {
 					res.space(s)
 				}
 				if (can_combine_here) {
@@ -1027,6 +1103,9 @@ exports.register = function (states, Engine, context) {
 				}
 				if (can_entrench_here) {
 					can_entrench = true
+				}
+				if (can_remove_uprising_marker_here) {
+					can_remove_uprising_marker = true
 				}
 			}
 			for (let { space, stacks } of get_region_activation_entries("move")) {
@@ -1047,7 +1126,7 @@ exports.register = function (states, Engine, context) {
 
 			res.action("done")
 
-			if (!can_move && !can_entrench && !can_combine) {
+			if (!can_move && !can_entrench && !can_combine && !can_remove_uprising_marker) {
 				this.done()
 			}
 		},
@@ -1124,13 +1203,18 @@ exports.register = function (states, Engine, context) {
 			let has_movable = get_pieces_in_space(game, s).some((p) => {
 				return can_piece_move_in_activation(p, active_faction()) && !set_has(game.moved, p)
 			})
+			let removal_units = get_uprising_marker_removal_units(s)
+			let has_removal_unit = removal_units.length > 0
 			for (let p of get_pieces_in_space(game, s)) {
-				if (can_piece_move_in_activation(p, active_faction()) && !set_has(game.moved, p)) {
+				if (
+					(can_piece_move_in_activation(p, active_faction()) && !set_has(game.moved, p)) ||
+					removal_units.includes(p)
+				) {
 					res.piece(p)
 				}
 			}
 
-			if (has_movable) {
+			if (has_movable || has_removal_unit) {
 				res.action("move")
 			}
 			if (Engine.game_utils.can_combine_in_space(game, s, active_faction())) {
@@ -1160,7 +1244,7 @@ exports.register = function (states, Engine, context) {
 		piece(p) {
 			let s = game.where
 			if (game.pieces[p] !== s) return
-			if (!can_piece_move_in_activation(p, active_faction())) return
+			if (!can_piece_move_in_activation(p, active_faction()) && !get_uprising_marker_removal_units(s).includes(p)) return
 			if (set_has(game.moved, p)) return
 			game.where = -1
 			game.state = "choose_move_space"
@@ -1651,28 +1735,34 @@ exports.register = function (states, Engine, context) {
 			let pieces = get_pieces_in_space(game, s).filter(
 				(p) => !Array.isArray(allowed_pieces) || set_has(allowed_pieces, p) || set_has(game.move.pieces, p)
 			)
+			let removal_units = get_uprising_marker_removal_units(s)
 
 			let any_available = false
 			for (let p of pieces) {
 				let is_moved = set_has(game.moved, p)
-				if (can_piece_move_in_activation(p, active_faction()) && !is_moved && !set_has(game.move.pieces, p)) {
+				let can_select_for_move = can_piece_move_in_activation(p, active_faction()) && !is_moved
+				let can_select_for_removal = removal_units.includes(p) && !is_moved
+				if ((can_select_for_move || can_select_for_removal) && !set_has(game.move.pieces, p)) {
 					res.piece(p)
 					any_available = true
 				}
 			}
 
 			if (game.move.pieces.length > 0) {
-				let all_neighbors = new Set()
-				for (let p of game.move.pieces) {
-					let neighbors = Engine.map.get_piece_connected_spaces_for_rule(game, s, p)
-					for (let n of neighbors) all_neighbors.add(n)
-				}
-
+				let selected_can_move = game.move.pieces.every((p) => can_piece_move_in_activation(p, active_faction()))
 				let has_moves = false
-				for (let next of all_neighbors) {
-					if (can_stack_move_to(game, next, active_faction())) {
-						res.space(next)
-						has_moves = true
+				if (selected_can_move) {
+					let all_neighbors = new Set()
+					for (let p of game.move.pieces) {
+						let neighbors = Engine.map.get_piece_connected_spaces_for_rule(game, s, p)
+						for (let n of neighbors) all_neighbors.add(n)
+					}
+
+					for (let next of all_neighbors) {
+						if (can_stack_move_to(game, next, active_faction())) {
+							res.space(next)
+							has_moves = true
+						}
 					}
 				}
 
@@ -1691,6 +1781,9 @@ exports.register = function (states, Engine, context) {
 				if (can_selected_move_pieces_combine(game.move.pieces)) {
 					res.action("combine")
 				}
+				if (can_selected_move_pieces_remove_uprising_marker()) {
+					res.action("remove_uprising_marker")
+				}
 
 				if (!has_moves) res.action("stop")
 			} else if (!any_available) {
@@ -1702,7 +1795,11 @@ exports.register = function (states, Engine, context) {
 		piece(p) {
 			if (game.pieces[p] !== game.move.initial) return
 			if (Array.isArray(game.move.allowed_activation_pieces) && !set_has(game.move.allowed_activation_pieces, p)) return
-			if (!can_piece_move_in_activation(p, active_faction())) return
+			if (!set_has(game.move.pieces, p)) {
+				let can_select_for_move = can_piece_move_in_activation(p, active_faction()) && !set_has(game.moved, p)
+				let can_select_for_removal = get_uprising_marker_removal_units(game.move.initial).includes(p) && !set_has(game.moved, p)
+				if (!can_select_for_move && !can_select_for_removal) return
+			}
 			if (set_has(game.moved, p)) return
 			if (game.move.pieces.length === 0) push_undo()
 			set_toggle(game.move.pieces, p)
@@ -1712,6 +1809,7 @@ exports.register = function (states, Engine, context) {
 			}
 		},
 		space(s) {
+			if (!game.move.pieces.every((p) => can_piece_move_in_activation(p, active_faction()))) return
 			push_undo()
 			move_stack_to_space(s)
 			if (game.move && game.move.current === s && game.move.pieces.length > 0) {
@@ -1742,6 +1840,15 @@ exports.register = function (states, Engine, context) {
 			game.where = s
 			game.combine_ctx = { selected_scus: selected.slice() }
 			game.state = "combine_lcu_select_lcu"
+		},
+		remove_uprising_marker() {
+			if (!can_selected_move_pieces_remove_uprising_marker()) return
+			let s = game.move.initial
+			let p = game.move.pieces[0]
+			push_undo()
+			let rule = remove_enemy_uprising_marker(s)
+			if (!rule) return
+			finish_uprising_marker_removal(p, rule, s)
 		},
 		done() {
 			delete game.move

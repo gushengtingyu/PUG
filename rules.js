@@ -621,6 +621,7 @@ function get_supply_dependency_signature() {
 		get_stable_object_signature(game.forts),
 		get_array_signature(game.special_besieged),
 		get_array_signature(game.persian_uprising_markers),
+		get_array_signature(game.armenian_uprising_markers),
 		get_array_signature(game.partial_ap_control_markers),
 		get_array_signature(game.partial_cp_control_markers),
 		get_array_signature(game.ru_control_markers),
@@ -901,6 +902,7 @@ exports.view = function (state, current) {
 			control: get_control_view(),
 			ru_control_markers: game.ru_control_markers || [],
 			persian_uprising_markers: game.persian_uprising_markers || [],
+			armenian_uprising_markers: game.armenian_uprising_markers || [],
 			jerusalem_by_christmas_markers:
 				Number.isFinite(jerusalem_by_christmas_target) && jerusalem_by_christmas_target > 0
 					? [jerusalem_by_christmas_target]

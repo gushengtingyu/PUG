@@ -70,6 +70,81 @@ exports.register = function (states, Engine, context) {
 	} = context
 	const JERUSALEM = find_space("Jerusalem")
 
+	const UPRISING_MARKER_RULES = [
+		{ key: "persian_uprising_markers", enemies: [AP], label: "Persian Uprising" },
+		{ key: "armenian_uprising_markers", enemies: [CP], label: "Armenian Uprising" }
+	]
+
+	function get_enemy_uprising_marker_rule(s, faction = active_faction()) {
+		for (let rule of UPRISING_MARKER_RULES) {
+			if (!rule.enemies.includes(faction)) continue
+			let markers = game[rule.key]
+			if (Array.isArray(markers) && markers.includes(s)) return rule
+		}
+		return null
+	}
+
+	function can_piece_participate_in_marker_removal(p, faction = active_faction()) {
+		if (p < 0 || !data.pieces[p]) return false
+		if (is_not_on_map(game, p)) return false
+		if (set_has(game.moved, p) || set_has(game.attacked, p)) return false
+		if (!Engine.game_utils.can_piece_be_activated(p)) return false
+		if (Engine.game_utils.get_piece_effective_faction(game, p) !== faction) return false
+		let s = game.pieces[p]
+		let supply_status = Engine.map.get_supply_status(game, s, faction, p)
+		if (supply_status === "OOS") return false
+		if (Engine.neutral.is_greek_piece(p)) {
+			return (
+				Engine.neutral.can_move_piece_for_faction(game, p, faction) ||
+				Engine.neutral.can_attack_piece_for_faction(game, p, faction)
+			)
+		}
+		return true
+	}
+
+	function get_combat_uprising_marker_removal_units(faction = active_faction()) {
+		let spaces = new Set([...(game.activated?.attack || []), ...(game.activated?.attack_egypt || [])])
+		let units = []
+		for (let s of spaces) {
+			if (!get_enemy_uprising_marker_rule(s, faction)) continue
+			for (let p of get_pieces_in_space(game, s)) {
+				if (can_piece_participate_in_marker_removal(p, faction)) set_add(units, p)
+			}
+		}
+		return units
+	}
+
+	function can_selected_attack_pieces_remove_uprising_marker(removal_units = null) {
+		if (!game.attack || !Array.isArray(game.attack.pieces) || game.attack.pieces.length !== 1) return false
+		let p = game.attack.pieces[0]
+		return (removal_units || get_combat_uprising_marker_removal_units()).includes(p)
+	}
+
+	function remove_enemy_uprising_marker(s, faction = active_faction()) {
+		let rule = get_enemy_uprising_marker_rule(s, faction)
+		if (!rule) return null
+		game[rule.key] = game[rule.key].filter((marker_space) => marker_space !== s)
+		return rule
+	}
+
+	function finish_combat_uprising_marker_removal(p, rule, s) {
+		if (!Array.isArray(game.attacked)) game.attacked = []
+		set_add(game.attacked, p)
+		delete game.attack_eligibility_cache
+		log(`${piece_name(p)} removes ${rule.label} marker in ${space_name(s)}.`)
+		if (game.attack) {
+			game.attack.pieces = []
+			game.attack.space = -1
+		}
+		reset_attack_focus()
+		refresh_attack_eligibility()
+		if (game.eligible_attackers.length > 0 || get_combat_uprising_marker_removal_units().length > 0) {
+			game.state = "attack"
+		} else {
+			game.state = "end_operations"
+		}
+	}
+
 	function count_beachhead_captured_materiel_bonus() {
 		let initial_defenders = (game.attack && game.attack.initial_defenders) || []
 		let ap_lcu = 0
@@ -198,7 +273,10 @@ exports.register = function (states, Engine, context) {
 		prompt(res) {
 			if (res && res._is_noop) return
 			refresh_attack_eligibility()
-			if (game.eligible_attackers.length === 0) {
+			let removal_units = get_combat_uprising_marker_removal_units()
+			let removal_unit_set = new Set(removal_units)
+			let eligible_attacker_set = new Set(game.eligible_attackers)
+			if (game.eligible_attackers.length === 0 && removal_units.length === 0) {
 				res.prompt("操作完成.")
 				res.action("end_action")
 				return
@@ -248,18 +326,28 @@ exports.register = function (states, Engine, context) {
 				for (let p of game.eligible_attackers) {
 					res.piece(p)
 				}
+				for (let p of removal_units) {
+					if (!eligible_attacker_set.has(p)) res.piece(p)
+				}
 				if (can_select_all_attackers()) {
 					res.action("select_all")
 				}
 			} else {
-				let selected_targets = get_cached_attackable_spaces(selected_pieces)
+				let selected_can_attack = selected_pieces.every((p) => eligible_attacker_set.has(p))
+				let selected_targets = selected_can_attack ? get_cached_attackable_spaces(selected_pieces) : []
 
+				let prompted_pieces = new Set()
+				for (let p of selected_pieces) {
+					if (!eligible_attacker_set.has(p) && !removal_unit_set.has(p)) continue
+					res.piece(p)
+					prompted_pieces.add(p)
+				}
 				for (let p of game.eligible_attackers) {
 					if (set_has(selected_pieces, p)) {
-						res.piece(p)
+						if (!prompted_pieces.has(p)) res.piece(p)
 						continue
 					}
-					if (get_cached_attackable_spaces([...selected_pieces, p]).length > 0) {
+					if (selected_can_attack && get_cached_attackable_spaces([...selected_pieces, p]).length > 0) {
 						res.piece(p)
 					}
 				}
@@ -268,6 +356,9 @@ exports.register = function (states, Engine, context) {
 					res.space(t)
 				}
 
+				if (can_selected_attack_pieces_remove_uprising_marker(removal_units)) {
+					res.action("remove_uprising_marker")
+				}
 				res.action("cancel_selection")
 			}
 
@@ -279,6 +370,16 @@ exports.register = function (states, Engine, context) {
 			}
 			if (!game.attack.pieces) {
 				game.attack.pieces = []
+			}
+			let is_selected = set_has(game.attack.pieces, p)
+			if (!is_selected) {
+				let removal_units = get_combat_uprising_marker_removal_units()
+				let eligible_attacker_set = new Set(game.eligible_attackers)
+				let is_eligible_attacker = eligible_attacker_set.has(p)
+				let is_removal_unit = removal_units.includes(p)
+				if (!is_eligible_attacker && !is_removal_unit) return
+				if (!is_eligible_attacker && game.attack.pieces.length > 0) return
+				if (is_eligible_attacker && game.attack.pieces.some((q) => !eligible_attacker_set.has(q))) return
 			}
 			if (game.attack.pieces.length === 0) push_undo()
 			set_toggle(game.attack.pieces, p)
@@ -302,6 +403,15 @@ exports.register = function (states, Engine, context) {
 			push_undo()
 			game.attack.space = s
 			game.state = "confirm_attack"
+		},
+		remove_uprising_marker() {
+			if (!can_selected_attack_pieces_remove_uprising_marker()) return
+			let p = game.attack.pieces[0]
+			let s = game.pieces[p]
+			push_undo()
+			let rule = remove_enemy_uprising_marker(s)
+			if (!rule) return
+			finish_combat_uprising_marker_removal(p, rule, s)
 		},
 		select_all() {
 			refresh_attack_eligibility()

@@ -167,11 +167,19 @@ module.exports = function (Engine) {
 		return found
 	}
 
+	function has_uprising_marker(game, marker_key, s) {
+		let markers = game && game[marker_key]
+		return Array.isArray(markers) && markers.includes(s)
+	}
+
 	function is_disrupted_by_enemy(game, s, faction) {
 		if (faction === undefined) faction = game.active
 		let enemy = other_faction(faction)
 		if (has_regular_combat_unit_for_faction(game, s, enemy)) return false
 		if (enemy === CP && Array.isArray(game.persian_uprising_markers) && game.persian_uprising_markers.includes(s)) {
+			return true
+		}
+		if (enemy === AP && has_uprising_marker(game, "armenian_uprising_markers", s)) {
 			return true
 		}
 		if (is_region(game, s)) {
@@ -2815,6 +2823,11 @@ module.exports = function (Engine) {
 				if (s > 0 && s < space_count) disrupting[AP][s] = 1
 			}
 		}
+		if (Array.isArray(game.armenian_uprising_markers)) {
+			for (let s of game.armenian_uprising_markers) {
+				if (s > 0 && s < space_count) disrupting[CP][s] = 1
+			}
+		}
 		for (let faction of [AP, CP]) {
 			for (let s = 1; s < space_count; s++) {
 				if (disrupting[faction][s] && !enemy_regular[faction][s]) disrupted[faction][s] = 1
@@ -3644,6 +3657,10 @@ module.exports = function (Engine) {
 				if (is_central_asia(space) || data.spaces[space].name === "Central Asia") return cache_result("FULL")
 			} else if (name === "Arab faisal Revolt" || name.startsWith("Arab Revolt #")) {
 				if (is_hejaz(space) || is_syria_palestine(space)) return cache_result("FULL")
+			} else if (name === "Armenian Uprising") {
+				if (is_anatolia(space) || is_caucasus(space) || data.spaces[space].nation === "ru") {
+					return cache_result("FULL")
+				}
 			}
 
 			// National "Home" supply rules

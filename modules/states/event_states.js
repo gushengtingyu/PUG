@@ -92,6 +92,24 @@ module.exports = function (Engine) {
 		return game.events[key]
 	}
 
+	function can_place_armenian_uprising_unit(game, s) {
+		if (!(s > 0 && data.spaces[s])) return false
+		let pieces = Engine.map.get_pieces_in_space(game, s)
+		if (pieces.length === 0) return true
+		let has_ap_unit = false
+		for (let p of pieces) {
+			let faction = Engine.game_utils.get_piece_effective_faction(game, p)
+			if (faction !== AP) return false
+			has_ap_unit = true
+		}
+		return has_ap_unit
+	}
+
+	function get_armenian_uprising_unit_spaces(game, event) {
+		let spaces = Array.isArray(event.blue_a_spaces) ? event.blue_a_spaces : []
+		return spaces.filter((s) => can_place_armenian_uprising_unit(game, s))
+	}
+
 	function clear_romania_event_attack_context(game) {
 		delete game.attack
 		delete game.activated
@@ -2763,7 +2781,7 @@ module.exports = function (Engine) {
 			let { game, res } = ctx
 			let event = use_event(game, "armenian_uprising_32")
 			let unit_name = event.unit_name || "Armenian Uprising"
-			let options = Array.isArray(event.blue_a_spaces) ? event.blue_a_spaces : []
+			let options = get_armenian_uprising_unit_spaces(game, event)
 			res.prompt(`亚美尼亚起义：选择一个蓝色 A 地区放置 ${unit_name}，并在该地区放置 1 个起义标记。`)
 			for (let s of options) {
 				if (s > 0 && data.spaces[s]) res.space(s)
@@ -2773,7 +2791,7 @@ module.exports = function (Engine) {
 		space(ctx) {
 			let { game, rules, arg: s } = ctx
 			let event = use_event(game, "armenian_uprising_32")
-			let options = Array.isArray(event.blue_a_spaces) ? event.blue_a_spaces : []
+			let options = get_armenian_uprising_unit_spaces(game, event)
 			if (!options.includes(s)) return
 			rules.push_undo()
 			rules.reinforce(game, event.unit_name || "Armenian Uprising", AP, s)

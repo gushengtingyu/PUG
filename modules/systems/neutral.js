@@ -765,6 +765,7 @@ module.exports = function (Engine) {
 		if (previous === next) {
 			game.vp_partial_disruption[s] = next
 			if (is_neutral_vp_space(s)) game.neutral_vp_partial_control[s] = next
+			sync_armenian_uprising_ru_vp_capture(game, s, is_armenian_uprising_ru_vp_capture(game, s, next), options)
 			return
 		}
 
@@ -786,6 +787,7 @@ module.exports = function (Engine) {
 
 		game.vp_partial_disruption[s] = next
 		if (is_neutral_vp_space(s)) game.neutral_vp_partial_control[s] = next
+		sync_armenian_uprising_ru_vp_capture(game, s, is_armenian_uprising_ru_vp_capture(game, s, next), options)
 	}
 
 	function sync_neutral_vp_state(game, s, previous_override, options) {
@@ -821,6 +823,19 @@ module.exports = function (Engine) {
 		return false
 	}
 
+	function has_armenian_uprising_piece_in_space(game, s) {
+		for (let p of Engine.map.get_pieces_in_space(game, s)) {
+			let info = data.pieces[p]
+			if (!info || info.name !== "Armenian Uprising") continue
+			if (Engine.game_utils.get_piece_effective_faction(game, p) === AP) return true
+		}
+		return false
+	}
+
+	function is_armenian_uprising_ru_vp_capture(game, s, partial_owner) {
+		return partial_owner === AP && has_armenian_uprising_piece_in_space(game, s)
+	}
+
 	function add_ru_control_marker(game, s) {
 		if (!game.ru_control_markers) game.ru_control_markers = []
 		if (!game.ru_control_markers.includes(s)) game.ru_control_markers.push(s)
@@ -831,6 +846,29 @@ module.exports = function (Engine) {
 		let had_marker = game.ru_control_markers.includes(s)
 		if (had_marker) game.ru_control_markers = game.ru_control_markers.filter((x) => x !== s)
 		return had_marker
+	}
+
+	function sync_armenian_uprising_ru_vp_capture(game, s, active, options = {}) {
+		if (!Array.isArray(game.armenian_uprising_ru_vp_markers)) game.armenian_uprising_ru_vp_markers = []
+		let had = game.armenian_uprising_ru_vp_markers.includes(s)
+		if (active) {
+			if (!had) {
+				game.armenian_uprising_ru_vp_markers.push(s)
+				game.russian_vp = (Number(game.russian_vp) || 0) + 1
+				if (!options.silent) {
+					Engine.log(game, `Armenian Uprising captured VP as Russian VP +1 (current: ${game.russian_vp})`)
+				}
+			}
+			add_ru_control_marker(game, s)
+			return
+		}
+		if (!had) return
+		game.armenian_uprising_ru_vp_markers = game.armenian_uprising_ru_vp_markers.filter((x) => x !== s)
+		remove_ru_control_marker(game, s)
+		game.russian_vp = (Number(game.russian_vp) || 0) - 1
+		if (!options.silent) {
+			Engine.log(game, `Armenian Uprising no longer controls VP as Russian VP -1 (current: ${game.russian_vp})`)
+		}
 	}
 
 	function apply_control_change(game, s, faction, previous_vp_owner, vp_before_control_change = game.vp) {
