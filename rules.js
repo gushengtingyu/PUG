@@ -2474,6 +2474,7 @@ activation_states.register(states, Engine, {
 	piece_list,
 	has_unmoved_pieces_in_space,
 	get_movement_cost,
+	get_enemy_fort_entry_extra_cost: Engine.map.get_enemy_fort_entry_extra_cost,
 	has_undestroyed_fort,
 	other_faction,
 	can_besiege,

@@ -220,6 +220,24 @@ describe("崩溃规则", () => {
 		expect(game.pieces[sbArmy]).toBe(apReserve)
 	})
 
+	test("Serbian collapse preserves already permanently eliminated SB units", () => {
+		const game = createGame()
+		const log = makeLogger(game)
+		const sbArmy = placePiece(game, AP, "SB 1 Army", "BELGRADE")
+		const sbDiv = placePiece(game, AP, "SB DIV #1", "Nis")
+
+		game.events.bulgaria = true
+		Engine.game_utils.eliminate_piece(game, sbArmy, log, true)
+		Engine.game_utils.eliminate_piece(game, sbDiv, log, true)
+
+		Engine.collapse.accept_voluntary_collapse(game, "serbia", log)
+
+		expect(Engine.game_utils.is_permanently_eliminated(game, sbArmy)).toBe(true)
+		expect(Engine.game_utils.is_removed_only(game, sbArmy)).toBe(false)
+		expect(Engine.game_utils.is_permanently_eliminated(game, sbDiv)).toBe(true)
+		expect(Engine.game_utils.is_removed_only(game, sbDiv)).toBe(false)
+	})
+
 	test("罗马尼亚崩溃的选择提示展示可移除 AH 师，且自动移除 AH VI R Corps", () => {
 		const game = createGame()
 		const log = makeLogger(game)

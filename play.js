@@ -1846,58 +1846,36 @@ function destroy_marker(list, find) {
 	}
 }
 
-/**
- * 构建空间的控制标记。
- * @param {number} s - 空间索引。
- * @param {string} faction - 阵营 (AP 或 CP)。
- * @returns {HTMLElement} 控制标记的 DOM 元素。
- */
-function build_control_marker(s, faction) {
-	if (faction === "neutral") {
-		destroy_control_marker(s)
-		return null
+function destroy_markers(list, find) {
+	let index = -1
+	do {
+		index = list.findIndex(find)
+		if (index >= 0) {
+			const marker = list[index]
+			list.splice(index, 1)
+			marker.element.remove()
+		}
+	} while (index >= 0)
+}
+
+const CONTROL_MARKER_TYPES = new Set(["ap_control", "cp_control", "ru_control"])
+
+function get_control_marker_info(type) {
+	if (type === "ap_control") return marker_info.control.ap
+	if (type === "cp_control") return marker_info.control.cp
+	if (type === "ru_control") return marker_info.control.ru
+	return null
+}
+
+function sync_control_marker(s, type, stack_parts) {
+	const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
+	destroy_markers(list, (m) => CONTROL_MARKER_TYPES.has(m.type) && m.type !== type)
+	const info = get_control_marker_info(type)
+	if (!info) {
+		return
 	}
-	const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
-	const info = faction === AP ? marker_info.control.ap : marker_info.control.cp
-	const type = faction === AP ? "ap_control" : "cp_control"
-	return build_marker(
-		list,
-		(m) => {
-			return m.type === type
-		},
-		{ type: type, space: s },
-		info
-	)
-}
-
-/**
- * 销毁空间的控制标记。
- * @param {number} s - 空间索引。
- */
-function destroy_control_marker(s) {
-	const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
-	destroy_marker(list, (m) => m.type === "ap_control")
-	destroy_marker(list, (m) => m.type === "cp_control")
-}
-
-/**
- * 构建空间的俄国控制标记。
- * @param {number} s - 空间索引。
- * @returns {HTMLElement} 俄国控制标记的 DOM 元素。
- */
-function build_russian_control_marker(s) {
-	const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
-	const info = marker_info.control.ru
-	return build_marker(list, (m) => m.type === "russian_control", { type: "russian_control", space: s }, info)
-}
-
-/**
- * 销毁空间的俄国控制标记。
- * @param {number} s - 空间索引。
- */
-function destroy_russian_control_marker(s) {
-	const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
-	destroy_marker(list, (m) => m.type === "russian_control")
+	const marker = build_marker(list, (m) => m.type === type, { type: type, space: s }, info)
+	stack_parts.bottom_markers.push(marker)
 }
 
 /**
@@ -4548,6 +4526,28 @@ function get_space_control(state, s) {
 	return (state.control && state.control[s]) || spaces[s].faction || null
 }
 
+function get_control_marker_type(space, state, s) {
+	const control = get_space_control(state, s)
+	const forcedControl = has_id(state.partial_ap_control_markers, s) ? AP : has_id(state.partial_cp_control_markers, s) ? CP : null
+	const markerControl = forcedControl || control
+	if (!markerControl || markerControl === "neutral") {
+		return null
+	}
+	if (markerControl === AP && has_id(state.ru_control_markers, s)) {
+		return "ru_control"
+	}
+	if (!forcedControl && markerControl === space.faction) {
+		return null
+	}
+	if (markerControl === AP) {
+		return "ap_control"
+	}
+	if (markerControl === CP) {
+		return "cp_control"
+	}
+	return null
+}
+
 function has_space_special_marker(space, state, s) {
 	const control = get_space_control(state, s)
 	return (
@@ -4634,28 +4634,7 @@ function get_space_activation_marker_count(s) {
 }
 
 function render_space_markers(space, state, s, stack_parts) {
-	const control = get_space_control(state, s)
-	const forcedControl = has_id(state.partial_ap_control_markers, s) ? AP : has_id(state.partial_cp_control_markers, s) ? CP : null
-	const markerControl = forcedControl || control
-	const hasRussianControlMarker = has_id(state.ru_control_markers, s)
-	if (markerControl) {
-		if ((forcedControl || markerControl !== space.faction) && !(markerControl === AP && hasRussianControlMarker)) {
-			const marker = build_control_marker(s, markerControl)
-			if (marker) {
-				stack_parts.bottom_markers.push(marker)
-			}
-		} else {
-			destroy_control_marker(s)
-		}
-	} else {
-		destroy_control_marker(s)
-	}
-
-	if (hasRussianControlMarker) {
-		stack_parts.bottom_markers.push(build_russian_control_marker(s))
-	} else {
-		destroy_russian_control_marker(s)
-	}
+	sync_control_marker(s, get_control_marker_type(space, state, s), stack_parts)
 
 	const trench_level = has_id(state.trenches_2, s) ? 2 : has_id(state.trenches, s) ? 1 : 0
 	if (trench_level > 0) {

@@ -3493,13 +3493,11 @@ module.exports = function (Engine) {
 			else if (trench_level === 1) trench_level = 2
 		}
 
-		if (trench_level > 0) {
-			if (!ignore_terrain && !ignore_trench) {
-				att_shifts -= trench_level
-				att_shift_factors.push(`-${trench_level} 战壕`)
-				if (!i_order_you_to_die_trench_bonus) {
-					log_detail(log, `Trench Level ${trench_level}: Shift ${trench_level} Left`)
-				}
+		if (trench_level > 0 && !ignore_trench) {
+			att_shifts -= trench_level
+			att_shift_factors.push(`-${trench_level} 战壕`)
+			if (!i_order_you_to_die_trench_bonus) {
+				log_detail(log, `Trench Level ${trench_level}: Shift ${trench_level} Left`)
 			}
 			def_shifts += 1
 			def_shift_factors.push("+1 战壕")

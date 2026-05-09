@@ -288,6 +288,13 @@ module.exports = function (Engine) {
 		return 1 // Standard cost
 	}
 
+	function get_enemy_fort_entry_extra_cost(game, target, faction) {
+		if (!is_gallipoli(target)) return 0
+		if (!has_undestroyed_fort(game, target, other_faction(faction))) return 0
+		if (is_besieged(game, target)) return 0
+		return 1
+	}
+
 	function is_naval_access_space(game_or_space, maybe_space) {
 		let game = maybe_space === undefined ? null : game_or_space
 		let s = maybe_space === undefined ? game_or_space : maybe_space
@@ -1909,13 +1916,7 @@ module.exports = function (Engine) {
 		}
 
 		let cost = get_movement_cost(game, p, target)
-		if (
-			!is_green_connection(s, target) &&
-			has_undestroyed_fort(game, target, faction === AP ? CP : AP) &&
-			!is_besieged(game, target)
-		) {
-			cost += 1
-		}
+		if (!is_green_connection(s, target)) cost += get_enemy_fort_entry_extra_cost(game, target, faction)
 
 		if (violates_neutral_greece_end_move_rule(game, p, target, faction, game.move.spaces_moved + cost)) {
 			return "希腊中立：不能在希腊部队同格结束移动"
@@ -1930,13 +1931,8 @@ module.exports = function (Engine) {
 		if (!game.move || game.move.pieces.length === 0) return true
 		for (let p of game.move.pieces) {
 			let cost = get_movement_cost(game, p, target)
-			if (
-				!is_green_connection(game.move.current, target) &&
-				has_undestroyed_fort(game, target, faction === AP ? CP : AP) &&
-				!is_besieged(game, target)
-			) {
-				cost += 1
-			}
+			if (!is_green_connection(game.move.current, target))
+				cost += get_enemy_fort_entry_extra_cost(game, target, faction)
 			if (get_piece_mf(p) > game.move.spaces_moved + cost) {
 				return false
 			}
@@ -2023,12 +2019,7 @@ module.exports = function (Engine) {
 		}
 
 		let cost = get_movement_cost(game, p, target)
-		if (
-			!is_green_connection(s, target) &&
-			has_undestroyed_fort(game, target, faction === AP ? CP : AP) &&
-			!is_besieged(game, target)
-		)
-			cost += 1
+		if (!is_green_connection(s, target)) cost += get_enemy_fort_entry_extra_cost(game, target, faction)
 		if (violates_neutral_greece_end_move_rule(game, p, target, faction, game.move.spaces_moved + cost)) return false
 		return get_piece_mf(p) >= game.move.spaces_moved + cost
 	}
@@ -5562,6 +5553,7 @@ module.exports = function (Engine) {
 		get_connected_spaces,
 		other_faction,
 		get_movement_cost,
+		get_enemy_fort_entry_extra_cost,
 		set_debug_log,
 		get_lcu_limit_for,
 		can_enter_region,

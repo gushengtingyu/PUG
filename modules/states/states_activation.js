@@ -50,6 +50,7 @@ exports.register = function (states, Engine, context) {
 		piece_name,
 		piece_list,
 		get_movement_cost,
+		get_enemy_fort_entry_extra_cost,
 		has_undestroyed_fort,
 		other_faction,
 		can_besiege,
@@ -1963,7 +1964,7 @@ exports.register = function (states, Engine, context) {
 			has_undestroyed_fort(game, target, other_faction(active_faction())) && !Engine.map.is_besieged(game, target)
 		if (is_siege_entry) {
 			let potential_pieces = game.move.pieces.filter((p) => {
-				let cost = get_movement_cost(game, p, target) + 1
+				let cost = get_movement_cost(game, p, target) + get_enemy_fort_entry_extra_cost(game, target, active_faction())
 				return get_piece_mf(p) >= game.move.spaces_moved + cost
 			})
 
@@ -1977,7 +1978,7 @@ exports.register = function (states, Engine, context) {
 		for (let p of game.move.pieces) {
 			if (can_piece_move_to(game, p, target, active_faction())) {
 				let cost = get_movement_cost(game, p, target)
-				if (is_siege_entry) cost += 1
+				if (is_siege_entry) cost += get_enemy_fort_entry_extra_cost(game, target, active_faction())
 
 				step_cost = Math.max(step_cost, cost)
 				game.pieces[p] = target

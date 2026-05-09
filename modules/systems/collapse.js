@@ -146,6 +146,7 @@ module.exports = function (Engine) {
 		remove_piece_from_game,
 		find_piece,
 		is_eliminated,
+		is_permanently_eliminated,
 		is_not_on_map,
 		is_in_reserve,
 		is_lcu,
@@ -476,6 +477,7 @@ module.exports = function (Engine) {
 
 		for (let p = 0; p < data.pieces.length; p++) {
 			if (get_piece_nation(p) === "sb") {
+				if (is_permanently_eliminated(game, p)) continue
 				if (is_lcu(p)) {
 					remove_piece_from_game(game, p, log)
 				} else if (is_scu(p)) {
