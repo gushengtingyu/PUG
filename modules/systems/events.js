@@ -815,20 +815,22 @@ module.exports = function (Engine) {
 
 	function bulls_eye_record_advanced_piece(game, p) {
 		if (!is_bulls_eye_active(game)) return
-		let nation = get_piece_nation(p)
-		if (nation === "tu" || nation === "tua") {
-			if (!game.bulls_eye_advanced_stack) game.bulls_eye_advanced_stack = []
-			set_add(game.bulls_eye_advanced_stack, p)
-		}
+		if (!game.bulls_eye_advanced_stack) game.bulls_eye_advanced_stack = []
+		set_add(game.bulls_eye_advanced_stack, p)
 	}
 
 	function bulls_eye_can_extra_attack(game) {
-		return (
-			is_bulls_eye_active(game) &&
-			game.bulls_eye_advanced_stack &&
-			game.bulls_eye_advanced_stack.length > 0 &&
-			!game.events.bulls_eye_used
-		)
+		if (!is_bulls_eye_active(game)) return false
+		if (!game.bulls_eye_advanced_stack || game.bulls_eye_advanced_stack.length === 0) return false
+		if (game.events.bulls_eye_used) return false
+		let has_non_tu = game.bulls_eye_advanced_stack.some((p) => {
+			let n = get_piece_nation(p)
+			return n !== "tu" && n !== "tua"
+		})
+		if (has_non_tu) return false
+		let has_reduced = game.bulls_eye_advanced_stack.some((p) => is_piece_reduced(game, p))
+		if (has_reduced) return false
+		return true
 	}
 
 	function bulls_eye_use_extra_attack(game) {
