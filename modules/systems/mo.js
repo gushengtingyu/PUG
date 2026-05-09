@@ -385,8 +385,6 @@ module.exports = function (Engine) {
 	function try_fulfill_enver_mo(game, mo_key, fulfilled_key, ctx, log, step) {
 		if (game[fulfilled_key] || !game[mo_key] || !check_mo_criteria(game, game[mo_key], ctx)) return false
 
-		// Prevent same attack from fulfilling multiple MOs if they are the same,
-		// and track fulfillment within a single attack sequence (declaration -> resolution).
 		if (game.attack) {
 			if (!game.attack.mo_fulfilled_indices) game.attack.mo_fulfilled_indices = []
 			if (game.attack.mo_fulfilled_indices.includes(step)) return false
@@ -401,20 +399,23 @@ module.exports = function (Engine) {
 		return true
 	}
 
+	function attack_already_fulfilled_enver_mo(game) {
+		return !!(
+			game &&
+			game.attack &&
+			Array.isArray(game.attack.mo_fulfilled_indices) &&
+			game.attack.mo_fulfilled_indices.some((step) => step === 1 || step === 2)
+		)
+	}
+
 	function handle_enver_mo_fulfillment(game, ctx, log) {
-		const same_target = game.mo_cp_1 && game.mo_cp_1 !== MO_NONE && game.mo_cp_1 === game.mo_cp_2
-		if (same_target) {
-			const fulfilled_2_now = try_fulfill_enver_mo(game, "mo_cp_2", "mo_cp_2_fulfilled", ctx, log, 2)
-			const fulfilled_2_by_this_attack =
-				game.attack && game.attack.mo_fulfilled_indices && game.attack.mo_fulfilled_indices.includes(2)
-			if (!fulfilled_2_now && !fulfilled_2_by_this_attack) {
-				try_fulfill_enver_mo(game, "mo_cp_1", "mo_cp_1_fulfilled", ctx, log, 1)
-			}
-		} else {
-			try_fulfill_enver_mo(game, "mo_cp_1", "mo_cp_1_fulfilled", ctx, log, 1)
-			try_fulfill_enver_mo(game, "mo_cp_2", "mo_cp_2_fulfilled", ctx, log, 2)
+		if (attack_already_fulfilled_enver_mo(game)) {
+			return
 		}
 
+		if (!try_fulfill_enver_mo(game, "mo_cp_2", "mo_cp_2_fulfilled", ctx, log, 2)) {
+			try_fulfill_enver_mo(game, "mo_cp_1", "mo_cp_1_fulfilled", ctx, log, 1)
+		}
 		if (game.mo_cp_1_fulfilled && game.mo_cp_2_fulfilled) {
 			game.mo_cp_fulfilled = true
 			if (log) log("同盟国恩维尔攻势已全部完成。")

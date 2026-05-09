@@ -26,6 +26,7 @@ function prepareSameTargetEnverGame() {
 	const attacker = findCpPiece("TU DIV #1")
 	const defender = findApPiece("RU DIV #1")
 	const space = findSpace("Erzurum")
+	game.pieces[defender] = space
 	game.attack = { space, pieces: [attacker] }
 
 	return { game, attacker, defender, space }
@@ -65,6 +66,27 @@ test("same-target Enver offensives fulfill the ordinary second MO first", () => 
 
 	game.attack = { space, pieces: [attacker] }
 	fulfillCurrentAttack(game, attacker, defender)
+
+	expect(game.mo_cp_1_fulfilled).toBe(true)
+	expect(game.mo_cp_2_fulfilled).toBe(true)
+	expect(game.mo_cp_fulfilled).toBe(true)
+})
+
+test("one attack sequence cannot fulfill both Enver MOs even when it matches both criteria", () => {
+	const { game, attacker, defender, space } = prepareSameTargetEnverGame()
+	game.mo_cp_1 = Engine.mo.MO_RUSSIA
+	game.mo_cp_2 = Engine.mo.MO_TURKEY
+	game.attack = { space, pieces: [attacker] }
+
+	Engine.mo.check_mo_on_attack_declared(game, () => {})
+	fulfillCurrentAttack(game, attacker, defender)
+
+	expect(game.mo_cp_2_fulfilled).toBe(true)
+	expect(game.mo_cp_1_fulfilled).toBe(false)
+	expect(game.mo_cp_fulfilled).toBe(false)
+
+	game.attack = { space, pieces: [attacker] }
+	Engine.mo.check_mo_on_attack_declared(game, () => {})
 
 	expect(game.mo_cp_1_fulfilled).toBe(true)
 	expect(game.mo_cp_2_fulfilled).toBe(true)

@@ -2152,41 +2152,43 @@ module.exports = function (Engine) {
 		return is_not_on_map(game, p) && !is_reserve_space(source)
 	}
 
-	function has_sr_path(game, p, from, to, faction, rail_only) {
-		if (from === to) return true
-		let queue = [from]
+	function get_sr_path_neighbors(game, p, current, faction, rail_only) {
+		let neighbors
+		if (rail_only) {
+			let rail_neighbors = get_rail_connections(game, current, faction)
+			let nation_neighbors = get_piece_connected_spaces_for_rule(game, current, p, "sr")
+			let nation_set = new Set(nation_neighbors)
+			neighbors = rail_neighbors.filter((n) => nation_set.has(n))
+		} else {
+			neighbors = get_piece_connected_spaces_for_rule(game, current, p, "sr")
+		}
+		// Rule 11.4: RU units treat Odessa/Petrovsk/Central Asia as rail-connected for SR.
+		if (data.pieces[p]?.nation === "ru") {
+			for (let vn of get_ru_virtual_sr_neighbors(current)) {
+				if (!neighbors.includes(vn)) neighbors = neighbors.concat(vn)
+			}
+		}
+		return neighbors
+	}
+
+	function visit_sr_path_spaces(game, p, source, faction, rail_only, visit) {
+		let queue = [source]
 		let queue_head = 0
-		let visited = new Set([from])
+		let visited = new Set([source])
 
 		while (queue_head < queue.length) {
 			let current = queue[queue_head++]
-			let neighbors
-			if (rail_only) {
-				let rail_neighbors = get_rail_connections(game, current, faction)
-				let nation_neighbors = get_piece_connected_spaces_for_rule(game, current, p, "sr")
-				let nation_set = new Set(nation_neighbors)
-				neighbors = rail_neighbors.filter((n) => nation_set.has(n))
-			} else {
-				neighbors = get_piece_connected_spaces_for_rule(game, current, p, "sr")
-			}
-			// Rule 11.4: RU units treat Odessa/Petrovsk/Central Asia as rail-connected for SR.
-			if (data.pieces[p]?.nation === "ru") {
-				for (let vn of get_ru_virtual_sr_neighbors(current)) {
-					if (!neighbors.includes(vn)) neighbors = neighbors.concat(vn)
-				}
-			}
-
-			for (let next of neighbors) {
+			for (let next of get_sr_path_neighbors(game, p, current, faction, rail_only)) {
 				let can_continue = true
 				if (!rail_only) {
-					let desert_step = get_scu_sr_desert_step(game, current, next, faction, current === from)
+					let desert_step = get_scu_sr_desert_step(game, current, next, faction, current === source)
 					if (!desert_step.allowed) continue
 					can_continue = desert_step.can_continue
 				}
 				if (visited.has(next) && can_continue) continue
 				let passable = is_controlled_by(game, next, faction) || is_besieged(game, next)
 				if (!passable) continue
-				if (next === to) return true
+				if (visit(next) === false) return false
 				if (can_continue) {
 					visited.add(next)
 					queue.push(next)
@@ -2194,7 +2196,20 @@ module.exports = function (Engine) {
 			}
 		}
 
-		return false
+		return true
+	}
+
+	function has_sr_path(game, p, from, to, faction, rail_only) {
+		if (from === to) return true
+		let found = false
+		visit_sr_path_spaces(game, p, from, faction, rail_only, (next) => {
+			if (next === to) {
+				found = true
+				return false
+			}
+			return true
+		})
+		return found
 	}
 
 	function is_same_sr_nationality(a, b) {
@@ -2386,46 +2401,12 @@ module.exports = function (Engine) {
 
 	function build_sr_path_reachable_spaces(game, p, source, faction) {
 		let info = data.pieces[p]
-		let nation = info.nation
 		let rail_only = info.piece_class === "LCU"
-		let visited = new Set([source])
 		let reachable = new Set()
-		let queue = [source]
-		let queue_head = 0
-		while (queue_head < queue.length) {
-			let current = queue[queue_head++]
-			let neighbors
-			if (rail_only) {
-				let rail_neighbors = get_rail_connections(game, current, faction)
-				let nation_neighbors = get_connected_spaces(game, current, nation, faction, p, "sr")
-				let nation_set = new Set(nation_neighbors)
-				neighbors = rail_neighbors.filter((n) => nation_set.has(n))
-			} else {
-				neighbors = get_connected_spaces(game, current, nation, faction, p, "sr")
-			}
-			// Rule 11.4: RU units treat Odessa/Petrovsk/Central Asia as rail-connected for SR.
-			if (nation === "ru") {
-				for (let vn of get_ru_virtual_sr_neighbors(current)) {
-					if (!neighbors.includes(vn)) neighbors = neighbors.concat(vn)
-				}
-			}
-			for (let next of neighbors) {
-				let can_continue = true
-				if (!rail_only) {
-					let desert_step = get_scu_sr_desert_step(game, current, next, faction, current === source)
-					if (!desert_step.allowed) continue
-					can_continue = desert_step.can_continue
-				}
-				if (visited.has(next) && can_continue) continue
-				let passable = is_controlled_by(game, next, faction) || is_besieged(game, next)
-				if (!passable) continue
-				reachable.add(next)
-				if (can_continue) {
-					visited.add(next)
-					queue.push(next)
-				}
-			}
-		}
+		visit_sr_path_spaces(game, p, source, faction, rail_only, (next) => {
+			reachable.add(next)
+			return true
+		})
 		return reachable
 	}
 
@@ -5221,6 +5202,7 @@ module.exports = function (Engine) {
 		can_piece_move_to,
 		can_besiege,
 		get_sr_cost,
+		has_sr_path,
 		can_sr_piece,
 		can_sr_to_space,
 		get_sr_destinations,

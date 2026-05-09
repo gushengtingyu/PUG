@@ -4727,11 +4727,13 @@ var data = {
 		"terrain": "mountain",
 		"area": "gallipoli",
 		"connections": [
+			178,
 			180,
 			187
 		],
 		"rail_connections": [],
 		"connection_types": {
+			"178": "",
 			"180": "",
 			"187": ""
 		}
@@ -4750,12 +4752,14 @@ var data = {
 		"area": "gallipoli",
 		"connections": [
 			169,
+			177,
 			187,
 			191
 		],
 		"rail_connections": [],
 		"connection_types": {
 			"169": "",
+			"177": "",
 			"187": "",
 			"191": "strait"
 		},
@@ -19822,6 +19826,10 @@ var data = {
 	{
 		"a": 169,
 		"b": 178
+	},
+	{
+		"a": 178,
+		"b": 177
 	}
 ], // Keep raw edges for reference if needed, or structured adj
 	pieces: [
@@ -22322,7 +22330,7 @@ var data = {
 		"rlf": 1,
 		"rmf": 3,
 		"symbol": "triangle",
-		"type": "regular",
+		"type": "irregular",
 		"badge": "infantry",
 		"piece_class": "SCU",
 		"image_full": "RUPEPN.png",
