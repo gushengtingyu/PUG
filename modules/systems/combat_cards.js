@@ -746,7 +746,7 @@ module.exports = function (Engine) {
 			modifiers: { drm: 1 }
 		},
 		[combat.CC_CP_CATASTROPHIC_ATTACK]: {
-			windows: STANDARD_CC_WINDOWS,
+			windows: new Set(["post_roll_cc_defender"]),
 			can_play: can_play_catastrophic_attack
 		},
 		[combat.CC_CP_I_ORDER_YOU_TO_DIE]: {
