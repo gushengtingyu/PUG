@@ -468,7 +468,6 @@ module.exports = function (Engine) {
 
 	function can_play_pasha_1(game) {
 		if (!has_attack(game)) return false
-		if (get_active_faction(game) !== CP) return false
 		return has_nation_on_side_in_battle(game, ["ge"], CP)
 	}
 

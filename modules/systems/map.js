@@ -186,7 +186,9 @@ module.exports = function (Engine) {
 		if (!(s > 0 && data.spaces[s])) return false
 		if (is_controlled_by(game, s, faction)) return false
 		if (is_region(game, s)) {
-			return get_region_disruption_owner(game, s) === faction && has_disrupting_piece_for_faction(game, s, faction)
+			return (
+				get_region_disruption_owner(game, s) === faction && has_disrupting_piece_for_faction(game, s, faction)
+			)
 		}
 		return has_disrupting_piece_for_faction(game, s, faction)
 	}
@@ -758,7 +760,8 @@ module.exports = function (Engine) {
 		if (s === undefined || s === null || !data.spaces[s]) return false
 		if (!data.spaces[s].fort || data.spaces[s].fort <= 0) return false
 		if (!game.forts) game.forts = { destroyed: [], besieged: [] }
-		if (!game.forts.owner || typeof game.forts.owner !== "object" || Array.isArray(game.forts.owner)) game.forts.owner = {}
+		if (!game.forts.owner || typeof game.forts.owner !== "object" || Array.isArray(game.forts.owner))
+			game.forts.owner = {}
 		if (faction === AP || faction === CP) game.forts.owner[s] = faction
 		else delete game.forts.owner[s]
 		return true
@@ -2890,12 +2893,7 @@ module.exports = function (Engine) {
 		return [...destinations]
 	}
 
-	function is_cp_non_afghan_unit_tracing_only_to_afghanistan(
-		game,
-		p,
-		source_cache = null,
-		supply_context = null
-	) {
+	function is_cp_non_afghan_unit_tracing_only_to_afghanistan(game, p, source_cache = null, supply_context = null) {
 		let info = data.pieces[p]
 		if (!info || get_piece_effective_faction(game, p) !== CP) return false
 		if (!(game.events && game.events["afghan_alliance"])) return false
@@ -4092,8 +4090,7 @@ module.exports = function (Engine) {
 		let nation = info.nation
 		let is_ana = is_ana_unit(info)
 		let is_special_ru_allied = is_special_ru_allied_supply_unit(info)
-		let allow_ap_beachhead =
-			faction === AP && (!["ru", "ro"].includes(nation) || is_special_ru_allied)
+		let allow_ap_beachhead = faction === AP && (!["ru", "ro"].includes(nation) || is_special_ru_allied)
 
 		let cache_key =
 			source_cache &&
@@ -4143,19 +4140,13 @@ module.exports = function (Engine) {
 			if (is_british_supply_nation(nation) || is_special_ru_allied || is_ana) {
 				add_ap_controlled_ports(game, full_sources)
 			} else if (nation === "sb") {
-				add_supply_sources(
-					full_sources,
-					get_supply_sources_from_data_cached(game, AP, false, source_cache)
-				)
+				add_supply_sources(full_sources, get_supply_sources_from_data_cached(game, AP, false, source_cache))
 			}
 			if (nation === "ru" || nation === "ro" || nation === "sb") {
 				add_ru_sea_supply_entries(game, full_sources)
 			}
 			if (nation === "gr" && Engine.neutral.is_greek_controlled_by_faction(game, AP)) {
-				add_supply_sources(
-					full_sources,
-					get_supply_sources_from_data_cached(game, AP, false, source_cache)
-				)
+				add_supply_sources(full_sources, get_supply_sources_from_data_cached(game, AP, false, source_cache))
 			}
 		}
 
@@ -4322,7 +4313,13 @@ module.exports = function (Engine) {
 	function is_special_ru_allied_rebuild_space(game, s) {
 		if (s === LEMNOS) return is_controlled_by(game, s, AP) && !is_besieged(game, s)
 		let space = data.spaces[s]
-		return !!(space && space.nation === "gr" && is_port(s) && is_controlled_by(game, s, AP) && !is_besieged(game, s))
+		return !!(
+			space &&
+			space.nation === "gr" &&
+			is_port(s) &&
+			is_controlled_by(game, s, AP) &&
+			!is_besieged(game, s)
+		)
 	}
 
 	function has_serbia_collapsed(game) {
@@ -4594,6 +4591,29 @@ module.exports = function (Engine) {
 		return false
 	}
 
+	function is_rail_connected_to_galicia(game) {
+		let target = build_space_flag_from_sources(GALICIA_REPLACEMENT_SPACE_IDS)
+		let queue = [CONSTANTINOPLE]
+		let queue_head = 0
+		let visited = new Set([CONSTANTINOPLE])
+
+		while (queue_head < queue.length) {
+			let current = queue[queue_head++]
+
+			if (target[current] === 1 && is_controlled_by(game, current, CP)) return true
+
+			let neighbors = get_rail_connections(game, current, CP)
+			for (let next of neighbors) {
+				if (visited.has(next)) continue
+				if (contains_enemy_pieces(game, next, CP) && !is_besieged(game, next)) continue
+				if (!is_controlled_by(game, next, CP)) continue
+				visited.add(next)
+				queue.push(next)
+			}
+		}
+		return false
+	}
+
 	function can_convert_ge_to_tu_unlimited(game) {
 		if (game.no_ge_to_tu_rp_conversion) return false
 		if (!game.events || !game.events["bulgaria"]) return false
@@ -4601,12 +4621,7 @@ module.exports = function (Engine) {
 		if (CONSTANTINOPLE < 0) return false
 		if (!is_controlled_by(game, CONSTANTINOPLE, CP)) return false
 
-		for (let s of GALICIA_REPLACEMENT_SPACE_IDS) {
-			if (is_controlled_by(game, s, CP) && is_connected_by_rail(game, CONSTANTINOPLE, CP, [s], null, true))
-				return true
-		}
-
-		return false
+		return is_rail_connected_to_galicia(game)
 	}
 
 	function can_use_ge_rp_for_tu(game, cost) {
@@ -5055,7 +5070,6 @@ module.exports = function (Engine) {
 
 		return valid
 	}
-
 
 	function check_rule_violations(game) {
 		let violations = []
