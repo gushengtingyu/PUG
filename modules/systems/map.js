@@ -5196,6 +5196,13 @@ module.exports = function (Engine) {
 		return data.pieces[p].name.includes(name) && data.pieces[p].type === "hq"
 	}
 
+	function get_all_adjacent_spaces(loc) {
+		let sp = data.spaces[loc]
+		if (!sp) return []
+		if (sp.connection_types) return Object.keys(sp.connection_types).map(Number)
+		return sp.connections || []
+	}
+
 	function is_under_special_hq_command(game, s, faction) {
 		for (let p = 0; p < game.pieces.length; p++) {
 			if (is_not_on_map(game, p)) continue
@@ -5209,21 +5216,17 @@ module.exports = function (Engine) {
 			if (faction === CP) {
 				if (is_special_hq(p, "Falkenhayn") || is_special_hq(p, "Mackenson")) {
 					if (loc === s) return true
-					// Check adjacency (connected spaces)
-					let adj = data.spaces[loc].connections
-					if (adj && adj.includes(s)) return true
+					if (get_all_adjacent_spaces(loc).includes(s)) return true
 				}
 			} else {
 				if (is_special_hq(p, "D'Esperey")) {
-					// Desperey needs to be with a French unit
 					let pieces_with_desperey = get_pieces_in_space(game, loc)
 					let has_fr = pieces_with_desperey.some(
 						(p2) => data.pieces[p2] && data.pieces[p2].nation === "fr" && p2 !== p
 					)
 					if (has_fr) {
 						if (loc === s) return true
-						let adj = data.spaces[loc].connections
-						if (adj && adj.includes(s)) return true
+						if (get_all_adjacent_spaces(loc).includes(s)) return true
 					}
 				}
 			}
