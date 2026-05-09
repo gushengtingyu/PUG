@@ -4953,6 +4953,7 @@ module.exports = function (Engine) {
 		}
 
 		let valid = []
+		let full_but_valid = []
 		let nation = info.nation
 		let nation_capital = find_capital(nation)
 
@@ -5063,8 +5064,30 @@ module.exports = function (Engine) {
 				can_rebuild = true
 			}
 
-			if (can_rebuild && can_stack_end_in_space(game, s, [p])) {
-				valid.push(s)
+			if (can_rebuild) {
+				if (can_stack_end_in_space(game, s, [p])) {
+					valid.push(s)
+				} else {
+					full_but_valid.push(s)
+				}
+			}
+		}
+
+		// Rule 7.7.2 / 22.2.1: if a placement location is fully stacked,
+		// rebuilt units may be placed in adjacent spaces
+		if (full_but_valid.length > 0) {
+			let seen = new Set(valid)
+			for (let s of full_but_valid) {
+				let neighbors = get_connected_spaces(game, s, undefined, faction, undefined, "move")
+				for (let ns of neighbors) {
+					if (seen.has(ns)) continue
+					if (!is_controlled_by(game, ns, faction)) continue
+					if (is_besieged(game, ns)) continue
+					if (contains_enemy_pieces(game, ns, faction) && !is_region(game, ns)) continue
+					if (!can_stack_end_in_space(game, ns, [p])) continue
+					seen.add(ns)
+					valid.push(ns)
+				}
 			}
 		}
 
