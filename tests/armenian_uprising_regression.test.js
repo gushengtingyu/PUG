@@ -82,6 +82,46 @@ test("Armenian Uprising unit prompt filters historical CP-occupied blue A spaces
 	}
 })
 
+test("Armenian Uprising markers are not forced into the unit space", () => {
+	let game = setupGame(2026050910, "Historical", { no_supply_warnings: true })
+	clearBoard(game)
+	let kayseri = findSpace("Kayseri")
+	let sivas = findSpace("Sivas")
+	let van = findSpace("Van")
+	let erevan = findSpace("Erevan")
+	let armenianUprising = findApPiece("Armenian Uprising")
+
+	game.active = AP
+	game.state = "event_armenian_uprising_unit"
+	game.event_ctx = {
+		key: "armenian_uprising_32",
+		data: {
+			unit_name: "Armenian Uprising",
+			blue_a_spaces: [kayseri, sivas, van, erevan],
+			markers_to_place: 3,
+			marker_spaces: []
+		}
+	}
+	game.armenian_uprising_markers = []
+
+	game = rules.action(game, AP_ROLE, "space", kayseri)
+
+	expect(game.pieces[armenianUprising]).toBe(kayseri)
+	expect(game.armenian_uprising_markers).toEqual([])
+	expect(game.event_ctx.data.markers_to_place).toBe(3)
+	expect(game.state).toBe("event_armenian_uprising_markers")
+
+	let view = rules.view(game, AP_ROLE)
+	expect(view.actions.space).toEqual(expect.arrayContaining([kayseri, sivas, van, erevan]))
+
+	game = rules.action(game, AP_ROLE, "space", sivas)
+	game = rules.action(game, AP_ROLE, "space", van)
+	game = rules.action(game, AP_ROLE, "space", erevan)
+
+	expect(game.armenian_uprising_markers).toEqual([sivas, van, erevan])
+	expect(game.armenian_uprising_markers).not.toContain(kayseri)
+})
+
 test("Armenian Uprising marker placement still allows CP-occupied blue A spaces", () => {
 	let game = setupGame(2026050906, "Historical", { no_supply_warnings: true })
 	clearBoard(game)

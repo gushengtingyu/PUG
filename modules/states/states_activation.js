@@ -2069,6 +2069,7 @@ exports.register = function (states, Engine, context) {
 			if (
 				is_siege_entry ||
 				creates_beachhead ||
+				Engine.map.has_enemy_uprising_marker(game, target, active_faction()) ||
 				should_stop_move_on_island_base(from_space, target)
 			) {
 				end_move_stack()

@@ -172,6 +172,13 @@ module.exports = function (Engine) {
 		return Array.isArray(markers) && markers.includes(s)
 	}
 
+	function has_enemy_uprising_marker(game, s, faction) {
+		let enemy = other_faction(faction)
+		if (enemy === CP && has_uprising_marker(game, "persian_uprising_markers", s)) return true
+		if (enemy === AP && has_uprising_marker(game, "armenian_uprising_markers", s)) return true
+		return false
+	}
+
 	function is_disrupted_by_enemy(game, s, faction) {
 		if (faction === undefined) faction = game.active
 		let enemy = other_faction(faction)
@@ -1875,6 +1882,13 @@ module.exports = function (Engine) {
 
 	function can_piece_move_to(game, p, target, faction) {
 		if (get_greek_move_restriction_reason(game, p, target, faction)) return false
+		if (
+			game.move &&
+			game.move.current !== game.move.initial &&
+			has_enemy_uprising_marker(game, game.move.current, faction)
+		) {
+			return false
+		}
 		// Rule 9.4.1: Units may enter Regions containing enemy units.
 		if (contains_enemy_pieces(game, target, faction) && !is_region(game, target)) return false
 		if (game.move && Array.isArray(game.move.pieces)) {
@@ -2197,6 +2211,7 @@ module.exports = function (Engine) {
 				let passable = is_controlled_by(game, next, faction) || is_besieged(game, next)
 				if (!passable) continue
 				if (visit(next) === false) return false
+				if (has_enemy_uprising_marker(game, next, faction)) can_continue = false
 				if (can_continue) {
 					visited.add(next)
 					queue.push(next)
@@ -5121,6 +5136,7 @@ module.exports = function (Engine) {
 		contains_enemy_pieces,
 		has_friendly_pieces,
 		is_disrupted_by_enemy,
+		has_enemy_uprising_marker,
 		is_port,
 		get_tribal_spaces,
 		get_piece_connected_spaces_for_rule,

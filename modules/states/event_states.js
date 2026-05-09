@@ -2782,7 +2782,7 @@ module.exports = function (Engine) {
 			let event = use_event(game, "armenian_uprising_32")
 			let unit_name = event.unit_name || "Armenian Uprising"
 			let options = get_armenian_uprising_unit_spaces(game, event)
-			res.prompt(`亚美尼亚起义：选择一个蓝色 A 地区放置 ${unit_name}，并在该地区放置 1 个起义标记。`)
+			res.prompt(`亚美尼亚起义：选择一个蓝色 A 地区放置 ${unit_name}。`)
 			for (let s of options) {
 				if (s > 0 && data.spaces[s]) res.space(s)
 			}
@@ -2796,10 +2796,6 @@ module.exports = function (Engine) {
 			rules.push_undo()
 			rules.reinforce(game, event.unit_name || "Armenian Uprising", AP, s)
 			if (!Array.isArray(event.marker_spaces)) event.marker_spaces = []
-			if (!event.marker_spaces.includes(s)) {
-				event.marker_spaces.push(s)
-				event.markers_to_place = Math.max(0, (event.markers_to_place || 0) - 1)
-			}
 			game.armenian_uprising_markers = event.marker_spaces.slice()
 			if ((event.markers_to_place || 0) <= 0) {
 				delete event.markers_to_place

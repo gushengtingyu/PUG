@@ -382,23 +382,6 @@ module.exports = function (Engine) {
 		}
 	}
 
-	function try_fulfill_enver_mo(game, mo_key, fulfilled_key, ctx, log, step) {
-		if (game[fulfilled_key] || !game[mo_key] || !check_mo_criteria(game, game[mo_key], ctx)) return false
-
-		if (game.attack) {
-			if (!game.attack.mo_fulfilled_indices) game.attack.mo_fulfilled_indices = []
-			if (game.attack.mo_fulfilled_indices.includes(step)) return false
-		}
-
-		game[fulfilled_key] = true
-		if (game.attack) {
-			game.attack.mo_fulfilled_indices.push(step)
-		}
-
-		if (log) log(`同盟国恩维尔攻势 #${step} (${mo_name(game[mo_key])}) 已完成。`)
-		return true
-	}
-
 	function attack_already_fulfilled_enver_mo(game) {
 		return !!(
 			game &&
@@ -408,18 +391,97 @@ module.exports = function (Engine) {
 		)
 	}
 
-	function handle_enver_mo_fulfillment(game, ctx, log) {
-		if (attack_already_fulfilled_enver_mo(game)) {
-			return
+	function get_enver_mo_fulfillment_candidates(game, ctx) {
+		const candidates = []
+		if (
+			!game.mo_cp_1_fulfilled &&
+			game.mo_cp_1 &&
+			game.mo_cp_1 !== MO_NONE &&
+			check_mo_criteria(game, game.mo_cp_1, ctx)
+		) {
+			candidates.push({ step: 1, mo: game.mo_cp_1 })
 		}
+		if (
+			!game.mo_cp_2_fulfilled &&
+			game.mo_cp_2 &&
+			game.mo_cp_2 !== MO_NONE &&
+			check_mo_criteria(game, game.mo_cp_2, ctx)
+		) {
+			candidates.push({ step: 2, mo: game.mo_cp_2 })
+		}
+		return candidates
+	}
 
-		if (!try_fulfill_enver_mo(game, "mo_cp_2", "mo_cp_2_fulfilled", ctx, log, 2)) {
-			try_fulfill_enver_mo(game, "mo_cp_1", "mo_cp_1_fulfilled", ctx, log, 1)
+	function note_enver_mo_choice(game, candidates) {
+		game.enver_mo_choice = {
+			options: candidates.map((entry) => entry.step)
 		}
+	}
+
+	function finish_enver_mo_fulfillment(game, log) {
 		if (game.mo_cp_1_fulfilled && game.mo_cp_2_fulfilled) {
 			game.mo_cp_fulfilled = true
 			if (log) log("同盟国恩维尔攻势已全部完成。")
 		}
+	}
+
+	function apply_enver_mo_fulfillment(game, step, log) {
+		const mo_key = step === 1 ? "mo_cp_1" : step === 2 ? "mo_cp_2" : null
+		const fulfilled_key = step === 1 ? "mo_cp_1_fulfilled" : step === 2 ? "mo_cp_2_fulfilled" : null
+		if (!mo_key || !fulfilled_key || game[fulfilled_key] || !game[mo_key]) return false
+		if (attack_already_fulfilled_enver_mo(game)) return false
+
+		game[fulfilled_key] = true
+		if (game.attack) {
+			if (!game.attack.mo_fulfilled_indices) game.attack.mo_fulfilled_indices = []
+			if (!game.attack.mo_fulfilled_indices.includes(step)) game.attack.mo_fulfilled_indices.push(step)
+		}
+		if (log) log(`同盟国恩维尔攻势 #${step} (${mo_name(game[mo_key])}) 已完成。`)
+		finish_enver_mo_fulfillment(game, log)
+		return true
+	}
+
+	function handle_enver_mo_fulfillment(game, ctx, log) {
+		if (attack_already_fulfilled_enver_mo(game) || game.enver_mo_choice) return
+
+		const candidates = get_enver_mo_fulfillment_candidates(game, ctx)
+		if (candidates.length === 0) return
+		if (candidates.length === 1) {
+			apply_enver_mo_fulfillment(game, candidates[0].step, log)
+			return
+		}
+
+		if (game.mo_cp_1 === game.mo_cp_2) {
+			apply_enver_mo_fulfillment(game, 2, log)
+			return
+		}
+
+		note_enver_mo_choice(game, candidates)
+	}
+
+	function has_pending_enver_mo_choice(game) {
+		return !!(game && game.enver_mo_choice && Array.isArray(game.enver_mo_choice.options))
+	}
+
+	function get_pending_enver_mo_choice_options(game) {
+		if (!has_pending_enver_mo_choice(game)) return []
+		const options = []
+		for (let step of game.enver_mo_choice.options) {
+			if (step === 1 && !game.mo_cp_1_fulfilled && game.mo_cp_1 && game.mo_cp_1 !== MO_NONE) {
+				options.push({ step, mo: game.mo_cp_1 })
+			}
+			if (step === 2 && !game.mo_cp_2_fulfilled && game.mo_cp_2 && game.mo_cp_2 !== MO_NONE) {
+				options.push({ step, mo: game.mo_cp_2 })
+			}
+		}
+		return options
+	}
+
+	function resolve_pending_enver_mo_choice(game, mo, log) {
+		const choice = get_pending_enver_mo_choice_options(game).find((entry) => entry.mo === mo)
+		if (!choice) return false
+		delete game.enver_mo_choice
+		return apply_enver_mo_fulfillment(game, choice.step, log)
 	}
 
 	function handle_cp_mo_fulfillment(game, ctx, log) {
@@ -835,6 +897,9 @@ module.exports = function (Engine) {
 		is_british_no_attack_unpaid,
 		get_pending_mo_penalty,
 		get_final_round_mo_warning,
+		has_pending_enver_mo_choice,
+		get_pending_enver_mo_choice_options,
+		resolve_pending_enver_mo_choice,
 		check_mo_on_attack_declared,
 		check_mo_fulfillment,
 		register,

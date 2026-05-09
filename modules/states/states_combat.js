@@ -1524,19 +1524,14 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
-	function start_attack_sequence() {
-		delete game.jafar_pasha_retreat
-		delete game.turkish_retreat_prev_active
-		delete game.turkish_retreat_chosen_space
-		delete game.retreat_choice_cc_done
-		delete game.retreat_choice_resume_state
-		delete game.retreat_choice_prev_active
-		delete game.battle_resolution_applied
-		combat.start_attack_sequence(game, log)
-		if (game.attack) {
-			delete game.attack.cc_log_header
-			delete game.attack.cc_log_sides
-		}
+	function get_enver_mo_choice_action(mo_target) {
+		if (mo_target === mo.MO_RUSSIA) return "fulfill_enver_russia"
+		if (mo_target === mo.MO_BRITISH) return "fulfill_enver_british"
+		if (mo_target === mo.MO_TURKEY) return "fulfill_enver_turkey"
+		return null
+	}
+
+	function continue_attack_sequence_after_mo_check() {
 		if (combat.is_black_sea_amphibious_invasion(game)) {
 			combat.resolve_black_sea_amphibious_invasion(game, log)
 			return
@@ -1554,6 +1549,60 @@ exports.register = function (states, Engine, context) {
 		} else {
 			goto_pre_weather_step()
 		}
+	}
+
+	function finish_enver_mo_choice(mo_target) {
+		if (!mo.resolve_pending_enver_mo_choice(game, mo_target, log)) return
+		continue_attack_sequence_after_mo_check()
+	}
+
+	states.choose_enver_mo_fulfillment = {
+		prompt(res) {
+			let options = mo.get_pending_enver_mo_choice_options(game)
+			res.prompt("恩维尔攻势：选择本次攻击完成的MO")
+			let actions = new Set()
+			for (let option of options) {
+				let action = get_enver_mo_choice_action(option.mo)
+				if (action) actions.add(action)
+			}
+			for (let action of actions) res.action(action)
+			if (actions.size === 0) res.action("next")
+		},
+		fulfill_enver_russia() {
+			finish_enver_mo_choice(mo.MO_RUSSIA)
+		},
+		fulfill_enver_british() {
+			finish_enver_mo_choice(mo.MO_BRITISH)
+		},
+		fulfill_enver_turkey() {
+			finish_enver_mo_choice(mo.MO_TURKEY)
+		},
+		next() {
+			delete game.enver_mo_choice
+			continue_attack_sequence_after_mo_check()
+		}
+	}
+
+	function start_attack_sequence() {
+		delete game.jafar_pasha_retreat
+		delete game.turkish_retreat_prev_active
+		delete game.turkish_retreat_chosen_space
+		delete game.retreat_choice_cc_done
+		delete game.retreat_choice_resume_state
+		delete game.retreat_choice_prev_active
+		delete game.battle_resolution_applied
+		delete game.enver_mo_choice
+		combat.start_attack_sequence(game, log)
+		if (game.attack) {
+			delete game.attack.cc_log_header
+			delete game.attack.cc_log_sides
+		}
+		if (mo.has_pending_enver_mo_choice(game)) {
+			game.active = CP
+			game.state = "choose_enver_mo_fulfillment"
+			return
+		}
+		continue_attack_sequence_after_mo_check()
 	}
 
 	function get_attackable_spaces(pieces) {

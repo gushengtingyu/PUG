@@ -72,25 +72,49 @@ test("same-target Enver offensives fulfill the ordinary second MO first", () => 
 	expect(game.mo_cp_fulfilled).toBe(true)
 })
 
-test("one attack sequence cannot fulfill both Enver MOs even when it matches both criteria", () => {
+test("CP chooses which Enver MO a dual-qualifying attack fulfills", () => {
 	const { game, attacker, defender, space } = prepareSameTargetEnverGame()
 	game.mo_cp_1 = Engine.mo.MO_RUSSIA
 	game.mo_cp_2 = Engine.mo.MO_TURKEY
 	game.attack = { space, pieces: [attacker] }
 
 	Engine.mo.check_mo_on_attack_declared(game, () => {})
-	fulfillCurrentAttack(game, attacker, defender)
 
-	expect(game.mo_cp_2_fulfilled).toBe(true)
+	expect(game.enver_mo_choice.options).toEqual([1, 2])
 	expect(game.mo_cp_1_fulfilled).toBe(false)
-	expect(game.mo_cp_fulfilled).toBe(false)
+	expect(game.mo_cp_2_fulfilled).toBe(false)
 
-	game.attack = { space, pieces: [attacker] }
-	Engine.mo.check_mo_on_attack_declared(game, () => {})
+	game.state = "choose_enver_mo_fulfillment"
+	game.active = CP
+	let view = rules.view(game, CP_ROLE)
+	expect(view.actions.fulfill_enver_russia).toBe(1)
+	expect(view.actions.fulfill_enver_turkey).toBe(1)
 
-	expect(game.mo_cp_1_fulfilled).toBe(true)
-	expect(game.mo_cp_2_fulfilled).toBe(true)
-	expect(game.mo_cp_fulfilled).toBe(true)
+	const chosen = rules.action(game, CP_ROLE, "fulfill_enver_turkey")
+	fulfillCurrentAttack(chosen, attacker, defender)
+
+	expect(chosen.mo_cp_2_fulfilled).toBe(true)
+	expect(chosen.mo_cp_1_fulfilled).toBe(false)
+	expect(chosen.mo_cp_fulfilled).toBe(false)
+
+	chosen.attack = { space, pieces: [attacker] }
+	Engine.mo.check_mo_on_attack_declared(chosen, () => {})
+
+	expect(chosen.mo_cp_1_fulfilled).toBe(true)
+	expect(chosen.mo_cp_2_fulfilled).toBe(true)
+	expect(chosen.mo_cp_fulfilled).toBe(true)
+
+	const alt = prepareSameTargetEnverGame()
+	alt.game.mo_cp_1 = Engine.mo.MO_RUSSIA
+	alt.game.mo_cp_2 = Engine.mo.MO_TURKEY
+	Engine.mo.check_mo_on_attack_declared(alt.game, () => {})
+	alt.game.state = "choose_enver_mo_fulfillment"
+	alt.game.active = CP
+	const altChosen = rules.action(alt.game, CP_ROLE, "fulfill_enver_russia")
+
+	expect(altChosen.mo_cp_1_fulfilled).toBe(true)
+	expect(altChosen.mo_cp_2_fulfilled).toBe(false)
+	expect(altChosen.mo_cp_fulfilled).toBe(false)
 })
 
 test("Enver to Constantinople can only cancel the first Enver-marked MO", () => {
@@ -138,9 +162,12 @@ test("view exposes Enver sub-MO state for marker rendering", () => {
 
 test("front-end Enver marker logic keeps MEnver separate from the ordinary CP MO marker", () => {
 	const getKeys = loadCpMoMarkerHelper()
+	const playSource = fs.readFileSync(path.join(__dirname, "..", "play.js"), "utf8")
 	const imagesCss = fs.readFileSync(path.join(__dirname, "..", "images.css"), "utf8")
 
 	expect(imagesCss).toContain("pieces/MEnver.png")
+	expect(playSource).toContain('["fulfill_enver_russia", "俄国"]')
+	expect(playSource).toContain('["fulfill_enver_turkey", "土耳其"]')
 	expect(getKeys({ mo_cp: "turkey", mo_cp_fulfilled: false })).toEqual({
 		regular: "CP MO TU",
 		enver: "CP MO Enver"
