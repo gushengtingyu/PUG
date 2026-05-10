@@ -216,6 +216,96 @@ test("Turkish retreat does not log standard no retreat message", () => {
 	expect(game.state).toBe("turkish_retreat")
 })
 
+test("full-strength attacking HQ does not let reduced combat units force a defender retreat", () => {
+	let { game, ruDiv3, tuDiv8, bayburt } = createBattleGame()
+	let oltu = findSpaceByName("Oltu")
+	let yudenitch = findPieceByName("RU Yudenitch HQ")
+
+	game.active = rules.AP
+	game.post_roll_cc_done = true
+	game.post_battle_cc_done = true
+	game.pieces[yudenitch] = oltu
+	game.reduced = [ruDiv3]
+	game.attack.pieces = [ruDiv3, yudenitch]
+	game.attack.origin_by_piece = { [ruDiv3]: oltu, [yudenitch]: oltu }
+	game.battle_result = {
+		attacker_losses: 1,
+		defender_losses: 2,
+		retreat_needed: true,
+		retreating_faction: rules.CP,
+		retreating_units: [tuDiv8],
+		retreat_can_cancel: false,
+		retreat_distance: 1,
+		no_advance: false,
+		attackers: [ruDiv3, yudenitch],
+		advance_with_reduced: false
+	}
+
+	Engine.combat.end_battle_sequence(game, () => {})
+
+	expect(game.state).toBe("attack")
+	expect(game.pieces[tuDiv8]).toBe(bayburt)
+	expect(game.retreat_pieces).toBeUndefined()
+	expect(game.advance_pieces).toBeUndefined()
+})
+
+test("post-battle retreat refresh ignores full-strength HQ when attacking combat units are reduced", () => {
+	let { game, ruDiv3, tuDiv8 } = createBattleGame()
+	let oltu = findSpaceByName("Oltu")
+	let yudenitch = findPieceByName("RU Yudenitch HQ")
+
+	game.active = rules.AP
+	game.pieces[yudenitch] = oltu
+	game.reduced = [ruDiv3]
+	game.attack.pieces = [ruDiv3, yudenitch]
+	game.attack.origin_by_piece = { [ruDiv3]: oltu, [yudenitch]: oltu }
+	game.battle_result = {
+		attacker_losses: 1,
+		defender_losses: 2,
+		retreat_needed: true,
+		retreating_faction: rules.CP,
+		retreating_units: [tuDiv8],
+		retreat_can_cancel: true,
+		retreat_distance: 1,
+		no_advance: false,
+		attackers: [ruDiv3, yudenitch],
+		advance_with_reduced: false
+	}
+
+	Engine.combat.refresh_post_battle_defender_retreat(game)
+
+	expect(game.battle_result.retreat_needed).toBe(false)
+	expect(game.battle_result.retreating_units).toEqual([])
+	expect(game.battle_result.retreat_can_cancel).toBe(false)
+})
+
+test("HQ can accompany an eligible advancing combat unit but cannot anchor advance alone", () => {
+	let { game, ruDiv3 } = createBattleGame()
+	let oltu = findSpaceByName("Oltu")
+	let yudenitch = findPieceByName("RU Yudenitch HQ")
+
+	game.active = rules.AP
+	game.pieces[yudenitch] = oltu
+	game.attack.pieces = [ruDiv3]
+	game.attack.origin_by_piece = { [ruDiv3]: oltu }
+	game.reduced = [yudenitch]
+
+	let advance = Engine.combat.get_advance_pieces(game, {
+		attackers: [ruDiv3],
+		advance_with_reduced: false
+	})
+	expect(advance).toEqual(expect.arrayContaining([ruDiv3, yudenitch]))
+
+	game.reduced = [ruDiv3]
+	game.attack.pieces = [ruDiv3, yudenitch]
+	game.attack.origin_by_piece = { [ruDiv3]: oltu, [yudenitch]: oltu }
+	advance = Engine.combat.get_advance_pieces(game, {
+		attackers: [ruDiv3, yudenitch],
+		advance_with_reduced: false
+	})
+	expect(advance).toEqual([])
+})
+
 test("Turkish Withdrawal lets different TU units retreat to different legal spaces", () => {
 	let game = rules.setup(104, "Historical", { seed: 42 })
 	let trabzon = findSpaceByName("Trabzon")
@@ -410,6 +500,18 @@ test("below-minimum units and tribes do not keep an enemy fort besieged", () => 
 
 	expect(logs).toEqual([])
 	expect(game.forts.destroyed || []).not.toContain(kars)
+})
+
+test("HQ and Heavy Artillery do not count toward besieging an enemy fort", () => {
+	let { game, kars } = createBesiegedFortMaintenanceGame(["TU DIV #1", "TU DIV #2"])
+	let mackensen = findPieceByName("GE Mackenson HQ")
+	let heavyArtillery = findPieceByName("GE Hvy Arty")
+
+	game.pieces[mackensen] = kars
+	game.pieces[heavyArtillery] = kars
+
+	expect(Engine.map.can_besiege(game, kars, Engine.map.get_pieces_in_space(game, kars))).toBe(false)
+	expect(Engine.map.is_besieged(game, kars)).toBe(false)
 })
 
 test("same-space fort attack does not open an advance step", () => {

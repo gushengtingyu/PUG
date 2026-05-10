@@ -18,6 +18,7 @@ module.exports = function (Engine) {
 		get_piece_faction,
 		get_piece_nation,
 		is_regular,
+		is_combat_unit,
 		is_hq,
 		is_heavy_arty,
 		restore_piece,
@@ -102,6 +103,18 @@ module.exports = function (Engine) {
 
 	function is_ru_black_sea_piece(p) {
 		return !!(data.pieces[p] && data.pieces[p].name === "RU Black Sea")
+	}
+
+	function is_post_battle_piece_available(game, p) {
+		return !is_not_on_map(game, p) && !is_eliminated(game, p)
+	}
+
+	function is_advance_support_piece(p) {
+		return is_hq(p) || is_heavy_arty(p)
+	}
+
+	function is_full_strength_attack_combat_unit(game, p) {
+		return is_combat_unit(p) && is_post_battle_piece_available(game, p) && !is_piece_reduced(game, p)
 	}
 
 	function can_piece_stage_black_sea_amphibious_invasion(game, p, faction) {
@@ -258,7 +271,7 @@ module.exports = function (Engine) {
 
 		let options = []
 		for (let stack of stacks.values()) {
-			let combat_units = stack.participants.filter((p) => !is_hq(p) && !is_heavy_arty(p))
+			let combat_units = stack.participants.filter((p) => is_combat_unit(p))
 			if (combat_units.length === 0) continue
 			if (!combat_units.some((p) => is_catastrophic_attack_empire_piece(game, p))) continue
 			if (stack.survivors.length === 0) continue
@@ -783,26 +796,8 @@ module.exports = function (Engine) {
 		// Rule 66: Save Tiflis override
 		let save_tiflis_override = game.save_tiflis_failed && result.no_advance
 
-		// Find origin spaces
-		let origins = new Set()
-		for (let p of attackers) {
-			origins.add(game.pieces[p])
-		}
-
-		// Find HQs / Heavy Artillery that participated in the attack (Rule 12.9.1)
-		let support_units = []
-		let attacker_set = new Set(attackers)
-		for (let space of origins) {
-			let pieces = get_pieces_in_space(game, space)
-			for (let p of pieces) {
-				if (attacker_set.has(p) && (is_hq(p) || is_heavy_arty(p))) {
-					support_units.push(p)
-				}
-			}
-		}
-
 		let eligible = attackers.filter((p) => {
-			if (is_hq(p)) return true // HQs always eligible
+			if (!is_combat_unit(p)) return false
 			if (get_piece_mf(p) === 0) return false
 
 			if (save_tiflis_override) {
@@ -816,6 +811,23 @@ module.exports = function (Engine) {
 			if (result.advance_with_reduced) return true
 			return !is_piece_reduced(game, p)
 		})
+
+		if (eligible.length === 0) return []
+
+		// Rule 12.9.1: HQs and Heavy Artillery may advance only when accompanied
+		// by another Combat Unit eligible to advance from their stack.
+		let attacker_faction = game.attack?.attacker ?? game.active
+		let eligible_origins = new Set(eligible.map((p) => get_attack_piece_origin(game, p)).filter((s) => s > 0))
+		let support_units = []
+		for (let space of eligible_origins) {
+			for (let p of get_pieces_in_space(game, space)) {
+				if (!is_advance_support_piece(p)) continue
+				if (!is_post_battle_piece_available(game, p)) continue
+				if (get_piece_mf(p) === 0) continue
+				if (get_piece_effective_faction(game, p) !== attacker_faction) continue
+				support_units.push(p)
+			}
+		}
 
 		for (let unit of support_units) {
 			if (!eligible.includes(unit)) {
@@ -2013,13 +2025,12 @@ module.exports = function (Engine) {
 
 	function check_advance_siege_requirement(game, result, defender_faction, log_fn) {
 		if (has_undestroyed_fort(game, game.attack.space, defender_faction)) {
-			let fort_lf = data.spaces[game.attack.space].fort || 0
 			let attackers_ready = game.attack.pieces.filter(
-				(p) => !is_piece_reduced(game, p) || result.advance_with_reduced
+				(p) =>
+					is_post_battle_piece_available(game, p) &&
+					(!is_piece_reduced(game, p) || result.advance_with_reduced)
 			)
-			let has_lcu = attackers_ready.some((p) => is_lcu(p))
-			let scu_count = attackers_ready.filter((p) => !is_lcu(p)).length
-			if (!has_lcu && scu_count < fort_lf) {
+			if (!can_besiege(game, game.attack.space, attackers_ready)) {
 				result.no_advance = true
 				if (log_fn) log_fn("Attacker cannot advance: insufficient forces to besiege the fort.")
 			}
@@ -2129,7 +2140,7 @@ module.exports = function (Engine) {
 						(p) => get_piece_effective_faction(game, p) === faction
 					)
 					if (pieces.length > 0) {
-						let combat_units = pieces.filter((p) => !is_hq(p) && !is_heavy_arty(p))
+						let combat_units = pieces.filter((p) => is_combat_unit(p))
 						if (combat_units.length === 0) {
 							let hqs = pieces.filter((p) => is_hq(p) || is_heavy_arty(p))
 							for (let p of hqs) {
@@ -2255,7 +2266,7 @@ module.exports = function (Engine) {
 
 		// Rule 12.7.1: A defender never retreats if the attacker has no full-strength units after damage is absorbed
 		let attacker_has_full_strength_unit = game.attack.pieces.some(
-			(p) => !is_piece_reduced(game, p) && !is_not_on_map(game, p) && !is_eliminated(game, p)
+			(p) => is_full_strength_attack_combat_unit(game, p)
 		)
 		let attacker_blocks_retreat = !attacker_has_full_strength_unit
 		if (attacker_blocks_retreat && !result.turkish_retreat) {
@@ -3961,7 +3972,7 @@ module.exports = function (Engine) {
 				!(Array.isArray(game.retreated) && set_has(game.retreated, p))
 		)
 		let attacker_has_full_strength_unit = (game.attack.pieces || []).some(
-			(p) => !is_piece_reduced(game, p) && !is_not_on_map(game, p) && !is_eliminated(game, p)
+			(p) => is_full_strength_attack_combat_unit(game, p)
 		)
 		let attacker_won = result.defender_losses > result.attacker_losses
 		let can_defender_retreat = attacker_won && attacker_has_full_strength_unit && !is_region(target_space)
@@ -4001,7 +4012,13 @@ module.exports = function (Engine) {
 			return
 		}
 
-		if (!can_defender_retreat) return
+		if (!can_defender_retreat) {
+			result.retreat_needed = false
+			result.retreating_faction = null
+			result.retreating_units = []
+			result.retreat_can_cancel = false
+			return
+		}
 
 		result.retreat_needed = defenders_in_space.length > 0
 		result.retreating_faction = defender_faction

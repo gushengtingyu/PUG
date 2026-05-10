@@ -358,6 +358,10 @@ module.exports = function (Engine) {
 		return data.pieces[p].type === "regular"
 	}
 
+	function is_combat_unit(p) {
+		return is_regular(p) || is_irregular(p) || is_tribe(p)
+	}
+
 	function get_piece_nation(p) {
 		if (p < 0 || !data.pieces[p]) return null
 		return data.pieces[p].nation
@@ -1192,6 +1196,7 @@ module.exports = function (Engine) {
 		is_regular,
 		is_irregular,
 		is_tribe,
+		is_combat_unit,
 		is_hq,
 		is_heavy_arty,
 		restore_piece,

@@ -15,6 +15,7 @@ module.exports = function (Engine) {
 		is_tribe,
 		is_irregular,
 		is_regular,
+		is_combat_unit,
 		is_hq,
 		is_heavy_arty,
 		is_eliminated,
@@ -1494,7 +1495,7 @@ module.exports = function (Engine) {
 	}
 
 	function is_hq_heavy_artillery_escort_piece(p) {
-		return is_regular(p) || is_irregular(p) || is_tribe(p)
+		return is_combat_unit(p)
 	}
 
 	function get_hq_heavy_artillery_support_reason(pieces) {
@@ -2033,15 +2034,15 @@ module.exports = function (Engine) {
 		if (!pieces || pieces.length === 0) return false
 		let besieging_faction = other_faction(fort_owner)
 		if (pieces.some((p) => get_piece_effective_faction(game, p) !== besieging_faction)) return false
-		if (!pieces.some((p) => !is_tribe(p))) return false // Tribes cannot besiege
+		let besiegers = pieces.filter((p) => is_combat_unit(p) && !is_tribe(p))
+		if (besiegers.length === 0) return false // Tribes, HQs, and Heavy Artillery cannot besiege
 
 		// Rule 15.2.1: 1 LCU or SCUs equal to Fort's strength.
 		// Rule 13.3.4: RU Black Sea counts as 3 SCUs.
-		if (pieces.some((p) => !is_tribe(p) && game_utils.is_lcu(p))) return true
+		if (besiegers.some((p) => game_utils.is_lcu(p))) return true
 
 		let scu_count = 0
-		for (let p of pieces) {
-			if (is_tribe(p)) continue
+		for (let p of besiegers) {
 			if (game_utils.is_scu(p)) {
 				if (data.pieces[p].name === "RU Black Sea" && is_black_sea_marines_special_fort(game, s)) {
 					scu_count += 3
