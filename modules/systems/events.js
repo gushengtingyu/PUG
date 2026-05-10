@@ -48,6 +48,17 @@ module.exports = function (Engine) {
 		has_allied_control_of_balfour_spaces
 	} = Engine.map
 	const { update_jihad_level } = Engine
+
+	function space_log_name(s) {
+		if (!data.spaces[s]) return space_name(s)
+		return `s${s}`
+	}
+
+	function piece_log_name(game, p, reduced = null) {
+		if (!data.pieces[p]) return piece_name(p)
+		if (reduced === null) reduced = is_piece_reduced(game, p)
+		return reduced ? `p${p}` : `P${p}`
+	}
 	// === Constants for Space IDs ===
 	const SALONIKA = find_space("Salonika")
 	const LEMNOS = find_space("Lemnos")
@@ -278,7 +289,7 @@ module.exports = function (Engine) {
 		game.warm_water_port_vp = s
 		game.events["warm_water_port"] = true
 		if (game.events["parvus_to_berlin"] !== undefined) sync_russian_revolution_markers(game)
-		log(game, `不冻港：已在 ${data.spaces[s].name} 建立。`)
+		log(game, `不冻港：已在 ${space_log_name(s)} 建立。`)
 	}
 
 	function format_mo_log_name(mo) {
@@ -813,8 +824,14 @@ module.exports = function (Engine) {
 		game.bulls_eye_sr_done = true
 	}
 
+	function is_bulls_eye_turkish_piece(p) {
+		let n = get_piece_nation(p)
+		return n === "tu" || n === "tua"
+	}
+
 	function bulls_eye_record_advanced_piece(game, p) {
 		if (!is_bulls_eye_active(game)) return
+		if (!is_bulls_eye_turkish_piece(p)) return
 		if (!game.bulls_eye_advanced_stack) game.bulls_eye_advanced_stack = []
 		set_add(game.bulls_eye_advanced_stack, p)
 	}
@@ -824,8 +841,7 @@ module.exports = function (Engine) {
 		if (!game.bulls_eye_advanced_stack || game.bulls_eye_advanced_stack.length === 0) return false
 		if (game.events.bulls_eye_used) return false
 		let has_non_tu = game.bulls_eye_advanced_stack.some((p) => {
-			let n = get_piece_nation(p)
-			return n !== "tu" && n !== "tua"
+			return !is_bulls_eye_turkish_piece(p)
 		})
 		if (has_non_tu) return false
 		let has_reduced = game.bulls_eye_advanced_stack.some((p) => is_piece_reduced(game, p))
@@ -855,8 +871,7 @@ module.exports = function (Engine) {
 					if (scus.length > 0) {
 						let p = scus.pop()
 						game.pieces[p] = get_scu_reserve_box(CP)
-						let name = is_piece_reduced(game, p) ? `(${piece_name(p)})` : piece_name(p)
-						log(game, `靶心指令清理：${name} 从 ${space_name(s)} 返回预备格。`)
+						log(game, `靶心指令清理：${piece_log_name(game, p)} 从 ${space_log_name(s)} 返回预备格。`)
 					}
 				}
 			}
@@ -1009,7 +1024,7 @@ module.exports = function (Engine) {
 			}
 
 			game.pieces[p] = space
-			let sn = space === RESERVE ? "Reserve" : space_name(space)
+			let sn = space === RESERVE ? "Reserve" : space_log_name(space)
 			log(game, `增援：${name} 放置到 ${sn}`)
 			if (space !== null && space !== RESERVE) {
 				let can_capture_persia_control =
@@ -1859,7 +1874,7 @@ module.exports = function (Engine) {
 			name: "WARM WATER PORT",
 			name_cn: "不冻港",
 			effect_cn:
-				"(只能在能通过陆地计算补给线至彼得罗夫斯克的俄国部队控制原本属于土耳其的爱琴海、东地中海和波斯湾港口时打出。不能在俄国革命后打出)。。如果该港口地区不为VP点，则在游戏的剩余时间视其为VP点**(同样在革命结算时算作俄国VP数的一部分)**。现在开始"上帝保佑沙皇"标记永远位于俄国VP数+2的位置。**(即使该港口随后被同盟国夺回)**",
+				"(只能在能通过陆地计算补给线至彼得罗夫斯克的俄国部队控制原本属于土耳其的爱琴海、东地中海和波斯湾港口时打出。不能在俄国革命后打出)。。如果该港口地区不为VP点，则在游戏的剩余时间视其为VP点**(同样在革命结算时算作俄国VP数的一部分)**。现在开始\"上帝保佑沙皇\"标记永远位于俄国VP数+2的位置。**(即使该港口随后被同盟国夺回)**",
 			can_play: function () {
 				// 温水港机制尚未实装
 				return false
@@ -1891,7 +1906,7 @@ module.exports = function (Engine) {
 			name: "JERUSALEM BY CHRISTMAS",
 			name_cn: "圣诞节前收复圣城",
 			effect_cn:
-				"协约国在一个同盟国控制的**圣战城市**或者**补给点**和两个回合后的纪录条上各放置一个"圣诞节前收复圣城"标志。如果在两回合后该地区被英国/印度/澳新部队占据，则-1VP，反之+1VP。",
+				"协约国在一个同盟国控制的**圣战城市**或者**补给点**和两个回合后的纪录条上各放置一个\"圣诞节前收复圣城\"标志。如果在两回合后该地区被英国/印度/澳新部队占据，则-1VP，反之+1VP。",
 			handler: function (game, ctx) {
 				if (ctx && typeof ctx.start_event === "function") {
 					ctx.start_event("jerusalem_by_christmas")
@@ -2234,7 +2249,7 @@ module.exports = function (Engine) {
 			name: "ENVER TO CONSTANTINOPLE",
 			name_cn: "恩维尔坐镇君士坦丁堡",
 			effect_cn:
-				"(只能在当前MO为"恩维尔亲临前线"时打出)取消本回合的**一次**"恩维尔亲临前线"规定的的恩维尔攻势(没有VP惩罚)**(意味着还有一次规定的恩维尔攻势依然必须完成)**，从协约国玩家手中选择三张手牌观看并归还。",
+				"(只能在当前MO为\"恩维尔亲临前线\"时打出)取消本回合的**一次**\"恩维尔亲临前线\"规定的的恩维尔攻势(没有VP惩罚)**(意味着还有一次规定的恩维尔攻势依然必须完成)**，从协约国玩家手中选择三张手牌观看并归还。",
 			can_play: function (game) {
 				return (
 					game.mo_cp === "enver" &&
@@ -2640,7 +2655,7 @@ module.exports = function (Engine) {
 				let suffix = effects.length > 0 ? `，${effects.join("并")}。` : "。"
 				log(
 					game,
-					`鲁贝尔堡的背叛：${piece_name(p)} 从 ${space_name(from)} 挺进 ${space_name(target)}${suffix}`,
+					`鲁贝尔堡的背叛：${piece_log_name(game, p)} 从 ${space_log_name(from)} 挺进 ${space_log_name(target)}${suffix}`,
 					ctx
 				)
 				return true
@@ -2955,7 +2970,7 @@ module.exports = function (Engine) {
 			name: "PARVUS TO BERLIN",
 			name_cn: "帕尔乌斯游说柏林",
 			effect_cn:
-				"开始进行俄国革命计时。把帕尔乌斯标志放置在第五回合，把俄国革命标志放置在第九回合。把"上帝保佑沙皇"标志放置在帕尔乌斯的同一回合，随后根据俄国VP标记调整其位置。俄国VP标记反映的是俄国在高加索战场所取得的成果。每当*接受俄国补给源补给*的俄国部队(或俄国波斯部队、亚美尼亚起义军)**占领一个非协约国原始VP点**，或者**解放一个协约国原始VP点**时，放置1个俄国占领标志，该标记向后移动一格。。每当俄国境内(俄国和阿塞拜疆)VP点被同盟国占领，或者放置了俄国占领标记的VP点被同盟国解放时，该标记向前移动一格。"上帝保佑沙皇"标志和俄国VP标志保持一致进行移动，但是当【不冻港】事件发生后，"上帝保佑沙皇"标志永远位于俄国VP标志+2的位置(革命推迟2个回合)。每个回合革命阶段，检查俄国革命标志和"上帝保佑沙皇"标志的位置。当回合纪录标志到达俄国革命标志及其以后的回合，同时满足到达"上帝保佑沙皇"标志及其以后的回合时，俄国革命开始，移除帕尔乌斯标志和"上帝保佑沙皇"标志，将俄国革命标志放置在革命进程进度条内的1位置，并在每个接下来的回合革命阶段前进一格。。- **(例外:某个回合革命阶段，当俄国占领了君士坦丁堡时，即使已经满足革命发生的条件，未发生的俄国革命不会发生，已发生的革命不会继续推进)**",
+				"开始进行俄国革命计时。把帕尔乌斯标志放置在第五回合，把俄国革命标志放置在第九回合。把\"上帝保佑沙皇\"标志放置在帕尔乌斯的同一回合，随后根据俄国VP标记调整其位置。俄国VP标记反映的是俄国在高加索战场所取得的成果。每当*接受俄国补给源补给*的俄国部队(或俄国波斯部队、亚美尼亚起义军)**占领一个非协约国原始VP点**，或者**解放一个协约国原始VP点**时，放置1个俄国占领标志，该标记向后移动一格。。每当俄国境内(俄国和阿塞拜疆)VP点被同盟国占领，或者放置了俄国占领标记的VP点被同盟国解放时，该标记向前移动一格。\"上帝保佑沙皇\"标志和俄国VP标志保持一致进行移动，但是当【不冻港】事件发生后，\"上帝保佑沙皇\"标志永远位于俄国VP标志+2的位置(革命推迟2个回合)。每个回合革命阶段，检查俄国革命标志和\"上帝保佑沙皇\"标志的位置。当回合纪录标志到达俄国革命标志及其以后的回合，同时满足到达\"上帝保佑沙皇\"标志及其以后的回合时，俄国革命开始，移除帕尔乌斯标志和\"上帝保佑沙皇\"标志，将俄国革命标志放置在革命进程进度条内的1位置，并在每个接下来的回合革命阶段前进一格。。- **(例外:某个回合革命阶段，当俄国占领了君士坦丁堡时，即使已经满足革命发生的条件，未发生的俄国革命不会发生，已发生的革命不会继续推进)**",
 			handler: function (game) {
 				game.events["parvus_to_berlin"] = PARVUS_MARKER_TURN
 				game.events["russian_revolution_timer"] = REVOLUTION_MARKER_TURN
@@ -2976,7 +2991,7 @@ module.exports = function (Engine) {
 		},
 		91: {
 			name: "APIS",
-			name_cn: ""蜜蜂"党骚乱",
+			name_cn: "\"蜜蜂\"党骚乱",
 			effect_cn:
 				"立即消灭一个塞尔维亚集团军(同盟国选择)。本回合塞尔维亚军队无法用于进攻**(但是协约国玩家在启动包含这些单位的地区时，仍需计算其启动花费)**",
 			handler: function (game) {
@@ -3167,7 +3182,7 @@ module.exports = function (Engine) {
 			name: "ROBERTSON",
 			name_cn: "罗伯逊",
 			effect_cn:
-				"(只能在1917年冬季后、【英国厌战】、【皇帝攻势】后，以及VP不小于13时打出)。协约国玩家必须选择:。A:+1VP。B:将最多3个英国/印度/澳新师移除游戏(派往西线)。。同盟国自动胜利标记左移1格。。在剩余的游戏中，每回合英国补员点数-1，协约国MO掷骰-2drm(**此外，掷骰"无"和"俄国"现在开始视为英国禁攻**)。解除同盟国在巴尔干地区的攻击限制。。(注:协约国选择移除师时，也可以以1LCU=3SCU的代价进行。选择移除师时，不能选择骑兵/骆驼师和英国特殊部队(例如英国波斯宪兵或者印度卫戍师等))",
+				"(只能在1917年冬季后、【英国厌战】、【皇帝攻势】后，以及VP不小于13时打出)。协约国玩家必须选择:。A:+1VP。B:将最多3个英国/印度/澳新师移除游戏(派往西线)。。同盟国自动胜利标记左移1格。。在剩余的游戏中，每回合英国补员点数-1，协约国MO掷骰-2drm(**此外，掷骰\"无\"和\"俄国\"现在开始视为英国禁攻**)。解除同盟国在巴尔干地区的攻击限制。。(注:协约国选择移除师时，也可以以1LCU=3SCU的代价进行。选择移除师时，不能选择骑兵/骆驼师和英国特殊部队(例如英国波斯宪兵或者印度卫戍师等))",
 			can_play: function (game) {
 				let year = get_year(game)
 				let is_after_winter_1917 = year > 1916

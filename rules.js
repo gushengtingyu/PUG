@@ -46,8 +46,8 @@ const {
 } = Engine.constants
 const {
 	piece_name: raw_piece_name,
-	piece_list,
-	space_name,
+	piece_list: raw_piece_list,
+	space_name: raw_space_name,
 	find_space,
 	find_capital,
 	find_piece,
@@ -211,10 +211,23 @@ function with_optional_game_arg(arg1, arg2, fn) {
 }
 
 function piece_name(p, reduced = null) {
-	let name = raw_piece_name(p)
+	if (!data.pieces[p]) return raw_piece_name(p)
 	if (reduced === null) reduced = !!(game && is_piece_reduced(game, p))
-	if (reduced) return `(${name})`
-	return name
+	return reduced ? `p${p}` : `P${p}`
+}
+
+function piece_list(pieces) {
+	if (!Array.isArray(pieces)) return raw_piece_list([])
+	if (pieces.length === 0) return raw_piece_list(pieces)
+	let list = pieces.map((p) => piece_name(p))
+	if (list.length <= 2) return list.join(" and ")
+	let last = list.pop()
+	return `${list.join(", ")}, and ${last}`
+}
+
+function space_name(s) {
+	if (!data.spaces[s]) return raw_space_name(s)
+	return `s${s}`
 }
 
 function move_piece(target_game, p, s) {
@@ -1573,7 +1586,7 @@ function goto_review_supply_warnings() {
 	if (has_supply_warnings()) {
 		log_h1("补给警告")
 		game.supply_warnings.forEach((s) => {
-			log(`${data.spaces[s].name_cn || data.spaces[s].name}`)
+			log(space_name(s))
 		})
 		game.state = "review_supply_warnings"
 	} else {
@@ -1585,7 +1598,7 @@ states.review_supply_warnings = {
 	prompt(res) {
 		res.prompt("确认收到补给警告。")
 		if (game.supply_warnings && game.supply_warnings.length < 4) {
-			const list = game.supply_warnings.map((s) => data.spaces[s].name_cn || data.spaces[s].name).join(", ")
+			const list = game.supply_warnings.map((s) => space_name(s)).join(", ")
 			res.prompt(`确认收到补给警告 (${list})。`)
 		}
 		res.action("acknowledge")
@@ -2607,6 +2620,8 @@ turn_funcs = turn_states.register(states, Engine, {
 	faction_name,
 	card_name,
 	card_names,
+	space_name,
+	piece_name,
 	push_undo,
 	pop_undo,
 	clear_undo,

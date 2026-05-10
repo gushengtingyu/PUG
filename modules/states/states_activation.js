@@ -1504,7 +1504,7 @@ exports.register = function (states, Engine, context) {
 			if (!ctx || !set_has(ctx.pending_scus, p)) return
 			game.pieces[p] = get_scu_reserve_box(data.pieces[p].faction)
 			set_delete(ctx.pending_scus, p)
-			log(`SCU ${data.pieces[p].name} to reserve.`)
+			log(`${piece_name(p)} to reserve.`)
 			if (ctx.type === "full") game.state = "combine_lcu_dispose_eliminated"
 			else game.state = "combine_lcu_dispose_removed"
 		},
@@ -1534,7 +1534,7 @@ exports.register = function (states, Engine, context) {
 			game.pieces[p] = get_eliminated_box(data.pieces[p].faction)
 			set_delete(game.reduced, p)
 			set_delete(ctx.pending_scus, p)
-			log(`SCU ${data.pieces[p].name} to eliminated.`)
+			log(`${piece_name(p)} to eliminated.`)
 			game.state = "combine_lcu_dispose_removed"
 		},
 		cancel() {
@@ -1562,7 +1562,7 @@ exports.register = function (states, Engine, context) {
 			if (!ctx || !set_has(ctx.pending_scus, p)) return
 			game.pieces[p] = get_permanently_eliminated_box(data.pieces[p].faction)
 			set_delete(ctx.pending_scus, p)
-			log(`SCU ${data.pieces[p].name} removed.`)
+			log(`${piece_name(p)} removed.`)
 			finalize_manual_combination()
 		},
 		cancel() {

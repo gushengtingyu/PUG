@@ -20423,7 +20423,7 @@ var data = {
 		"rlf": 3,
 		"rmf": 4,
 		"type": "regular",
-		"badge": "infantry",
+		"badge": "yellow",
 		"piece_class": "LCU",
 		"image_full": "BRIXC.png",
 		"image_reduced": "BRIXCR.png"
@@ -23727,7 +23727,7 @@ var data = {
 		"rlf": 3,
 		"rmf": 3,
 		"type": "regular",
-		"badge": "infantry",
+		"badge": "yellow",
 		"piece_class": "LCU",
 		"image_full": "TU1CaucC.png",
 		"image_reduced": "TU1CaucCR.png"
@@ -23744,7 +23744,7 @@ var data = {
 		"rlf": 3,
 		"rmf": 3,
 		"type": "regular",
-		"badge": "infantry",
+		"badge": "yellow",
 		"piece_class": "LCU",
 		"image_full": "TU2CaucC.png",
 		"image_reduced": "TU2CaucCR.png"
@@ -24542,7 +24542,7 @@ var data = {
 		"rlf": 3,
 		"rmf": 3,
 		"type": "regular",
-		"badge": "infantry",
+		"badge": "yellow",
 		"piece_class": "LCU",
 		"image_full": "TUXIVC.png",
 		"image_reduced": "TUXIVCR.png"
@@ -24559,7 +24559,7 @@ var data = {
 		"rlf": 3,
 		"rmf": 3,
 		"type": "regular",
-		"badge": "infantry",
+		"badge": "yellow",
 		"piece_class": "LCU",
 		"image_full": "TUXVC.png",
 		"image_reduced": "TUXVCR.png"
@@ -24576,7 +24576,7 @@ var data = {
 		"rlf": 3,
 		"rmf": 3,
 		"type": "regular",
-		"badge": "infantry",
+		"badge": "yellow",
 		"piece_class": "LCU",
 		"image_full": "TUXVIC.png",
 		"image_reduced": "TUXVICR.png"
@@ -24627,7 +24627,7 @@ var data = {
 		"rlf": 3,
 		"rmf": 3,
 		"type": "regular",
-		"badge": "infantry",
+		"badge": "yellow",
 		"piece_class": "LCU",
 		"image_full": "TUXXIIC.png",
 		"image_reduced": "TUXXIICR.png"
@@ -26435,12 +26435,12 @@ var data = {
 		"ops": 4,
 		"sr": 4,
 		"remove": true,
-		"ws": 1,
-		"rp_ah": 1,
-		"rp_ge": 2,
-		"rp_tu": 3,
-		"name": "耶尔德里姆",
-		"event": "YILDRIM"
+		"rp_ru": 1,
+		"rp_ah": 2,
+		"rp_ge": 3,
+		"rp_in": null,
+		"name": "YILDRIM",
+		"event": "增援:3个德国耶尔德里姆步兵师，至任何可以连接至加利西亚的土耳其补给点。。如果法金汉HQ尚未被消灭，则还可以将其移动至存在耶尔德里姆师的地区。"
 	},
 	{
 		"num": 101,
@@ -26478,6 +26478,7 @@ var data = {
 		"ops": 4,
 		"sr": 4,
 		"remove": true,
+		"ws": 1,
 		"rp_ah": 1,
 		"rp_ge": 2,
 		"rp_tu": 3,
@@ -26530,12 +26531,12 @@ var data = {
 		"ops": 4,
 		"sr": 4,
 		"remove": true,
-		"ws": 1,
-		"rp_ah": 1,
-		"rp_ge": 2,
-		"rp_tu": 3,
-		"name": "高加索军队重组",
-		"event": "CAUCASIAN ARMY REFORMS"
+		"rp_ru": 1,
+		"rp_ah": 2,
+		"rp_ge": 3,
+		"rp_in": null,
+		"name": "CAUCASIAN ARMY REFORMS",
+		"event": "立即消灭4个地图上/预备军格的土耳其/土耳其-阿拉伯LCU作为代价。。增援:土耳其高加索第1军团、土耳其高加索第2军团 至安纳托利亚、高加索或者加里波利的同盟国控制区域。"
 	},
 	{
 		"num": 108,

@@ -21,9 +21,13 @@ module.exports = function (Engine) {
 	const exports = {}
 
 	function format_piece_name(game, p) {
-		let name = piece_name(p)
-		if (is_piece_reduced(game, p)) return `(${name})`
-		return name
+		if (!data.pieces[p]) return piece_name(p)
+		return is_piece_reduced(game, p) ? `p${p}` : `P${p}`
+	}
+
+	function format_space_name(s) {
+		if (!data.spaces[s]) return "Unknown Space (" + s + ")"
+		return `s${s}`
 	}
 
 	function can_select_tribe_for_jihad_placement(game, p) {
@@ -104,7 +108,7 @@ module.exports = function (Engine) {
 		if (!amount) return
 		Engine.log(
 			game,
-			`圣战城市影响：${data.spaces[s].name}，圣战等级 ${amount > 0 ? "+" : ""}${amount} (当前: ${game.jihad})。`
+			`圣战城市影响：${format_space_name(s)}，圣战等级 ${amount > 0 ? "+" : ""}${amount} (当前: ${game.jihad})。`
 		)
 	}
 
@@ -434,7 +438,7 @@ module.exports = function (Engine) {
 			game.pieces[p] = s
 			game.selected_piece = null
 			game.tribes_to_place--
-			log(`${format_piece_name(game, p)} 放置在 ${data.spaces[s].name}`)
+			log(`${format_piece_name(game, p)} 放置在 ${format_space_name(s)}`)
 			Engine.sync_neutral_vp_state(game, s)
 			Engine.sync_jihad_city_state(game, s)
 			Engine.sync_region_control(game, s)

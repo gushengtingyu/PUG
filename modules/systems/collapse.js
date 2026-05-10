@@ -155,8 +155,7 @@ module.exports = function (Engine) {
 		get_piece_nation,
 		get_piece_effective_faction,
 		get_capacity,
-		piece_counts_as_nation_for_rule,
-		piece_name
+		piece_counts_as_nation_for_rule
 	} = Engine.game_utils
 
 	const { is_controlled_by, get_pieces_in_space, is_balkans } = Engine.map
@@ -432,7 +431,7 @@ module.exports = function (Engine) {
 							info.name.startsWith("GE DIV #")
 						) {
 							game.pieces[p] = s
-							let name = is_piece_reduced(game, p) ? `(${piece_name(p)})` : piece_name(p)
+							let name = is_piece_reduced(game, p) ? `p${p}` : `P${p}`
 							log(`德布第11集团军被 ${name} 替换。`)
 							break
 						}

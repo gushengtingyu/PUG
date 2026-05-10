@@ -106,6 +106,12 @@ module.exports = function (Engine) {
 		return data.pieces[p].name.replace(/ /g, "\u00A0")
 	}
 
+	function piece_log_name(game, p, reduced = null) {
+		if (!data.pieces[p]) return piece_name(p)
+		if (reduced === null) reduced = is_piece_reduced(game, p)
+		return reduced ? `p${p}` : `P${p}`
+	}
+
 	function piece_list(pieces) {
 		if (pieces.length === 0) return "no units"
 		let list = pieces.map(piece_name)
@@ -656,7 +662,7 @@ module.exports = function (Engine) {
 		let snapshot = runtime_state || capture_lcu_runtime_state(game, lcu)
 		game.pieces[scu] = space
 		transfer_lcu_runtime_state(game, lcu, scu, snapshot)
-		if (log) log(`LCU ${data.pieces[lcu].name} 被替换为 SCU ${data.pieces[scu].name}。`)
+		if (log) log(`LCU ${piece_log_name(game, lcu)} 被替换为 SCU ${piece_log_name(game, scu)}。`)
 		return scu
 	}
 
@@ -681,7 +687,7 @@ module.exports = function (Engine) {
 		let space = game.pieces[p]
 		game.pieces[p] = get_removed_box(info.faction)
 		reset_piece_runtime_state(game, p)
-		if (log) log(`单位 ${data.pieces[p].name} 被移出游戏 (Removed)。`)
+		if (log) log(`单位 ${piece_log_name(game, p)} 被移出游戏 (Removed)。`)
 		if (space > 0 && Engine.sync_neutral_vp_state) Engine.sync_neutral_vp_state(game, space)
 		if (space > 0 && Engine.sync_jihad_city_state) Engine.sync_jihad_city_state(game, space)
 		if (space > 0 && Engine.sync_region_control) Engine.sync_region_control(game, space)
@@ -718,12 +724,12 @@ module.exports = function (Engine) {
 				} else {
 					// Rule 307: If no replacement SCU, LCU is permanently eliminated
 					is_lcu_pe = true
-					if (log) log(`LCU ${data.pieces[p].name} 被摧毁，由于没有可用的 SCU 替换：永久消除（PE）。`)
+			if (log) log(`LCU ${piece_log_name(game, p)} 被摧毁，由于没有可用的 SCU 替换：永久消除（PE）。`)
 				}
 			} else {
 				// Rule 12.6.5: If unsupplied LCU is eliminated, it is permanently removed
 				is_lcu_pe = true
-				if (log) log(`未补给的 LCU ${data.pieces[p].name} 被摧毁：永久消除（PE）。`)
+			if (log) log(`未补给的 LCU ${piece_log_name(game, p)} 被摧毁：永久消除（PE）。`)
 			}
 		}
 
@@ -734,7 +740,7 @@ module.exports = function (Engine) {
 			game.pieces[p] = get_permanently_eliminated_box(info.faction)
 			if (log) {
 				let label = info.piece_class === "LCU" ? "LCU" : "单位"
-				log(`${label} ${data.pieces[p].name} 被永久消除 (Permanently Eliminated)。`)
+			log(`${label} ${piece_log_name(game, p)} 被永久消除 (Permanently Eliminated)。`)
 			}
 		} else if (is_tribe(p)) {
 			game.pieces[p] = get_eliminated_box(info.faction)

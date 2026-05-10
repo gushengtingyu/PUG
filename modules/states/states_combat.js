@@ -220,9 +220,7 @@ exports.register = function (states, Engine, context) {
 	function format_piece_log(p, reduced = null) {
 		let is_reduced = reduced
 		if (is_reduced === null) is_reduced = Engine.game_utils.is_piece_reduced(game, p)
-		let name = data.pieces[p] ? data.pieces[p].name : piece_name(p)
-		if (is_reduced) return `(${name})`
-		return name
+		return piece_name(p, is_reduced)
 	}
 
 	function ensure_attack_log_section(flag, title) {
@@ -1454,7 +1452,7 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 
-			res.prompt(`贾法尔帕夏：选择 ${data.pieces[piece].name} 的撤退地块`)
+			res.prompt(`贾法尔帕夏：选择 ${piece_name(piece)} 的撤退地块`)
 			let valid = get_jafar_pasha_retreat_spaces(piece)
 			if (valid.length === 0) {
 				res.action("eliminate_retreating")
@@ -2039,7 +2037,7 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 			let lcu = game.attack.replacement.unit
-			res.prompt(`LCU ${data.pieces[lcu].name} 被击溃：请从预备军格选择一个 SCU 进行替换`)
+			res.prompt(`LCU ${piece_name(lcu)} 被击溃：请从预备军格选择一个 SCU 进行替换`)
 			for (let p of game.attack.replacement.options) res.piece(p)
 		},
 		piece(p) {
@@ -2561,7 +2559,7 @@ exports.register = function (states, Engine, context) {
 				}
 			} else {
 				let piece = game.selected_piece
-				res.prompt(`正在撤退 ${data.pieces[piece].name} 到第比利斯`)
+				res.prompt(`正在撤退 ${piece_name(piece)} 到第比利斯`)
 
 				// Calculate spaces towards Tiflis (ID 12)
 				const TIFLIS = 12
@@ -2583,7 +2581,7 @@ exports.register = function (states, Engine, context) {
 				let can_decline = with_yudenitch || in_fort || valid.length === 0
 
 				if (valid.length === 0) {
-					res.prompt(`无法让 ${data.pieces[piece].name} 向第比利斯方向撤退。`)
+					res.prompt(`无法让 ${piece_name(piece)} 向第比利斯方向撤退。`)
 					res.action("decline_retreat")
 				} else {
 					for (let s of valid) res.space(s)
@@ -2603,7 +2601,7 @@ exports.register = function (states, Engine, context) {
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
 				let from = game.pieces[p]
-				log(`${data.pieces[p].name} retreats to ${data.spaces[s].name} (towards Tiflis).`)
+				log(`${piece_name(p)} retreats to ${space_name(s)} (towards Tiflis).`)
 				game.pieces[p] = s
 				if (from > 0) Engine.sync_region_control(game, from)
 				Engine.sync_region_control(game, s)
@@ -2614,7 +2612,7 @@ exports.register = function (states, Engine, context) {
 		cannot_retreat() {
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
-				log(`${data.pieces[p].name} cannot retreat towards Tiflis and remains in place.`)
+				log(`${piece_name(p)} cannot retreat towards Tiflis and remains in place.`)
 				game.save_tiflis_failed = true
 				set_delete(game.save_tiflis_pieces, p)
 				game.selected_piece = null
@@ -2623,7 +2621,7 @@ exports.register = function (states, Engine, context) {
 		decline_retreat() {
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
-				log(`${data.pieces[p].name} declines to retreat towards Tiflis.`)
+				log(`${piece_name(p)} declines to retreat towards Tiflis.`)
 				set_delete(game.save_tiflis_pieces, p)
 				game.selected_piece = null
 			}
@@ -2787,7 +2785,7 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 
-			res.prompt(`灾难性攻击：选择 ${data.pieces[piece].name} 的挺进地块`)
+			res.prompt(`灾难性攻击：选择 ${piece_name(piece)} 的挺进地块`)
 			res.action("end_advance")
 			for (let s of valid) res.space(s)
 			res.piece(piece)
@@ -2870,7 +2868,7 @@ exports.register = function (states, Engine, context) {
 				}
 			} else {
 				// Move piece phase
-				res.prompt(`选择 ${data.pieces[piece].name} 的撤退路径`)
+				res.prompt(`选择 ${piece_name(piece)} 的撤退路径`)
 
 				let remaining_steps = game.retreat_steps_left[piece] || 1
 				let valid = get_valid_retreat_spaces(
@@ -2976,7 +2974,7 @@ exports.register = function (states, Engine, context) {
 
 			if (snapshot.selected_piece !== null && snapshot.selected_piece !== undefined) {
 				let piece = snapshot.selected_piece
-				res.prompt(`正在撤退 ${data.pieces[piece].name}`)
+				res.prompt(`正在撤退 ${piece_name(piece)}`)
 
 				let valid = get_valid_retreat_spaces(
 					game,
@@ -3205,7 +3203,7 @@ exports.register = function (states, Engine, context) {
 					for (let p of selectable) res.piece(p)
 				} else if (set_has(selectable, game.selected_piece)) {
 					let p = game.selected_piece
-					res.prompt(`选择 ${data.pieces[p].name} 的继续推进地块`)
+					res.prompt(`选择 ${piece_name(p)} 的继续推进地块`)
 					for (let s of get_follow_advance_spaces(p)) res.space(s)
 					res.piece(p)
 				} else {
@@ -3225,7 +3223,7 @@ exports.register = function (states, Engine, context) {
 				res.prompt("靶心指令 (MCC)：必须推进 ANZ Desert Corps")
 				for (let p of mandatory) res.piece(p)
 			} else {
-				res.prompt("推进至 " + data.spaces[game.advance_space].name)
+				res.prompt("推进至 " + space_name(game.advance_space))
 				res.action("end_advance")
 
 				if ((game.advance_count || 0) < (game.advance_limit || 3)) {

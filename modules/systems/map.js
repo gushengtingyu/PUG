@@ -20,6 +20,7 @@ module.exports = function (Engine) {
 		is_heavy_arty,
 		is_eliminated,
 		is_not_on_map,
+		is_piece_reduced,
 		get_tribe_key_space,
 		get_piece_nations_for_rule,
 		get_piece_nation_groups_for_rule,
@@ -1779,7 +1780,7 @@ module.exports = function (Engine) {
 			if (get_piece_mf(p) < game.move.spaces_moved) {
 				set_delete(game.move.pieces, p)
 				set_add(game.moved, p)
-				if (log_fn) log_fn(`${data.pieces[p].name} stops moving in ${data.spaces[game.move.current].name}`)
+				if (log_fn) log_fn(`${is_piece_reduced(game, p) ? `p${p}` : `P${p}`} stops moving in s${game.move.current}`)
 				removed = true
 			}
 		}

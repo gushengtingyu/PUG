@@ -26,6 +26,8 @@ function getTurnFuncs(game) {
 		log_h1: () => {},
 		get_pieces_in_space: Engine.map.get_pieces_in_space,
 		find_space: Engine.game_utils.find_space,
+		space_name: Engine.game_utils.space_name,
+		piece_name: Engine.game_utils.piece_name,
 		other_faction: Engine.utils.other_faction,
 		set_control: Engine.set_control,
 		check_supply: Engine.map.check_supply,

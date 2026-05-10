@@ -15,6 +15,16 @@ module.exports = function (Engine) {
 	const NIS = find_space("Nis")
 	const NEUTRAL_PERSIA_FIRST_ENTRY_PENALTY = "neutral_persia_first_entry_penalty"
 
+	function space_log_name(s) {
+		if (!data.spaces[s]) return "Unknown Space (" + s + ")"
+		return `s${s}`
+	}
+
+	function piece_log_name(game, p) {
+		if (!data.pieces[p]) return "Unknown Unit (" + p + ")"
+		return game_utils.is_piece_reduced(game, p) ? `p${p}` : `P${p}`
+	}
+
 	function normalize_greece_faction(value) {
 		if (value === AP || value === CP) return value
 		if (value === true) return AP
@@ -117,7 +127,7 @@ module.exports = function (Engine) {
 
 		game.events["syrian_politics_penalty"] = true
 		game.vp = (game.vp || 0) + 1
-		Engine.log(game, `叙利亚政治：首次在 ${data.spaces[space_id].name} 建立叙利亚相邻滩头，CP +1 VP。`)
+		Engine.log(game, `叙利亚政治：首次在 ${space_log_name(space_id)} 建立叙利亚相邻滩头，CP +1 VP。`)
 		Engine.update_jihad_level(game, 1)
 	}
 
@@ -394,7 +404,7 @@ module.exports = function (Engine) {
 		game.entry_gr = true
 		if (typeof log_fn === "function") {
 			log_fn(
-				`希腊加入${entering_faction === AP ? "协约国" : "同盟国"}阵营（${reason}${target ? " " + data.spaces[target].name : ""}）`
+				`希腊加入${entering_faction === AP ? "协约国" : "同盟国"}阵营（${reason}${target ? " " + space_log_name(target) : ""}）`
 			)
 		}
 
@@ -419,7 +429,7 @@ module.exports = function (Engine) {
 				let p = game_utils.find_piece(faction, unit_name)
 				if (p >= 0 && game_utils.is_not_on_map(game, p)) {
 					game.pieces[p] = space_id
-					log_fn(`部署 ${unit_name} 至 ${space === "RESERVE" ? "预备格" : data.spaces[space_id].name}`)
+					log_fn(`部署 ${piece_log_name(game, p)} 至 ${space === "RESERVE" ? "预备格" : space_log_name(space_id)}`)
 				}
 			}
 		}
@@ -454,7 +464,7 @@ module.exports = function (Engine) {
 		if (!game_utils.is_not_on_map(game, p) && !can_reposition_existing) return false
 		if (current_space !== space_id) {
 			game.pieces[p] = space_id
-			Engine.log(game, `部署 ${unit_name} 至 ${data.spaces[space_id].name}`)
+			Engine.log(game, `部署 ${piece_log_name(game, p)} 至 ${space_log_name(space_id)}`)
 		}
 		return true
 	}
@@ -477,13 +487,13 @@ module.exports = function (Engine) {
 		) {
 			if (game.pieces[p] !== space_id) {
 				game.pieces[p] = space_id
-				Engine.log(game, `部署 ${unit_name} 至 ${space === "RESERVE" ? "预备格" : data.spaces[space_id].name}`)
+				Engine.log(game, `部署 ${piece_log_name(game, p)} 至 ${space === "RESERVE" ? "预备格" : space_log_name(space_id)}`)
 			}
 			return true
 		}
 		if (!game_utils.is_not_on_map(game, p)) return false
 		game.pieces[p] = space_id
-		Engine.log(game, `部署 ${unit_name} 至 ${space === "RESERVE" ? "预备格" : data.spaces[space_id].name}`)
+		Engine.log(game, `部署 ${piece_log_name(game, p)} 至 ${space === "RESERVE" ? "预备格" : space_log_name(space_id)}`)
 		return true
 	}
 
@@ -765,7 +775,7 @@ module.exports = function (Engine) {
 		let amount = Math.abs(delta)
 		Engine.log(
 			game,
-			`部落/非正规军单位影响VP：${data.spaces[s].name}，${side} +${amount} VP (当前VP: ${game.vp})。`
+			`部落/非正规军单位影响VP：${space_log_name(s)}，${side} +${amount} VP (当前VP: ${game.vp})。`
 		)
 	}
 

@@ -889,6 +889,16 @@ function strip_log_prefixes(text) {
  * @param {number} [limit=5] - 显示的最近记录条数。
  * @returns {HTMLElement} 包含摘要的 dl 元素。
  */
+function get_log_history() {
+	if (typeof game_log !== "undefined" && Array.isArray(game_log)) {
+		return game_log
+	}
+	if (Array.isArray(view?.log)) {
+		return view.log
+	}
+	return []
+}
+
 function build_history_summary(limit = 5) {
 	const dl = document.createElement("dl")
 	const append_value = (label, value) => {
@@ -898,7 +908,7 @@ function build_history_summary(limit = 5) {
 		dl.appendChild(p)
 	}
 
-	const history = Array.isArray(window.game_log) ? window.game_log : []
+	const history = get_log_history()
 	const total = history.length
 	append_value("总记录数", total)
 	if (total === 0) {
@@ -1726,6 +1736,7 @@ function sub_space_name(match, p1) {
 	const s = p1 | 0
 	if (!spaces[s]) return `[${s}]`
 	const n = spaces[s].name
+	if (!get_space_tip_element(s)) return n
 	return `<span class="spacetip" onmouseenter="on_focus_space_tip(${s})" onmouseleave="on_blur_space_tip(${s})" onclick="on_click_space_tip(${s})">${n}</span>`
 }
 
@@ -3296,8 +3307,9 @@ function collect_rollback_events(from_index) {
 	if (!rollback) {
 		return []
 	}
-	if (Number.isInteger(rollback.log_index) && Array.isArray(view?.log)) {
-		return view.log
+	const history = get_log_history()
+	if (Number.isInteger(rollback.log_index) && Array.isArray(history)) {
+		return history
 			.slice(rollback.log_index)
 			.map((text, offset) => ({
 				type: "log",
@@ -3557,8 +3569,9 @@ function get_bug_report_view_excerpt() {
 	if (view.actions && typeof view.actions === "object") {
 		excerpt.action_keys = Object.keys(view.actions).slice(0, 120)
 	}
-	if (Array.isArray(view.log)) {
-		excerpt.recent_view_log = view.log.slice(-8)
+	const history = get_log_history()
+	if (history.length > 0) {
+		excerpt.recent_view_log = history.slice(-8)
 	}
 	return excerpt
 }
@@ -5848,12 +5861,19 @@ function on_prompt(text) {
 	return escape_text(String(text)).replace(/\n/g, "<br>")
 }
 
+function get_space_tip_element(s) {
+	return (ui.space_list && ui.space_list[s]) || (spaces[s] && spaces[s].element) || null
+}
+
 /**
  * 显示空间提示。
  * @param {number} s - 空间 ID。
  */
 function on_focus_space_tip(s) {
-	ui.space_list[s].classList.add("tip")
+	const el = get_space_tip_element(s)
+	if (el) {
+		el.classList.add("tip")
+	}
 }
 
 /**
@@ -5861,7 +5881,10 @@ function on_focus_space_tip(s) {
  * @param {number} s - 空间 ID。
  */
 function on_blur_space_tip(s) {
-	ui.space_list[s].classList.remove("tip")
+	const el = get_space_tip_element(s)
+	if (el) {
+		el.classList.remove("tip")
+	}
 }
 
 /**
@@ -5869,8 +5892,11 @@ function on_blur_space_tip(s) {
  * @param {number} s - 空间 ID。
  */
 function on_click_space_tip(s) {
-	scroll_into_view(ui.space_list[s])
-	attract(ui.space_list[s])
+	const el = get_space_tip_element(s)
+	if (el) {
+		scroll_into_view(el)
+		attract(el)
+	}
 }
 
 /**

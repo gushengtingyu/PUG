@@ -25,6 +25,8 @@ exports.register = function (states, Engine, context) {
 		get_reserve_box,
 		faction_name,
 		log_h1,
+		space_name,
+		piece_name,
 		MO_NONE,
 		PHASE_SEQUENCE,
 		push_state,
@@ -210,7 +212,7 @@ exports.register = function (states, Engine, context) {
 		if (game.oos && game.oos.length > 0) {
 			let oos_units = [...game.oos]
 			for (let p of oos_units) {
-				log(`${data.pieces[p].name} eliminated (OOS)`)
+				log(`${piece_name(p)} eliminated (OOS)`)
 				eliminate_piece(p, true)
 			}
 			game.oos = []
@@ -224,7 +226,7 @@ exports.register = function (states, Engine, context) {
 				let faction = Engine.map.get_space_controller(game, s)
 				if ((faction === AP || faction === CP) && !Engine.map.has_undestroyed_fort(game, s, faction)) {
 					let opponent = other_faction(faction)
-					log(`${data.spaces[s].name} becomes enemy-controlled due to attrition (OOS)`)
+					log(`${space_name(s)} becomes enemy-controlled due to attrition (OOS)`)
 					set_control(game, s, opponent)
 				}
 			}
@@ -445,7 +447,7 @@ exports.register = function (states, Engine, context) {
 			let remaining = []
 			for (let r of game.delayed_reinforcements) {
 				if (r.turn <= game.turn) {
-					log(`Delayed Reinforcement Arrives: ${data.pieces[r.piece].name}`)
+					log(`Delayed Reinforcement Arrives: ${piece_name(r.piece)}`)
 					reinforce(game, data.pieces[r.piece].name, data.pieces[r.piece].faction, r.space)
 
 					if (
@@ -478,10 +480,10 @@ exports.register = function (states, Engine, context) {
 			}
 			if (occupied) {
 				game.vp -= 1
-				log(`圣诞节前收复圣城结算：${data.spaces[target].name} 被英国/印度/澳新部队占据，VP -1。`)
+				log(`圣诞节前收复圣城结算：${space_name(target)} 被英国/印度/澳新部队占据，VP -1。`)
 			} else {
 				game.vp += 1
-				let target_name = target > 0 ? data.spaces[target].name : "目标地块"
+				let target_name = target > 0 ? space_name(target) : "目标地块"
 				log(`圣诞节前收复圣城结算：${target_name} 未被英国/印度/澳新部队占据，VP +1。`)
 			}
 			delete game.events["jerusalem_by_christmas"]
@@ -777,7 +779,7 @@ exports.register = function (states, Engine, context) {
 				entry.turn = game.turn + 1
 				entry.allow_any_friendly_port = true
 				remaining.push(entry)
-				log(`${data.pieces[p].name} Suez delayed SR: no friendly port is available in the destination area; delayed to turn ${entry.turn}.`)
+				log(`${piece_name(p)} Suez delayed SR: no friendly port is available in the destination area; delayed to turn ${entry.turn}.`)
 				continue
 			}
 			pending.push(entry)
@@ -966,7 +968,7 @@ exports.register = function (states, Engine, context) {
 			}
 			let ports = Engine.map.get_suez_delayed_sr_arrival_ports(game, entry)
 			res.who(entry.piece)
-			res.prompt(`Suez delayed SR: choose the arrival port for ${data.pieces[entry.piece].name}.`)
+			res.prompt(`Suez delayed SR: choose the arrival port for ${piece_name(entry.piece)}.`)
 			for (let s of ports) res.space(s)
 		},
 		space(s) {
@@ -976,7 +978,7 @@ exports.register = function (states, Engine, context) {
 			if (!ports.includes(s)) return
 			push_undo()
 			game.pieces[entry.piece] = s
-			log(`${data.pieces[entry.piece].name} Suez delayed SR arrives at ${data.spaces[s].name}.`)
+			log(`${piece_name(entry.piece)} Suez delayed SR arrives at ${space_name(s)}.`)
 			game.suez_delayed_sr_pending.shift()
 			finish_suez_delayed_sr_arrival()
 		}
@@ -1182,7 +1184,7 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 			res.who(p)
-			res.prompt(`选择 ${data.pieces[p].name} 的重建位置`)
+			res.prompt(`选择 ${piece_name(p)} 的重建位置`)
 			for (let s of get_rebuild_spaces(p)) res.space(s)
 		},
 		piece() {},

@@ -98,7 +98,7 @@ const Engine = {
 				if (this._hand !== undefined) view.hand = this._hand
 				if (this._rollback_proposal !== undefined) view.rollback_proposal = this._rollback_proposal
 				if (this._entrenching !== undefined) view.entrenching = this._entrenching
-				view.actions = this._actions
+				view.actions = Object.keys(this._actions).length > 0 ? this._actions : null
 			},
 			set_control(s, faction) {
 				Engine.set_control(this.game, s, faction)

@@ -68,6 +68,17 @@ module.exports = function (Engine) {
 		get_beachhead_spaces
 	} = Engine.map
 	const { can_enter_region, can_stack_end_in_space } = Engine.map
+
+	function space_log_name(s) {
+		if (!data.spaces[s]) return space_name(s)
+		return `s${s}`
+	}
+
+	function piece_log_name(game, p, reduced = null) {
+		if (!data.pieces[p]) return piece_name(p)
+		if (reduced === null) reduced = is_piece_reduced(game, p)
+		return reduced ? `p${p}` : `P${p}`
+	}
 	const { is_besieged, is_in_supply } = Engine.map
 	const { bulls_eye_ru_attack_drm } = Engine.events
 
@@ -154,7 +165,6 @@ module.exports = function (Engine) {
 		let p = game.attack.pieces[0]
 		let source = game.pieces[p]
 		let target = game.attack.space
-		let target_name = data.spaces[target].name
 		let has_intact_cp_fort = has_undestroyed_fort(game, target, CP)
 
 		set_add(game.attacked, p)
@@ -169,7 +179,7 @@ module.exports = function (Engine) {
 			game.events["black_sea_marines_fort"] = target
 			if (log_fn) {
 				log_fn(
-					`Russian Amphibious Invasion: ${data.pieces[p].name} sails from ${space_name(source)} and besieges ${target_name}.`
+					`Russian Amphibious Invasion: ${piece_log_name(game, p)} sails from ${space_log_name(source)} and besieges ${space_log_name(target)}.`
 				)
 				log_fn("RU Amphibious Assault marker flipped.")
 			}
@@ -177,7 +187,7 @@ module.exports = function (Engine) {
 			Engine.set_control(game, target, AP)
 			if (log_fn) {
 				log_fn(
-					`Russian Amphibious Invasion: ${data.pieces[p].name} sails from ${space_name(source)} and occupies ${target_name}.`
+					`Russian Amphibious Invasion: ${piece_log_name(game, p)} sails from ${space_log_name(source)} and occupies ${space_log_name(target)}.`
 				)
 				log_fn("RU Amphibious Assault marker flipped.")
 			}
@@ -629,7 +639,7 @@ module.exports = function (Engine) {
 
 		for (let s of spaces_to_roll) {
 			const roll = roll_die(6, game)
-			let status_msg = `恶劣天气 (${data.spaces[s].name}): 掷骰=${roll}, 行动轮=${round}`
+			let status_msg = `恶劣天气 (${space_log_name(s)}): 掷骰=${roll}, 行动轮=${round}`
 			if (roll >= round) {
 				let reduced_units = []
 				// 仅翻转该地区中参与进攻的正规部队
@@ -696,9 +706,7 @@ module.exports = function (Engine) {
 	}
 
 	function format_piece_for_battle_log(game, p) {
-		let name = data.pieces[p] ? data.pieces[p].name : piece_name(p)
-		if (is_piece_reduced(game, p)) return `(${name})`
-		return name
+		return piece_log_name(game, p)
 	}
 
 	function log_attack_overview(game, log_fn) {
@@ -723,8 +731,8 @@ module.exports = function (Engine) {
 		)
 
 		log_fn("")
-		if (attacker_faction === AP) log_fn(`#ap 战斗：${space_name(target_space)}`)
-		else log_fn(`#cp 战斗：${space_name(target_space)}`)
+		if (attacker_faction === AP) log_fn(`#ap 战斗：${space_log_name(target_space)}`)
+		else log_fn(`#cp 战斗：${space_log_name(target_space)}`)
 
 		log_fn("**进攻方**：")
 		for (let source of attack_sources) {
@@ -733,7 +741,7 @@ module.exports = function (Engine) {
 			)
 			if (attackers_in_space.length > 0) {
 				log_fn(
-					`>> ${attackers_in_space.map((p) => format_piece_for_battle_log(game, p)).join(", ")} (${space_name(source)})`
+					`>> ${attackers_in_space.map((p) => format_piece_for_battle_log(game, p)).join(", ")} (${space_log_name(source)})`
 				)
 			}
 		}
@@ -775,7 +783,7 @@ module.exports = function (Engine) {
 		for (let s of sorted_spaces) {
 			if (adds_flanking_drm(game, s, attacker_faction, target_space)) {
 				flank_drm += 1
-				log_detail(log_fn, `+1 ${space_name(s)}`)
+				log_detail(log_fn, `+1 ${space_log_name(s)}`)
 			}
 		}
 
@@ -1937,10 +1945,10 @@ module.exports = function (Engine) {
 				if (!game.forts) game.forts = { destroyed: [] }
 				if (!game.forts.destroyed) game.forts.destroyed = []
 				set_add(game.forts.destroyed, target_space)
-				if (log_fn) log_fn(`${data.spaces[target_space].name} Fort is destroyed!`)
+		if (log_fn) log_fn(`${space_log_name(target_space)} Fort is destroyed!`)
 			} else if (defenders.length === 0 && remaining_losses > 0) {
 				if (log_fn)
-					log_fn(`${data.spaces[target_space].name} Fort is damaged (${remaining_losses}/${fort_lf} losses).`)
+					log_fn(`${space_log_name(target_space)} Fort is damaged (${remaining_losses}/${fort_lf} losses).`)
 			}
 		}
 	}
@@ -2079,7 +2087,7 @@ module.exports = function (Engine) {
 						for (let p of result.used_hqs.attacker) {
 							if (winner === game.active) {
 								if (is_piece_reduced(game, p)) {
-									log_fn(`Rule 16.2.2: Winning HQ ${data.pieces[p].name} flipped to full strength.`)
+									log_fn(`Rule 16.2.2: Winning HQ ${piece_log_name(game, p)} flipped to full strength.`)
 									restore_piece(game, p)
 								}
 								if (data.pieces[p].name.includes("Army of Islam")) {
@@ -2090,7 +2098,7 @@ module.exports = function (Engine) {
 									}
 								}
 							} else {
-								log_fn(`Rule 16.2.2: Losing HQ ${data.pieces[p].name} loses 1 step.`)
+								log_fn(`Rule 16.2.2: Losing HQ ${piece_log_name(game, p)} loses 1 step.`)
 								if (is_piece_reduced(game, p)) {
 									eliminate_piece(game, p, log_fn, true)
 								} else {
@@ -2101,7 +2109,7 @@ module.exports = function (Engine) {
 						for (let p of result.used_hqs.defender) {
 							if (winner === other_faction(game.active)) {
 								if (is_piece_reduced(game, p)) {
-									log_fn(`Rule 16.2.2: Winning HQ ${data.pieces[p].name} flipped to full strength.`)
+									log_fn(`Rule 16.2.2: Winning HQ ${piece_log_name(game, p)} flipped to full strength.`)
 									restore_piece(game, p)
 								}
 								if (data.pieces[p].name.includes("Army of Islam")) {
@@ -2112,7 +2120,7 @@ module.exports = function (Engine) {
 									}
 								}
 							} else {
-								log_fn(`Rule 16.2.2: Losing HQ ${data.pieces[p].name} loses 1 step.`)
+								log_fn(`Rule 16.2.2: Losing HQ ${piece_log_name(game, p)} loses 1 step.`)
 								if (is_piece_reduced(game, p)) {
 									eliminate_piece(game, p, log_fn, true)
 								} else {
@@ -2126,10 +2134,10 @@ module.exports = function (Engine) {
 				if (result.used_arty && result.used_arty.attacker) {
 					for (let p of result.used_arty.attacker) {
 						if (is_piece_reduced(game, p)) {
-							log_fn(`Rule 16.4: Heavy Artillery ${data.pieces[p].name} removed after second use.`)
+						log_fn(`Rule 16.4: Heavy Artillery ${piece_log_name(game, p)} removed after second use.`)
 							eliminate_piece(game, p, log_fn, true)
 						} else {
-							log_fn(`Rule 16.4: Heavy Artillery ${data.pieces[p].name} flips after first use.`)
+						log_fn(`Rule 16.4: Heavy Artillery ${piece_log_name(game, p)} flips after first use.`)
 							reduce_piece(game, p)
 						}
 					}
@@ -2145,7 +2153,7 @@ module.exports = function (Engine) {
 							let hqs = pieces.filter((p) => is_hq(p) || is_heavy_arty(p))
 							for (let p of hqs) {
 								log_fn(
-									`Rule 12.6.8: ${data.pieces[p].name} is eliminated because no combat units remain in its space.`
+									`Rule 12.6.8: ${piece_log_name(game, p)} is eliminated because no combat units remain in its space.`
 								)
 								eliminate_piece(game, p, log_fn, true)
 							}
@@ -2294,7 +2302,7 @@ module.exports = function (Engine) {
 			let actual_retreating = []
 			for (let p of retreating) {
 				if (is_hq(p) || is_heavy_arty(p)) {
-					log_fn(`Rule 12.7.5: ${data.pieces[p].name} is eliminated instead of retreating.`)
+					log_fn(`Rule 12.7.5: ${piece_log_name(game, p)} is eliminated instead of retreating.`)
 					eliminate_piece(game, p, log_fn, true)
 				} else {
 					actual_retreating.push(p)
@@ -2482,7 +2490,7 @@ module.exports = function (Engine) {
 				set_add(game.forts.destroyed, advance_space)
 				if (log_fn)
 					log_fn(
-						`Russian Winter Offensive: Fort in ${data.spaces[advance_space].name} destroyed by advancing Russian troops.`
+						`Russian Winter Offensive: Fort in ${space_log_name(advance_space)} destroyed by advancing Russian troops.`
 					)
 			}
 		}
@@ -2595,10 +2603,10 @@ module.exports = function (Engine) {
 		if (is_besieged(game, s)) {
 			let lf = data.spaces[s].fort
 			let roll = roll_die(6, game)
-			if (log_fn) log_fn(`Siege roll for ${data.spaces[s].name} (LF ${lf}): ${roll}`)
+			if (log_fn) log_fn(`Siege roll for ${space_log_name(s)} (LF ${lf}): ${roll}`)
 
 			if (roll > lf) {
-				if (log_fn) log_fn(`${data.spaces[s].name} surrenders!`)
+				if (log_fn) log_fn(`${space_log_name(s)} surrenders!`)
 				set_add(game.forts.destroyed, s)
 
 				// Determine besieging faction
@@ -2625,7 +2633,7 @@ module.exports = function (Engine) {
 					} else {
 						game.control[s] = besieging_faction
 					}
-					if (log_fn) log_fn(`${besieging_faction === AP ? "AP" : "CP"} capture ${data.spaces[s].name}.`)
+					if (log_fn) log_fn(`${besieging_faction === AP ? "AP" : "CP"} capture ${space_log_name(s)}.`)
 
 					// VP Adjustment - Engine.set_control already handles VP, so we only do it if set_control_fn is NOT provided
 					if (!set_control_fn) {
@@ -2642,7 +2650,7 @@ module.exports = function (Engine) {
 					}
 				}
 			} else {
-				if (log_fn) log_fn(`${data.spaces[s].name} holds out.`)
+				if (log_fn) log_fn(`${space_log_name(s)} holds out.`)
 			}
 		}
 	}
@@ -2834,7 +2842,7 @@ module.exports = function (Engine) {
 						if (ports.length > 0) {
 							// For an automated function, we pick the first one.
 							game.pieces[p] = ports[0]
-							Engine.log(game, `${data.pieces[p].name} 通过海上撤退至 ${data.spaces[ports[0]].name}.`)
+							Engine.log(game, `${piece_log_name(game, p)} 通过海上撤退至 ${space_log_name(ports[0])}.`)
 							break
 						}
 					}
@@ -3047,7 +3055,7 @@ module.exports = function (Engine) {
 		for (let p of variable_loss_pieces) {
 			let roll = roll_die(6, game)
 			game.attack.piece_lf[p] = roll
-			log(`${data.pieces[p].name} 血量掷骰：${roll}`)
+			log(`${piece_log_name(game, p)} 血量掷骰：${roll}`)
 		}
 
 		// Combat Card Flags
@@ -3242,7 +3250,7 @@ module.exports = function (Engine) {
 					let bonus = get_piece_cf(game, p)
 					att_drm += bonus
 					used_hqs.attacker.push(p)
-					log_detail(log, `Attacker HQ ${data.pieces[p].name} provides +${bonus} DRM`)
+					log_detail(log, `Attacker HQ ${piece_log_name(game, p)} provides +${bonus} DRM`)
 				}
 			}
 		}
@@ -3256,7 +3264,7 @@ module.exports = function (Engine) {
 					let bonus = get_piece_cf(game, p)
 					def_drm += bonus
 					used_hqs.defender.push(p)
-					log_detail(log, `Defender HQ ${data.pieces[p].name} provides +${bonus} DRM`)
+					log_detail(log, `Defender HQ ${piece_log_name(game, p)} provides +${bonus} DRM`)
 				}
 			}
 		}

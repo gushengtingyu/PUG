@@ -22,7 +22,7 @@ function createIndianSummerWeatherAttack() {
 		defender: rules.CP
 	}
 
-	return { game, indian }
+	return { game, indian, ahwaz }
 }
 
 function createSummerSwampAttack() {
@@ -45,18 +45,18 @@ function createSummerSwampAttack() {
 		defender: rules.CP
 	}
 
-	return { game, british }
+	return { game, british, abadan }
 }
 
 test("severe weather reduces full-strength regular attackers and logs the check", () => {
-	let { game, indian } = createIndianSummerWeatherAttack()
+	let { game, indian, ahwaz } = createIndianSummerWeatherAttack()
 	let logs = []
 
 	Engine.combat.apply_severe_weather(game, (msg) => logs.push(msg), "Summer")
 
 	expect(Engine.game_utils.is_piece_reduced(game, indian)).toBe(true)
 	expect(logs.length).toBe(1)
-	expect(logs[0]).toMatch(/^恶劣天气 \(Ahwaz\): 掷骰=\d, 行动轮=1 -> /)
+	expect(logs[0]).toMatch(new RegExp(`^恶劣天气 \\(s${ahwaz}\\): 掷骰=\\d, 行动轮=1 -> `))
 	expect(logs[0]).toContain("被减损")
 })
 
@@ -72,7 +72,7 @@ test("Pugnacity and Tenacity prevents severe weather losses for Indian attackers
 })
 
 test("Turn 4 AP attacks into swamp still trigger severe weather", () => {
-	let { game, british } = createSummerSwampAttack()
+	let { game, british, abadan } = createSummerSwampAttack()
 	let logs = []
 
 	expect(Engine.combat.can_battle_trigger_severe_weather(game, "Summer")).toBe(true)
@@ -81,8 +81,8 @@ test("Turn 4 AP attacks into swamp still trigger severe weather", () => {
 
 	expect(Engine.game_utils.is_piece_reduced(game, british)).toBe(true)
 	expect(logs.length).toBe(1)
-	expect(logs[0]).toMatch(/^恶劣天气 \(Abadan\): 掷骰=\d, 行动轮=1 -> /)
-	expect(logs[0]).toContain("BR IX Corps")
+	expect(logs[0]).toMatch(new RegExp(`^恶劣天气 \\(s${abadan}\\): 掷骰=\\d, 行动轮=1 -> `))
+	expect(logs[0]).toContain(`p${british}`)
 })
 
 test("Pasha 1 defending CP units do not cancel AP severe weather checks", () => {
@@ -96,7 +96,7 @@ test("Pasha 1 defending CP units do not cancel AP severe weather checks", () => 
 
 	expect(Engine.game_utils.is_piece_reduced(game, british)).toBe(true)
 	expect(logs.length).toBe(1)
-	expect(logs[0]).toContain("BR IX Corps")
+	expect(logs[0]).toContain(`p${british}`)
 })
 
 test("Pugnacity and Tenacity only exempts Indian attackers in mixed severe weather attacks", () => {
@@ -114,8 +114,8 @@ test("Pugnacity and Tenacity only exempts Indian attackers in mixed severe weath
 	expect(Engine.game_utils.is_piece_reduced(game, indian)).toBe(false)
 	expect(Engine.game_utils.is_piece_reduced(game, british)).toBe(true)
 	expect(logs.length).toBe(1)
-	expect(logs[0]).toContain("BR IX Corps")
-	expect(logs[0]).not.toContain("IN 15th DIV")
+	expect(logs[0]).toContain(`p${british}`)
+	expect(logs[0]).not.toContain(`p${indian}`)
 })
 
 test("Russian Winter Offensive only exempts Russian attackers in mixed winter mountain attacks", () => {
@@ -148,6 +148,6 @@ test("Russian Winter Offensive only exempts Russian attackers in mixed winter mo
 	expect(Engine.game_utils.is_piece_reduced(game, russian)).toBe(false)
 	expect(Engine.game_utils.is_piece_reduced(game, serbian)).toBe(true)
 	expect(logs.length).toBe(1)
-	expect(logs[0]).toContain("SB 1 Army")
-	expect(logs[0]).not.toContain("RU I Caucasian")
+	expect(logs[0]).toContain(`p${serbian}`)
+	expect(logs[0]).not.toContain(`p${russian}`)
 })

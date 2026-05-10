@@ -28,6 +28,18 @@ module.exports = function (Engine) {
 	const ATHENS = find_space("ATHENS")
 	const CAUCASIAN_ARMY_REFORMS_TARGET = 12
 
+	function event_space_name(rules, s) {
+		if (rules && typeof rules.space_name === "function") return rules.space_name(s)
+		if (!data.spaces[s]) return "Unknown Space (" + s + ")"
+		return `s${s}`
+	}
+
+	function event_piece_name(rules, p, reduced = false) {
+		if (rules && typeof rules.piece_name === "function") return rules.piece_name(p, reduced)
+		if (!data.pieces[p]) return "Unknown Unit (" + p + ")"
+		return reduced ? `p${p}` : `P${p}`
+	}
+
 	/**
 	 * 检查地块是否为丘吉尔胜出事件的合法增援地块
 	 */
@@ -896,7 +908,7 @@ module.exports = function (Engine) {
 		if (event.cp_retreat_steps) {
 			delete event.cp_retreat_steps[piece]
 		}
-		rules.log(`${rules.piece_name(piece)} 完成从 ${data.spaces[event.event_port].name} 的后撤。`)
+		rules.log(`${rules.piece_name(piece)} 完成从 ${rules.space_name(event.event_port)} 的后撤。`)
 		game.selected_piece = null
 	}
 
@@ -985,7 +997,7 @@ module.exports = function (Engine) {
 			}
 
 			if (game.attack && game.attack.space !== -1) {
-				res.prompt(`英俄突袭：确认向 ${Engine.game_utils.space_name(game.attack.space)} 进攻`)
+				res.prompt(`英俄突袭：确认向 ${rules.space_name(game.attack.space)} 进攻`)
 				res.where(game.attack.space)
 				res.who(game.attack.pieces)
 			} else {
@@ -1437,7 +1449,7 @@ module.exports = function (Engine) {
 			event.event_port = s
 			game.state = "event_project_alexandria_sr"
 			Engine.neutral.on_beachhead_placed(game, s, AP)
-			rules.log(`滩头放置在 ${data.spaces[s].name}。`)
+			rules.log(`滩头放置在 ${rules.space_name(s)}。`)
 		}
 	}
 
@@ -1449,7 +1461,7 @@ module.exports = function (Engine) {
 			let count = data_event.count || 0
 			let max_count = 3 // Up to 3 SR points for SCUs
 			let event_port = get_valid_event_port(event)
-			let port_name = event_port > 0 ? data.spaces[event_port].name : "滩头"
+			let port_name = event_port > 0 ? rules.space_name(event_port) : "滩头"
 			res.prompt(`亚历山大计划：选择至多3支英国/印度/澳新步兵师战略调整至位于 ${port_name} 的滩头 (${count}/3)。`)
 
 			if (event_port > 0) {
@@ -1726,7 +1738,7 @@ module.exports = function (Engine) {
 			// All 3 selected, now pick target
 			res.who(game.selected_pieces)
 			if (game.attack && game.attack.space !== -1) {
-				res.prompt(`阿拉伯起义：确认向 ${Engine.game_utils.space_name(game.attack.space)} 进攻`)
+				res.prompt(`阿拉伯起义：确认向 ${rules.space_name(game.attack.space)} 进攻`)
 				res.where(game.attack.space)
 				res.action("confirm")
 			} else {
@@ -2027,7 +2039,7 @@ module.exports = function (Engine) {
 					game.state = "event_invasion_place_units_island"
 				}
 			}
-			rules.log(`滩头放置在 ${data.spaces[s].name}。`)
+			rules.log(`滩头放置在 ${rules.space_name(s)}。`)
 			Engine.neutral.on_beachhead_placed(game, s, AP)
 		}
 	}
@@ -2092,7 +2104,7 @@ module.exports = function (Engine) {
 			let unit = units[0]
 			let island_base = invasion && invasion.invasion_island_base
 			if (island_base) {
-				res.prompt(`${prompt_prefix}：将 ${unit} 放置在 ${data.spaces[island_base].name}。`)
+				res.prompt(`${prompt_prefix}：将 ${unit} 放置在 ${rules.space_name(island_base)}。`)
 			} else {
 				res.prompt(`${prompt_prefix}：为本次入侵选择一个协约国控制的岛屿基地，并将 ${unit} 放置于其上。`)
 			}
@@ -2184,7 +2196,7 @@ module.exports = function (Engine) {
 
 			if (scu_candidates.length > 0) {
 				res.prompt(
-					`加里波利入侵：将对应 SCU 战略调整 至 预备军格 以使 ${data.spaces[island_base].name} 上对应的LCU翻正。`
+					`加里波利入侵：将对应 SCU 战略调整 至 预备军格 以使 ${rules.space_name(island_base)} 上对应的LCU翻正。`
 				)
 				for (let p of scu_candidates) res.piece(p)
 			} else {
@@ -2204,10 +2216,10 @@ module.exports = function (Engine) {
 				rules.set_add(game.sr_moved, p)
 				Engine.map.apply_sr_control_effects(game, p, game.pieces[p], rules.get_reserve_box(AP), AP)
 				game.pieces[p] = rules.get_reserve_box(AP)
-				rules.log(`${data.pieces[p].name} 战略调整回预备军格。`)
+				rules.log(`${rules.piece_name(p)} 战略调整回预备军格。`)
 			}
 			rules.set_delete(game.reduced, target_lcu)
-			rules.log(`${data.pieces[target_lcu].name} 翻面。`)
+			rules.log(`${rules.piece_name(target_lcu)} 翻面。`)
 		},
 		done(ctx) {
 			let { game, rules } = ctx
@@ -2227,7 +2239,7 @@ module.exports = function (Engine) {
 				return
 			}
 			res.prompt(
-				`萨洛尼卡入侵：你可以将最多 ${sr_count} 个英国/印度/澳新 SCU 战略调整至 ${data.spaces[island_base].name}。`
+				`萨洛尼卡入侵：你可以将最多 ${sr_count} 个英国/印度/澳新 SCU 战略调整至 ${rules.space_name(island_base)}。`
 			)
 			for (let p = 0; p < data.pieces.length; p++) {
 				if (can_salonika_invasion_sr_piece(game, rules, p, island_base)) res.piece(p)
@@ -2245,7 +2257,7 @@ module.exports = function (Engine) {
 			rules.set_add(game.sr_moved, p)
 			Engine.map.apply_sr_control_effects(game, p, game.pieces[p], island_base, AP)
 			game.pieces[p] = island_base
-			rules.log(`${data.pieces[p].name} 战略调整至 ${data.spaces[island_base].name}.`)
+			rules.log(`${rules.piece_name(p)} 战略调整至 ${rules.space_name(island_base)}.`)
 			let sr_count = (invasion && invasion.allow_sr_to_island) || 0
 			sr_count--
 			if (invasion) invasion.allow_sr_to_island = sr_count
@@ -2274,7 +2286,7 @@ module.exports = function (Engine) {
 			let event = use_event(game, "grand_duke_to_tiflis")
 			rules.push_undo()
 			event.event_port = s
-			rules.log(`尼古拉大公抵达第比利斯：协约国选择 ${data.spaces[s].name} 作为增援港口。`)
+			rules.log(`尼古拉大公抵达第比利斯：协约国选择 ${rules.space_name(s)} 作为增援港口。`)
 
 			rules.reinforce(game, "RU DIV #14", AP, s)
 			rules.reinforce(game, "RU Cavalry #8", AP, s)
@@ -2307,7 +2319,7 @@ module.exports = function (Engine) {
 			}
 
 			if (game.selected_piece === null || game.selected_piece === undefined) {
-				res.prompt(`尼古拉大公抵达第比利斯 ：选择从 ${data.spaces[event.event_port].name} 后撤的同盟国单位。`)
+				res.prompt(`尼古拉大公抵达第比利斯 ：选择从 ${rules.space_name(event.event_port)} 后撤的同盟国单位。`)
 				for (let p of retreating) {
 					res.piece(p)
 				}
@@ -2319,7 +2331,7 @@ module.exports = function (Engine) {
 			let valid = get_grand_duke_to_tiflis_retreat_options(game, piece, event.event_port)
 
 			res.prompt(
-				`尼古拉大公抵达第比利斯 ：${data.pieces[piece].name} 必须从 ${data.spaces[event.event_port].name} 向后撤退 1-2 格 (${steps_taken}/2)。`
+				`尼古拉大公抵达第比利斯 ：${rules.piece_name(piece)} 必须从 ${rules.space_name(event.event_port)} 向后撤退 1-2 格 (${steps_taken}/2)。`
 			)
 			if (valid.length > 0) {
 				for (let s of valid) {
@@ -2358,7 +2370,7 @@ module.exports = function (Engine) {
 			}
 			event.cp_retreat_steps[piece] = (event.cp_retreat_steps[piece] || 0) + 1
 			rules.log(
-				`${rules.piece_name(piece)} retreats to ${data.spaces[s].name} (away from ${data.spaces[event.event_port].name}).`
+				`${rules.piece_name(piece)} retreats to ${rules.space_name(s)} (away from ${rules.space_name(event.event_port)}).`
 			)
 
 			let steps_taken = event.cp_retreat_steps[piece]
@@ -2391,7 +2403,7 @@ module.exports = function (Engine) {
 
 			rules.push_undo()
 			rules.log(
-				`${rules.piece_name(piece)} 无法从 ${data.spaces[use_event(game, "grand_duke_to_tiflis").event_port].name} 向后撤退并被消灭。`
+				`${rules.piece_name(piece)} 无法从 ${rules.space_name(use_event(game, "grand_duke_to_tiflis").event_port)} 向后撤退并被消灭。`
 			)
 			Engine.game_utils.eliminate_piece(game, piece, rules.log)
 			set_delete(game.grand_duke_to_tiflis_retreat_pieces, piece)
@@ -2416,7 +2428,7 @@ module.exports = function (Engine) {
 			let { game, res } = ctx
 			let event = use_event(game, "grand_duke_to_tiflis")
 			res.prompt(
-				"尼古拉大公抵达第比利斯 ：可选操作，将 1 个俄国骑兵师战略调整至 " + data.spaces[event.event_port].name
+				"尼古拉大公抵达第比利斯 ：可选操作，将 1 个俄国骑兵师战略调整至 " + rules.space_name(event.event_port)
 			)
 			if (get_capacity(game, event.event_port) > 0) {
 				for (let p = 0; p < game.pieces.length; p++) {
@@ -2443,7 +2455,7 @@ module.exports = function (Engine) {
 			set_add(game.sr_moved, p)
 			Engine.map.apply_sr_control_effects(game, p, game.pieces[p], event.event_port, AP)
 			game.pieces[p] = event.event_port
-			rules.log(`${rules.piece_name(p)} 战略调整至 ${data.spaces[event.event_port].name}`)
+			rules.log(`${rules.piece_name(p)} 战略调整至 ${rules.space_name(event.event_port)}`)
 			game.state = "event_grand_duke_to_tiflis_place_cordons"
 		},
 		done(ctx) {
@@ -3144,7 +3156,7 @@ module.exports = function (Engine) {
 			Object.assign(event, marker)
 			if (!game.events) game.events = {}
 			game.events["jerusalem_by_christmas"] = marker
-			rules.log(`圣诞节前收复圣城：目标设为 ${data.spaces[s].name}，将在第 ${event.turn} 回合开始时结算。`)
+			rules.log(`圣诞节前收复圣城：目标设为 ${rules.space_name(s)}，将在第 ${event.turn} 回合开始时结算。`)
 			rules.goto_end_event()
 		},
 		done(ctx) {
@@ -3449,7 +3461,7 @@ module.exports = function (Engine) {
 			let faction = helper ? helper.faction : game.active || AP
 			let placement = get_reinforcement_placement(source, unit)
 			let reserve_space = get_reinforcement_reserve_space(faction, unit, placement)
-			let reserve_name = data.spaces[reserve_space] ? data.spaces[reserve_space].name : "预备军格"
+			let reserve_name = data.spaces[reserve_space] ? rules.space_name(reserve_space) : "预备军格"
 			let target_desc = desc
 			if (placement.mode === "reserve") {
 				target_desc = reserve_name
@@ -3653,7 +3665,7 @@ module.exports = function (Engine) {
 			let { rules, arg: p } = ctx
 			rules.push_undo()
 			rules.remove_piece(p)
-			rules.log(`艾伦比：${data.pieces[p].name} 被移出游戏 (派往西线)。`)
+			rules.log(`艾伦比：${rules.piece_name(p)} 被移出游戏 (派往西线)。`)
 			rules.goto_end_event()
 		},
 		done(ctx) {
@@ -3731,7 +3743,7 @@ module.exports = function (Engine) {
 	states.event_bulls_eye_sr_select_unit = {
 		prompt(ctx) {
 			let { game, res, rules } = ctx
-			res.prompt(`靶心指令: 从预备格选择 TU/TU-A SCU 放置于 ${data.spaces[game.bulls_eye_target].name}`)
+			res.prompt(`靶心指令: 从预备格选择 TU/TU-A SCU 放置于 ${rules.space_name(game.bulls_eye_target)}`)
 			res.action("cancel")
 
 			// Find TU/TU-A SCUs in Reserve
@@ -3750,7 +3762,7 @@ module.exports = function (Engine) {
 			// Move piece to target space
 			game.pieces[p] = game.bulls_eye_target
 			Engine.events.bulls_eye_record_sr_space(game, game.bulls_eye_target)
-			rules.log(`靶心指令：${data.pieces[p].name} 战略调整至 ${data.spaces[game.bulls_eye_target].name}。`)
+			rules.log(`靶心指令：${rules.piece_name(p)} 战略调整至 ${rules.space_name(game.bulls_eye_target)}。`)
 
 			game.bulls_eye_target = null
 			game.state = "event_bulls_eye_sr"
@@ -4001,7 +4013,7 @@ module.exports = function (Engine) {
 			Engine.map.apply_sr_control_effects(game, p, from, s, CP)
 			rules.move_piece(game, p, s)
 			rules.log(
-				`塞尔维亚崩溃：${data.pieces[p].name} 从 ${data.spaces[from].name} 战略调整至 ${data.spaces[s].name}`
+				`塞尔维亚崩溃：${event_piece_name(rules, p)} 从 ${event_space_name(rules, from)} 战略调整至 ${event_space_name(rules, s)}`
 			)
 			if (!game.event_ctx.data) game.event_ctx.data = { moved: [] }
 			rules.set_add(game.event_ctx.data.moved, p)
@@ -4032,7 +4044,7 @@ module.exports = function (Engine) {
 			Engine.map.apply_sr_control_effects(game, p, from, s, CP)
 			rules.move_piece(game, p, s)
 			rules.log(
-				`罗马尼亚崩溃：${data.pieces[p].name} 从 ${data.spaces[from].name} 战略调整至 ${data.spaces[s].name}`
+				`罗马尼亚崩溃：${event_piece_name(rules, p)} 从 ${event_space_name(rules, from)} 战略调整至 ${event_space_name(rules, s)}`
 			)
 			if (!game.event_ctx.data) game.event_ctx.data = { moved: [] }
 			rules.set_add(game.event_ctx.data.moved, p)
@@ -4289,7 +4301,7 @@ module.exports = function (Engine) {
 			game.events["gorlice_tarnow_piece"] = p
 			game.active = use_event(game, "gorlice_tarnow").origin_active ?? CP
 
-			rules.log(`${data.pieces[p].name} 被移除并派往东线，将在 ${return_turn} 回合返回军资产格。`)
+			rules.log(`${rules.piece_name(p)} 被移除并派往东线，将在 ${return_turn} 回合返回军资产格。`)
 			rules.goto_end_event()
 		},
 		done(ctx) {
@@ -4510,7 +4522,7 @@ module.exports = function (Engine) {
 			}
 			game.pieces[p] = rules.find_space("Galicia")
 			if (!rules.set_has(game.reduced, p)) rules.set_add(game.reduced, p)
-			rules.log(`拯救保加利亚：${data.pieces[p].name} 减损面放置在 Galicia`)
+			rules.log(`拯救保加利亚：${rules.piece_name(p, true)} 放置在 ${rules.space_name(rules.find_space("Galicia"))}`)
 		},
 		done(ctx) {
 			let { rules } = ctx
