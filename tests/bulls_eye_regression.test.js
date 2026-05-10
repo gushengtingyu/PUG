@@ -51,7 +51,7 @@ test("Bull's Eye DRM 在行动轮结束后失效 (修复回归)", () => {
 	expect(Engine.events.is_bulls_eye_active ? Engine.events.is_bulls_eye_active(game) : false).toBe(false)
 })
 
-test("Bull's Eye 追踪推进部队只记录 TU/TU-A", () => {
+test("Bull's Eye 追踪推进部队会保留非 TU/TU-A 并阻止额外攻击", () => {
 	let game = setupGame(2026042204)
 	activateBullsEye(game)
 
@@ -65,7 +65,8 @@ test("Bull's Eye 追踪推进部队只记录 TU/TU-A", () => {
 
 	expect(game.bulls_eye_advanced_stack).toContain(tuDiv)
 	expect(game.bulls_eye_advanced_stack).toContain(tuaDiv)
-	expect(game.bulls_eye_advanced_stack).not.toContain(geDiv)
+	expect(game.bulls_eye_advanced_stack).toContain(geDiv)
+	expect(Engine.events.bulls_eye_can_extra_attack(game)).toBe(false)
 })
 
 test("Bull's Eye can_extra_attack 需要 TU 推进且未使用", () => {

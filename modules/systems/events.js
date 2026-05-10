@@ -824,14 +824,8 @@ module.exports = function (Engine) {
 		game.bulls_eye_sr_done = true
 	}
 
-	function is_bulls_eye_turkish_piece(p) {
-		let n = get_piece_nation(p)
-		return n === "tu" || n === "tua"
-	}
-
 	function bulls_eye_record_advanced_piece(game, p) {
 		if (!is_bulls_eye_active(game)) return
-		if (!is_bulls_eye_turkish_piece(p)) return
 		if (!game.bulls_eye_advanced_stack) game.bulls_eye_advanced_stack = []
 		set_add(game.bulls_eye_advanced_stack, p)
 	}
@@ -841,7 +835,8 @@ module.exports = function (Engine) {
 		if (!game.bulls_eye_advanced_stack || game.bulls_eye_advanced_stack.length === 0) return false
 		if (game.events.bulls_eye_used) return false
 		let has_non_tu = game.bulls_eye_advanced_stack.some((p) => {
-			return !is_bulls_eye_turkish_piece(p)
+			let n = get_piece_nation(p)
+			return n !== "tu" && n !== "tua"
 		})
 		if (has_non_tu) return false
 		let has_reduced = game.bulls_eye_advanced_stack.some((p) => is_piece_reduced(game, p))
