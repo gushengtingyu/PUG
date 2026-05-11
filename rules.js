@@ -1454,12 +1454,14 @@ function restore_rollback(index) {
 	let save_rollback = game.rollback
 	let save_log = game.log
 	let save_seed = game.seed
+	let restored = object_copy(rollback_state[index])
+	let restored_log_length = Array.isArray(restored.log) ? restored.log.length : restored.log
 
-	game = normalize_game(object_copy(rollback_state[index]))
+	game = normalize_game(restored)
 	game.supply_dirty = true
 
 	if (Array.isArray(save_log)) {
-		save_log.length = game.log
+		save_log.length = Number.isInteger(restored_log_length) && restored_log_length >= 0 ? restored_log_length : 0
 		game.log = save_log
 	}
 

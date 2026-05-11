@@ -614,6 +614,24 @@ exports.register = function (states, Engine, context) {
 		enter_combat_card_state("play_cc_attacker")
 	}
 
+	function continue_after_pre_flank_cc_step() {
+		game.active = game.attack?.attacker || game.active
+		if (combat.check_can_flank(game) && game.attack.flank_attempt === undefined) {
+			game.state = "choose_flank_attack"
+		} else {
+			goto_pre_weather_step()
+		}
+	}
+
+	function goto_pre_flank_step() {
+		game.active = game.attack?.attacker || game.active
+		if (has_window_cc_options("pre_flank_cc_attacker", game.active, true)) {
+			enter_combat_card_state("pre_flank_cc_attacker")
+			return
+		}
+		continue_after_pre_flank_cc_step()
+	}
+
 	function finalize_pre_weather_attacker_cc_step() {
 		if (!game.combat_cards) game.combat_cards = { attacker: [], defender: [] }
 		game.active = game.attack?.defender || other_faction(game.active)
@@ -675,6 +693,7 @@ exports.register = function (states, Engine, context) {
 		"retreat_cancel",
 		"save_tiflis_retreat",
 		"choose_lcu_replacement",
+		"pre_flank_cc_attacker",
 		"post_roll_cc_defender",
 		"post_battle_cc_cp",
 		"post_advance_cc_cp",
@@ -851,6 +870,14 @@ exports.register = function (states, Engine, context) {
 
 	function resume_window_combat_card_state(return_state) {
 		switch (return_state) {
+			case "pre_flank_cc_attacker":
+				game.active = game.attack?.attacker || game.active
+				if (has_window_cc_options("pre_flank_cc_attacker", game.active, true)) {
+					enter_combat_card_state("pre_flank_cc_attacker")
+				} else {
+					continue_after_pre_flank_cc_step()
+				}
+				return true
 			case "pre_weather_cc_attacker":
 				game.active = game.attack?.attacker || game.active
 				if (has_window_cc_options("pre_weather_cc_attacker", game.active, true)) {
@@ -1051,6 +1078,14 @@ exports.register = function (states, Engine, context) {
 		is_attacker: false,
 		get_options: () => collect_playable_cc_options(game, game.active, false),
 		done: finalize_defender_cc_step,
+		allow_pass: true
+	})
+
+	register_combat_card_state("pre_flank_cc_attacker", {
+		prompt: "进攻方：打出先于侧翼判定的战斗卡",
+		is_attacker: true,
+		get_options: () => collect_window_cc_options(game, "pre_flank_cc_attacker", game.active, true),
+		done: continue_after_pre_flank_cc_step,
 		allow_pass: true
 	})
 
@@ -1536,12 +1571,7 @@ exports.register = function (states, Engine, context) {
 			return
 		}
 
-		// Rule 12.2 sequence: Flank Attack Announcement (Step 2) before CC (Step 5)
-		if (combat.check_can_flank(game) && game.attack.flank_attempt === undefined) {
-			game.state = "choose_flank_attack"
-		} else {
-			goto_pre_weather_step()
-		}
+		goto_pre_flank_step()
 	}
 
 	function finish_enver_mo_choice(mo_target) {
@@ -1696,11 +1726,7 @@ exports.register = function (states, Engine, context) {
 			push_undo()
 			apply_jerusalem_battleground_penalty()
 			game.active = game.attack?.attacker || AP
-			if (combat.check_can_flank(game) && game.attack.flank_attempt === undefined) {
-				game.state = "choose_flank_attack"
-			} else {
-				goto_pre_weather_step()
-			}
+			goto_pre_flank_step()
 		},
 		cancel_attack() {
 			push_undo()
@@ -3216,7 +3242,7 @@ exports.register = function (states, Engine, context) {
 
 			let mandatory = []
 			if (game.mcc_advance && (game.advance_count || 0) === 0) {
-				mandatory = game.advance_pieces.filter((p) => data.pieces[p].counter === "ANZ Desert Corps")
+				mandatory = game.advance_pieces.filter((p) => data.pieces[p].name === "ANZ Desert Corps")
 			}
 
 			if (mandatory.length > 0) {

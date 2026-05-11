@@ -2,6 +2,7 @@ const rules = require("../rules.js")
 const data = require("../data.js")
 const Engine = require("../modules/engine.js")
 
+const AP_ROLE = rules.roles[0]
 const CP_ROLE = rules.roles[1]
 
 function findCardByEvent(eventName) {
@@ -134,6 +135,48 @@ function createBesiegedFortMaintenanceGame(attackerNames) {
 	return { game, kars, sarikamis, attackers }
 }
 
+function createMassedCavalryPreFlankGame() {
+	let game = rules.setup(106, "Historical", { seed: 42, no_supply_warnings: true })
+	let baghdad = findSpaceByName("Baghdad")
+	let aziziya = findSpaceByName("Aziziya")
+	let ctesiphon = findSpaceByName("Ctesiphon")
+	let anzDesertCorps = findPieceByName("ANZ Desert Corps")
+	let british = findPieceByName("BR IX Corps")
+	let turkish = findPieceByName("TU DIV #8")
+
+	for (let p = 0; p < game.pieces.length; p++) game.pieces[p] = 0
+	game.pieces[anzDesertCorps] = baghdad
+	game.pieces[british] = aziziya
+	game.pieces[turkish] = ctesiphon
+	game.control[baghdad] = rules.AP
+	game.control[aziziya] = rules.AP
+	game.control[ctesiphon] = rules.CP
+	game.reduced = []
+	game.retreated = []
+	game.events = {}
+	game.attacked = []
+	game.trenches = [ctesiphon]
+	game.trenches_2 = []
+	game.cc_retained = { ap: [], cp: [] }
+	game.cc_retained_after_use = { ap: {}, cp: {} }
+	game.action_state = {}
+	game.combat_cards = { attacker: [], defender: [] }
+	game.combat_cards_effected = []
+	game.hand_ap = [Engine.combat.CC_AP_MASSED_CAVALRY_CHARGE]
+	game.discard_ap = []
+	game.removed_ap = []
+	game.active = rules.AP
+	game.state = "pre_flank_cc_attacker"
+	game.attack = {
+		space: ctesiphon,
+		pieces: [anzDesertCorps, british],
+		attacker: rules.AP,
+		defender: rules.CP
+	}
+
+	return { game, ctesiphon }
+}
+
 test("cavalry camel armored DRM log names the first matching unit badge", () => {
 	let anzCamel = findPieceByName("ANZ Imp Camel")
 	let anzCavalry = findPieceByName("ANZ Cavalry #1")
@@ -145,6 +188,23 @@ test("cavalry camel armored DRM log names the first matching unit badge", () => 
 
 	expect(logs).toContain("  骆驼兵: 进攻方 +1 DRM")
 	expect(logs.join("\n")).not.toContain("骑兵/骆驼兵/装甲旅")
+})
+
+test("Massed Cavalry Charge is playable before flank declaration and can unlock flank past trenches", () => {
+	let { game, ctesiphon } = createMassedCavalryPreFlankGame()
+	let mcc = Engine.combat.CC_AP_MASSED_CAVALRY_CHARGE
+
+	expect(Engine.game_utils.has_trench(game, ctesiphon)).toBe(1)
+	expect(Engine.combat.check_can_flank(game)).toBe(false)
+
+	let view = rules.view(game, AP_ROLE)
+	expect(view.actions.play_cc || []).toContain(mcc)
+
+	rules.action(game, AP_ROLE, "play_cc", mcc)
+
+	expect(game.combat_cards.attacker).toContain(mcc)
+	expect(Engine.combat.check_can_flank(game)).toBe(true)
+	expect(game.state).toBe("choose_flank_attack")
 })
 
 test("cavalry camel armored DRM log names armored defenders", () => {

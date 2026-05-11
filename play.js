@@ -6516,3 +6516,9 @@ function layout_center(rec) {
 	}
 	return [rec[0] + rec[2] / 2, rec[1] + rec[3] / 2]
 }
+
+function init_replay() {
+	let script = document.createElement("script")
+	script.src = "replay.js"
+	document.body.appendChild(script)
+}

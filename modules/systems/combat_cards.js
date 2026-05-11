@@ -70,6 +70,10 @@ module.exports = function (Engine) {
 		return game.attack?.pieces || []
 	}
 
+	function is_anz_desert_corps(p) {
+		return !!(data.pieces[p] && data.pieces[p].name === "ANZ Desert Corps")
+	}
+
 	function is_state(game, state) {
 		return game.state === state
 	}
@@ -253,7 +257,7 @@ module.exports = function (Engine) {
 	}
 
 	function can_play_maude(game) {
-		if (!can_play_in_standard_cc_window(game)) return false
+		if (!can_play_in_window(game, "pre_flank_cc_attacker", AP)) return false
 		for (let s of get_maude_attack_origin_spaces(game)) {
 			if (space_has_ap_nations(game, s, ["br", "in"])) return true
 			if (
@@ -359,8 +363,8 @@ module.exports = function (Engine) {
 	}
 
 	function can_play_massed_cavalry_charge(game) {
-		if (!can_play_in_standard_cc_window(game, AP)) return false
-		return attacker_has_piece(game, (p) => data.pieces[p].counter === "ANZ Desert Corps")
+		if (!can_play_in_window(game, "pre_flank_cc_attacker", AP)) return false
+		return attacker_has_piece(game, (p) => is_anz_desert_corps(p))
 	}
 
 	function can_play_push_to_the_breaking_point(game) {
@@ -516,6 +520,7 @@ module.exports = function (Engine) {
 	}
 
 	const STANDARD_CC_WINDOWS = STANDARD_CC_STATES
+	const PRE_FLANK_ATTACKER_CC_WINDOWS = new Set(["pre_flank_cc_attacker"])
 	const PRE_WEATHER_ATTACKER_CC_WINDOWS = new Set(["pre_weather_cc_attacker"])
 	const PRE_WEATHER_BOTH_SIDES_CC_WINDOWS = new Set(["pre_weather_cc_attacker", "pre_weather_cc_defender"])
 
@@ -583,7 +588,7 @@ module.exports = function (Engine) {
 			modifiers: { drm: 1 }
 		},
 		[combat.CC_AP_MAUDE]: {
-			windows: STANDARD_CC_WINDOWS,
+			windows: PRE_FLANK_ATTACKER_CC_WINDOWS,
 			can_play: can_play_maude,
 			on_play_after_disposition(game, ctx) {
 				game.maude_cc = {
@@ -630,11 +635,11 @@ module.exports = function (Engine) {
 			}
 		},
 		[combat.CC_AP_MASSED_CAVALRY_CHARGE]: {
-			windows: STANDARD_CC_WINDOWS,
+			windows: PRE_FLANK_ATTACKER_CC_WINDOWS,
 			can_play: can_play_massed_cavalry_charge,
 			modifiers: {
 				drm({ side_pieces }) {
-					return side_pieces.some((p) => data.pieces[p].counter === "ANZ Desert Corps") ? 1 : 0
+					return side_pieces.some((p) => is_anz_desert_corps(p)) ? 1 : 0
 				}
 			}
 		},
@@ -660,7 +665,7 @@ module.exports = function (Engine) {
 			modifiers: { drm: 1 }
 		},
 		[combat.CC_CP_JIHAD_OFFENSIVE]: {
-			windows: STANDARD_CC_WINDOWS,
+			windows: PRE_FLANK_ATTACKER_CC_WINDOWS,
 			can_play: can_play_jihad_offensive,
 			on_play_after_disposition(game, ctx) {
 				game.events["jihad_offensive"] = game.turn

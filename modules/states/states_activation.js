@@ -1436,7 +1436,10 @@ exports.register = function (states, Engine, context) {
 			game.state = "combine_lcu_select_lcu"
 		},
 		clear() {
-			game.combine_ctx = { selected_scus: [] }
+			game.combine_ctx = {
+				...(game.combine_ctx || {}),
+				selected_scus: []
+			}
 		},
 		cancel() {
 			clear_combine_ctx()
@@ -1461,6 +1464,7 @@ exports.register = function (states, Engine, context) {
 		},
 		piece(lcu_id) {
 			let selected = get_selected_combine_scus()
+			if (!set_has(get_valid_lcus_for_selected_scus(selected), lcu_id)) return
 			if (!Engine.map.can_enter_region(game, lcu_id, game.where)) return
 			let options = get_manual_combination_for_lcu(lcu_id, selected)
 			if (!options) {

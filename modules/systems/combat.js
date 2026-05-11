@@ -116,6 +116,14 @@ module.exports = function (Engine) {
 		return !!(data.pieces[p] && data.pieces[p].name === "RU Black Sea")
 	}
 
+	function is_anz_desert_corps(p) {
+		return !!(data.pieces[p] && data.pieces[p].name === "ANZ Desert Corps")
+	}
+
+	function combat_card_played(game, side, card) {
+		return !!(game.combat_cards && Array.isArray(game.combat_cards[side]) && game.combat_cards[side].includes(card))
+	}
+
 	function is_post_battle_piece_available(game, p) {
 		return !is_not_on_map(game, p) && !is_eliminated(game, p)
 	}
@@ -571,24 +579,70 @@ module.exports = function (Engine) {
 		)
 	}
 
+	function attacker_has_haversack_ruse_terrain_ignore(game, attackers = null) {
+		if (!combat_card_played(game, "attacker", CC_AP_HAVERSACK_RUSE)) return false
+		let pieces = attackers || game.attack?.pieces || []
+		return pieces.some((p) => is_lcu(p) && data.pieces[p]?.nation === "br")
+	}
+
+	function attacker_has_massed_cavalry_desert_ignore(game, attackers = null) {
+		if (!combat_card_played(game, "attacker", CC_AP_MASSED_CAVALRY_CHARGE)) return false
+		let pieces = attackers || game.attack?.pieces || []
+		return pieces.some((p) => is_anz_desert_corps(p))
+	}
+
+	function attacker_has_maude_trench_ignore(game, target_space = null) {
+		if (!combat_card_played(game, "attacker", CC_AP_MAUDE)) return false
+		let s = target_space || game.attack?.space
+		return !!(s > 0 && data.spaces[s] && !data.spaces[s].vp)
+	}
+
+	function attacker_has_jihad_offensive_trench_ignore(game, attackers = null) {
+		let pieces = attackers || game.attack?.pieces || []
+		return (
+			game.active === CP &&
+			is_turn_event(game, "jihad_offensive") &&
+			pieces.some((p) => ["tu", "tua"].includes(data.pieces[p]?.nation)) &&
+			(!game.events || game.events["jihad_offensive_used"] !== game.turn)
+		)
+	}
+
+	function attacker_ignores_trench_for_flank(game, attackers = null, target_space = null) {
+		return (
+			attacker_has_massed_cavalry_desert_ignore(game, attackers) ||
+			attacker_has_maude_trench_ignore(game, target_space) ||
+			attacker_has_jihad_offensive_trench_ignore(game, attackers)
+		)
+	}
+
+	function attacker_ignores_river_for_flank(game, attackers = null) {
+		return attacker_has_jihad_offensive_trench_ignore(game, attackers)
+	}
+
+	function get_attacker_weather_terrain_ignore(game, attackers = null) {
+		return {
+			all: attacker_has_haversack_ruse_terrain_ignore(game, attackers),
+			desert: attacker_has_massed_cavalry_desert_ignore(game, attackers)
+		}
+	}
+
+	function is_severe_weather_space_for_attack(game, s, season, terrain_ignore = {}) {
+		let info = data.spaces[s]
+		if (!info) return false
+		if (terrain_ignore.all) return false
+		let terrain = info.terrain
+		if (season === "Summer" && terrain === "desert") return !terrain_ignore.desert
+		if (season === "Summer" && terrain === "swamp") return true
+		if (season === "Winter" && terrain === "mountain") return get_area(s) !== "syria_palestine"
+		return false
+	}
+
 	function can_battle_trigger_severe_weather(game, season = null) {
 		if (!game.attack) return false
 
 		const target_space = game.attack.space
 		const current_season = season || get_season(game)
-
-		const is_summer = current_season === "Summer"
-		const is_winter = current_season === "Winter"
-
-		const is_severe_weather_space = (s) => {
-			const info = data.spaces[s]
-			const t = info.terrain
-			if (is_summer && (t === "desert" || t === "swamp")) return true
-			if (is_winter && t === "mountain") {
-				return get_area(s) !== "syria_palestine"
-			}
-			return false
-		}
+		const terrain_ignore = get_attacker_weather_terrain_ignore(game, game.attack.pieces)
 
 		let regular_attackers = game.attack.pieces.filter(
 			(p) => is_regular(p) && !is_severe_weather_immune_attacker(game, p, current_season)
@@ -597,7 +651,10 @@ module.exports = function (Engine) {
 
 		for (let p of regular_attackers) {
 			const s = game.pieces[p]
-			if (is_severe_weather_space(s) || is_severe_weather_space(target_space)) {
+			if (
+				is_severe_weather_space_for_attack(game, s, current_season, terrain_ignore) ||
+				is_severe_weather_space_for_attack(game, target_space, current_season, terrain_ignore)
+			) {
 				return true
 			}
 		}
@@ -608,15 +665,7 @@ module.exports = function (Engine) {
 	function apply_severe_weather(game, log, season, reduce_piece_fn) {
 		const target_space = game.attack.space
 		const round = game.action_round
-		const is_summer = season === "Summer"
-		const is_winter = season === "Winter"
-		const is_severe_weather_space = (s) => {
-			const info = data.spaces[s]
-			const t = info.terrain
-			if (is_summer && (t === "desert" || t === "swamp")) return true
-			if (is_winter && t === "mountain") return get_area(s) !== "syria_palestine"
-			return false
-		}
+		const terrain_ignore = get_attacker_weather_terrain_ignore(game, game.attack.pieces)
 
 		let spaces_to_roll = new Set()
 
@@ -632,7 +681,10 @@ module.exports = function (Engine) {
 		for (let p of weather_checked_attackers) {
 			const s = game.pieces[p]
 			// 规则：从或者向恶劣地形进攻时触发
-			if (is_severe_weather_space(s) || is_severe_weather_space(target_space)) {
+			if (
+				is_severe_weather_space_for_attack(game, s, season, terrain_ignore) ||
+				is_severe_weather_space_for_attack(game, target_space, season, terrain_ignore)
+			) {
 				spaces_to_roll.add(s)
 			}
 		}
@@ -2924,18 +2976,8 @@ module.exports = function (Engine) {
 		let defender_faction = other_faction(game.active)
 		let trench_level_at_target = has_trench(game, target_space)
 		let is_river_def = is_river_defense(game)
-
-		// PUG Rule: Jihad Offensive (CP Card 102/Event) cancels trench/river penalties for flank attack eligibility
-		let jihad_ignore = false
-		if (
-			game.active === CP &&
-			is_turn_event(game, "jihad_offensive") &&
-			attackers.some((p) => ["tu", "tua"].includes(data.pieces[p].nation))
-		) {
-			if (!game.events || game.events["jihad_offensive_used"] !== game.turn) {
-				jihad_ignore = true
-			}
-		}
+		let ignore_trench = attacker_ignores_trench_for_flank(game, attackers, target_space)
+		let ignore_river = attacker_ignores_river_for_flank(game, attackers)
 
 		let has_lcu = attackers.some((p) => is_lcu(p))
 		let attacking_spaces = new Set()
@@ -2951,10 +2993,10 @@ module.exports = function (Engine) {
 			has_lcu &&
 			target_terrain !== MOUNTAIN &&
 			target_terrain !== SWAMP &&
-			(trench_level_at_target === 0 || jihad_ignore) &&
+			(trench_level_at_target === 0 || ignore_trench) &&
 			!has_fort &&
 			!is_region_val &&
-			(!is_river_def || jihad_ignore)
+			(!is_river_def || ignore_river)
 		)
 	}
 
@@ -3086,7 +3128,7 @@ module.exports = function (Engine) {
 					}
 				}
 				if (game.combat_cards.attacker.includes(CC_AP_MASSED_CAVALRY_CHARGE)) {
-					if (attackers.some((p) => data.pieces[p].counter === "ANZ Desert Corps")) {
+					if (attackers.some((p) => is_anz_desert_corps(p))) {
 						ignore_trench = true
 						ignore_desert = true
 						mark_effected(CC_AP_MASSED_CAVALRY_CHARGE)

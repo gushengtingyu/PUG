@@ -48,6 +48,31 @@ function createSummerSwampAttack() {
 	return { game, british, abadan }
 }
 
+function createSummerDesertAttack() {
+	let game = setupGame(204)
+	let ahwaz = findSpace("Ahwaz")
+	let shuster = findSpace("Shuster")
+	let anzDesertCorps = findPiece("ANZ Desert Corps")
+	let turkish = findPiece("TU DIV #8")
+
+	clearBoard(game)
+	game.turn = 4
+	game.action_round = 1
+	game.active = rules.AP
+	game.events = {}
+	game.reduced = []
+	game.pieces[anzDesertCorps] = ahwaz
+	game.pieces[turkish] = shuster
+	game.attack = {
+		space: shuster,
+		pieces: [anzDesertCorps],
+		attacker: rules.AP,
+		defender: rules.CP
+	}
+
+	return { game, anzDesertCorps }
+}
+
 test("severe weather reduces full-strength regular attackers and logs the check", () => {
 	let { game, indian, ahwaz } = createIndianSummerWeatherAttack()
 	let logs = []
@@ -83,6 +108,32 @@ test("Turn 4 AP attacks into swamp still trigger severe weather", () => {
 	expect(logs.length).toBe(1)
 	expect(logs[0]).toMatch(new RegExp(`^恶劣天气 \\(s${abadan}\\): 掷骰=\\d, 行动轮=1 -> `))
 	expect(logs[0]).toContain(`p${british}`)
+})
+
+test("Haversack Ruse terrain ignore prevents severe weather checks", () => {
+	let { game, british } = createSummerSwampAttack()
+	let logs = []
+	game.combat_cards = { attacker: [Engine.combat.CC_AP_HAVERSACK_RUSE], defender: [] }
+
+	expect(Engine.combat.can_battle_trigger_severe_weather(game, "Summer")).toBe(false)
+
+	Engine.combat.apply_severe_weather(game, (msg) => logs.push(msg), "Summer")
+
+	expect(Engine.game_utils.is_piece_reduced(game, british)).toBe(false)
+	expect(logs).toEqual([])
+})
+
+test("Massed Cavalry Charge desert ignore prevents summer desert weather checks", () => {
+	let { game, anzDesertCorps } = createSummerDesertAttack()
+	let logs = []
+	game.combat_cards = { attacker: [Engine.combat.CC_AP_MASSED_CAVALRY_CHARGE], defender: [] }
+
+	expect(Engine.combat.can_battle_trigger_severe_weather(game, "Summer")).toBe(false)
+
+	Engine.combat.apply_severe_weather(game, (msg) => logs.push(msg), "Summer")
+
+	expect(Engine.game_utils.is_piece_reduced(game, anzDesertCorps)).toBe(false)
+	expect(logs).toEqual([])
 })
 
 test("Pasha 1 defending CP units do not cancel AP severe weather checks", () => {
