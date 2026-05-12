@@ -477,6 +477,7 @@ module.exports = function (Engine) {
 		if (state.russian_vp === undefined) state.russian_vp = 0
 		state.combined_war = Math.min(40, Math.max(0, (state.war_status_ap || 0) + (state.war_status_cp || 0)))
 		if (!Array.isArray(state.tribal_reserve)) state.tribal_reserve = []
+		if (!Array.isArray(state.soviet_uprising_markers)) state.soviet_uprising_markers = []
 		if (state.russian_revolution === undefined) state.russian_revolution = 0
 		if (state.god_save_the_tsar === undefined) state.god_save_the_tsar = 0
 		if (state.ge_to_tu_rp_used === undefined) state.ge_to_tu_rp_used = 0
@@ -619,6 +620,7 @@ module.exports = function (Engine) {
 			jihad_city_effective_owner: [],
 			vp_partial_disruption: [],
 			armenian_uprising_ru_vp_markers: [],
+			soviet_uprising_markers: [],
 			region_disruption: [],
 			russian_vp: 0,
 			combined_war: 0,

@@ -72,7 +72,8 @@ exports.register = function (states, Engine, context) {
 
 	const UPRISING_MARKER_RULES = [
 		{ key: "persian_uprising_markers", enemies: [AP], label: "Persian Uprising" },
-		{ key: "armenian_uprising_markers", enemies: [CP], label: "Armenian Uprising" }
+		{ key: "armenian_uprising_markers", enemies: [CP], label: "Armenian Uprising" },
+		{ key: "soviet_uprising_markers", enemies: [AP, CP], label: "Soviet Uprising" }
 	]
 
 	function get_enemy_uprising_marker_rule(s, faction = active_faction()) {

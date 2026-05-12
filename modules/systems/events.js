@@ -186,6 +186,7 @@ module.exports = function (Engine) {
 
 	const PARVUS_MARKER_TURN = 5
 	const REVOLUTION_MARKER_TURN = 9
+	const SINAI_RAILROAD_EVENT = "xinai"
 
 	function get_parvus_marker_turn(game) {
 		if (!game.events || game.events["parvus_to_berlin"] === undefined) return undefined
@@ -201,6 +202,34 @@ module.exports = function (Engine) {
 		if (!game.events || game.events["parvus_to_berlin"] === undefined) return undefined
 		let offset = game.events["warm_water_port"] ? 2 : 0
 		return PARVUS_MARKER_TURN + (game.russian_vp || 0) + offset
+	}
+
+	function get_sinai_railroad_value(game) {
+		return game && game.events ? game.events[SINAI_RAILROAD_EVENT] : undefined
+	}
+
+	function is_sinai_railroad_complete(game) {
+		let value = get_sinai_railroad_value(game)
+		return value === true || (typeof value === "number" && game.turn >= value)
+	}
+
+	function get_sinai_railroad_turn(game) {
+		let value = get_sinai_railroad_value(game)
+		return typeof value === "number" && game.turn < value ? value : undefined
+	}
+
+	function can_use_sinai_railroad(game, faction) {
+		return faction === AP && is_sinai_railroad_complete(game)
+	}
+
+	function complete_sinai_railroad_if_ready(game, log_fn) {
+		if (!game || !game.events || typeof game.events[SINAI_RAILROAD_EVENT] !== "number") return false
+		if (game.turn < game.events[SINAI_RAILROAD_EVENT]) return false
+		game.events[SINAI_RAILROAD_EVENT] = true
+		if (typeof log_fn === "function") {
+			log_fn("Sinai Railroad completed: AP may use it for the remainder of the game.")
+		}
+		return true
 	}
 
 	function sync_russian_revolution_markers(game) {
@@ -290,6 +319,257 @@ module.exports = function (Engine) {
 		game.events["warm_water_port"] = true
 		if (game.events["parvus_to_berlin"] !== undefined) sync_russian_revolution_markers(game)
 		log(game, `不冻港：已在 ${space_log_name(s)} 建立。`)
+	}
+
+	function get_russian_revolution_level(game) {
+		return (game.events && game.events["russian_revolution"]) || 0
+	}
+
+	function is_russian_revolution_subject_piece(p) {
+		let info = data.pieces[p]
+		if (!info) return false
+		if (info.nation === "ru") return true
+		return !!(info.name && info.name.startsWith("RU/PE"))
+	}
+
+	function is_yugoslav_revolution_survivor(p) {
+		return !!(data.pieces[p] && data.pieces[p].name === "RU/SB Yugo Infantry")
+	}
+
+	function is_russian_revolution_cavalry_candidate(p) {
+		let info = data.pieces[p]
+		return !!(
+			info &&
+			info.nation === "ru" &&
+			info.piece_class === "SCU" &&
+			info.badge === "cavalry" &&
+			info.name &&
+			info.name.startsWith("RU Cavalry")
+		)
+	}
+
+	function is_russian_revolution_survivor_cavalry(game, p) {
+		return !!(game && game.russian_revolution_survivor_cavalry === p)
+	}
+
+	function is_russian_revolution_survivor_piece(game, p) {
+		return is_yugoslav_revolution_survivor(p) || is_russian_revolution_survivor_cavalry(game, p)
+	}
+
+	function is_transcaucasian_federation_piece(p) {
+		let info = data.pieces[p]
+		return !!(info && (info.name || "").match(/^(Arm Transcas|Geo Transcaucasian)/))
+	}
+
+	function is_available_revolution_cavalry_choice(game, p) {
+		if (!is_russian_revolution_cavalry_candidate(p)) return false
+		if (Engine.game_utils.is_permanently_eliminated(game, p)) return false
+		if (Engine.game_utils.is_eliminated(game, p)) return false
+		if (is_reinforcement(game, p) || is_removed_only(game, p)) return false
+		return true
+	}
+
+	function choose_default_revolution_cavalry_survivor(game) {
+		if (Number.isInteger(game.russian_revolution_survivor_cavalry)) return game.russian_revolution_survivor_cavalry
+		let candidates = []
+		for (let p = 1; p < data.pieces.length; p++) {
+			if (is_available_revolution_cavalry_choice(game, p)) candidates.push(p)
+		}
+		if (candidates.length === 0) return -1
+		candidates.sort((a, b) => {
+			let a_on_map = game.pieces[a] > 0 && data.spaces[game.pieces[a]] && !Engine.game_utils.is_not_on_map(game, a)
+			let b_on_map = game.pieces[b] > 0 && data.spaces[game.pieces[b]] && !Engine.game_utils.is_not_on_map(game, b)
+			if (a_on_map !== b_on_map) return a_on_map ? -1 : 1
+			return a - b
+		})
+		game.russian_revolution_survivor_cavalry = candidates[0]
+		return candidates[0]
+	}
+
+	function is_piece_available_for_revolution_stage_effect(game, p) {
+		if (!data.pieces[p]) return false
+		if (Engine.game_utils.is_permanently_eliminated(game, p)) return false
+		if (Engine.game_utils.is_eliminated(game, p)) return false
+		if (is_removed_only(game, p)) return false
+		if (is_reinforcement(game, p)) return false
+		return true
+	}
+
+	function apply_russian_revolution_stage_1(game, ctx) {
+		if (game.events["russian_revolution_stage_1_applied"]) return
+		game.events["russian_revolution_stage_1_applied"] = true
+		if (!game.events["romania"]) {
+			game.vp += 2
+			game.events["romania_barred_by_russian_revolution"] = true
+			log(game, "Russian Revolution Stage 1: Romania is neutral; VP +2 and Romania may not enter as an event.", ctx)
+		}
+	}
+
+	function apply_russian_revolution_stage_2(game, ctx) {
+		if (game.events["russian_revolution_stage_2_applied"]) return
+		game.events["russian_revolution_stage_2_applied"] = true
+		let corps_assets = get_lcu_reserve_box(AP)
+		for (let p = 1; p < data.pieces.length; p++) {
+			let info = data.pieces[p]
+			if (!info || !is_russian_revolution_subject_piece(p)) continue
+			if (!is_piece_available_for_revolution_stage_effect(game, p)) continue
+			if (info.type === "hq") continue
+			if (info.piece_class === "LCU" && game.pieces[p] === corps_assets) {
+				game.pieces[p] = Engine.game_utils.get_eliminated_box(AP)
+				log(game, `Russian Revolution Stage 2: ${info.name} is eliminated from Corps Assets.`, ctx)
+				continue
+			}
+			if (!set_has(game.reduced, p)) {
+				set_add(game.reduced, p)
+				log(game, `Russian Revolution Stage 2: ${info.name} is reduced.`, ctx)
+			}
+		}
+	}
+
+	function apply_russian_revolution_stage_3(game, ctx) {
+		if (game.events["russian_revolution_stage_3_applied"]) return
+		game.events["russian_revolution_stage_3_applied"] = true
+		game.russian_revolution_limited_attack_turn = game.turn + 1
+		game.russian_revolution_ru_attack_used = false
+		log(game, `Russian Revolution Stage 3: RU units may conduct only one attack on Turn ${game.russian_revolution_limited_attack_turn}.`, ctx)
+	}
+
+	function place_georgian_protectorate(game, ctx) {
+		let p = find_piece(CP, "GE GeoProtect")
+		if (p < 0 || !is_reinforcement(game, p)) return
+		let options = [find_space("Batum"), find_space("TIFLIS")].filter((s) => {
+			if (!(s > 0 && data.spaces[s])) return false
+			return get_pieces_in_space(game, s).length === 0
+		})
+		if (options.length === 0) return
+		options.sort((a, b) => {
+			let a_ap = is_controlled_by(game, a, AP)
+			let b_ap = is_controlled_by(game, b, AP)
+			if (a_ap !== b_ap) return a_ap ? -1 : 1
+			return a - b
+		})
+		let s = options[0]
+		if (is_controlled_by(game, s, CP)) {
+			game.vp -= 1
+			log(game, `Russian Revolution Stage 4: Georgian Protectorate placed in CP-controlled ${space_log_name(s)}; VP -1.`, ctx)
+		} else {
+			log(game, `Russian Revolution Stage 4: Georgian Protectorate placed in ${space_log_name(s)}.`, ctx)
+		}
+		game.pieces[p] = s
+	}
+
+	function get_transcaucasian_placement_spaces(game) {
+		let spaces = []
+		for (let s = 1; s < data.spaces.length; s++) {
+			if (!data.spaces[s]) continue
+			if (!is_controlled_by(game, s, AP)) continue
+			if (!(Engine.map.is_russia(s) || Engine.map.is_caucasus(s))) continue
+			if (Engine.game_utils.get_capacity(game, s) > 0) spaces.push(s)
+		}
+		return spaces
+	}
+
+	function place_transcaucasian_federation(game, ctx) {
+		let units = ["Arm Transcas #1", "Arm Transcas #2", "Arm Transcas #3", "Geo Transcaucasian #1", "Geo Transcaucasian #2"]
+		for (let name of units) {
+			let p = find_piece(CP, name)
+			if (p < 0 || !is_reinforcement(game, p)) continue
+			let spaces = get_transcaucasian_placement_spaces(game)
+			if (spaces.length === 0) {
+				log(game, `Russian Revolution Stage 4: no legal AP-controlled Russia/Caucasia space for ${name}.`, ctx)
+				continue
+			}
+			let s = spaces[0]
+			game.pieces[p] = s
+			log(game, `Russian Revolution Stage 4: ${name} placed in ${space_log_name(s)}.`, ctx)
+		}
+	}
+
+	function place_soviet_uprising_markers(game, ctx) {
+		let spaces = ["Baku", "Central Asia", "Enzeli"].map(find_space).filter((s) => s > 0)
+		game.soviet_uprising_markers = spaces
+		log(game, "Russian Revolution Stage 4: Soviet Uprising markers placed.", ctx)
+	}
+
+	function eliminate_ge_ix_army(game, ctx) {
+		let ge_ix = find_piece(CP, "GE IX Army")
+		if (ge_ix < 0 || !is_piece_available_for_revolution_stage_effect(game, ge_ix)) return
+		let space = game.pieces[ge_ix]
+		Engine.game_utils.eliminate_piece(game, ge_ix, (msg) => log(game, msg, ctx), true)
+		let reserve = get_scu_reserve_box(CP)
+		let replacement = -1
+		for (let name of ["GE DIV #1", "GE DIV #2", "GE DIV #3", "GE DIV #4"]) {
+			let p = find_piece(CP, name)
+			if (p >= 0 && game.pieces[p] === reserve) {
+				replacement = p
+				break
+			}
+		}
+		if (replacement >= 0 && space > 0 && data.spaces[space]) {
+			game.pieces[replacement] = space
+			log(game, `Russian Revolution Stage 4: GE IX Army replaced by ${data.pieces[replacement].name}.`, ctx)
+		}
+	}
+
+	function apply_russian_revolution_stage_4(game, ctx) {
+		if (game.events["russian_revolution_stage_4_applied"]) return
+		game.events["russian_revolution_stage_4_applied"] = true
+		let kept_cavalry = choose_default_revolution_cavalry_survivor(game)
+		for (let p = 1; p < data.pieces.length; p++) {
+			let info = data.pieces[p]
+			if (!info || !is_russian_revolution_subject_piece(p)) continue
+			if (is_yugoslav_revolution_survivor(p) || p === kept_cavalry) continue
+			if (Engine.game_utils.is_permanently_eliminated(game, p)) continue
+			Engine.game_utils.eliminate_piece(game, p, (msg) => log(game, msg, ctx), true)
+		}
+		if (kept_cavalry >= 0) {
+			log(game, `Russian Revolution Stage 4: ${data.pieces[kept_cavalry].name} remains and is treated as BR except for MO.`, ctx)
+		}
+		place_georgian_protectorate(game, ctx)
+		place_transcaucasian_federation(game, ctx)
+		place_soviet_uprising_markers(game, ctx)
+		eliminate_ge_ix_army(game, ctx)
+	}
+
+	function apply_russian_revolution_stage_effects(game, stage, ctx) {
+		if (!game.events) game.events = {}
+		if (stage >= 1) apply_russian_revolution_stage_1(game, ctx)
+		if (stage >= 2) apply_russian_revolution_stage_2(game, ctx)
+		if (stage >= 3) apply_russian_revolution_stage_3(game, ctx)
+		if (stage >= 4) apply_russian_revolution_stage_4(game, ctx)
+	}
+
+	function can_record_russian_rp(game) {
+		if (get_russian_revolution_level(game) >= 1) return false
+		return !exports.is_ru_rp_blocked(game)
+	}
+
+	function has_russian_piece_for_revolution_rule(game, pieces, purpose = "activation") {
+		if (!Array.isArray(pieces)) return false
+		return pieces.some((p) => piece_counts_as_nation_for_rule(game, p, "ru", purpose))
+	}
+
+	function has_russian_combat_activation_penalty(game, pieces) {
+		return get_russian_revolution_level(game) >= 1 && has_russian_piece_for_revolution_rule(game, pieces, "activation")
+	}
+
+	function is_russian_revolution_ru_attack_limited(game) {
+		return !!(
+			game &&
+			game.russian_revolution_limited_attack_turn === game.turn &&
+			game.russian_revolution_ru_attack_used
+		)
+	}
+
+	function is_russian_revolution_ru_attack_blocked(game, pieces) {
+		return is_russian_revolution_ru_attack_limited(game) && has_russian_piece_for_revolution_rule(game, pieces, "activation")
+	}
+
+	function register_russian_revolution_ru_attack(game, pieces) {
+		if (!(game && game.russian_revolution_limited_attack_turn === game.turn)) return
+		if (has_russian_piece_for_revolution_rule(game, pieces, "activation")) {
+			game.russian_revolution_ru_attack_used = true
+		}
 	}
 
 	function format_mo_log_name(mo) {
@@ -998,6 +1278,15 @@ module.exports = function (Engine) {
 	function reinforce(game, name, faction, space = null) {
 		let p = find_piece(faction, name)
 		if (p < 0) return false
+		let revolution_level = get_russian_revolution_level(game)
+		if (
+			revolution_level >= 4 &&
+			is_russian_revolution_subject_piece(p) &&
+			!is_russian_revolution_survivor_piece(game, p)
+		) {
+			log(game, `Russian Revolution Stage 4: ${name} may not enter the game.`)
+			return false
+		}
 
 		if (
 			is_reinforcement(game, p) ||
@@ -1019,6 +1308,14 @@ module.exports = function (Engine) {
 			}
 
 			game.pieces[p] = space
+			if (
+				revolution_level >= 2 &&
+				revolution_level <= 3 &&
+				is_russian_revolution_subject_piece(p) &&
+				data.pieces[p].type !== "hq"
+			) {
+				set_add(game.reduced, p)
+			}
 			let sn = space === RESERVE ? "Reserve" : space_log_name(space)
 			log(game, `增援：${name} 放置到 ${sn}`)
 			if (space !== null && space !== RESERVE) {
@@ -1114,6 +1411,9 @@ module.exports = function (Engine) {
 			if (!entry.can_play(game)) return false
 		}
 		let key = get_rein_record_key(card, entry)
+		if (get_russian_revolution_level(game) >= 4 && (key === "ru" || (entry && entry.blocks_after_russian_revolution_stage4))) {
+			return false
+		}
 		if (key) {
 			let record = ensure_rein_record(game)
 			if ((record[key] || 0) >= 1) return false
@@ -1265,6 +1565,7 @@ module.exports = function (Engine) {
 		},
 		9: {
 			name: "SPHERE OF INFLUENCE",
+			blocks_after_russian_revolution_stage4: true,
 			name_cn: "俄国势力范围",
 			effect_cn:
 				"增援:2个俄国步兵师，1个俄国近卫步兵师 至 协约国控制下的空置的、可以用铁路连接至俄国补给点的俄国、阿塞拜疆地区。",
@@ -1371,7 +1672,7 @@ module.exports = function (Engine) {
 				game.rp_ap.br += 1
 				game.rp_ap.in += 1
 				game.rp_ap.a += 1
-				game.rp_ap.ru += 1
+				if (can_record_russian_rp(game)) game.rp_ap.ru += 1
 				if (!game.ui_tokens) game.ui_tokens = {}
 				game.ui_tokens["BR RPs TO RU"] = "MKitch.png"
 				let p = find_piece(undefined, "Kitch.token")
@@ -1403,6 +1704,7 @@ module.exports = function (Engine) {
 		},
 		17: {
 			name: "ALLIED SOLIDARITY",
+			blocks_after_russian_revolution_stage4: true,
 			name_cn: "盟军团结",
 			effect_cn:
 				"增援:俄国2/4特别旅、意大利步兵师、希腊国防军 至巴尔干内任一协约国控制港口或滩头标记，包括利姆诺斯岛。希腊国防军可以选择直接增援至中立的萨洛尼卡地区并保持不破坏希腊的中立；随后萨洛尼卡成为协约国控制的港口。俄国2/4特别旅虽然遵循俄国部队的一般规则，无法和英国单位堆叠在一起，但是其可以从非俄国补给源(英国补给源)获得完全补给。并且在被摧毁并重建在俄国补给源或者预备军格后，俄国2/4特别旅可以通过海上战略调整再次进入协约国控制的希腊港口，无视相关的黑海-地中海海上战略调整禁止规则。",
@@ -1474,7 +1776,7 @@ module.exports = function (Engine) {
 			name_cn: "基钦纳入侵",
 			effect_cn:
 				"(只能在【丘吉尔胜出】后打出，不能在冬季回合打出。可以当作英国增援打出以代替入侵)。——海上入侵——。获得一个滩头标记，立即将其放置在一个滩头处。。入侵:英国第9军团、2个英国步兵师 至任何滩头标记地区。。增援:1个英国精锐步兵师，1个英国骑兵师至预备军格。",
-			can_play: function () {
+			can_play: function (game) {
 				return true
 			},
 			handler: function (game, ctx) {
@@ -1588,7 +1890,7 @@ module.exports = function (Engine) {
 			name_cn: "俄国增援",
 			effect_cn:
 				"增援:俄国高加索第5军团、俄国黑海陆战队、1个近卫步兵师。俄国黑海陆战队每局一次可从黑海港发动两栖突袭，占领空的同盟国黑海港；若登陆博斯普鲁斯或特拉布宗要塞，则单独围攻并按3个SCU计算。",
-			can_play: function () {
+			can_play: function (game) {
 				return true
 			},
 			handler: function (game, ctx) {
@@ -1870,9 +2172,8 @@ module.exports = function (Engine) {
 			name_cn: "不冻港",
 			effect_cn:
 				"(只能在能通过陆地计算补给线至彼得罗夫斯克的俄国部队控制原本属于土耳其的爱琴海、东地中海和波斯湾港口时打出。不能在俄国革命后打出)。。如果该港口地区不为VP点，则在游戏的剩余时间视其为VP点**(同样在革命结算时算作俄国VP数的一部分)**。现在开始\"上帝保佑沙皇\"标记永远位于俄国VP数+2的位置。**(即使该港口随后被同盟国夺回)**",
-			can_play: function () {
-				// 温水港机制尚未实装
-				return false
+			can_play: function (game) {
+				return get_russian_revolution_level(game) < 1 && get_warm_water_port_options(game).length > 0
 			},
 			handler: function (game, ctx) {
 				let options = get_warm_water_port_options(game)
@@ -2911,6 +3212,9 @@ module.exports = function (Engine) {
 		},
 		86: {
 			name: "GORLICE-TARNOW",
+			can_play: function (game) {
+				return get_russian_revolution_level(game) < 1
+			},
 			name_cn: "戈尔利采-塔尔诺夫攻势",
 			effect_cn:
 				"协约国玩家需要选择:。A: VP+2。B: 将一个地图上的俄国LCU暂时移除游戏(派往东线)，4个回合后重新放置在预备军格。阻止继续记录本回合的俄国补员点数。",
@@ -3357,9 +3661,7 @@ module.exports = function (Engine) {
 	exports.is_ge_rp_blocked = function (game) {
 		return !!(game && game.events && game.events["kaiserschlacht_rp_block_turn"] === game.turn)
 	}
-	exports.get_russian_revolution_level = function (game) {
-		return (game.events && game.events["russian_revolution"]) || 0
-	}
+	exports.get_russian_revolution_level = get_russian_revolution_level
 	exports.is_royal_navy_blockade_active = function (game) {
 		return is_event_active(game, "royal_navy_blockade")
 	}
@@ -3400,9 +3702,22 @@ module.exports = function (Engine) {
 	exports.apply_warm_water_port_effect = apply_warm_water_port_effect
 	exports.get_warm_water_port_options = get_warm_water_port_options
 	exports.is_warm_water_port_option = is_warm_water_port_option
+	exports.apply_russian_revolution_stage_effects = apply_russian_revolution_stage_effects
+	exports.can_record_russian_rp = can_record_russian_rp
+	exports.is_russian_revolution_subject_piece = is_russian_revolution_subject_piece
+	exports.is_russian_revolution_survivor_piece = is_russian_revolution_survivor_piece
+	exports.is_russian_revolution_survivor_cavalry = is_russian_revolution_survivor_cavalry
+	exports.is_transcaucasian_federation_piece = is_transcaucasian_federation_piece
+	exports.has_russian_combat_activation_penalty = has_russian_combat_activation_penalty
+	exports.is_russian_revolution_ru_attack_blocked = is_russian_revolution_ru_attack_blocked
+	exports.register_russian_revolution_ru_attack = register_russian_revolution_ru_attack
 	exports.get_parvus_marker_turn = get_parvus_marker_turn
 	exports.get_revolution_marker_turn = get_revolution_marker_turn
 	exports.get_long_live_czar_turn = get_long_live_czar_turn
+	exports.is_sinai_railroad_complete = is_sinai_railroad_complete
+	exports.get_sinai_railroad_turn = get_sinai_railroad_turn
+	exports.can_use_sinai_railroad = can_use_sinai_railroad
+	exports.complete_sinai_railroad_if_ready = complete_sinai_railroad_if_ready
 	exports.sync_russian_revolution_markers = sync_russian_revolution_markers
 	exports.reinforce = reinforce
 	exports.finish_event = finish_event

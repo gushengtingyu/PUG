@@ -1,8 +1,10 @@
 const Engine = require("../modules/engine.js")
+const rules = require("../rules.js")
 
 const { setupGame, findSpace, findApPiece, findCpPiece: findPiece, clearBoard } = require("./helpers.js")
 
 const { AP, CP } = Engine.constants
+const AP_ROLE = rules.roles[0]
 
 function placeTurkishDivisionPair(game, space) {
 	game.pieces[findPiece("TU DIV #1")] = space
@@ -58,6 +60,66 @@ test("ANZ Desert Corps can move across unfinished Sinai railroad as a normal con
 
 	game.move.pieces = [britishCorps]
 	expect(Engine.map.can_piece_move_to(game, britishCorps, romani, AP)).toBe(false)
+})
+
+test("Sinai Railroad remains usable after completion turn and stays AP-only", () => {
+	let game = setupGame(2026051201)
+	let ismailia = findSpace("Ismailia")
+	let romani = findSpace("Romani")
+	let elArish = findSpace("El Arish")
+	let gaza = findSpace("Gaza")
+	let britishCorps = findApPiece("BR IX Corps")
+
+	clearBoard(game)
+	game.events = game.events || {}
+	game.events.xinai = 5
+	game.turn = 6
+	game.control[romani] = AP
+	game.control[elArish] = AP
+	game.control[gaza] = AP
+	game.pieces[britishCorps] = ismailia
+	game.move = {
+		initial: ismailia,
+		current: ismailia,
+		spaces_moved: 0,
+		pieces: [britishCorps],
+		touched_spaces: [ismailia]
+	}
+
+	expect(Engine.events.is_sinai_railroad_complete(game)).toBe(true)
+	expect(Engine.map.can_piece_move_to(game, britishCorps, romani, AP)).toBe(true)
+	expect(Engine.map.is_rail_connected_to_supply(game, romani, AP)).toBe(true)
+
+	game.events.xinai = true
+	expect(Engine.events.can_use_sinai_railroad(game, AP)).toBe(true)
+	expect(Engine.events.can_use_sinai_railroad(game, CP)).toBe(false)
+	expect(Engine.map.can_piece_move_to(game, britishCorps, romani, AP)).toBe(true)
+
+	game.control[ismailia] = CP
+	game.control[romani] = CP
+	game.control[elArish] = CP
+	game.control[gaza] = CP
+	expect(Engine.map.is_rail_connected_to_supply(game, elArish, CP)).toBe(false)
+})
+
+test("Sinai Railroad marker leaves the turn track after completion", () => {
+	let game = setupGame(2026051202)
+	game.events = game.events || {}
+	game.events.xinai = game.turn + 1
+
+	let buildingView = rules.view(game, AP_ROLE)
+	expect(buildingView.sinai_railroad_turn).toBe(game.turn + 1)
+	expect(buildingView.ui_tokens["Sinai Railroad"]).toBeUndefined()
+
+	game.turn = game.events.xinai
+	let completedView = rules.view(game, AP_ROLE)
+	expect(completedView.sinai_railroad_turn).toBeUndefined()
+	expect(completedView.ui_tokens["Sinai Railroad"]).toBe("MSinaiRR.png")
+
+	game.events.xinai = true
+	let permanentView = rules.view(game, AP_ROLE)
+	expect(permanentView.sinai_railroad_turn).toBeUndefined()
+	expect(permanentView.ui_tokens["Sinai Railroad"]).toBe("MSinaiRR.png")
 })
 
 test("Rail-connected desert restricted spaces still allow legal LCU organization", () => {

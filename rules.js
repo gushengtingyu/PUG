@@ -633,6 +633,7 @@ function get_supply_dependency_signature() {
 		get_array_signature(game.special_besieged),
 		get_array_signature(game.persian_uprising_markers),
 		get_array_signature(game.armenian_uprising_markers),
+		get_array_signature(game.soviet_uprising_markers),
 		get_array_signature(game.partial_ap_control_markers),
 		get_array_signature(game.partial_cp_control_markers),
 		get_array_signature(game.ru_control_markers),
@@ -820,6 +821,9 @@ exports.view = function (state, current) {
 	const max_rollback_action_rounds = get_max_rollback_action_rounds()
 	const ui_tokens = { ...(game.ui_tokens || {}) }
 	const hidden_reinforcement_markers = []
+	const sinai_railroad_value = game.events ? game.events["xinai"] : undefined
+	const sinai_railroad_complete = Engine.events.is_sinai_railroad_complete(game)
+	const sinai_railroad_turn = Engine.events.get_sinai_railroad_turn(game)
 	if (game.events && game.events["royal_flying_corps_permanent"]) {
 		ui_tokens["AP Air Superiority"] = "MAPAirS.png"
 		delete ui_tokens["CP Air Superiority"]
@@ -833,9 +837,11 @@ exports.view = function (state, current) {
 	if (game.events && game.events["kitchener"]) {
 		hidden_reinforcement_markers.push("Kitch.token")
 	}
-	if (game.events && game.events["xinai"] !== undefined) {
+	if (sinai_railroad_value !== undefined) {
 		hidden_reinforcement_markers.push("SINAI RAILROAD")
 	}
+	if (sinai_railroad_complete) ui_tokens["Sinai Railroad"] = "MSinaiRR.png"
+	else delete ui_tokens["Sinai Railroad"]
 	if (game.events && game.events["parvus_to_berlin"] !== undefined) {
 		hidden_reinforcement_markers.push("Parvus to Berlin token")
 		hidden_reinforcement_markers.push("Revolution token")
@@ -910,10 +916,12 @@ exports.view = function (state, current) {
 			pieces: game.pieces,
 			ui_tokens: ui_tokens,
 			hidden_reinforcement_markers: hidden_reinforcement_markers,
+			sinai_railroad_turn,
 			control: get_control_view(),
 			ru_control_markers: game.ru_control_markers || [],
 			persian_uprising_markers: game.persian_uprising_markers || [],
 			armenian_uprising_markers: game.armenian_uprising_markers || [],
+			soviet_uprising_markers: game.soviet_uprising_markers || [],
 			jerusalem_by_christmas_markers:
 				Number.isFinite(jerusalem_by_christmas_target) && jerusalem_by_christmas_target > 0
 					? [jerusalem_by_christmas_target]

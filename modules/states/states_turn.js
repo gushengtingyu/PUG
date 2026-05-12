@@ -228,6 +228,13 @@ exports.register = function (states, Engine, context) {
 					let opponent = other_faction(faction)
 					log(`${space_name(s)} becomes enemy-controlled due to attrition (OOS)`)
 					set_control(game, s, opponent)
+					if (
+						opponent === AP &&
+						Engine.neutral &&
+						typeof Engine.neutral.apply_attrition_ru_vp_capture === "function"
+					) {
+						Engine.neutral.apply_attrition_ru_vp_capture(game, s)
+					}
 				}
 			}
 			game.oos_spaces = []
@@ -340,6 +347,9 @@ exports.register = function (states, Engine, context) {
 			if (game.turn >= timer && game.turn >= game.god_save_the_tsar && !blocked) {
 				game.ru_revolution = 1
 				game.events["russian_revolution"] = 1
+				if (typeof Engine.events.apply_russian_revolution_stage_effects === "function") {
+					Engine.events.apply_russian_revolution_stage_effects(game, 1, { log })
+				}
 				log("俄国革命开始：第1阶段。")
 				return
 			}
@@ -349,6 +359,9 @@ exports.register = function (states, Engine, context) {
 		if (game.events["russian_revolution"] < 4) {
 			game.events["russian_revolution"] += 1
 			game.ru_revolution = game.events["russian_revolution"]
+			if (typeof Engine.events.apply_russian_revolution_stage_effects === "function") {
+				Engine.events.apply_russian_revolution_stage_effects(game, game.events["russian_revolution"], { log })
+			}
 			log(`俄国革命推进至阶段 ${game.events["russian_revolution"]}。`)
 		}
 	}
@@ -416,6 +429,10 @@ exports.register = function (states, Engine, context) {
 
 		game.turn++
 		log_h1(`Turn ${game.turn}`)
+
+		if (Engine.events && typeof Engine.events.complete_sinai_railroad_if_ready === "function") {
+			Engine.events.complete_sinai_railroad_if_ready(game, log)
+		}
 
 		game.ap_actions = Array(7).fill(null)
 		game.cp_actions = Array(7).fill(null)
@@ -491,10 +508,11 @@ exports.register = function (states, Engine, context) {
 
 		// Rule: Churchill Prevails recurring RU RP
 		if (game.events["bosphorus_destroyed"] && !game.events["german_subs"]) {
-			game.rp_ap.ru += 1
-			log("丘吉尔胜出持续效果：博斯普鲁斯海峡已打通，俄国补员点数 +1。")
+			if (!Engine.events.can_record_russian_rp || Engine.events.can_record_russian_rp(game)) {
+				game.rp_ap.ru += 1
+				log("Churchill Prevails: Bosphorus is open; Russian RP +1.")
+			}
 		}
-
 		start_mandated_offensive_phase()
 	}
 

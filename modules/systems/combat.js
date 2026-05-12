@@ -1101,6 +1101,12 @@ module.exports = function (Engine) {
 
 	function get_attackable_spaces(game, pieces, faction, get_season_fn, is_rail_connected_to_supply_fn) {
 		if (!pieces || pieces.length === 0) return []
+		if (
+			Engine.events &&
+			typeof Engine.events.is_russian_revolution_ru_attack_blocked === "function" &&
+			Engine.events.is_russian_revolution_ru_attack_blocked(game, pieces)
+		)
+			return []
 		let enemy = other_faction(faction)
 		let enemy_in_space = new Uint8Array(data.spaces.length)
 		for (let q = 0; q < game.pieces.length; q++) {
@@ -1772,6 +1778,12 @@ module.exports = function (Engine) {
 		}
 		if (game.attack && game.attack.space > 0) {
 			mark_attacked_space(game)
+			if (
+				Engine.events &&
+				typeof Engine.events.register_russian_revolution_ru_attack === "function"
+			) {
+				Engine.events.register_russian_revolution_ru_attack(game, game.attack.pieces || [])
+			}
 			if (!game.attack.origin_by_piece || typeof game.attack.origin_by_piece !== "object") {
 				game.attack.origin_by_piece = {}
 			}

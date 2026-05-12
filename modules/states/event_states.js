@@ -1662,7 +1662,9 @@ module.exports = function (Engine) {
 				if (BOSPHORUS_FORTS >= 0) rules.set_add(game.forts.destroyed, BOSPHORUS_FORTS)
 				game.events["bosphorus_destroyed"] = true
 				if (!game.events["german_subs"]) {
-					game.rp_ap.ru += 2
+					if (!Engine.events.can_record_russian_rp || Engine.events.can_record_russian_rp(game)) {
+						game.rp_ap.ru += 2
+					}
 					rules.log(
 						"丘吉尔胜出：博斯普鲁斯海峡要塞被摧毁，俄国立即获得 2 点补员点数，此后每回合额外获得 1 点，直到【地中海潜艇猎袭】打出。"
 					)
@@ -2689,9 +2691,7 @@ module.exports = function (Engine) {
 				if (!game.forts) game.forts = { destroyed: [], besieged: [] }
 				if (!game.forts.destroyed) game.forts.destroyed = []
 				// Batum
-				if (!game.forts.destroyed.includes(BATUM)) {
-					game.forts.destroyed.push(BATUM)
-				}
+				set_add(game.forts.destroyed, BATUM)
 				rules.log("戈本号炮击摧毁巴统要塞！")
 			} else {
 				rules.log("戈本号炮击未能摧毁巴统要塞。")

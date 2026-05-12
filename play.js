@@ -2017,6 +2017,21 @@ function destroy_armenian_uprising_marker(s) {
 	destroy_space_marker(s, "armenian_uprising")
 }
 
+function get_soviet_uprising_marker_info(s) {
+	let name = spaces[s] && spaces[s].name
+	if (name === "Central Asia") return marker_info.c_asia_uprising
+	if (name === "Enzeli") return marker_info.enzeli_uprising
+	return marker_info.baku_uprising
+}
+
+function build_soviet_uprising_marker(s) {
+	return build_space_marker(s, "soviet_uprising", get_soviet_uprising_marker_info(s))
+}
+
+function destroy_soviet_uprising_marker(s) {
+	destroy_space_marker(s, "soviet_uprising")
+}
+
 function build_jerusalem_by_christmas_marker(s) {
 	return build_space_marker(s, "jerusalem_by_christmas", marker_info.j_by_c)
 }
@@ -2148,6 +2163,7 @@ const UI_FRAME_STATE_FIELDS = [
 	{ key: "forts_destroyed", diff: "space_set", build: () => to_id_set(view?.forts?.destroyed) },
 	{ key: "armenian_uprising_markers", diff: "space_set", build: () => to_id_set(view?.armenian_uprising_markers) },
 	{ key: "persian_uprising_markers", diff: "space_set", build: () => to_id_set(view?.persian_uprising_markers) },
+	{ key: "soviet_uprising_markers", diff: "space_set", build: () => to_id_set(view?.soviet_uprising_markers) },
 	{ key: "jerusalem_by_christmas_markers", diff: "space_set", build: () => to_id_set(view?.jerusalem_by_christmas_markers) },
 	{ key: "partial_ap_control_markers", diff: "space_set", build: () => to_id_set(view?.partial_ap_control_markers) },
 	{ key: "partial_cp_control_markers", diff: "space_set", build: () => to_id_set(view?.partial_cp_control_markers) },
@@ -4147,7 +4163,7 @@ function update_system_markers() {
 
 	// 回合轨道
 	update_turn_record("game_turn", view.turn)
-	update_turn_record("sinai_railroad", view.events.xinai, view.events.xinai === undefined)
+	update_turn_record("sinai_railroad", view.sinai_railroad_turn, view.sinai_railroad_turn === undefined)
 	const jerusalem_by_christmas =
 		view.events && typeof view.events.jerusalem_by_christmas === "object" ? view.events.jerusalem_by_christmas : null
 	const jerusalem_by_christmas_turn = Number(jerusalem_by_christmas?.turn)
@@ -4574,6 +4590,7 @@ function has_space_special_marker(space, state, s) {
 		has_id(state.forts_destroyed, s) ||
 		has_id(state.armenian_uprising_markers, s) ||
 		has_id(state.persian_uprising_markers, s) ||
+		has_id(state.soviet_uprising_markers, s) ||
 		has_id(state.jerusalem_by_christmas_markers, s) ||
 		has_id(state.activated_move_spaces, s) ||
 		has_id(state.activated_attack_spaces, s)
@@ -4683,6 +4700,12 @@ function render_space_markers(space, state, s, stack_parts) {
 		stack_parts.bottom_markers.push(build_armenian_uprising_marker(s))
 	} else {
 		destroy_armenian_uprising_marker(s)
+	}
+
+	if (has_id(state.soviet_uprising_markers, s)) {
+		stack_parts.bottom_markers.push(build_soviet_uprising_marker(s))
+	} else {
+		destroy_soviet_uprising_marker(s)
 	}
 
 	if (has_id(state.jerusalem_by_christmas_markers, s)) {

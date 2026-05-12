@@ -181,6 +181,7 @@ module.exports = function (Engine) {
 		let enemy = other_faction(faction)
 		if (enemy === CP && has_uprising_marker(game, "persian_uprising_markers", s)) return true
 		if (enemy === AP && has_uprising_marker(game, "armenian_uprising_markers", s)) return true
+		if ((faction === AP || faction === CP) && has_uprising_marker(game, "soviet_uprising_markers", s)) return true
 		return false
 	}
 
@@ -217,6 +218,9 @@ module.exports = function (Engine) {
 			return true
 		}
 		if (enemy === AP && has_uprising_marker(game, "armenian_uprising_markers", s)) {
+			return true
+		}
+		if ((faction === AP || faction === CP) && has_uprising_marker(game, "soviet_uprising_markers", s)) {
 			return true
 		}
 		if (is_region(game, s)) {
@@ -1133,16 +1137,19 @@ module.exports = function (Engine) {
 		return null
 	}
 
+	function can_use_event_connection(game, evt, faction) {
+		if (evt === "xinai" && Engine.events && typeof Engine.events.can_use_sinai_railroad === "function") {
+			return Engine.events.can_use_sinai_railroad(game, faction)
+		}
+		if (evt === "xinai" && faction === CP) return false
+		let val = game.events[evt]
+		return val === true || (typeof val === "number" && game.turn >= val)
+	}
+
 	function has_active_event(game, events, faction) {
 		if (!game.events) return false
 		for (let evt of events) {
-			let val = game.events[evt]
-			if (val === true) return true
-			if (typeof val === "number" && game.turn >= val) {
-				// Rule 21.2.1: Sinai Railroad (Sinai) is AP only
-				if (evt === "xinai" && faction === CP) continue
-				return true
-			}
+			if (can_use_event_connection(game, evt, faction)) return true
 		}
 		return false
 	}
@@ -1666,9 +1673,21 @@ module.exports = function (Engine) {
 
 		if (!can_move_stack_composition(game, pieces)) return false
 
-		let faction = data.pieces[pieces[0]].faction
+		let faction = get_piece_effective_faction(game, pieces[0])
+		if (faction !== AP && faction !== CP) faction = data.pieces[pieces[0]].faction
 		for (let p of pieces) {
-			if (data.pieces[p].faction !== faction) return false
+			let piece_faction = get_piece_effective_faction(game, p)
+			if (piece_faction !== AP && piece_faction !== CP) piece_faction = data.pieces[p].faction
+			if (piece_faction !== faction) return false
+			if (
+				Engine.events &&
+				typeof Engine.events.is_transcaucasian_federation_piece === "function" &&
+				Engine.events.is_transcaucasian_federation_piece(p) &&
+				Engine.events.get_russian_revolution_level(game) >= 4 &&
+				!(is_russia(target) || is_caucasus(target))
+			) {
+				return false
+			}
 		}
 
 		let existing = get_stack_occupying_pieces(game, target, faction)
@@ -3151,6 +3170,14 @@ module.exports = function (Engine) {
 				if (s > 0 && s < space_count) disrupting[CP][s] = 1
 			}
 		}
+		if (Array.isArray(game.soviet_uprising_markers)) {
+			for (let s of game.soviet_uprising_markers) {
+				if (s > 0 && s < space_count) {
+					disrupting[AP][s] = 1
+					disrupting[CP][s] = 1
+				}
+			}
+		}
 		for (let faction of [AP, CP]) {
 			for (let s = 1; s < space_count; s++) {
 				if (disrupting[faction][s] && !enemy_regular[faction][s]) disrupted[faction][s] = 1
@@ -3947,6 +3974,16 @@ module.exports = function (Engine) {
 			let name = data.pieces[p].name
 
 			if (name === "GE GeoProtect") return cache_result("FULL")
+			if (
+				Engine.events &&
+				typeof Engine.events.is_transcaucasian_federation_piece === "function" &&
+				typeof Engine.events.get_russian_revolution_level === "function" &&
+				Engine.events.get_russian_revolution_level(game) >= 4 &&
+				Engine.events.is_transcaucasian_federation_piece(p) &&
+				(is_russia(space) || is_caucasus(space))
+			) {
+				return cache_result("FULL")
+			}
 			if (name === "BR ANA Arab" && is_hejaz(space)) return cache_result("FULL")
 
 			// Rule 16.1.5: HQs are never out of supply
@@ -5386,7 +5423,9 @@ module.exports = function (Engine) {
 		}
 
 		for (let p of pieces) {
-			if (data.pieces[p].faction !== faction) continue
+			let piece_faction = get_piece_effective_faction(game, p)
+			if (piece_faction !== AP && piece_faction !== CP) piece_faction = data.pieces[p].faction
+			if (piece_faction !== faction) continue
 			let nations = get_piece_nations_for_rule(game, p, "activation")
 			if (nations.some((nation) => nation === "br" || nation === "in" || nation === "in-g")) {
 				has_pi_nation = true
@@ -5450,6 +5489,14 @@ module.exports = function (Engine) {
 		}
 		if (move_has_disrupted_supply && costs.move > 0) costs.move += 1
 		if (attack_has_disrupted_supply && costs.attack > 0) costs.attack += 1
+		if (
+			costs.attack > 0 &&
+			Engine.events &&
+			typeof Engine.events.has_russian_combat_activation_penalty === "function" &&
+			Engine.events.has_russian_combat_activation_penalty(game, attack_pieces)
+		) {
+			costs.attack += 1
+		}
 		// attack_with_br: only provided when MO active, penalty not paid, and BR units present
 		if (mo_br_no_attack && has_br_in_stack) {
 			let with_br_count = get_stack_count(attack_pieces_with_br)
@@ -5464,6 +5511,14 @@ module.exports = function (Engine) {
 				special_hq_command
 			)
 			if (attack_with_br_has_disrupted_supply && costs.attack_with_br > 0) costs.attack_with_br += 1
+			if (
+				costs.attack_with_br > 0 &&
+				Engine.events &&
+				typeof Engine.events.has_russian_combat_activation_penalty === "function" &&
+				Engine.events.has_russian_combat_activation_penalty(game, attack_pieces_with_br)
+			) {
+				costs.attack_with_br += 1
+			}
 		}
 		if (faction === AP) {
 			let submarine_surcharge = 0

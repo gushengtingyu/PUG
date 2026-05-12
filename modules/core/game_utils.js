@@ -279,9 +279,24 @@ module.exports = function (Engine) {
 		if (name === "Combined BU/AH Div") return ["bu", "ah"]
 		if (name === "German 11th Army") return ["ge", "bu"]
 		if (name === "RU/SB Yugo Infantry") {
-			if (purpose !== "mo" && Engine.events.get_russian_revolution_level(game) >= 4) return ["br"]
+			if (
+				purpose !== "mo" &&
+				Engine.events &&
+				typeof Engine.events.get_russian_revolution_level === "function" &&
+				Engine.events.get_russian_revolution_level(game) >= 4
+			)
+				return ["br"]
 			return ["ru", "sb"]
 		}
+		if (
+			purpose !== "mo" &&
+			Engine.events &&
+			typeof Engine.events.get_russian_revolution_level === "function" &&
+			typeof Engine.events.is_russian_revolution_survivor_cavalry === "function" &&
+			Engine.events.get_russian_revolution_level(game) >= 4 &&
+			Engine.events.is_russian_revolution_survivor_cavalry(game, p)
+		)
+			return ["br"]
 		if (purpose === "activation" && info.symbol === "Y" && info.nation === "ge") return []
 		return [info.nation]
 	}
@@ -332,6 +347,14 @@ module.exports = function (Engine) {
 		let info = data.pieces[p]
 		if (!info) return null
 		if (info.name === "GE GeoProtect") return AP
+		if (
+			Engine.events &&
+			typeof Engine.events.get_russian_revolution_level === "function" &&
+			typeof Engine.events.is_transcaucasian_federation_piece === "function" &&
+			Engine.events.get_russian_revolution_level(game) >= 4 &&
+			Engine.events.is_transcaucasian_federation_piece(p)
+		)
+			return AP
 		if (Engine.neutral && typeof Engine.neutral.get_piece_effective_faction_override === "function") {
 			let override = Engine.neutral.get_piece_effective_faction_override(game, p)
 			if (override !== undefined) return override

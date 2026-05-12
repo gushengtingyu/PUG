@@ -561,7 +561,9 @@ module.exports = function (Engine) {
 
 		let plan = Engine.collapse.get_romanian_entry_plan()
 		let russian_revolution_active =
-			game.events.russian_revolution_level !== undefined && game.events.russian_revolution_level >= 1
+			Engine.events &&
+			typeof Engine.events.get_russian_revolution_level === "function" &&
+			Engine.events.get_russian_revolution_level(game) >= 1
 
 		place_entry_placements(game, AP, plan.ap.immediate, (entry) => {
 			if (russian_revolution_active && (entry.name === "RU Dobruja" || entry.name === "RU/SB Yugo Infantry")) {
@@ -899,6 +901,58 @@ module.exports = function (Engine) {
 		}
 	}
 
+	function get_nearest_distance(s, sources) {
+		let best = 999
+		for (let source of sources || []) {
+			let dist = Engine.map.get_distance(s, source)
+			if (dist < best) best = dist
+		}
+		return best
+	}
+
+	function is_turkey_balkans_or_mesopotamia(s) {
+		return (
+			Engine.map.is_anatolia(s) ||
+			Engine.map.is_gallipoli(s) ||
+			Engine.map.is_syria_palestine(s) ||
+			Engine.map.is_balkans(s) ||
+			Engine.map.is_mesopotamia(s) ||
+			Engine.map.is_arabistan(s)
+		)
+	}
+
+	function is_attrition_ru_vp_capture(game, s) {
+		if (!is_vp_space(game, s)) return false
+		let ru_sources = Engine.map.get_ru_supply_sources(game, false)
+		if (!ru_sources.length) return false
+		if (!Engine.map.can_trace_supply_to_source(game, s, AP, ru_sources)) return false
+		if (
+			Engine.map.is_russia(s) ||
+			Engine.map.is_azerbaijan(s) ||
+			Engine.map.is_caucasus(s) ||
+			Engine.map.is_neutral_persia_space(s)
+		) {
+			return true
+		}
+		if (!is_turkey_balkans_or_mesopotamia(s)) return false
+		let all_ap_sources = Engine.map.get_supply_sources_from_data(game, AP, false).concat(game.beachheads || [])
+		let ru_set = new Set(ru_sources)
+		let other_sources = all_ap_sources.filter((source) => !ru_set.has(source))
+		return get_nearest_distance(s, ru_sources) < get_nearest_distance(s, other_sources)
+	}
+
+	function apply_attrition_ru_vp_capture(game, s, options = {}) {
+		if (!Array.isArray(game.ru_control_markers)) game.ru_control_markers = []
+		if (!is_attrition_ru_vp_capture(game, s)) return false
+		if (game.ru_control_markers.includes(s)) return false
+		game.russian_vp = (Number(game.russian_vp) || 0) + 1
+		add_ru_control_marker(game, s)
+		if (!options.silent) {
+			Engine.log(game, `Attrition converts ${space_log_name(s)} as a Russian VP; Russian VP +1 (current: ${game.russian_vp}).`)
+		}
+		return true
+	}
+
 	function apply_control_change(game, s, faction, previous_vp_owner, vp_before_control_change = game.vp) {
 		if (!is_vp_space(game, s)) {
 			remove_ru_control_marker(game, s)
@@ -991,7 +1045,8 @@ module.exports = function (Engine) {
 		get_neutral_vp_partial_owner,
 		sync_neutral_vp_state,
 		get_effective_vp_value,
-		apply_control_change
+		apply_control_change,
+		apply_attrition_ru_vp_capture
 	})
 
 	return exports
