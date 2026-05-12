@@ -318,6 +318,28 @@ describe("崩溃规则", () => {
 		expect(Engine.game_utils.is_permanently_eliminated(game, geCav)).toBe(false)
 	})
 
+	test("Romanian collapse clears delayed Schmettow entry", () => {
+		const game = createGame()
+		const log = makeLogger(game)
+		const geCav = findPiece(CP, "GE Schmettow")
+		const frDiv = findPiece(AP, "FR DIV #7")
+
+		game.events.romania = true
+		game.delayed_reinforcements = [
+			{ turn: game.turn + 1, piece: geCav, space: findSpace("Galicia") },
+			{ turn: game.turn + 1, piece: frDiv, space: findSpace("Lemnos") }
+		]
+		setControl(game, "BUCHAREST", CP)
+		setControl(game, "Ploesti", CP)
+		setControl(game, "Constanta", CP)
+
+		const handled = Engine.collapse.handle_national_collapse(game, log)
+
+		expect(handled).toBe(true)
+		expect(isRemoved(game, geCav)).toBe(true)
+		expect(game.delayed_reinforcements).toEqual([{ turn: game.turn + 1, piece: frDiv, space: findSpace("Lemnos") }])
+	})
+
 	test("罗马尼亚三座关键城市失守时即使有 RU LCU 在罗马尼亚也会自动崩溃", () => {
 		const game = createGame()
 		const log = makeLogger(game)

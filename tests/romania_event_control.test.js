@@ -51,6 +51,8 @@ test("Romania 事件会按展示板正确放置单位、切换罗马尼亚控制
 	expect(Engine.map.get_space_controller(game, findSpace("Constanta"))).toBe(AP)
 
 	expect(game.pieces[findPiece(AP, "RO 1 Army")]).toBe(findSpace("Craiova"))
+	expect(game.pieces[findPiece(AP, "RO DIV #1")]).toBe(findSpace("Targu Jiu"))
+	expect(game.pieces[findPiece(AP, "RO DIV #2")]).toBe(findSpace("Targu Jiu"))
 	expect(game.pieces[findPiece(AP, "RO 2 Army")]).toBe(findSpace("Ploesti"))
 	expect(game.pieces[findPiece(AP, "RO 3 Army")]).toBe(findSpace("Turtukai"))
 	expect(game.pieces[findPiece(AP, "RO Cavalry")]).toBe(findSpace("Ploesti"))

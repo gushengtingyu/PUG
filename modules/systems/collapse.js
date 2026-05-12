@@ -62,8 +62,8 @@ module.exports = function (Engine) {
 		ap: Object.freeze({
 			immediate: Object.freeze([
 				Object.freeze({ name: "RO 1 Army", space: "Craiova" }),
-				Object.freeze({ name: "RO DIV #1", space: "Targa Jiu" }),
-				Object.freeze({ name: "RO DIV #2", space: "Targa Jiu" }),
+				Object.freeze({ name: "RO DIV #1", space: "Targu Jiu" }),
+				Object.freeze({ name: "RO DIV #2", space: "Targu Jiu" }),
 				Object.freeze({ name: "RO 2 Army", space: "Ploesti" }),
 				Object.freeze({ name: "RO DIV #3", space: "Ploesti" }),
 				Object.freeze({ name: "RO Cavalry", space: "Ploesti" }),
@@ -200,6 +200,23 @@ module.exports = function (Engine) {
 		for (let name of hardcodedUnitNames) {
 			if (!pieceNames.has(name)) {
 				throw new Error(`Invalid collapse rules: unknown hardcoded unit ${name}`)
+			}
+		}
+
+		const hardcodedSpaceNames = new Set([
+			...BULGARIA_ENTRY_CP_PLACEMENTS.map((entry) => entry.space),
+			...BULGARIA_ENTRY_AP_PLACEMENTS.map((entry) => entry.space),
+			BULGARIA_ENTRY_PLAN.cp.third_army_default_space,
+			...BULGARIA_ENTRY_PLAN.cp.third_army_choice_spaces,
+			...ROMANIA_ENTRY_PLAN.ap.immediate.map((entry) => entry.space),
+			...ROMANIA_ENTRY_PLAN.ap.delayed.map((entry) => entry.space),
+			...ROMANIA_ENTRY_PLAN.cp.immediate.flatMap((entry) => [entry.space, entry.bulgaria_space]),
+			...ROMANIA_ENTRY_PLAN.cp.delayed.map((entry) => entry.space)
+		])
+		for (let name of hardcodedSpaceNames) {
+			if (!name) continue
+			if (Engine.game_utils.find_space(name) < 0) {
+				throw new Error(`Invalid collapse rules: unknown hardcoded space ${name}`)
 			}
 		}
 	}
@@ -398,6 +415,11 @@ module.exports = function (Engine) {
 		}
 	}
 
+	function remove_delayed_reinforcements_for_piece(game, p) {
+		if (!Array.isArray(game.delayed_reinforcements)) return
+		game.delayed_reinforcements = game.delayed_reinforcements.filter((entry) => !entry || entry.piece !== p)
+	}
+
 	function apply_bulgarian_collapse(game, log) {
 		if (game.events && game.events["bulgarian_collapse"]) return "none"
 		if (!game.events["bulgaria"]) return "none"
@@ -545,7 +567,10 @@ module.exports = function (Engine) {
 		}
 
 		let ge_cav = find_piece(CP, "GE Schmettow")
-		if (ge_cav >= 0) remove_piece_from_game(game, ge_cav, log)
+		if (ge_cav >= 0) {
+			remove_piece_from_game(game, ge_cav, log)
+			remove_delayed_reinforcements_for_piece(game, ge_cav)
+		}
 
 		let choice_available = !!game.events["bulgaria"] && !has_serbia_collapsed(game)
 		// 19.5.6：若保加利亚已参战且塞尔维亚尚未崩溃，则 AH 师进入“选择 3 个移除”步骤；
