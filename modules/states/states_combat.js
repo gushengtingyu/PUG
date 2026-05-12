@@ -2680,6 +2680,7 @@ exports.register = function (states, Engine, context) {
 		space(s) {
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
+				push_undo()
 				let from = game.pieces[p]
 				log(`${piece_name(p)} retreats to ${space_name(s)} (towards Tiflis).`)
 				game.pieces[p] = s
@@ -2692,6 +2693,7 @@ exports.register = function (states, Engine, context) {
 		cannot_retreat() {
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
+				push_undo()
 				log(`${piece_name(p)} cannot retreat towards Tiflis and remains in place.`)
 				game.save_tiflis_failed = true
 				set_delete(game.save_tiflis_pieces, p)
@@ -2701,6 +2703,7 @@ exports.register = function (states, Engine, context) {
 		decline_retreat() {
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
+				push_undo()
 				log(`${piece_name(p)} declines to retreat towards Tiflis.`)
 				set_delete(game.save_tiflis_pieces, p)
 				game.selected_piece = null
