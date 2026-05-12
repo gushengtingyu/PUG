@@ -18,6 +18,16 @@ function resetForRuleProbe(game, active = CP) {
 	game.combat_cards = { attacker: [], defender: [] }
 }
 
+function getAttackTargets(game, pieces, faction = game.active) {
+	return Engine.combat.get_legal_attackable_spaces(
+		game,
+		pieces,
+		faction,
+		() => Engine.game_utils.get_season(game),
+		(s, side) => Engine.map.is_rail_connected_to_supply(game, s, side)
+	)
+}
+
 test("Bulgarian units may not voluntarily enter Turkey from Bulgaria", () => {
 	let game = setupGame(2026051201)
 	let buDiv = findPiece(CP, "BU DIV #1")
@@ -66,6 +76,63 @@ test("LCUs attacking out of desert must use a supplied rail edge", () => {
 		(s, faction) => Engine.map.is_rail_connected_to_supply(game, s, faction)
 	)
 	expect(targets).not.toContain(tikrit)
+})
+
+test("colored railroads allow attacks but not movement or advance for restricted units", () => {
+	let game = setupGame(2026051206, "Historical", { no_supply_warnings: true })
+	let belgrade = findSpace("BELGRADE")
+	let galicia = findSpace("Galicia")
+	let sbArmy = findPiece(AP, "SB 1 Army")
+	let geDiv = findPiece(CP, "GE DIV #1")
+
+	resetForRuleProbe(game, AP)
+	game.pieces[sbArmy] = belgrade
+	game.pieces[geDiv] = galicia
+	Engine.set_control(game, belgrade, AP)
+	Engine.set_control(game, galicia, CP)
+	game.activated.attack = [belgrade]
+
+	expect(Engine.map.get_piece_connected_spaces_for_rule(game, belgrade, sbArmy, "move")).not.toContain(galicia)
+	expect(Engine.map.get_piece_connected_spaces_for_rule(game, belgrade, sbArmy, "attack")).toContain(galicia)
+	expect(getAttackTargets(game, [sbArmy], AP)).toContain(galicia)
+
+	game.pieces[geDiv] = 0
+	game.attack = {
+		pieces: [sbArmy],
+		space: galicia,
+		attacker: AP,
+		defender: CP
+	}
+
+	expect(Engine.combat.get_valid_advance_spaces(game, sbArmy, galicia)).toEqual([])
+})
+
+test("authorized units can advance across their colored railroads", () => {
+	let game = setupGame(2026051207, "Historical", { no_supply_warnings: true })
+	let belgrade = findSpace("BELGRADE")
+	let galicia = findSpace("Galicia")
+	let geDiv = findPiece(CP, "GE DIV #1")
+	let brDiv = findPiece(AP, "BR DIV #1")
+
+	resetForRuleProbe(game, CP)
+	game.pieces[geDiv] = belgrade
+	game.pieces[brDiv] = galicia
+	Engine.set_control(game, belgrade, CP)
+	Engine.set_control(game, galicia, AP)
+	game.activated.attack = [belgrade]
+
+	expect(Engine.map.get_piece_connected_spaces_for_rule(game, belgrade, geDiv, "move")).toContain(galicia)
+	expect(getAttackTargets(game, [geDiv], CP)).toContain(galicia)
+
+	game.pieces[brDiv] = 0
+	game.attack = {
+		pieces: [geDiv],
+		space: galicia,
+		attacker: CP,
+		defender: AP
+	}
+
+	expect(Engine.combat.get_valid_advance_spaces(game, geDiv, galicia)).toEqual([galicia])
 })
 
 test("Flank attack is allowed against a defended fort without trench or prohibited terrain", () => {

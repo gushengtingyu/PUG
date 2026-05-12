@@ -991,10 +991,9 @@ module.exports = function (Engine) {
 		return true
 	}
 
-	function is_limited_connection_allowed_for_nation(s, next, nation) {
-		if (!data.spaces[s].connection_nations || !data.spaces[s].connection_nations[next]) return true
-		let limited = data.spaces[s].limited_connections
-		return !!(nation && limited && limited[nation] && limited[nation].includes(next))
+	function has_map_connection(a, b) {
+		if (!data.spaces[a] || !data.spaces[a].connection_types) return false
+		return Object.prototype.hasOwnProperty.call(data.spaces[a].connection_types, b)
 	}
 
 	function get_connected_spaces(game, s, nation, faction, p, mode = "move") {
@@ -1007,11 +1006,10 @@ module.exports = function (Engine) {
 				conns = Object.keys(data.spaces[s].connection_types).map(Number)
 			}
 		} else if (mode === "attack" && data.spaces[s].connection_types) {
-			// Attacks use map-line adjacency, not movement direction. This lets
-			// units attack across restricted railroads and lets CP attack into
+			// Attacks use map-line adjacency, not movement direction or nationality limits.
+			// This lets units attack across restricted railroads and lets CP attack into
 			// established Beachheads from the mainland side.
 			conns = [...new Set(conns.concat(Object.keys(data.spaces[s].connection_types).map(Number)))]
-			conns = conns.filter((next) => is_limited_connection_allowed_for_nation(s, next, nation))
 		} else if (nation && data.spaces[s].limited_connections && data.spaces[s].limited_connections[nation]) {
 			conns = data.spaces[s].limited_connections[nation]
 		}
@@ -5671,6 +5669,7 @@ module.exports = function (Engine) {
 		faction_controls_strait,
 		can_use_strait,
 		get_connection_type,
+		has_map_connection,
 		get_connection_strait,
 		get_crossing_type,
 		is_aegean_east_med_port,

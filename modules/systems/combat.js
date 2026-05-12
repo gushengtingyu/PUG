@@ -2770,7 +2770,12 @@ module.exports = function (Engine) {
 			game.attack.space === target_space &&
 			Array.isArray(game.attack.pieces) &&
 			game.attack.pieces.includes(piece)
-		if (!connected.includes(target_space) && !participated_in_current_attack) return []
+		if (!connected.includes(target_space)) {
+			if (!participated_in_current_attack) return []
+			// Rule 3.1.2 / 12.1.5: units may attack across restricted map edges, but
+			// may not Advance After Combat across an edge they could not move across.
+			if (Engine.map.has_map_connection(from_space, target_space)) return []
+		}
 		if (!can_enter_region(game, piece, target_space)) return []
 		// Rule 17.2.2: Irregular units cannot advance out of their supply area.
 		if (!Engine.map.is_space_in_irregular_supply_area(piece, target_space)) return []
