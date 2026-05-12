@@ -239,13 +239,49 @@ exports.register = function (states, Engine, context) {
 
 	function apply_jerusalem_battleground_penalty() {
 		if (!game.attack || game.attack.jerusalem_battleground_penalty_applied) return
+		let attacker = game.attack.attacker || game.active
 		let defender = game.attack.defender || other_faction(game.attack.attacker || game.active)
 		if (defender === CP) game.vp -= 1
 		else game.vp += 1
-		update_jihad_level(game, 1)
-		log("耶路撒冷变为战区，圣战等级 +1。")
+		if (attacker === AP) {
+			update_jihad_level(game, 1)
+			log("耶路撒冷变为战区，圣战等级 +1。")
+		}
 		log(`${defender === CP ? "同盟国" : "协约国"}因将耶路撒冷变为战区而承受 1 VP 惩罚。`)
 		game.attack.jerusalem_battleground_penalty_applied = true
+	}
+
+	function defer_jerusalem_combat_until_after_jihad_placement() {
+		if (game.state !== "jihad_placement") return false
+		if (!game.state_stack || game.state_stack.length === 0) return false
+		game.state_stack[game.state_stack.length - 1] = {
+			state: "jerusalem_continue_after_jihad",
+			active: game.attack?.attacker || AP
+		}
+		return true
+	}
+
+	function is_jihad_interrupt_state() {
+		return (
+			(game.state === "jihad_placement" ||
+				game.state === "jihad_removal" ||
+				game.state === "jihad_rebellion_check" ||
+				game.state === "place_egyptian_rebellion") &&
+			game.state_stack &&
+			game.state_stack.length > 0
+		)
+	}
+
+	function set_next_state_after_interrupt(next_state, next_active = game.active) {
+		if (is_jihad_interrupt_state()) {
+			game.state_stack[game.state_stack.length - 1] = {
+				state: next_state,
+				active: next_active
+			}
+		} else {
+			game.state = next_state
+			if (next_active !== undefined) game.active = next_active
+		}
 	}
 
 	function enter_jerusalem_withdrawal_advance() {
@@ -1725,6 +1761,7 @@ exports.register = function (states, Engine, context) {
 		continue_attack() {
 			push_undo()
 			apply_jerusalem_battleground_penalty()
+			if (defer_jerusalem_combat_until_after_jihad_placement()) return
 			game.active = game.attack?.attacker || AP
 			goto_pre_flank_step()
 		},
@@ -1732,6 +1769,19 @@ exports.register = function (states, Engine, context) {
 			push_undo()
 			log("耶路撒冷特殊规则：进攻方取消了本次攻击。")
 			goto_attack()
+		}
+	}
+
+	states.jerusalem_continue_after_jihad = {
+		prompt(res) {
+			res.where(game.attack?.space)
+			res.who(game.attack?.pieces || [])
+			res.prompt("耶路撒冷圣战部落放置完成：继续战斗。")
+			res.action("next")
+		},
+		next() {
+			game.active = game.attack?.attacker || AP
+			goto_pre_flank_step()
 		}
 	}
 
@@ -2091,6 +2141,8 @@ exports.register = function (states, Engine, context) {
 
 	function check_event_next_state() {
 		if (game.event_next_state) {
+			let next_state = game.event_next_state
+			let next_active = game.active
 			if (game.event_next_state === "event_russo_british_assault_ru_activation_setup") {
 				Engine.event_states.begin_russo_british_russian_activation(game)
 				delete game.event_next_state
@@ -2098,27 +2150,27 @@ exports.register = function (states, Engine, context) {
 			}
 			// Russo-British Assault (Card 1) is an AP event
 			if (game.event_next_state.startsWith("event_russo_british_assault")) {
-				game.active = AP
+				next_active = AP
 			}
 			// Enver Goes East (Card 7) is an AP event that uses CP pieces
 			else if (game.event_next_state.startsWith("event_enver_goes_east")) {
-				game.active = AP
+				next_active = AP
 			}
 			// Arab Revolt Cleanup (Card 16) is an AP event
 			else if (game.event_next_state === "event_arab_revolt_cleanup") {
-				game.active = AP
+				next_active = AP
 			}
 			// Grand Duke to Tiflis (Card 20) is an AP event
 			else if (game.event_next_state === "event_grand_duke_to_tiflis_sr") {
-				game.active = AP
+				next_active = AP
 			}
 			// Turkish Reinforcements (Card 81) is a CP event
 			else if (game.event_next_state === "event_turkish_reinf_81_combine") {
-				game.active = CP
+				next_active = CP
 			}
 
-			game.state = game.event_next_state
 			delete game.event_next_state
+			set_next_state_after_interrupt(next_state, next_active)
 
 			return true
 		}
@@ -2135,7 +2187,7 @@ exports.register = function (states, Engine, context) {
 
 		refresh_attack_eligibility()
 		if (game.eligible_attackers.length > 0) {
-			game.state = "attack"
+			set_next_state_after_interrupt("attack", game.active)
 		} else {
 			goto_end_operations()
 		}
@@ -3398,12 +3450,12 @@ exports.register = function (states, Engine, context) {
 			delete game.selected_piece
 			delete game.advance_yildirim_used
 			if (bulls_eye_can_extra_attack(game)) {
-				game.state = "bulls_eye_extra_attack_prompt"
+				set_next_state_after_interrupt("bulls_eye_extra_attack_prompt", game.active)
 				return
 			}
 			game.bulls_eye_advanced_stack = []
 			if (game.active === CP && has_window_cc_options("post_advance_cc_cp", CP, false)) {
-				game.state = "post_advance_cc_cp"
+				set_next_state_after_interrupt("post_advance_cc_cp", CP)
 				return
 			}
 			goto_attack()

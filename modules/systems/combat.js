@@ -136,6 +136,18 @@ module.exports = function (Engine) {
 		return is_combat_unit(p) && is_post_battle_piece_available(game, p) && !is_piece_reduced(game, p)
 	}
 
+	function can_full_strength_attacker_force_defender_retreat(game, p, target_space) {
+		if (!is_full_strength_attack_combat_unit(game, p)) return false
+		if (get_piece_mf(p) === 0) return false
+		if (!can_enter_region(game, p, target_space)) return false
+		return can_stack_end_in_space(game, target_space, [p])
+	}
+
+	function attacker_has_retreat_forcing_unit(game, result, target_space) {
+		let attackers = game.attack && Array.isArray(game.attack.pieces) ? game.attack.pieces : result?.attackers || []
+		return attackers.some((p) => can_full_strength_attacker_force_defender_retreat(game, p, target_space))
+	}
+
 	function can_piece_stage_black_sea_amphibious_invasion(game, p, faction) {
 		if (faction !== AP) return false
 		if (!is_ru_black_sea_piece(p)) return false
@@ -2325,15 +2337,13 @@ module.exports = function (Engine) {
 		)
 
 		// Rule 12.7.1: A defender never retreats if the attacker has no full-strength units after damage is absorbed
-		let attacker_has_full_strength_unit = game.attack.pieces.some(
-			(p) => is_full_strength_attack_combat_unit(game, p)
-		)
+		let attacker_has_full_strength_unit = attacker_has_retreat_forcing_unit(game, result, target_space)
 		let attacker_blocks_retreat = !attacker_has_full_strength_unit
 		if (attacker_blocks_retreat && !result.turkish_retreat) {
 			result.retreat_needed = false
 			if (log_fn && result.attacker_losses >= result.defender_losses && !result.no_full_strength_retreat_logged) {
 				result.no_full_strength_retreat_logged = true
-				log_fn("Attacker has no full-strength units, defenders do not retreat.")
+				log_fn("Attacker has no full-strength units able to advance, defenders do not retreat.")
 			}
 		}
 
@@ -4021,9 +4031,7 @@ module.exports = function (Engine) {
 				!is_eliminated(game, p) &&
 				!(Array.isArray(game.retreated) && set_has(game.retreated, p))
 		)
-		let attacker_has_full_strength_unit = (game.attack.pieces || []).some(
-			(p) => is_full_strength_attack_combat_unit(game, p)
-		)
+		let attacker_has_full_strength_unit = attacker_has_retreat_forcing_unit(game, result, target_space)
 		let attacker_won = result.defender_losses > result.attacker_losses
 		let can_defender_retreat = attacker_won && attacker_has_full_strength_unit && !is_region(target_space)
 

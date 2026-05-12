@@ -2309,7 +2309,7 @@ module.exports = function (Engine) {
 
 	states.event_grand_duke_to_tiflis_cp_retreat = {
 		prompt(ctx) {
-			let { game, res } = ctx
+			let { game, res, rules } = ctx
 			let event = use_event(game, "grand_duke_to_tiflis")
 			let retreating = game.grand_duke_to_tiflis_retreat_pieces || []
 			if (retreating.length === 0) {
@@ -2425,7 +2425,7 @@ module.exports = function (Engine) {
 
 	states.event_grand_duke_to_tiflis_sr = {
 		prompt(ctx) {
-			let { game, res } = ctx
+			let { game, res, rules } = ctx
 			let event = use_event(game, "grand_duke_to_tiflis")
 			res.prompt(
 				"尼古拉大公抵达第比利斯 ：可选操作，将 1 个俄国骑兵师战略调整至 " + rules.space_name(event.event_port)
@@ -2598,6 +2598,13 @@ module.exports = function (Engine) {
 
 	// === EVENT: RESERVES TO THE FRONT (ID 59) ===
 
+	function get_reserves_to_front_rebuild_space(game, p) {
+		if (!game.attack || !(game.attack.space > 0)) return null
+		let origin = game.attack.origin_by_piece?.[p]
+		if (origin > 0) return origin
+		return game.attack.space
+	}
+
 	states.event_reserves_to_front = {
 		prompt(ctx) {
 			let { game, res } = ctx
@@ -2626,8 +2633,9 @@ module.exports = function (Engine) {
 			if (cost <= 0 || cost > remaining) return
 			let is_elim_or_removed_exception =
 				rules.is_eliminated(game, p) || Engine.combat_cards.is_reserves_to_front_removed_exception(game, p)
-			// 战斗后原地重建依赖当前战斗地块，缺失上下文时直接拒绝本次操作
-			if (is_elim_or_removed_exception && (!game.attack || !game.attack.space)) return
+			let rebuild_space = is_elim_or_removed_exception ? get_reserves_to_front_rebuild_space(game, p) : null
+			// 战斗后原地重建：进攻方回到记录的出发格，防守方回到战斗格。
+			if (is_elim_or_removed_exception && !rebuild_space) return
 
 			rules.push_undo()
 			rules.spend_replacement_points(game, p, cost, true)
@@ -2640,9 +2648,9 @@ module.exports = function (Engine) {
 			}
 
 			if (is_elim_or_removed_exception) {
-				game.pieces[p] = game.attack.space
+				game.pieces[p] = rebuild_space
 				rules.set_add(game.reduced, p)
-				rules.log(`>> ${rules.piece_name(p)} 在 ${rules.space_name(game.attack.space)} 重建`)
+				rules.log(`>> ${rules.piece_name(p)} 在 ${rules.space_name(rebuild_space)} 重建`)
 			} else {
 				rules.set_delete(game.reduced, p)
 				rules.log(`>> ${rules.piece_name(p)} 补员至满员状态`)

@@ -2767,7 +2767,6 @@ module.exports = function (Engine) {
 				return baghdad >= 0 && is_controlled_by(game, baghdad, CP)
 			},
 			handler: function (game, ctx) {
-				update_jihad_level(game, 1)
 				game.events["german_intrigue_persia"] = true
 				let event = start_event_data(game, ctx, "german_intrigues_persia", {
 					unit_name: "PE Uprising",
@@ -2779,6 +2778,7 @@ module.exports = function (Engine) {
 				if (!Array.isArray(game.persian_uprising_markers)) game.persian_uprising_markers = []
 				event.unit_spaces = get_german_intrigues_unit_spaces(game)
 				game.state = "event_german_intrigues_persia_unit"
+				update_jihad_level(game, 1)
 			},
 			defer_end: true
 		},

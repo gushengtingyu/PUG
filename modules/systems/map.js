@@ -1073,8 +1073,13 @@ module.exports = function (Engine) {
 			// Rule 17.1.4 & 9.2.4: Tribes cannot move/attack/trace across Caspian green lines
 			conns = conns.filter((next) => !is_caspian_green_connection(s, next))
 
-			// Rule 17.1.4: Tribe Movement Range (within one full move of activity grid).
-			conns = conns.filter((next) => is_space_in_tribal_range(p, next))
+			// Rule 17.1.4: A Tribe may attack one space beyond its Movement Range,
+			// but movement, supply traces, and advance must remain within range.
+			if (mode === "attack") {
+				if (!is_space_in_tribal_range(p, s)) return []
+			} else {
+				conns = conns.filter((next) => is_space_in_tribal_range(p, next))
+			}
 		}
 
 		// Rule 17.2.2: Irregular units cannot leave their supply area.

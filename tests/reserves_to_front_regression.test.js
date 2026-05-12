@@ -83,6 +83,53 @@ test("Reserves to the Front can refill a unit reduced by the current battle", ()
 	expect(Engine.combat_cards.get_reserves_to_front_piece_cost(game, turkish)).toBe(0)
 })
 
+test("Reserves to the Front rebuilds an eliminated Turkish attacker in its attack origin", () => {
+	const game = setupGame(260509, "Historical", { no_supply_warnings: true })
+	const origin = findSpace("Bayburt")
+	const target = findSpace("Oltu")
+	const turkish = findPieceByName("TU DIV #8")
+	const defender = findPieceByName("RU DIV #3")
+
+	clearBoard(game)
+	game.pieces[turkish] = Engine.game_utils.get_eliminated_box(CP)
+	game.pieces[defender] = target
+	game.control[origin] = CP
+	game.control[target] = AP
+	game.active = CP
+	game.state = "event_reserves_to_front"
+	game.events = {}
+	game.reduced = []
+	game.rp_cp.tu = 2
+	game.attack = {
+		space: target,
+		pieces: [],
+		origin_by_piece: { [turkish]: origin },
+		attacker: CP,
+		defender: AP,
+		initial_attackers: [turkish],
+		initial_defenders: [defender],
+		reserves_to_front_damaged_pieces: [turkish],
+		reserves_to_front_initial_reduced_pieces: []
+	}
+	game.battle_result = {
+		attackers: [turkish],
+		defenders: [defender],
+		attacker_losses: 1,
+		defender_losses: 0,
+		turkish_retreat: false,
+		retreating_units: []
+	}
+	game.reserves_to_front_pieces = Engine.combat_cards.get_reserves_to_front_piece_pool(game)
+
+	expect(game.reserves_to_front_pieces).toContain(turkish)
+
+	rules.action(game, CP_ROLE, "piece", turkish)
+
+	expect(game.pieces[turkish]).toBe(origin)
+	expect(game.pieces[turkish]).not.toBe(target)
+	expect(Engine.game_utils.is_piece_reduced(game, turkish)).toBe(true)
+})
+
 test("combat start snapshots initially reduced units for Reserves to the Front", () => {
 	const game = setupGame(260508, "Historical", { no_supply_warnings: true })
 	const origin = findSpace("Oltu")
