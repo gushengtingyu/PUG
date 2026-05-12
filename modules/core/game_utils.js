@@ -808,6 +808,7 @@ module.exports = function (Engine) {
 				let recordable_tu_rp = Math.min(info.rp_tu, max_tu_rp)
 				if (recordable_tu_rp > 0) {
 					rps.tu += recordable_tu_rp
+					game.tu_rp_recovery_pool = Math.max(0, Number(game.tu_rp_recovery_pool || 0)) + recordable_tu_rp
 				}
 				game.tu_rp_limit = max_tu_rp - recordable_tu_rp
 				if (recordable_tu_rp < info.rp_tu && log) {

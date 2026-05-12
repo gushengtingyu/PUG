@@ -824,7 +824,8 @@ exports.register = function (states, Engine, context) {
 		"maude_place_hq",
 		"army_of_islam_place_hq",
 		"confused_orders",
-		"declare_turkish_retreat"
+		"declare_turkish_retreat",
+		"cancelled_combat_card_disposition"
 	])
 
 	function can_play_combat_card(c, target_game) {
@@ -848,6 +849,11 @@ exports.register = function (states, Engine, context) {
 			target_game.action_state.used_ccs = []
 		}
 		set_add(target_game.action_state.used_ccs, c)
+	}
+
+	function mark_combat_card_effected(c) {
+		if (!game.combat_cards_effected) game.combat_cards_effected = []
+		set_add(game.combat_cards_effected, c)
 	}
 
 	function collect_playable_cc_options(target_game, faction, is_attacker) {
@@ -1149,15 +1155,20 @@ exports.register = function (states, Engine, context) {
 		let info = data.cards[c]
 		let retained = get_cc_retained(faction)
 		let from_retained = set_has(retained, c)
+		let source_after_use = info.remove ? "remove" : "discard"
+		if (from_retained) source_after_use = get_cc_retained_after_use(faction, c)
 		if (is_attacker) {
 			game.combat_cards.attacker.push(c)
 		} else {
 			game.combat_cards.defender.push(c)
 		}
 		mark_cc_used_this_action(game, c)
-		const mark_effected = (card) => {
-			set_add(game.combat_cards_effected, card)
-		}
+		combat.record_combat_card_source(game, c, {
+			faction,
+			side: is_attacker ? "attacker" : "defender",
+			from_retained,
+			after_use: source_after_use
+		})
 		let spec = combat_cards.get_combat_card_spec(c)
 		let ctx = create_combat_card_play_context(
 			game,
@@ -1167,7 +1178,7 @@ exports.register = function (states, Engine, context) {
 			is_attacker,
 			from_retained,
 			return_state,
-			mark_effected
+			mark_combat_card_effected
 		)
 
 		if (spec?.on_play?.(ctx) === "stop") {
@@ -1237,6 +1248,8 @@ exports.register = function (states, Engine, context) {
 		space(s) {
 			push_undo()
 			Engine.events.reinforce(game, "IN 15th DIV", AP, s)
+			// The placement effect has resolved even if the battle is later cancelled.
+			mark_combat_card_effected(combat.CC_AP_MAUDE)
 			game.active = AP
 			game.state = "maude_place_hq"
 		}
@@ -1290,6 +1303,8 @@ exports.register = function (states, Engine, context) {
 				}
 				log(`增援：TU Army Islam HQ 放置到 ${space_name(s)} 并加入战斗`)
 			}
+			// The placement effect has resolved even if the battle is later cancelled.
+			mark_combat_card_effected(combat.CC_CP_ARMY_OF_ISLAM)
 			let return_state = game.army_of_islam_cc?.return_state || "play_cc_attacker"
 			let prev_active = game.army_of_islam_cc?.prev_active || CP
 			delete game.army_of_islam_cc
@@ -1765,6 +1780,38 @@ exports.register = function (states, Engine, context) {
 		)
 	}
 
+	function current_cancelled_cc_disposition() {
+		return game.cancelled_cc_dispositions && game.cancelled_cc_dispositions[0]
+	}
+
+	function cancelled_cc_return_label(entry) {
+		if (
+			entry.from_retained ||
+			entry.card === combat.CC_CP_JAFAR_PASHA ||
+			entry.card === combat.CC_AP_NO_PRISONERS
+		) {
+			return "回到保留区"
+		}
+		return "回手"
+	}
+
+	function enter_cancelled_combat_card_disposition_state() {
+		if (!combat.has_cancelled_combat_card_dispositions(game)) return false
+		let entry = current_cancelled_cc_disposition()
+		game.active = entry.faction
+		game.state = "cancelled_combat_card_disposition"
+		return true
+	}
+
+	function continue_after_cancelled_combat_card_disposition() {
+		if (enter_cancelled_combat_card_disposition_state()) return
+		if (game.jafar_pasha_advance_after_cancel) {
+			continue_after_jafar_pasha_cancelled_battle()
+			return
+		}
+		end_battle_sequence()
+	}
+
 	function resolve_battle_sequence() {
 		const ctx = {
 			log,
@@ -1776,6 +1823,9 @@ exports.register = function (states, Engine, context) {
 		if (combat.is_battle_cancelled_by_cc(game)) {
 			let res = combat.resolve_battle_sequence(game, ctx)
 			if (res === "end" || res === "cancelled") {
+				if (enter_cancelled_combat_card_disposition_state()) {
+					return
+				}
 				if (game.jafar_pasha_advance_after_cancel) {
 					continue_after_jafar_pasha_cancelled_battle()
 					return
@@ -1798,7 +1848,59 @@ exports.register = function (states, Engine, context) {
 			if (game.attack?.space === JERUSALEM) {
 				game.events["jerusalem_actual_combat"] = true
 			}
+			if (enter_cancelled_combat_card_disposition_state()) {
+				return
+			}
 			end_battle_sequence()
+		}
+	}
+
+	states.cancelled_combat_card_disposition = {
+		inactive: "选择战斗卡处置",
+		prompt(res) {
+			let entry = current_cancelled_cc_disposition()
+			if (!entry) {
+				res.prompt("战斗卡处置已完成")
+				res.action("done")
+				return
+			}
+			let consume_label = entry.after_use === "remove" ? "移除" : "弃置"
+			res.prompt(
+				`战斗取消：${card_name(entry.card)}，选择${cancelled_cc_return_label(entry)}或${consume_label}。`
+			)
+			res.action("return_cc")
+			if (entry.after_use === "remove") res.action("remove_cc")
+			else res.action("discard_cc")
+		},
+		return_cc() {
+			let entry = current_cancelled_cc_disposition()
+			if (!entry) return
+			push_undo()
+			let label = cancelled_cc_return_label(entry)
+			combat.apply_cancelled_combat_card_disposition(game, entry.card, "return")
+			log(`${card_name(entry.card)}：战斗取消，${label}。`)
+			continue_after_cancelled_combat_card_disposition()
+		},
+		discard_cc() {
+			let entry = current_cancelled_cc_disposition()
+			if (!entry || entry.after_use === "remove") return
+			push_undo()
+			combat.apply_cancelled_combat_card_disposition(game, entry.card, "consume")
+			log(`${card_name(entry.card)}：战斗取消，弃置。`)
+			continue_after_cancelled_combat_card_disposition()
+		},
+		remove_cc() {
+			let entry = current_cancelled_cc_disposition()
+			if (!entry || entry.after_use !== "remove") return
+			push_undo()
+			combat.apply_cancelled_combat_card_disposition(game, entry.card, "consume")
+			log(`${card_name(entry.card)}：战斗取消，移除。`)
+			continue_after_cancelled_combat_card_disposition()
+		},
+		done() {
+			if (!combat.has_cancelled_combat_card_dispositions(game)) {
+				continue_after_cancelled_combat_card_disposition()
+			}
 		}
 	}
 

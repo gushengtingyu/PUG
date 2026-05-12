@@ -89,11 +89,14 @@ test("Pugnacity and Tenacity prevents severe weather losses for Indian attackers
 	let { game, indian } = createIndianSummerWeatherAttack()
 	let logs = []
 	game.events["pugnacity_tenacity_no_weather"] = game.turn
+	game.combat_cards = { attacker: [Engine.combat.CC_AP_PUGNACITY], defender: [] }
+	game.combat_cards_effected = []
 
 	Engine.combat.apply_severe_weather(game, (msg) => logs.push(msg), "Summer")
 
 	expect(Engine.game_utils.is_piece_reduced(game, indian)).toBe(false)
 	expect(logs).toEqual([])
+	expect(game.combat_cards_effected).toContain(Engine.combat.CC_AP_PUGNACITY)
 })
 
 test("Turn 4 AP attacks into swamp still trigger severe weather", () => {

@@ -564,8 +564,9 @@ module.exports = function (Engine) {
 			windows: get_pre_weather_attacker_windows,
 			can_play: can_play_pugnacity,
 			on_play_after_disposition(game, ctx) {
-				game.events["pugnacity_tenacity_no_weather"] = game.turn
-				ctx.mark_effected()
+				if (ctx.return_state === "pre_weather_cc_attacker") {
+					game.events["pugnacity_tenacity_no_weather"] = game.turn
+				}
 			},
 			modifiers: {
 				drm({ has_nation, side_pieces }) {

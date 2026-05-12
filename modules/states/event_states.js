@@ -1068,6 +1068,8 @@ module.exports = function (Engine) {
 		}
 		delete game.combat_cards
 		delete game.combat_cards_effected
+		delete game.combat_card_sources
+		delete game.cancelled_cc_dispositions
 		delete game.battle_result
 		delete game.post_battle_cc_resume
 		delete game.post_roll_cc_done
@@ -1264,6 +1266,8 @@ module.exports = function (Engine) {
 			// Ensure retained cards are kept but current combat context is cleared
 			delete game.combat_cards
 			delete game.combat_cards_effected
+			delete game.combat_card_sources
+			delete game.cancelled_cc_dispositions
 			game.active = AP
 			rules.goto_end_operations()
 		},

@@ -879,17 +879,19 @@ exports.register = function (states, Engine, context) {
 		let rps = game.active === AP ? game.rp_ap : game.rp_cp
 		if (game.active === CP && game.events["royal_navy_blockade"]) {
 			let unused_tu_rp = Number(rps.tu || 0)
-			if (unused_tu_rp > 0) {
+			let recoverable_tu_rp = Math.min(unused_tu_rp, Math.max(0, Number(game.tu_rp_recovery_pool || 0)))
+			if (recoverable_tu_rp > 0) {
 				let max_tu_rp = Math.max(0, Number(game.tu_rp_limit ?? 25))
 				let recoverable_room = Math.max(0, 25 - max_tu_rp)
-				let recovered_tu_rp = Math.min(recoverable_room, unused_tu_rp)
+				let recovered_tu_rp = Math.min(recoverable_room, recoverable_tu_rp)
 				if (recovered_tu_rp > 0) {
 					game.tu_rp_limit = max_tu_rp + recovered_tu_rp
 					if (game && Array.isArray(game.log)) {
-						log(`皇家海军封锁：未使用土耳其 RP ${unused_tu_rp}，最大补给限度回升至 ${game.tu_rp_limit}。`)
+						log(`皇家海军封锁：未使用土耳其 RP ${recovered_tu_rp}，最大补给限度回升至 ${game.tu_rp_limit}。`)
 					}
 				}
 			}
+			game.tu_rp_recovery_pool = 0
 		}
 		for (let key of Object.keys(rps)) {
 			rps[key] = 0
@@ -1061,6 +1063,9 @@ exports.register = function (states, Engine, context) {
 
 		discard_all_retained_cc()
 		delete game.combat_cards
+		delete game.combat_cards_effected
+		delete game.combat_card_sources
+		delete game.cancelled_cc_dispositions
 		goto_ap_draw_cards_phase()
 	}
 

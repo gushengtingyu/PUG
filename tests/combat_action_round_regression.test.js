@@ -415,10 +415,10 @@ test("Turkish Withdrawal lets different TU units retreat to different legal spac
 	expect(game.pieces[tuDiv2]).toBe(giresun)
 })
 
-test("Cancelled battle returns other ccs to action availability", () => {
+test("Cancelled battle lets an untriggered discard cc return to action availability", () => {
 	let { game, ruDiv3, tuDiv8 } = createBattleGame()
 	let germanHighCommand = findCardByEvent("GERMAN HIGH COMMAND CC")
-	let sandstorms = 61
+	let sandstorms = Engine.combat.CC_CP_SANDSTORMS
 	let desertSpace = findSpaceByTerrain("desert")
 
 	game.active = rules.AP
@@ -440,11 +440,226 @@ test("Cancelled battle returns other ccs to action availability", () => {
 
 	expect(outcome).toBe("end")
 	expect(game.battle_result.cancelled).toBe(true)
+	expect(game.cancelled_cc_dispositions).toEqual([
+		expect.objectContaining({
+			card: germanHighCommand,
+			faction: rules.CP,
+			after_use: "discard"
+		})
+	])
+	expect(game.hand_cp.includes(germanHighCommand)).toBe(false)
+	expect(game.discard_cp.includes(germanHighCommand)).toBe(true)
+	expect(game.discard_cp.includes(sandstorms)).toBe(true)
+
+	Engine.combat.apply_cancelled_combat_card_disposition(game, germanHighCommand, "return")
+
 	expect(game.hand_cp.includes(germanHighCommand)).toBe(true)
 	expect(game.discard_cp.includes(germanHighCommand)).toBe(false)
 	expect(game.discard_cp.includes(sandstorms)).toBe(true)
+	expect(game.cancelled_cc_dispositions).toBeUndefined()
 	expect((game.action_state.used_ccs || []).includes(germanHighCommand)).toBe(false)
 	expect((game.action_state.used_ccs || []).includes(sandstorms)).toBe(true)
+})
+
+test("Cancelled battle lets an untriggered discard cc be consumed", () => {
+	let { game, ruDiv3, tuDiv8 } = createBattleGame()
+	let germanHighCommand = findCardByEvent("GERMAN HIGH COMMAND CC")
+	let sandstorms = Engine.combat.CC_CP_SANDSTORMS
+	let desertSpace = findSpaceByTerrain("desert")
+
+	game.active = rules.AP
+	game.attack = {
+		space: desertSpace,
+		pieces: [ruDiv3],
+		attacker: rules.AP,
+		defender: rules.CP
+	}
+	game.pieces[tuDiv8] = desertSpace
+	game.combat_cards = { attacker: [], defender: [germanHighCommand, sandstorms] }
+	game.combat_cards_effected = [sandstorms]
+	game.hand_cp = []
+	game.discard_cp = [germanHighCommand, sandstorms]
+	game.removed_cp = []
+	game.action_state = { used_ccs: [germanHighCommand, sandstorms] }
+
+	let outcome = Engine.combat.resolve_battle_sequence(game, { log: () => {} })
+
+	expect(outcome).toBe("end")
+	expect(game.battle_result.cancelled).toBe(true)
+	expect(game.cancelled_cc_dispositions).toEqual([
+		expect.objectContaining({
+			card: germanHighCommand,
+			faction: rules.CP,
+			after_use: "discard"
+		})
+	])
+
+	Engine.combat.apply_cancelled_combat_card_disposition(game, germanHighCommand, "consume")
+
+	expect(game.hand_cp.includes(germanHighCommand)).toBe(false)
+	expect(game.discard_cp.includes(germanHighCommand)).toBe(true)
+	expect(game.discard_cp.includes(sandstorms)).toBe(true)
+	expect(game.cancelled_cc_dispositions).toBeUndefined()
+	expect((game.action_state.used_ccs || []).includes(germanHighCommand)).toBe(true)
+	expect((game.action_state.used_ccs || []).includes(sandstorms)).toBe(true)
+})
+
+test("Cancelled combat card disposition state offers return or consume", () => {
+	let { game } = createBattleGame()
+	let germanHighCommand = findCardByEvent("GERMAN HIGH COMMAND CC")
+
+	game.state = "cancelled_combat_card_disposition"
+	game.active = rules.CP
+	game.cancelled_cc_dispositions = [
+		{
+			card: germanHighCommand,
+			faction: rules.CP,
+			side: "defender",
+			from_retained: false,
+			after_use: "discard"
+		}
+	]
+	game.hand_cp = []
+	game.discard_cp = [germanHighCommand]
+	game.removed_cp = []
+	game.combat_cards = { attacker: [], defender: [germanHighCommand] }
+	game.combat_cards_effected = []
+	game.action_state = { used_ccs: [germanHighCommand] }
+	game.battle_result = { cancelled: true }
+
+	let view = rules.view(game, CP_ROLE)
+
+	expect(view.actions.return_cc).toBe(1)
+	expect(view.actions.discard_cc).toBe(1)
+
+	rules.action(game, CP_ROLE, "return_cc")
+
+	expect(game.hand_cp.includes(germanHighCommand)).toBe(true)
+	expect(game.discard_cp.includes(germanHighCommand)).toBe(false)
+	expect(game.cancelled_cc_dispositions).toBeUndefined()
+	expect((game.action_state.used_ccs || []).includes(germanHighCommand)).toBe(false)
+})
+
+test("Cancelled battle lets an untriggered remove cc return", () => {
+	let { game, ruDiv3, tuDiv8 } = createBattleGame()
+	let pugnacity = Engine.combat.CC_AP_PUGNACITY
+	let sandstorms = Engine.combat.CC_CP_SANDSTORMS
+	let desertSpace = findSpaceByTerrain("desert")
+
+	game.active = rules.AP
+	game.attack = {
+		space: desertSpace,
+		pieces: [ruDiv3],
+		attacker: rules.AP,
+		defender: rules.CP
+	}
+	game.pieces[tuDiv8] = desertSpace
+	game.combat_cards = { attacker: [pugnacity], defender: [sandstorms] }
+	game.combat_cards_effected = [sandstorms]
+	game.hand_ap = []
+	game.discard_ap = []
+	game.removed_ap = [pugnacity]
+	game.hand_cp = []
+	game.discard_cp = [sandstorms]
+	game.removed_cp = []
+	game.action_state = { used_ccs: [pugnacity, sandstorms] }
+
+	let outcome = Engine.combat.resolve_battle_sequence(game, { log: () => {} })
+
+	expect(outcome).toBe("end")
+	expect(game.battle_result.cancelled).toBe(true)
+	expect(game.cancelled_cc_dispositions).toEqual([
+		expect.objectContaining({
+			card: pugnacity,
+			faction: rules.AP,
+			after_use: "remove"
+		})
+	])
+
+	Engine.combat.apply_cancelled_combat_card_disposition(game, pugnacity, "return")
+
+	expect(game.hand_ap.includes(pugnacity)).toBe(true)
+	expect(game.removed_ap.includes(pugnacity)).toBe(false)
+	expect(game.cancelled_cc_dispositions).toBeUndefined()
+	expect((game.action_state.used_ccs || []).includes(pugnacity)).toBe(false)
+})
+
+test("Cancelled battle does not return an effected remove cc", () => {
+	let { game, ruDiv3, tuDiv8 } = createBattleGame()
+	let pugnacity = Engine.combat.CC_AP_PUGNACITY
+	let sandstorms = Engine.combat.CC_CP_SANDSTORMS
+	let desertSpace = findSpaceByTerrain("desert")
+
+	game.active = rules.AP
+	game.attack = {
+		space: desertSpace,
+		pieces: [ruDiv3],
+		attacker: rules.AP,
+		defender: rules.CP
+	}
+	game.pieces[tuDiv8] = desertSpace
+	game.combat_cards = { attacker: [pugnacity], defender: [sandstorms] }
+	game.combat_cards_effected = [pugnacity, sandstorms]
+	game.hand_ap = []
+	game.discard_ap = []
+	game.removed_ap = [pugnacity]
+	game.hand_cp = []
+	game.discard_cp = [sandstorms]
+	game.removed_cp = []
+	game.action_state = { used_ccs: [pugnacity, sandstorms] }
+
+	let outcome = Engine.combat.resolve_battle_sequence(game, { log: () => {} })
+
+	expect(outcome).toBe("end")
+	expect(game.battle_result.cancelled).toBe(true)
+	expect(game.cancelled_cc_dispositions).toBeUndefined()
+	expect(game.hand_ap.includes(pugnacity)).toBe(false)
+	expect(game.removed_ap.includes(pugnacity)).toBe(true)
+	expect((game.action_state.used_ccs || []).includes(pugnacity)).toBe(true)
+})
+
+test("Cancelled battle lets an untriggered remove cc be consumed", () => {
+	let { game, ruDiv3, tuDiv8 } = createBattleGame()
+	let pugnacity = Engine.combat.CC_AP_PUGNACITY
+	let sandstorms = Engine.combat.CC_CP_SANDSTORMS
+	let desertSpace = findSpaceByTerrain("desert")
+
+	game.active = rules.AP
+	game.attack = {
+		space: desertSpace,
+		pieces: [ruDiv3],
+		attacker: rules.AP,
+		defender: rules.CP
+	}
+	game.pieces[tuDiv8] = desertSpace
+	game.combat_cards = { attacker: [pugnacity], defender: [sandstorms] }
+	game.combat_cards_effected = [sandstorms]
+	game.hand_ap = []
+	game.discard_ap = []
+	game.removed_ap = [pugnacity]
+	game.hand_cp = []
+	game.discard_cp = [sandstorms]
+	game.removed_cp = []
+	game.action_state = { used_ccs: [pugnacity, sandstorms] }
+
+	let outcome = Engine.combat.resolve_battle_sequence(game, { log: () => {} })
+
+	expect(outcome).toBe("end")
+	expect(game.battle_result.cancelled).toBe(true)
+	expect(game.cancelled_cc_dispositions).toEqual([
+		expect.objectContaining({
+			card: pugnacity,
+			faction: rules.AP,
+			after_use: "remove"
+		})
+	])
+
+	Engine.combat.apply_cancelled_combat_card_disposition(game, pugnacity, "consume")
+
+	expect(game.hand_ap.includes(pugnacity)).toBe(false)
+	expect(game.removed_ap.includes(pugnacity)).toBe(true)
+	expect(game.cancelled_cc_dispositions).toBeUndefined()
+	expect((game.action_state.used_ccs || []).includes(pugnacity)).toBe(true)
 })
 
 test("unit inside besieged enemy fort can target the fort in its own space", () => {

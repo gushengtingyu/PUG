@@ -2171,9 +2171,10 @@ module.exports = function (Engine) {
 			name: "WARM WATER PORT",
 			name_cn: "不冻港",
 			effect_cn:
-				"(只能在能通过陆地计算补给线至彼得罗夫斯克的俄国部队控制原本属于土耳其的爱琴海、东地中海和波斯湾港口时打出。不能在俄国革命后打出)。。如果该港口地区不为VP点，则在游戏的剩余时间视其为VP点**(同样在革命结算时算作俄国VP数的一部分)**。现在开始\"上帝保佑沙皇\"标记永远位于俄国VP数+2的位置。**(即使该港口随后被同盟国夺回)**",
+				"(只能在能通过陆地计算补给线至彼得罗夫斯克的俄国部队控制原本属于土耳其的爱琴海、东地中海和波斯湾港口时打出。不能在俄国革命后打出)。如果该港口地区不为VP点，则在游戏的剩余时间视其为VP点**(同样在革命结算时算作俄国VP数的一部分)**。现在开始\"上帝保佑沙皇\"标记永远位于俄国VP数+2的位置。**(即使该港口随后被同盟国夺回)**",
 			can_play: function (game) {
-				return get_russian_revolution_level(game) < 1 && get_warm_water_port_options(game).length > 0
+				//return get_russian_revolution_level(game) < 1 && get_warm_water_port_options(game).length > 0
+				return false
 			},
 			handler: function (game, ctx) {
 				let options = get_warm_water_port_options(game)

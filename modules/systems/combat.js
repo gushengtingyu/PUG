@@ -124,6 +124,11 @@ module.exports = function (Engine) {
 		return !!(game.combat_cards && Array.isArray(game.combat_cards[side]) && game.combat_cards[side].includes(card))
 	}
 
+	function mark_combat_card_effected(game, card) {
+		if (!game.combat_cards_effected) game.combat_cards_effected = []
+		set_add(game.combat_cards_effected, card)
+	}
+
 	function is_post_battle_piece_available(game, p) {
 		return !is_not_on_map(game, p) && !is_eliminated(game, p)
 	}
@@ -546,16 +551,21 @@ module.exports = function (Engine) {
 	function ensure_combat_card_context(game) {
 		if (!game.combat_cards) game.combat_cards = { attacker: [], defender: [] }
 		if (!game.combat_cards_effected) game.combat_cards_effected = []
+		if (!game.combat_card_sources) game.combat_card_sources = {}
 	}
 
 	function reset_combat_card_context(game) {
 		game.combat_cards = { attacker: [], defender: [] }
 		game.combat_cards_effected = []
+		game.combat_card_sources = {}
+		delete game.cancelled_cc_dispositions
 	}
 
 	function clear_combat_card_context(game) {
 		delete game.combat_cards
 		delete game.combat_cards_effected
+		delete game.combat_card_sources
+		delete game.cancelled_cc_dispositions
 	}
 
 	function unmark_cc_used_this_action(game, card) {
@@ -563,6 +573,146 @@ module.exports = function (Engine) {
 		if (set_has(game.action_state.used_ccs, card)) {
 			set_delete(game.action_state.used_ccs, card)
 		}
+	}
+
+	function record_combat_card_source(game, card, source) {
+		ensure_combat_card_context(game)
+		game.combat_card_sources[card] = {
+			card,
+			faction: source.faction,
+			side: source.side,
+			from_retained: !!source.from_retained,
+			after_use: source.after_use || (data.cards[card]?.remove ? "remove" : "discard")
+		}
+	}
+
+	function get_card_zones(game, faction) {
+		if (faction === AP) {
+			if (!game.hand_ap) game.hand_ap = []
+			if (!game.discard_ap) game.discard_ap = []
+			if (!game.removed_ap) game.removed_ap = []
+			ensure_cc_retained(game)
+			return {
+				hand: game.hand_ap,
+				discard: game.discard_ap,
+				removed: game.removed_ap,
+				retained: game.cc_retained.ap,
+				retained_after_use: game.cc_retained_after_use.ap
+			}
+		}
+		if (!game.hand_cp) game.hand_cp = []
+		if (!game.discard_cp) game.discard_cp = []
+		if (!game.removed_cp) game.removed_cp = []
+		ensure_cc_retained(game)
+		return {
+			hand: game.hand_cp,
+			discard: game.discard_cp,
+			removed: game.removed_cp,
+			retained: game.cc_retained.cp,
+			retained_after_use: game.cc_retained_after_use.cp
+		}
+	}
+
+	function infer_combat_card_source(game, card) {
+		let info = data.cards[card] || {}
+		let faction = info.faction
+		let zones = get_card_zones(game, faction)
+		let should_remove = set_has(zones.removed, card) || info.remove
+		let after_use = should_remove ? "remove" : "discard"
+		return {
+			card,
+			faction,
+			side: null,
+			from_retained: false,
+			after_use
+		}
+	}
+
+	function get_combat_card_source(game, card) {
+		let source = game.combat_card_sources && game.combat_card_sources[card]
+		return source || infer_combat_card_source(game, card)
+	}
+
+	function played_combat_cards(game) {
+		let played = []
+		if (Array.isArray(game.combat_cards?.attacker)) played.push(...game.combat_cards.attacker)
+		if (Array.isArray(game.combat_cards?.defender)) played.push(...game.combat_cards.defender)
+		return played
+	}
+
+	function cancelled_cc_returns_to_retained(card, source) {
+		return source.from_retained || card === CC_CP_JAFAR_PASHA || card === CC_AP_NO_PRISONERS
+	}
+
+	function return_cancelled_combat_card(game, entry) {
+		let zones = get_card_zones(game, entry.faction)
+		if (cancelled_cc_returns_to_retained(entry.card, entry)) {
+			set_add(zones.retained, entry.card)
+			if (entry.after_use) zones.retained_after_use[entry.card] = entry.after_use
+			if (set_has(zones.discard, entry.card)) set_delete(zones.discard, entry.card)
+			if (set_has(zones.removed, entry.card)) set_delete(zones.removed, entry.card)
+			unmark_cc_used_this_action(game, entry.card)
+			return true
+		}
+		if (set_has(zones.discard, entry.card)) set_delete(zones.discard, entry.card)
+		if (set_has(zones.removed, entry.card)) set_delete(zones.removed, entry.card)
+		set_add(zones.hand, entry.card)
+		unmark_cc_used_this_action(game, entry.card)
+		return true
+	}
+
+	function prepare_cancelled_combat_card_dispositions(game, result) {
+		delete game.cancelled_cc_dispositions
+		if (!game.combat_cards) return []
+
+		const cancelling_cards = result.cancelling_cards || []
+		const effected_cards = game.combat_cards_effected || []
+		const pending = []
+
+		for (let card of played_combat_cards(game)) {
+			if (cancelling_cards.includes(card)) continue
+			if (effected_cards.includes(card)) continue
+			if (!data.cards[card]?.cc) continue
+
+			let source = get_combat_card_source(game, card)
+			let entry = {
+				card,
+				faction: source.faction,
+				side: source.side,
+				from_retained: !!source.from_retained,
+				after_use: source.after_use || (data.cards[card]?.remove ? "remove" : "discard")
+			}
+
+			// Keep the existing retained-card exceptions until those rules are revisited explicitly.
+			if (card === CC_CP_JAFAR_PASHA || card === CC_AP_NO_PRISONERS) {
+				return_cancelled_combat_card(game, entry)
+				continue
+			}
+
+			pending.push(entry)
+		}
+
+		if (pending.length > 0) game.cancelled_cc_dispositions = pending
+		return pending
+	}
+
+	function has_cancelled_combat_card_dispositions(game) {
+		return Array.isArray(game.cancelled_cc_dispositions) && game.cancelled_cc_dispositions.length > 0
+	}
+
+	function apply_cancelled_combat_card_disposition(game, card, choice) {
+		if (!has_cancelled_combat_card_dispositions(game)) return false
+		let index = game.cancelled_cc_dispositions.findIndex((entry) => entry.card === card)
+		if (index < 0) return false
+		let entry = game.cancelled_cc_dispositions[index]
+
+		if (choice === "return") {
+			return_cancelled_combat_card(game, entry)
+		}
+
+		game.cancelled_cc_dispositions.splice(index, 1)
+		if (game.cancelled_cc_dispositions.length === 0) delete game.cancelled_cc_dispositions
+		return true
 	}
 
 	function finish_attack(game) {
@@ -765,6 +915,53 @@ module.exports = function (Engine) {
 
 		// 只影响进攻方的正规部队
 		let regular_attackers = game.attack.pieces.filter((p) => is_regular(p))
+		let threatened_after_terrain = regular_attackers.filter((p) => {
+			const s = game.pieces[p]
+			return (
+				is_severe_weather_space_for_attack(game, s, season, terrain_ignore) ||
+				is_severe_weather_space_for_attack(game, target_space, season, terrain_ignore)
+			)
+		})
+
+		if (terrain_ignore.all) {
+			let haversack_prevented_weather = regular_attackers.some((p) => {
+				if (is_severe_weather_immune_attacker(game, p, season)) return false
+				const s = game.pieces[p]
+				let threatened_without_ignore =
+					is_severe_weather_space_for_attack(game, s, season, {}) ||
+					is_severe_weather_space_for_attack(game, target_space, season, {})
+				let threatened_with_ignore =
+					is_severe_weather_space_for_attack(game, s, season, terrain_ignore) ||
+					is_severe_weather_space_for_attack(game, target_space, season, terrain_ignore)
+				return threatened_without_ignore && !threatened_with_ignore
+			})
+			if (haversack_prevented_weather) mark_combat_card_effected(game, CC_AP_HAVERSACK_RUSE)
+		}
+
+		if (terrain_ignore.desert && combat_card_played(game, "attacker", CC_AP_MASSED_CAVALRY_CHARGE)) {
+			let cavalry_prevented_weather = regular_attackers.some((p) => {
+				if (is_severe_weather_immune_attacker(game, p, season)) return false
+				const s = game.pieces[p]
+				let threatened_without_ignore =
+					is_severe_weather_space_for_attack(game, s, season, {}) ||
+					is_severe_weather_space_for_attack(game, target_space, season, {})
+				let threatened_with_ignore =
+					is_severe_weather_space_for_attack(game, s, season, terrain_ignore) ||
+					is_severe_weather_space_for_attack(game, target_space, season, terrain_ignore)
+				return threatened_without_ignore && !threatened_with_ignore
+			})
+			if (cavalry_prevented_weather) mark_combat_card_effected(game, CC_AP_MASSED_CAVALRY_CHARGE)
+		}
+
+		for (let p of threatened_after_terrain) {
+			if (has_pugnacity_tenacity_weather_immunity(game, p)) {
+				mark_combat_card_effected(game, CC_AP_PUGNACITY)
+			}
+			if (has_pasha_1_weather_immunity(game, p)) {
+				mark_combat_card_effected(game, CC_CP_PASHA_1)
+			}
+		}
+
 		let weather_checked_attackers = regular_attackers.filter(
 			(p) => !is_severe_weather_immune_attacker(game, p, season)
 		)
@@ -1933,65 +2130,7 @@ module.exports = function (Engine) {
 
 		if (result.cancelled) {
 			clear_cancelled_cc_attacked_space(game, result)
-			// Return other combat cards to hands (except the card that cancelled the battle)
-			if (game.combat_cards) {
-				const cancelling_cards = result.cancelling_cards || []
-				const effected_cards = game.combat_cards_effected || []
-
-				const return_to_hand = (card) => {
-					if (cancelling_cards.includes(card)) return
-					if (effected_cards.includes(card)) {
-						return
-					}
-
-					const info = data.cards[card]
-					const owner = info.faction
-					const hand = owner === AP ? game.hand_ap : game.hand_cp
-					const discard = owner === AP ? game.discard_ap : game.discard_cp
-					const removed = owner === AP ? game.removed_ap : game.removed_cp
-					const retained = owner === AP ? game.cc_retained.ap : game.cc_retained.cp
-
-					// Check if it was played from retained
-					let was_retained = false
-					if (game.cc_retained_after_use) {
-						let after_use_map = owner === AP ? game.cc_retained_after_use.ap : game.cc_retained_after_use.cp
-						if (after_use_map && card in after_use_map) was_retained = true
-					}
-					// Special case: Jafar Pasha & No Prisoners
-					if (card === CC_CP_JAFAR_PASHA || card === CC_AP_NO_PRISONERS) was_retained = true // Always returned to front if cancelled
-
-					let returned = false
-					if (was_retained) {
-						set_add(retained, card)
-						// Note: We don't need to remove it from discard/removed because when played from retained,
-						// it was moved there. We should probably remove it from there now.
-						if (set_has(discard, card)) set_delete(discard, card)
-						if (set_has(removed, card)) set_delete(removed, card)
-						returned = true
-					} else {
-						if (set_has(discard, card)) {
-							set_delete(discard, card)
-							set_add(hand, card)
-							returned = true
-						} else if (set_has(removed, card)) {
-							set_delete(removed, card)
-							set_add(hand, card)
-							returned = true
-						}
-					}
-
-					// Cancelled battles return unaffected CCs to their prior availability,
-					// so they should no longer count as "used this action".
-					if (returned) unmark_cc_used_this_action(game, card)
-				}
-
-				if (game.combat_cards.attacker) {
-					game.combat_cards.attacker.forEach((c) => return_to_hand(c))
-				}
-				if (game.combat_cards.defender) {
-					game.combat_cards.defender.forEach((c) => return_to_hand(c))
-				}
-			}
+			prepare_cancelled_combat_card_dispositions(game, result)
 
 			return "end"
 		}
@@ -4229,6 +4368,9 @@ module.exports = function (Engine) {
 		resolve_flank_attempt,
 		resolve_battle_sequence,
 		end_battle_sequence,
+		record_combat_card_source,
+		has_cancelled_combat_card_dispositions,
+		apply_cancelled_combat_card_disposition,
 		get_defender_losses_state,
 		any_capital_occupied_or_besieged,
 		resolve_siege,

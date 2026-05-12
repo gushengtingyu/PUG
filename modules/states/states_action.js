@@ -789,6 +789,9 @@ exports.register = function (states, Engine, context) {
 		delete game.sr_selected
 		delete game.attack
 		delete game.combat_cards
+		delete game.combat_cards_effected
+		delete game.combat_card_sources
+		delete game.cancelled_cc_dispositions
 		delete game.eligible_attackers
 		delete game.attacked_spaces
 		delete game.retreated
