@@ -969,6 +969,13 @@ module.exports = function (Engine) {
 		return false
 	}
 
+	function is_persian_supply_unit(p) {
+		let info = data.pieces[p]
+		if (!info) return false
+		if (info.nation === "pe") return true
+		return info.name === "BR/PE SPers Rifles" || info.name === "RU/PE Police North"
+	}
+
 	// Rule 17.2.2 / 17.2.4: Irregular units cannot move or advance out of their supply area.
 	function is_space_in_irregular_supply_area(p, s) {
 		if (!is_irregular(p)) return true
@@ -976,7 +983,7 @@ module.exports = function (Engine) {
 		let nation = data.pieces[p].nation || ""
 		if (nation === "ar") return is_syria_palestine(s) || is_hejaz(s)
 		if (nation === "arm") return is_anatolia(s) || is_caucasus(s) || is_georgia(s) || is_russia(s)
-		if (nation === "pe") return is_persia(s)
+		if (is_persian_supply_unit(p)) return is_persia(s) || is_azerbaijan(s) || is_arabistan(s)
 		if (name.startsWith("Afghan")) return is_afghanistan(s)
 		if (name.startsWith("CAsia")) return is_central_asia(s)
 		if (name.startsWith("Egypt")) return is_egypt(s) || is_sudan_and_darfur(s)
@@ -1337,7 +1344,46 @@ module.exports = function (Engine) {
 		return count
 	}
 
-	function can_enter_region(game, p, s) {
+	function get_bu_turkey_exit_distance(game, start) {
+		if (!(start > 0 && data.spaces[start])) return Infinity
+		let queue = [start]
+		let distance = new Map([[start, 0]])
+		while (queue.length > 0) {
+			let current = queue.shift()
+			let current_distance = distance.get(current)
+			let info = data.spaces[current]
+			if (current !== start && info && (info.nation === "bu" || info.nation === "gr")) {
+				return current_distance
+			}
+			for (let next of info.connections || []) {
+				if (distance.has(next)) continue
+				if (!connection_allowed(game, current, next, "move", CP)) continue
+				distance.set(next, current_distance + 1)
+				queue.push(next)
+			}
+		}
+		return Infinity
+	}
+
+	function is_bulgarian_turkey_entry_blocked(game, p, target, options = {}) {
+		if (options.retreat || options.allow_bulgarian_turkey_entry) return false
+		let piece = data.pieces[p]
+		let target_info = data.spaces[target]
+		if (!piece || piece.nation !== "bu" || !target_info || target_info.nation !== "tu") return false
+
+		let source = game.pieces[p]
+		if (game.move && Array.isArray(game.move.pieces) && game.move.pieces.includes(p) && game.move.current > 0) {
+			source = game.move.current
+		}
+		let source_info = data.spaces[source]
+		if (!source_info || source_info.nation !== "tu") return true
+
+		let source_distance = get_bu_turkey_exit_distance(game, source)
+		let target_distance = get_bu_turkey_exit_distance(game, target)
+		return !(target_distance < source_distance)
+	}
+
+	function can_enter_region(game, p, s, options = {}) {
 		const { events } = Engine
 
 		if (is_island_base(game, s) && data.pieces[p].faction === CP) return false
@@ -1362,6 +1408,8 @@ module.exports = function (Engine) {
 		let restricted_area = get_restricted_area(s)
 		let space_info = data.spaces[s]
 		let piece_info = data.pieces[p]
+
+		if (is_bulgarian_turkey_entry_blocked(game, p, s, options)) return false
 
 		if (
 			is_galicia(s) &&
@@ -3966,6 +4014,12 @@ module.exports = function (Engine) {
 			if (status_cache) status_cache.set(cache_key, result)
 			return result
 		}
+		function home_supply_status() {
+			let disrupted = supply_context
+				? supply_context.disrupted && supply_context.disrupted[faction]?.[space] === 1
+				: is_disrupted_by_enemy(game, space, faction)
+			return disrupted ? "DISRUPTED" : "FULL"
+		}
 		if (space < 1 || space >= data.spaces.length || !data.spaces[space]) {
 			return cache_result("OOS")
 		}
@@ -4048,7 +4102,7 @@ module.exports = function (Engine) {
 				if (is_hejaz(space) || is_syria_palestine(space)) return cache_result("FULL")
 			} else if (name === "Armenian Uprising") {
 				if (is_anatolia(space) || is_caucasus(space) || data.spaces[space].nation === "ru") {
-					return cache_result("FULL")
+					return cache_result(home_supply_status())
 				}
 			}
 
@@ -4059,13 +4113,14 @@ module.exports = function (Engine) {
 				typeof Engine.neutral.has_home_supply_privilege === "function" &&
 				Engine.neutral.has_home_supply_privilege(game, p, space, faction)
 			) {
-				return cache_result("FULL")
-			} else if (nation === "pe") {
-				if (is_persia(space) || is_azerbaijan(space) || is_arabistan(space)) return cache_result("FULL")
+				return cache_result(home_supply_status())
+			} else if (is_persian_supply_unit(p)) {
+				if (is_persia(space) || is_azerbaijan(space) || is_arabistan(space))
+					return cache_result(home_supply_status())
 			} else if (nation === "geo" || nation === "arm") {
-				if (is_caucasus(space) || is_georgia(space)) return cache_result("FULL")
+				if (is_caucasus(space) || is_georgia(space)) return cache_result(home_supply_status())
 			} else if (nation === "ar") {
-				if (is_hejaz(space)) return cache_result("FULL")
+				if (is_hejaz(space)) return cache_result(home_supply_status())
 			}
 		}
 
@@ -5645,6 +5700,7 @@ module.exports = function (Engine) {
 		get_tribe_type,
 		is_region,
 		get_connected_spaces,
+		get_rail_connections,
 		other_faction,
 		get_movement_cost,
 		get_enemy_fort_entry_extra_cost,

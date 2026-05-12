@@ -53,6 +53,38 @@ test("Movement activation can remove a Persian Uprising marker with a 0 MF unit"
 	expect(view.actions.piece).toContain(brDiv)
 })
 
+test("AP Persian units can remove Persian Uprising markers in isolated Persia spaces", () => {
+	for (let unitName of ["BR/PE SPers Rifles", "RU/PE Police North"]) {
+		let game = setupGame(2026051210, "Historical", { no_supply_warnings: true })
+		clearBoard(game)
+		let hamadan = findSpace("Hamadan")
+		let unit = findApPiece(unitName)
+
+		game.events.secret_treaty = true
+		game.pieces[unit] = hamadan
+		Engine.set_control(game, hamadan, AP)
+		game.persian_uprising_markers = [hamadan]
+		prepareActivationState(game, AP)
+
+		expect(Engine.map.get_supply_status(game, hamadan, AP, unit)).toBe("DISRUPTED")
+
+		let view = rules.view(game, AP_ROLE)
+		expect(view.actions.activate_move).toContain(hamadan)
+
+		game = rules.action(game, AP_ROLE, "activate_move", hamadan)
+		expect(game.activation_cost[hamadan]).toBe(2)
+
+		game = rules.action(game, AP_ROLE, "piece", unit)
+		view = rules.view(game, AP_ROLE)
+		expect(view.actions.remove_uprising_marker).toBe(1)
+
+		game = rules.action(game, AP_ROLE, "remove_uprising_marker")
+
+		expect(game.persian_uprising_markers).not.toContain(hamadan)
+		expect(game.moved).toContain(unit)
+	}
+})
+
 test("Movement activation can remove an Armenian Uprising marker", () => {
 	let game = setupGame(2026050908, "Historical", { no_supply_warnings: true })
 	clearBoard(game)

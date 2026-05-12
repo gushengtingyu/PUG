@@ -499,6 +499,42 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
+	function get_region_defender_choice_factions() {
+		let attacker = game.attack?.attacker ?? active_faction()
+		let defender = game.attack?.defender ?? other_faction(attacker)
+		return { attacker, defender }
+	}
+
+	function begin_region_defender_stack_choice_if_needed() {
+		if (!game.attack || !Engine.map.is_region(game, game.attack.space)) return false
+		let { attacker, defender } = get_region_defender_choice_factions()
+		let candidates = combat.get_region_defender_candidates(game, game.attack.space, defender)
+		if (candidates.length === 0) return false
+		let reason = combat.get_region_defense_stack_block_reason(game, game.attack.space, candidates, defender)
+		if (!reason) {
+			game.attack.region_defenders = candidates.slice()
+			return false
+		}
+		game.attack.attacker = attacker
+		game.attack.defender = defender
+		game.attack.region_defenders = []
+		game.region_defender_choice_prev_active = game.active
+		game.active = defender
+		game.state = "choose_region_defender_stack"
+		return true
+	}
+
+	function confirm_region_defender_stack_selection() {
+		let { attacker, defender } = get_region_defender_choice_factions()
+		let selected = Array.isArray(game.attack?.region_defenders) ? game.attack.region_defenders : []
+		if (combat.get_region_defense_stack_block_reason(game, game.attack.space, selected, defender)) return false
+		delete game.region_defender_choice_prev_active
+		game.active = attacker
+		clear_undo()
+		start_attack_sequence()
+		return true
+	}
+
 	states.confirm_attack = {
 		prompt(res) {
 			if (!game.attack) {
@@ -522,6 +558,7 @@ exports.register = function (states, Engine, context) {
 			res.action("cancel")
 		},
 		confirm() {
+			if (begin_region_defender_stack_choice_if_needed()) return
 			clear_undo()
 			start_attack_sequence()
 		},
@@ -529,6 +566,53 @@ exports.register = function (states, Engine, context) {
 			push_undo()
 			game.attack.space = -1
 			game.state = "attack"
+		}
+	}
+
+	states.choose_region_defender_stack = {
+		prompt(res) {
+			if (!game.attack || !Engine.map.is_region(game, game.attack.space)) {
+				res.prompt("Invalid Region defense selection.")
+				res.action("cancel")
+				return
+			}
+			let { defender } = get_region_defender_choice_factions()
+			let candidates = combat.get_region_defender_candidates(game, game.attack.space, defender)
+			let selected = Array.isArray(game.attack.region_defenders) ? game.attack.region_defenders : []
+			res.where(game.attack.space)
+			res.who(selected)
+			res.prompt("Select Region defense stack.")
+			for (let p of candidates) res.piece(p)
+			if (!combat.get_region_defense_stack_block_reason(game, game.attack.space, selected, defender)) {
+				res.action("confirm")
+			}
+			if (selected.length > 0) res.action("clear")
+			res.action("cancel")
+		},
+		piece(p) {
+			if (!game.attack || !Engine.map.is_region(game, game.attack.space)) return
+			let { defender } = get_region_defender_choice_factions()
+			let candidates = combat.get_region_defender_candidates(game, game.attack.space, defender)
+			if (!candidates.includes(p)) return
+			push_undo()
+			if (!Array.isArray(game.attack.region_defenders)) game.attack.region_defenders = []
+			set_toggle(game.attack.region_defenders, p)
+		},
+		clear() {
+			if (!game.attack) return
+			push_undo()
+			game.attack.region_defenders = []
+		},
+		confirm() {
+			confirm_region_defender_stack_selection()
+		},
+		cancel() {
+			push_undo()
+			delete game.attack.region_defenders
+			let prev = game.region_defender_choice_prev_active
+			delete game.region_defender_choice_prev_active
+			game.active = prev ?? game.attack?.attacker ?? active_faction()
+			game.state = "confirm_attack"
 		}
 	}
 
@@ -1383,18 +1467,17 @@ exports.register = function (states, Engine, context) {
 		done() {
 			if (game.confused_orders) {
 				if (game.confused_orders.cancel_retreat) {
-					game.battle_result.retreat_needed = false
-					game.battle_result.retreating_units = []
-					game.battle_result.retreat_can_cancel = false
+					combat.cancel_cp_retreat_result(game, game.battle_result)
 				}
 				if (game.confused_orders.cancel_advance) {
 					game.battle_result.no_advance = true
 				}
 			}
+			let next_active = game.attack?.attacker || game.confused_orders?.prev_active || AP
+			game.active = next_active
 			game.confused_orders_used = true
 			delete game.confused_orders
 			end_battle_sequence()
-			delete game.confused_orders_used
 		}
 	}
 
@@ -1410,7 +1493,7 @@ exports.register = function (states, Engine, context) {
 			res.action("done")
 			for (let p = 0; p < data.pieces.length; p++) {
 				if (!data.pieces[p]) continue
-				if (data.pieces[p].faction !== CP) continue
+				if (Engine.game_utils.get_piece_effective_faction(game, p) !== CP) continue
 				if (is_not_on_map(game, p)) continue
 				let from = game.pieces[p]
 				let neighbors = get_connected_spaces(game, from, data.pieces[p].nation, CP, p)
@@ -1648,9 +1731,12 @@ exports.register = function (states, Engine, context) {
 		delete game.jafar_pasha_retreat
 		delete game.turkish_retreat_prev_active
 		delete game.turkish_retreat_chosen_space
+		delete game.turkish_retreat
 		delete game.retreat_choice_cc_done
 		delete game.retreat_choice_resume_state
 		delete game.retreat_choice_prev_active
+		delete game.confused_orders
+		delete game.confused_orders_used
 		delete game.battle_resolution_applied
 		delete game.enver_mo_choice
 		combat.start_attack_sequence(game, log)
@@ -1938,12 +2024,9 @@ exports.register = function (states, Engine, context) {
 			}
 
 			res.prompt(`防守方分配损失：${game.attack.defender_losses_absorbed}/${game.attack.defender_losses}`)
-			let defenders = get_pieces_in_space(game, game.attack.space).filter(
-				(p) =>
-					Engine.game_utils.get_piece_effective_faction(game, p) === active_faction() &&
-					data.pieces[p].type !== "hq" &&
-					!set_has(game.retreated, p)
-			)
+			let defenders = combat
+				.get_combat_defenders(game, game.attack.space, active_faction())
+				.filter((p) => data.pieces[p].type !== "hq")
 			let fort_strength = 0
 			let defender_faction = active_faction()
 			if (combat.has_undestroyed_fort(game, game.attack.space, defender_faction)) {
@@ -2524,11 +2607,14 @@ exports.register = function (states, Engine, context) {
 		delete game.advance_trench_processed
 		delete game.turkish_retreat_prev_active
 		delete game.turkish_retreat_chosen_space
+		delete game.turkish_retreat
 		delete game.post_battle_cc_resume
 		delete game.jerusalem_withdrawal
 		delete game.selected_piece
 		delete game.battle_result
 		delete game.battle_resolution_applied
+		delete game.confused_orders
+		delete game.confused_orders_used
 		combat.clear_catastrophic_attack_state(game)
 	}
 
