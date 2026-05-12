@@ -199,7 +199,11 @@ function validateViewInvariants(view, game, role = game.active) {
 }
 
 function createGame(seed, scenario) {
-	return rules.setup(seed, scenario, { seven_hand_size: false, no_supply_warnings: false })
+	return rules.setup(seed, scenario, {
+		seven_hand_size: false,
+		no_supply_warnings: false,
+		optional_jerusalem_rule: false
+	})
 }
 
 function printContext(prefix, payload) {

@@ -128,6 +128,50 @@ test("SR can stop in but cannot pass through an Armenian Uprising marker", () =>
 	expect(Engine.map.can_sr_to_space(game, turkishDiv, ercis, CP)).toBe(false)
 })
 
+test("Uprising marker disrupts supply but enemy Full Control still blocks the trace", () => {
+	let game = setupGame(2026050913, "Historical", { no_supply_warnings: true })
+	clearBoard(game)
+	let bitlis = findSpace("Bitlis")
+	let van = findSpace("Van")
+	let ercis = findSpace("Ercis")
+	let onlyThroughVan = {
+		block_connection: (_game, current, next) =>
+			!(
+				(current === bitlis && next === van) ||
+				(current === van && next === bitlis) ||
+				(current === van && next === ercis) ||
+				(current === ercis && next === van)
+			)
+	}
+
+	for (let s of [bitlis, van, ercis]) Engine.set_control(game, s, CP)
+	game.armenian_uprising_markers = [van]
+
+	expect(
+		Engine.map.get_supply_trace_status_to_source(
+			game,
+			bitlis,
+			CP,
+			ercis,
+			Engine.map.create_supply_context(game),
+			onlyThroughVan
+		)
+	).toBe("DISRUPTED")
+
+	Engine.set_control(game, van, AP)
+
+	expect(
+		Engine.map.get_supply_trace_status_to_source(
+			game,
+			bitlis,
+			CP,
+			ercis,
+			Engine.map.create_supply_context(game),
+			onlyThroughVan
+		)
+	).toBe("OOS")
+})
+
 test("Combat activation can remove an Armenian Uprising marker without moving the unit", () => {
 	let game = setupGame(2026050909, "Historical", { no_supply_warnings: true })
 	clearBoard(game)

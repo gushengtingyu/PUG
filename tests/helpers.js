@@ -6,7 +6,8 @@ const Engine = require("../modules/engine.js")
 
 const DEFAULT_SETUP_OPTIONS = Object.freeze({
 	seven_hand_size: false,
-	no_supply_warnings: false
+	no_supply_warnings: false,
+	optional_jerusalem_rule: false
 })
 
 function setupGame(seed, scenario = "Historical", options = {}) {

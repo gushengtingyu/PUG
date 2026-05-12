@@ -2504,15 +2504,17 @@ module.exports = function (Engine) {
 
 				if (context.enemy_regular[faction][next] === 1 && !is_besieged_with_context(game, next, context))
 					continue
-				if (is_neutral_supply_blocked(game, next, faction)) continue
+				if (is_neutral_supply_blocked(game, next, faction) && !has_partial_control_with_context(context, next))
+					continue
 
 				let is_friendly = is_controlled_by(game, next, faction)
 				let is_besieged_enemy = is_besieged_with_context(game, next, context)
 				let has_friendly_pieces = context.friendly[faction][next] === 1
+				let has_partial_control = has_partial_control_with_context(context, next)
 				let is_disrupted_by_enemy = context.disrupted[faction][next] === 1
 
 				if (is_friendly && is_besieged_enemy && get_fort_owner(game, next) === faction) continue
-				if (!is_friendly && !is_besieged_enemy && !has_friendly_pieces && !is_disrupted_by_enemy) continue
+				if (!is_friendly && !is_besieged_enemy && !has_friendly_pieces && !has_partial_control) continue
 
 				let current_is_desert = data.spaces[current].terrain === DESERT
 				let next_is_desert = data.spaces[next].terrain === DESERT
@@ -3128,6 +3130,10 @@ module.exports = function (Engine) {
 			[AP]: new Uint8Array(space_count),
 			[CP]: new Uint8Array(space_count)
 		}
+		let partial_control = {
+			[AP]: new Uint8Array(space_count),
+			[CP]: new Uint8Array(space_count)
+		}
 		let disrupting = {
 			[AP]: new Uint8Array(space_count),
 			[CP]: new Uint8Array(space_count)
@@ -3155,7 +3161,12 @@ module.exports = function (Engine) {
 			}
 			if (is_disrupting_piece(p)) {
 				let owner = is_region(game, s) ? get_region_disruption_owner(game, s) : null
-				if (!is_region(game, s) || owner === ef) {
+				if (is_region(game, s)) {
+					if (owner !== ef) continue
+					partial_control[ef][s] = 1
+					disrupting[opp][s] = 1
+				} else if (get_space_controller(game, s) !== ef) {
+					partial_control[ef][s] = 1
 					disrupting[opp][s] = 1
 				}
 			}
@@ -3189,9 +3200,19 @@ module.exports = function (Engine) {
 			enemy,
 			enemy_regular,
 			disrupted,
+			partial_control,
 			non_tribe,
 			besieged
 		}
+	}
+
+	function has_partial_control_with_context(context, s) {
+		if (!context.partial_control) return false
+		return context.partial_control[AP][s] === 1 || context.partial_control[CP][s] === 1
+	}
+
+	function has_partial_control(game, s) {
+		return is_friendly_partial_control(game, s, AP) || is_friendly_partial_control(game, s, CP)
 	}
 
 	function is_besieged_with_context(game, s, supply_context) {
@@ -3365,7 +3386,8 @@ module.exports = function (Engine) {
 					continue
 
 				// Neutral spaces block supply unless they are Greece for AP
-				if (is_neutral_supply_blocked(game, next, faction)) continue
+				if (is_neutral_supply_blocked(game, next, faction) && !has_partial_control_with_context(context, next))
+					continue
 
 				// Rule 14.1.3: Enemy Full Control blocks supply.
 				// Partial Control (irregular units/tribes) does not.
@@ -3376,14 +3398,15 @@ module.exports = function (Engine) {
 				}
 				let is_besieged_enemy = is_besieged_with_context(game, next, context)
 				let has_friendly_pieces = context.friendly[faction][next] === 1
+				let has_partial_control = has_partial_control_with_context(context, next)
 				let is_disrupted_by_enemy = context.disrupted[faction][next] === 1
 
 				// Rule 14.1.3: Friendly besieged Fort blocks supply trace.
 				if (is_friendly && is_besieged_enemy && get_fort_owner(game, next) === faction) continue
 
-				// Supply trace pass if: friendly controlled OR contains friendly pieces OR is disrupted (partial control) OR besieged fort
-				// Note: "friendly pieces" includes irregulars which provide partial control.
-				if (!is_friendly && !is_besieged_enemy && !has_friendly_pieces && !is_disrupted_by_enemy) continue
+				// Uprising markers disrupt supply but do not change control; only Full Control,
+				// actual Partial Control, friendly pieces, or a besieged enemy fort let the trace pass.
+				if (!is_friendly && !is_besieged_enemy && !has_friendly_pieces && !has_partial_control) continue
 
 				let next_disrupted = current_disrupted || is_disrupted_by_enemy
 
@@ -4269,7 +4292,8 @@ module.exports = function (Engine) {
 					continue
 
 				// Neutral spaces block supply unless they are Greece for AP
-				if (is_neutral_supply_blocked(game, next, faction)) continue
+				if (is_neutral_supply_blocked(game, next, faction) && !has_partial_control_with_context(context, next))
+					continue
 
 				let is_friendly = is_controlled_by(game, next, faction)
 				if (is_ap_supply_beachhead(game, next, faction)) {
@@ -4277,13 +4301,15 @@ module.exports = function (Engine) {
 				}
 				let is_besieged_enemy = is_besieged_with_context(game, next, context)
 				let has_friendly_pieces = context.friendly[faction][next] === 1
+				let has_partial_control = has_partial_control_with_context(context, next)
 				let is_disrupted_by_enemy = context.disrupted[faction][next] === 1
 
 				// Rule 14.1.3: Friendly besieged Fort blocks supply trace.
 				if (is_friendly && is_besieged_enemy && get_fort_owner(game, next) === faction) continue
 
-				// Supply trace pass if: friendly controlled OR contains friendly pieces OR is disrupted (partial control) OR besieged fort
-				if (!is_friendly && !is_besieged_enemy && !has_friendly_pieces && !is_disrupted_by_enemy) continue
+				// Uprising markers disrupt supply but do not change control; only Full Control,
+				// actual Partial Control, friendly pieces, or a besieged enemy fort let the trace pass.
+				if (!is_friendly && !is_besieged_enemy && !has_friendly_pieces && !has_partial_control) continue
 
 				let next_disrupted = current_disrupted || is_disrupted_by_enemy
 				if (source_flag[next] === 1) {
@@ -4498,8 +4524,8 @@ module.exports = function (Engine) {
 				let friendly = is_controlled_by(game, next, CP)
 				let besieged = is_besieged(game, next)
 				let friendly_pieces = has_friendly_pieces(game, next, CP)
-				let disrupted = is_disrupted_by_enemy(game, next, CP)
-				if (!friendly && !besieged && !friendly_pieces && !disrupted) continue
+				let partial_control = has_partial_control(game, next)
+				if (!friendly && !besieged && !friendly_pieces && !partial_control) continue
 				visited.add(next)
 				queue.push(next)
 			}

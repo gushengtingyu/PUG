@@ -232,6 +232,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function needs_jerusalem_special_rule() {
+		if (!game.options?.optional_jerusalem_rule) return false
 		if (!game.attack || game.attack.space !== JERUSALEM) return false
 		if ((game.attack.pieces?.length || 0) < 3) return false
 		if (game.attack.jerusalem_special_resolved) return false

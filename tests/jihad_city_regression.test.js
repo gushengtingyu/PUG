@@ -29,8 +29,9 @@ function setupCpMove(game, piece, from) {
 	}
 }
 
-function setupJerusalemAttack(game) {
+function setupJerusalemAttack(game, enableJerusalemRule = true) {
 	clearBoard(game)
+	game.options.optional_jerusalem_rule = enableJerusalemRule
 	let jerusalem = findSpace("Jerusalem")
 	let beersheba = findSpace("Beersheba")
 	let attackers = [findApPiece("BR DIV #1"), findApPiece("BR DIV #2"), findApPiece("BR DIV #3")]
@@ -137,6 +138,20 @@ test("Jerusalem special rule entered from attack confirmation is interactive for
 	expect(game.active).toBe(AP)
 })
 
+test("Jerusalem optional rule is off by default", () => {
+	let game = setupGame(2026051207, "Historical", { no_supply_warnings: true })
+	setupJerusalemAttack(game, false)
+
+	game = rules.action(game, AP_ROLE, "confirm")
+	let cp_view = rules.view(game, CP_ROLE)
+
+	expect(game.options.optional_jerusalem_rule).toBe(false)
+	expect(game.state).not.toBe("jerusalem_defender_choice")
+	expect(game.active).toBe(AP)
+	expect(cp_view.actions?.fight).toBeUndefined()
+	expect(cp_view.actions?.withdraw).toBeUndefined()
+})
+
 test("Jerusalem defender withdrawal branch exposes a retreat action instead of stalling", () => {
 	let game = setupGame(2026051204, "Historical", { no_supply_warnings: true })
 	let { defender } = setupJerusalemAttack(game)
@@ -155,6 +170,7 @@ test("AP continuing a Jerusalem battle pauses for the Jihad placement before com
 	let game = setupGame(2026051201, "Historical", { no_supply_warnings: true })
 	let jerusalem = findSpace("Jerusalem")
 
+	game.options.optional_jerusalem_rule = true
 	game.active = AP
 	game.state = "jerusalem_attacker_choice"
 	game.state_stack = []
@@ -188,6 +204,7 @@ test("CP continuing a Jerusalem battle does not add the AP-only Jihad point", ()
 	let game = setupGame(2026051202, "Historical", { no_supply_warnings: true })
 	let jerusalem = findSpace("Jerusalem")
 
+	game.options.optional_jerusalem_rule = true
 	game.active = CP
 	game.state = "jerusalem_attacker_choice"
 	game.state_stack = []

@@ -69,8 +69,8 @@ exports.register = function (states, Engine, context) {
 		remove_trench
 	} = context
 
-	function resolve_cp_enter_empty_beachhead_by_movement(from_space, target, pieces_moving) {
-		if (active_faction() !== CP) return false
+	function resolve_cp_enter_empty_beachhead_by_movement(from_space, target, pieces_moving, faction = active_faction()) {
+		if (faction !== CP) return false
 		if (!Engine.map.is_beachhead_space(game, target)) return false
 		let has_ap_units = get_pieces_in_space(game, target).some(
 			(p) => Engine.game_utils.get_piece_effective_faction(game, p) === AP
@@ -102,8 +102,8 @@ exports.register = function (states, Engine, context) {
 		return !Engine.map.is_island_base(game, from_space)
 	}
 
-	function should_create_beachhead_on_entry(from_space, target) {
-		return Engine.map.can_ap_initiate_invasion_to_beachhead(game, from_space, target, active_faction())
+	function should_create_beachhead_on_entry(from_space, target, faction = active_faction()) {
+		return Engine.map.can_ap_initiate_invasion_to_beachhead(game, from_space, target, faction)
 	}
 
 	function activation_now() {
@@ -149,19 +149,19 @@ exports.register = function (states, Engine, context) {
 		log_region_activation_group("ATTACK", "attack")
 	}
 
-	function can_temporarily_end_current_move_in_overstacked_space(space_id, stopping_pieces = null) {
+	function can_temporarily_end_current_move_in_overstacked_space(space_id, stopping_pieces = null, faction = active_faction()) {
 		let pieces = stopping_pieces ?? game.move?.pieces
 		if (!Array.isArray(pieces) || pieces.length === 0) return false
 		// 当前地块虽然超堆叠，但后续仍可继续移动已激活友军。
-		return Engine.map.can_temporarily_end_move_in_space(game, space_id, active_faction(), pieces, {
+		return Engine.map.can_temporarily_end_move_in_space(game, space_id, faction, pieces, {
 			stopping_pieces_already_in_space: true,
 			excluded_future_movers: pieces
 		})
 	}
 
-	function get_current_move_end_block_reason(space_id, stopping_pieces = null) {
-		let reason = get_move_end_space_block_reason(game, space_id, active_faction())
-		if (reason === "堆叠超限" && can_temporarily_end_current_move_in_overstacked_space(space_id, stopping_pieces)) {
+	function get_current_move_end_block_reason(space_id, stopping_pieces = null, faction = active_faction()) {
+		let reason = get_move_end_space_block_reason(game, space_id, faction)
+		if (reason === "堆叠超限" && can_temporarily_end_current_move_in_overstacked_space(space_id, stopping_pieces, faction)) {
 			return null
 		}
 		return reason
@@ -235,8 +235,8 @@ exports.register = function (states, Engine, context) {
 	function has_move_activation_options_in_space(s, faction) {
 		if (has_unmoved_move_eligible_pieces_in_space(s, faction)) return true
 		if (Engine.game_utils.can_combine_in_space(game, s, faction)) return true
-		if (can_space_remove_uprising_marker_in_activation(s)) return true
-		return can_space_entrench_in_activation(s)
+		if (can_space_remove_uprising_marker_in_activation(s, faction)) return true
+		return can_space_entrench_in_activation(s, faction)
 	}
 
 	function can_piece_participate_in_activation(p, faction) {
@@ -259,6 +259,21 @@ exports.register = function (states, Engine, context) {
 		return get_piece_mf(p) > 0
 	}
 
+	function get_current_move_faction() {
+		return (game.move && game.move.faction) || active_faction()
+	}
+
+	function with_active_faction(faction, fn) {
+		if (!faction || active_faction() === faction) return fn()
+		let original_active = game.active
+		game.active = faction
+		try {
+			return fn()
+		} finally {
+			game.active = original_active
+		}
+	}
+
 	function is_british_no_attack_unpaid_for(faction) {
 		if (Engine.mo && typeof Engine.mo.is_british_no_attack_unpaid === "function") {
 			return Engine.mo.is_british_no_attack_unpaid(game, faction)
@@ -278,11 +293,11 @@ exports.register = function (states, Engine, context) {
 		return can_activate_piece_in_space_to_attack(p, s)
 	}
 
-	function can_space_entrench_in_activation(s) {
-		if (!Engine.game_utils.can_entrench_in_space(game, s, active_faction())) return false
+	function can_space_entrench_in_activation(s, faction = active_faction()) {
+		if (!Engine.game_utils.can_entrench_in_space(game, s, faction)) return false
 		if (game.entrench_attempts && set_has(game.entrench_attempts, s)) return false
-		return Engine.game_utils.get_entrenching_units_in_space(game, s, active_faction()).some((p) =>
-			can_piece_participate_in_activation(p, active_faction())
+		return Engine.game_utils.get_entrenching_units_in_space(game, s, faction).some((p) =>
+			can_piece_participate_in_activation(p, faction)
 		)
 	}
 
@@ -310,8 +325,8 @@ exports.register = function (states, Engine, context) {
 		})
 	}
 
-	function can_space_remove_uprising_marker_in_activation(s) {
-		return get_uprising_marker_removal_units(s).length > 0
+	function can_space_remove_uprising_marker_in_activation(s, faction = active_faction()) {
+		return get_uprising_marker_removal_units(s, faction).length > 0
 	}
 
 	function can_selected_move_pieces_remove_uprising_marker() {
@@ -334,14 +349,15 @@ exports.register = function (states, Engine, context) {
 		log(`${piece_name(p)} removes ${rule.label} marker in ${space_name(s)}.`)
 
 		let initial = game.move.initial
+		let move_faction = get_current_move_faction()
 		let allowed_activation_pieces = Array.isArray(game.move.allowed_activation_pieces)
 			? game.move.allowed_activation_pieces.slice()
 			: null
 		delete game.move
 		game.where = initial
 		let has_remaining_pieces = allowed_activation_pieces
-			? has_unmoved_allowed_move_pieces_in_space(initial, allowed_activation_pieces, active_faction())
-			: has_unmoved_move_eligible_pieces_in_space(initial, active_faction())
+			? has_unmoved_allowed_move_pieces_in_space(initial, allowed_activation_pieces, move_faction)
+			: has_unmoved_move_eligible_pieces_in_space(initial, move_faction)
 		if (has_remaining_pieces) {
 			game.move = {
 				initial,
@@ -349,6 +365,7 @@ exports.register = function (states, Engine, context) {
 				spaces_moved: 0,
 				pieces: [],
 				touched_spaces: [initial],
+				faction: move_faction,
 				allowed_activation_pieces
 			}
 			game.state = "choose_pieces_to_move"
@@ -555,8 +572,7 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
-	function prune_region_move_activations() {
-		let faction = active_faction()
+	function prune_region_move_activations(faction = active_faction()) {
 		for (let { space, stacks } of get_region_activation_entries("move")) {
 			let remaining = stacks.filter((stack) =>
 				Array.isArray(stack.pieces) &&
@@ -1149,7 +1165,8 @@ exports.register = function (states, Engine, context) {
 					current: s,
 					spaces_moved: 0,
 					pieces: [],
-					touched_spaces: [s]
+					touched_spaces: [s],
+					faction: active_faction()
 				}
 				game.state = "choose_pieces_to_move"
 			}
@@ -1167,6 +1184,7 @@ exports.register = function (states, Engine, context) {
 				spaces_moved: 0,
 				pieces: [p],
 				touched_spaces: [s],
+				faction: active_faction(),
 				allowed_activation_pieces: region_activation ? region_activation.stack.pieces.slice() : null
 			}
 			game.state = "choose_pieces_to_move"
@@ -1239,7 +1257,8 @@ exports.register = function (states, Engine, context) {
 				current: s,
 				spaces_moved: 0,
 				pieces: [],
-				touched_spaces: [s]
+				touched_spaces: [s],
+				faction: active_faction()
 			}
 			game.state = "choose_pieces_to_move"
 		},
@@ -1257,7 +1276,8 @@ exports.register = function (states, Engine, context) {
 				current: s,
 				spaces_moved: 0,
 				pieces: [p],
-				touched_spaces: [s]
+				touched_spaces: [s],
+				faction: active_faction()
 			}
 			game.state = "choose_pieces_to_move"
 		},
@@ -1951,14 +1971,15 @@ exports.register = function (states, Engine, context) {
 
 	function move_stack_to_space(target) {
 		let from_space = game.move.current
+		let moving_faction = get_current_move_faction()
 		let pieces_moving = []
 		let pieces_stopped = []
-		let creates_beachhead = should_create_beachhead_on_entry(from_space, target)
+		let creates_beachhead = should_create_beachhead_on_entry(from_space, target, moving_faction)
 		let siege_departure_reason = Engine.map.get_siege_departure_block_reason(
 			game,
 			from_space,
 			game.move.pieces,
-			active_faction()
+			moving_faction
 		)
 		if (siege_departure_reason) {
 			log(`Cannot leave ${space_name(from_space)}: ${siege_departure_reason}.`)
@@ -1966,10 +1987,10 @@ exports.register = function (states, Engine, context) {
 		}
 
 		let is_siege_entry =
-			has_undestroyed_fort(game, target, other_faction(active_faction())) && !Engine.map.is_besieged(game, target)
+			has_undestroyed_fort(game, target, other_faction(moving_faction)) && !Engine.map.is_besieged(game, target)
 		if (is_siege_entry) {
 			let potential_pieces = game.move.pieces.filter((p) => {
-				let cost = get_movement_cost(game, p, target) + get_enemy_fort_entry_extra_cost(game, target, active_faction())
+				let cost = get_movement_cost(game, p, target) + get_enemy_fort_entry_extra_cost(game, target, moving_faction)
 				return get_piece_mf(p) >= game.move.spaces_moved + cost
 			})
 
@@ -1981,9 +2002,9 @@ exports.register = function (states, Engine, context) {
 
 		let step_cost = 0
 		for (let p of game.move.pieces) {
-			if (can_piece_move_to(game, p, target, active_faction())) {
+			if (can_piece_move_to(game, p, target, moving_faction)) {
 				let cost = get_movement_cost(game, p, target)
-				if (is_siege_entry) cost += get_enemy_fort_entry_extra_cost(game, target, active_faction())
+				if (is_siege_entry) cost += get_enemy_fort_entry_extra_cost(game, target, moving_faction)
 
 				step_cost = Math.max(step_cost, cost)
 				game.pieces[p] = target
@@ -1994,7 +2015,7 @@ exports.register = function (states, Engine, context) {
 				}
 			} else {
 				pieces_stopped.push(p)
-				let reason = get_piece_move_block_reason(game, p, target, active_faction())
+				let reason = get_piece_move_block_reason(game, p, target, moving_faction)
 				if (reason) log(`移动阻断：${piece_name(p)} -> ${space_name(target)}，原因=${reason}`)
 			}
 		}
@@ -2011,7 +2032,7 @@ exports.register = function (states, Engine, context) {
 		set_add(game.move.touched_spaces, target)
 
 		// Rule 19.2.1: Athens Entry Trigger
-		Engine.neutral.check_athens_entry(game, pieces_moving, target, active_faction())
+		Engine.neutral.check_athens_entry(game, pieces_moving, target, moving_faction)
 
 		for (let p of pieces_stopped) {
 			set_add(game.moved, p)
@@ -2029,16 +2050,16 @@ exports.register = function (states, Engine, context) {
 				set_add(game.beachheads, target)
 				game.unplaced_beachheads = Math.max(0, (game.unplaced_beachheads || 0) - 1)
 				// The step that creates a new beachhead is also the step that stops the moving stack there.
-				Engine.neutral.on_beachhead_placed(game, target, active_faction())
+				Engine.neutral.on_beachhead_placed(game, target, moving_faction)
 				log(`Beachhead placed at ${space_name(target)}.`)
 			}
-			if (resolve_cp_enter_empty_beachhead_by_movement(from_space, target, pieces_moving)) {
+			if (resolve_cp_enter_empty_beachhead_by_movement(from_space, target, pieces_moving, moving_faction)) {
 				return
 			}
 
 			// Rule 15.4.6: Trenches are removed when an enemy unit enters the space
 			// remove_trench handles Doiran's permanence
-			if (has_trench(game, target) > 0 && !is_controlled_by(game, target, active_faction())) {
+			if (has_trench(game, target) > 0 && !is_controlled_by(game, target, moving_faction)) {
 				remove_trench(game, target)
 				log(`Trench in ${space_name(target)} removed by enemy entry.`)
 			}
@@ -2046,11 +2067,11 @@ exports.register = function (states, Engine, context) {
 			check_immediate_jihad_rebellion_on_entry(from_space, target, pieces_moving)
 
 			let enemy_holds_contested_region =
-				!!data.spaces[target]?.region && Engine.map.contains_enemy_pieces(game, target, active_faction())
+				!!data.spaces[target]?.region && Engine.map.contains_enemy_pieces(game, target, moving_faction)
 			let will_control_target =
-				!has_undestroyed_fort(game, target, other_faction(active_faction())) &&
+				!has_undestroyed_fort(game, target, other_faction(moving_faction)) &&
 				!is_gallipoli(target) &&
-				!is_controlled_by(game, target, active_faction()) &&
+				!is_controlled_by(game, target, moving_faction) &&
 				pieces_moving.some((p) => data.pieces[p].type === "regular") &&
 				!enemy_holds_contested_region
 
@@ -2060,10 +2081,10 @@ exports.register = function (states, Engine, context) {
 				Engine.sync_jihad_city_state(game, target)
 			}
 
-			if (!has_undestroyed_fort(game, target, other_faction(active_faction())) && !is_gallipoli(target)) {
-				if (!is_controlled_by(game, target, active_faction())) {
+			if (!has_undestroyed_fort(game, target, other_faction(moving_faction)) && !is_gallipoli(target)) {
+				if (!is_controlled_by(game, target, moving_faction)) {
 					if (pieces_moving.some((p) => data.pieces[p].type === "regular") && !enemy_holds_contested_region) {
-						set_control(game, target, active_faction())
+						set_control(game, target, moving_faction)
 					}
 				}
 			}
@@ -2075,7 +2096,7 @@ exports.register = function (states, Engine, context) {
 			if (
 				is_siege_entry ||
 				creates_beachhead ||
-				Engine.map.has_enemy_uprising_marker(game, target, active_faction()) ||
+				Engine.map.has_enemy_uprising_marker(game, target, moving_faction) ||
 				should_stop_move_on_island_base(from_space, target)
 			) {
 				end_move_stack()
@@ -2120,12 +2141,13 @@ exports.register = function (states, Engine, context) {
 
 	function end_move_stack(stopping_pieces = null) {
 		let current_space = game.move.current
+		let move_faction = get_current_move_faction()
 		let allowed_activation_pieces = Array.isArray(game.move.allowed_activation_pieces)
 			? game.move.allowed_activation_pieces.slice()
 			: null
 		// 这里保留 PUG“每次结束当前堆叠移动都做校验”的结构，
 		// 但对“可由后续已激活单位解消的临时超堆叠”放行。
-		let reason = get_current_move_end_block_reason(current_space, stopping_pieces)
+		let reason = get_current_move_end_block_reason(current_space, stopping_pieces, move_faction)
 		if (reason) {
 			log(`不能结束移动：${space_name(current_space)} 不合法（${reason}）`)
 			set_next_state("move_stack")
@@ -2140,8 +2162,8 @@ exports.register = function (states, Engine, context) {
 		let initial = game.move.initial
 		delete game.move
 		let has_remaining_pieces = allowed_activation_pieces
-			? has_unmoved_allowed_move_pieces_in_space(initial, allowed_activation_pieces, active_faction())
-			: has_unmoved_move_eligible_pieces_in_space(initial, active_faction())
+			? has_unmoved_allowed_move_pieces_in_space(initial, allowed_activation_pieces, move_faction)
+			: has_unmoved_move_eligible_pieces_in_space(initial, move_faction)
 		if (has_remaining_pieces) {
 			game.move = {
 				initial: initial,
@@ -2149,6 +2171,7 @@ exports.register = function (states, Engine, context) {
 				spaces_moved: 0,
 				pieces: [],
 				touched_spaces: [initial],
+				faction: move_faction,
 				allowed_activation_pieces
 			}
 			set_next_state("choose_pieces_to_move")
@@ -2156,15 +2179,16 @@ exports.register = function (states, Engine, context) {
 		}
 		if (
 			!allowed_activation_pieces &&
-			(Engine.game_utils.can_combine_in_space(game, initial, active_faction()) || can_space_entrench_in_activation(initial))
+			(Engine.game_utils.can_combine_in_space(game, initial, move_faction) ||
+				can_space_entrench_in_activation(initial, move_faction))
 		) {
 			set_next_state("choose_move_space")
 			return
 		}
-		end_move_activation(initial)
+		end_move_activation(initial, move_faction)
 	}
 
-	function end_move_activation(s) {
+	function end_move_activation(s, faction = active_faction()) {
 		if (game.activated && game.activated.move) {
 			set_delete(game.activated.move, s)
 		}
@@ -2175,15 +2199,15 @@ exports.register = function (states, Engine, context) {
 			set_next_state(next_state)
 			return
 		}
-		next_move_activation()
+		next_move_activation(faction)
 	}
 
-	function next_move_activation() {
+	function next_move_activation(faction = active_faction()) {
 		// Filter out activated spaces that have no movable pieces left
 		if (game.activated && game.activated.move) {
-			game.activated.move = game.activated.move.filter((s) => has_move_activation_options_in_space(s, active_faction()))
+			game.activated.move = game.activated.move.filter((s) => has_move_activation_options_in_space(s, faction))
 		}
-		prune_region_move_activations()
+		prune_region_move_activations(faction)
 
 		if (has_any_move_activations()) {
 			set_next_state("choose_move_space")
@@ -2195,8 +2219,10 @@ exports.register = function (states, Engine, context) {
 			}
 			// No more movement, go to attack
 			set_next_state("attack")
-			refresh_attack_eligibility()
-			if (game.eligible_attackers.length === 0) set_next_state("end_operations")
+			with_active_faction(faction, () => {
+				refresh_attack_eligibility()
+				if (game.eligible_attackers.length === 0) set_next_state("end_operations")
+			})
 		}
 	}
 }
