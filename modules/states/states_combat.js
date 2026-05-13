@@ -2595,9 +2595,9 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function continue_after_post_retreat_cancel() {
-		if (!enter_finish_attack_window()) {
-			goto_attack()
-		}
+		game.retreat_phase_done = true
+		clear_retreat_runtime_state()
+		combat.end_battle_sequence(game, log)
 	}
 
 	function enter_turkish_retreat_state() {
@@ -2789,7 +2789,9 @@ exports.register = function (states, Engine, context) {
 		}
 		if (game.active === game.attack?.defender) {
 			game.active = game.attack?.attacker || AP
-			continue_after_defender_retreat(create_advance_resume(), true)
+			game.retreat_phase_done = true
+			clear_retreat_runtime_state()
+			combat.end_battle_sequence(game, log)
 		} else if (game.turkish_retreat_pending) {
 			game.turkish_retreat_attacker_retreated = true
 			enter_turkish_retreat_state()
@@ -2849,8 +2851,13 @@ exports.register = function (states, Engine, context) {
 				let can_decline = with_yudenitch || in_fort || valid.length === 0
 
 				if (valid.length === 0) {
-					res.prompt(`无法让 ${piece_name(piece)} 向第比利斯方向撤退。`)
-					res.action("decline_retreat")
+					if (with_yudenitch || in_fort) {
+						res.prompt(`${piece_name(piece)} 免于撤退。`)
+						res.action("decline_retreat")
+					} else {
+						res.prompt(`无法让 ${piece_name(piece)} 向第比利斯方向撤退。`)
+						res.action("cannot_retreat")
+					}
 				} else {
 					for (let s of valid) res.space(s)
 					if (can_decline) res.action("decline_retreat")
@@ -2898,13 +2905,13 @@ exports.register = function (states, Engine, context) {
 			}
 		},
 		done() {
+			clear_undo()
 			delete game.save_tiflis_pieces
 			delete game.selected_piece
 
 			// Restore active faction to attacker (CP)
 			game.active = game.attack.attacker
 
-			// Resume end_battle_sequence to handle losses and normal retreats
 			combat.end_battle_sequence(game, log)
 		}
 	}
