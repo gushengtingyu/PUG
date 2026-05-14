@@ -542,6 +542,7 @@ module.exports = function (Engine) {
 	function clear_save_tiflis_state(game) {
 		delete game.save_tiflis_resolved
 		delete game.save_tiflis_failed
+		delete game.save_tiflis_vacated_battle_space
 		delete game.save_tiflis_pieces
 		if (game.events) delete game.events["save_tiflis"]
 	}
@@ -726,6 +727,8 @@ module.exports = function (Engine) {
 		delete game.battle_resolution_side_effects_applied
 		delete game.retreat_choice_cc_cp_done
 		delete game.retreat_phase_done
+		delete game.retreat_distance
+		delete game.retreat_first_spaces
 		delete game.confused_orders
 		delete game.confused_orders_used
 		delete game.turkish_retreat
@@ -757,6 +760,8 @@ module.exports = function (Engine) {
 		if (!log_fn) return
 		if (game.save_tiflis_failed && result.no_advance) {
 			log_fn("Russian units could not retreat towards Tiflis; full-strength TU/TUA units may advance.")
+		} else if (game.save_tiflis_vacated_battle_space && result.no_advance) {
+			log_fn("Russian units vacated the battle space due to Save Tiflis; full-strength TU/TUA units may advance.")
 		}
 	}
 
@@ -1140,7 +1145,8 @@ module.exports = function (Engine) {
 		let attackers = result.attackers.filter((p) => !is_not_on_map(game, p))
 
 		// Rule 66: Save Tiflis override
-		let save_tiflis_override = game.save_tiflis_failed && result.no_advance
+		let save_tiflis_override =
+			(game.save_tiflis_failed || game.save_tiflis_vacated_battle_space) && result.no_advance
 
 		let eligible = attackers.filter((p) => {
 			if (!is_combat_unit(p)) return false
@@ -2657,7 +2663,7 @@ module.exports = function (Engine) {
 
 				if (attackers_already_in_target_space(game)) {
 					handle_post_battle_finish_attack(game, log_fn)
-				} else if (!result.no_advance || game.save_tiflis_failed) {
+				} else if (!result.no_advance || game.save_tiflis_failed || game.save_tiflis_vacated_battle_space) {
 					handle_post_battle_advance(game, result, game.attack.space, log_fn)
 				} else {
 					handle_post_battle_finish_attack(game, log_fn)

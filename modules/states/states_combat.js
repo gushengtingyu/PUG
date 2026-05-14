@@ -2688,12 +2688,14 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
-	function clear_retreat_runtime_state() {
+	function clear_retreat_runtime_state(options = {}) {
 		delete game.retreat_pieces
 		delete game.retreat_space
-		delete game.retreat_distance
 		delete game.retreat_from
-		delete game.retreat_first_spaces
+		if (!options.preserve_advance_context) {
+			delete game.retreat_distance
+			delete game.retreat_first_spaces
+		}
 		game.retreat_steps_left = null
 	}
 
@@ -2793,7 +2795,7 @@ exports.register = function (states, Engine, context) {
 		if (game.active === game.attack?.defender) {
 			game.active = game.attack?.attacker || AP
 			game.retreat_phase_done = true
-			clear_retreat_runtime_state()
+			clear_retreat_runtime_state({ preserve_advance_context: true })
 			combat.end_battle_sequence(game, log)
 		} else if (game.turkish_retreat_pending) {
 			game.turkish_retreat_attacker_retreated = true
@@ -2882,6 +2884,9 @@ exports.register = function (states, Engine, context) {
 				let from = game.pieces[p]
 				log(`${piece_name(p)} retreats to ${space_name(s)} (towards Tiflis).`)
 				game.pieces[p] = s
+				if (from === game.attack?.space) {
+					game.save_tiflis_vacated_battle_space = true
+				}
 				if (from > 0) Engine.sync_region_control(game, from)
 				Engine.sync_region_control(game, s)
 				set_delete(game.save_tiflis_pieces, p)
@@ -3649,6 +3654,7 @@ exports.register = function (states, Engine, context) {
 		end_advance() {
 			delete game.advance_follow_mode
 			delete game.advance_follow_pieces
+			delete game.retreat_distance
 			delete game.retreat_first_spaces
 			delete game.selected_piece
 			delete game.advance_yildirim_used

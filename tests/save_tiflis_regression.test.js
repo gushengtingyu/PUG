@@ -33,14 +33,23 @@ const CP_ROLE = rules.roles[1]
 
 // ─── 关键 ID ───────────────────────────────────────────────────────────────
 const TIFLIS = 12
+const ALEKSANDROPOL = 22 // Kars 的相邻地块
+const KARS = 33 // Sarikamis 的合法普通战斗撤退目标
 const KOPRUKOY = 58 // 土耳其领土，高加索区域（用于战斗地块）
 const SARIKAMIS = 47 // 俄国领土（可用于测试"战斗在非受影响区域"）
+const ARDEBIL = 64 // Tabriz 的相邻地块
 const TABRIZ = 80 // 阿塞拜疆区域（受影响区域，有距第比利斯5格）
 const JULFA = 55 // 俄国领土，距第比利斯4格（Tabriz的撤退目标）
 const MENJIL = 101 // 波斯区域（受影响区域）
 const ENZELI = 78 // 波斯区域，距第比利斯更近（Menjil的撤退目标）
+const DIYARBEKIR = 120 // 平地，土耳其领土
+const MARDIN = 129 // 平地，Diyarbekir 的相邻进攻来源
+const MOSUL = 134 // 平地，Save Tiflis 额外撤退目标
+const RAS_UL_AIN = 137 // 平地，Diyarbekir 普通撤退经过的第一格
+const NAZIBIN = 141 // 平地，Diyarbekir 普通撤退的第二格
 
 const TU_1_CAUCASIAN = 227 // 土耳其 LCU
+const TU_CAV_1 = 230 // 土耳其 SCU（用于模拟 TU LCU 战损替换后仍是本场进攻方）
 const RU_I_CAUCASIAN = 139 // 俄国 LCU（战斗防守方）
 const RU_CAV_1 = 103 // 俄国 SCU（用于受影响区域）
 const RU_CAV_4 = 106 // 俄国 SCU（备用）
@@ -106,13 +115,17 @@ function setupRetreatChoiceState(game, opts = {}) {
 
 function setupResolvedRetreatChoiceState(game, opts = {}) {
 	setupRetreatChoiceState(game, opts)
+	const attackerPiece = opts.attackerPiece ?? TU_1_CAUCASIAN
+	const defenderPiece = opts.defenderPiece ?? RU_I_CAUCASIAN
 	game.battle_result = {
 		attacker_losses: 0,
-		defender_losses: 0,
+		defender_losses: opts.defenderLosses ?? 0,
 		retreat_needed: true,
 		retreating_faction: AP,
-		retreat_distance: 1,
-		no_advance: true
+		retreating_units: [defenderPiece],
+		attackers: [attackerPiece],
+		retreat_distance: opts.retreatDistance ?? 1,
+		no_advance: opts.noAdvance ?? true
 	}
 }
 
@@ -133,6 +146,17 @@ test("SAVE TIFLIS: 进攻方无土耳其 LCU 时不能打出", () => {
 	game.pieces[RU_CAV_1] = TABRIZ
 
 	expect(Engine.combat_cards.can_play_combat_card(game, CC_CP_SAVE_TIFLIS)).toBe(false)
+})
+
+test("SAVE TIFLIS: 参战 TU LCU 即使战损替换为 SCU 后仍满足出牌条件", () => {
+	const game = makeGame()
+	setupRetreatChoiceState(game, { attackerPiece: TU_CAV_1 })
+	game.attack.initial_attackers = [TU_1_CAUCASIAN]
+	game.pieces[TU_1_CAUCASIAN] = AP_RESERVE
+	game.pieces[TU_CAV_1] = KOPRUKOY
+	game.pieces[RU_CAV_1] = TABRIZ
+
+	expect(Engine.combat_cards.can_play_combat_card(game, CC_CP_SAVE_TIFLIS)).toBe(true)
 })
 
 test("SAVE TIFLIS: 战斗地块无俄国 LCU 防守时不能打出", () => {
@@ -190,7 +214,7 @@ test("SAVE TIFLIS: 所有条件满足时可以打出", () => {
 	expect(Engine.combat_cards.can_play_combat_card(game, CC_CP_SAVE_TIFLIS)).toBe(true)
 })
 
-test("SAVE TIFLIS: 通过真实 play_cc 动作打出后立即进入回援撤退状态", () => {
+test("SAVE TIFLIS: 通过真实 play_cc 动作打出后先进行普通战斗撤退", () => {
 	let game = makeGame()
 	setupResolvedRetreatChoiceState(game)
 	game.pieces[RU_CAV_1] = TABRIZ
@@ -200,12 +224,164 @@ test("SAVE TIFLIS: 通过真实 play_cc 动作打出后立即进入回援撤退�
 
 	game = rules.action(game, CP_ROLE, "play_cc", CC_CP_SAVE_TIFLIS)
 
-	expect(game.state).toBe("save_tiflis_retreat")
+	expect(game.state).toBe("retreat_cancel")
 	expect(game.active).toBe(AP)
-	expect(game.save_tiflis_pieces).toContain(RU_CAV_1)
+	expect(game.retreat_pieces).toContain(RU_I_CAUCASIAN)
+	expect(game.save_tiflis_pieces).toBeUndefined()
 	expect(game.events["save_tiflis"]).toBe(game.turn)
 	expect(game.combat_cards.attacker).toContain(CC_CP_SAVE_TIFLIS)
 	expect(game.combat_cards.defender).not.toContain(CC_CP_SAVE_TIFLIS)
+})
+
+test("SAVE TIFLIS: 普通战斗撤退完成后才执行回援撤退，随后进入挺进", () => {
+	let game = makeGame()
+	setupResolvedRetreatChoiceState(game, { noAdvance: false, defenderLosses: 1 })
+	game.pieces[RU_CAV_1] = TABRIZ
+
+	game = rules.action(game, CP_ROLE, "play_cc", CC_CP_SAVE_TIFLIS)
+	expect(game.state).toBe("retreat_cancel")
+
+	game = rules.action(game, AP_ROLE, "proceed_retreat")
+	expect(game.state).toBe("retreat")
+	game = rules.action(game, AP_ROLE, "piece", RU_I_CAUCASIAN)
+	game = rules.action(game, AP_ROLE, "space", KARS)
+
+	expect(game.state).toBe("save_tiflis_retreat")
+	expect(game.active).toBe(AP)
+	expect(game.pieces[RU_I_CAUCASIAN]).toBe(KARS)
+	expect(game.save_tiflis_pieces).toContain(RU_CAV_1)
+
+	game = rules.action(game, AP_ROLE, "piece", RU_CAV_1)
+	game = rules.action(game, AP_ROLE, "space", JULFA)
+	expect(game.pieces[RU_CAV_1]).toBe(JULFA)
+
+	game = rules.action(game, AP_ROLE, "done")
+	expect(game.state).toBe("advance")
+	expect(game.active).toBe(CP)
+	expect(game.advance_pieces).toContain(TU_1_CAUCASIAN)
+	expect(game.advance_space).toBe(SARIKAMIS)
+})
+
+test("SAVE TIFLIS: 平地普通两格撤退后 TU 可挺进两格但不能追随回援撤退到第三格", () => {
+	let game = makeGame()
+	setupResolvedRetreatChoiceState(game, {
+		battleSpace: DIYARBEKIR,
+		attackerHome: MARDIN,
+		noAdvance: false,
+		defenderLosses: 2,
+		retreatDistance: 2
+	})
+
+	game = rules.action(game, CP_ROLE, "play_cc", CC_CP_SAVE_TIFLIS)
+	expect(game.state).toBe("retreat")
+
+	game = rules.action(game, AP_ROLE, "piece", RU_I_CAUCASIAN)
+	game = rules.action(game, AP_ROLE, "space", RAS_UL_AIN)
+	game = rules.action(game, AP_ROLE, "piece", RU_I_CAUCASIAN)
+	game = rules.action(game, AP_ROLE, "space", NAZIBIN)
+
+	expect(game.state).toBe("save_tiflis_retreat")
+	expect(game.retreat_first_spaces).toEqual([RAS_UL_AIN])
+
+	game = rules.action(game, AP_ROLE, "piece", RU_I_CAUCASIAN)
+	game = rules.action(game, AP_ROLE, "space", MOSUL)
+	game = rules.action(game, AP_ROLE, "done")
+
+	expect(game.state).toBe("advance")
+	game = rules.action(game, CP_ROLE, "piece", TU_1_CAUCASIAN)
+	expect(game.pieces[TU_1_CAUCASIAN]).toBe(DIYARBEKIR)
+
+	let view = rules.view(game, CP_ROLE)
+	expect(view.actions.piece).toContain(TU_1_CAUCASIAN)
+
+	game = rules.action(game, CP_ROLE, "piece", TU_1_CAUCASIAN)
+	view = rules.view(game, CP_ROLE)
+	expect(view.actions.space).toContain(RAS_UL_AIN)
+	expect(view.actions.space).not.toContain(NAZIBIN)
+	expect(view.actions.space).not.toContain(MOSUL)
+
+	game = rules.action(game, CP_ROLE, "space", RAS_UL_AIN)
+	expect(game.pieces[TU_1_CAUCASIAN]).toBe(RAS_UL_AIN)
+
+	view = rules.view(game, CP_ROLE)
+	expect(view.actions.piece).toBeUndefined()
+	expect(view.actions.space).toBeUndefined()
+	expect(view.actions.end_advance).toBeTruthy()
+})
+
+test("SAVE TIFLIS: 普通两格撤退后若战斗地是山地，TU 挺进进入山地后不能继续追击", () => {
+	let game = makeGame()
+	setupResolvedRetreatChoiceState(game, {
+		battleSpace: SARIKAMIS,
+		attackerHome: KOPRUKOY,
+		noAdvance: false,
+		defenderLosses: 2,
+		retreatDistance: 2
+	})
+	game.pieces[RU_CAV_1] = TABRIZ
+
+	game = rules.action(game, CP_ROLE, "play_cc", CC_CP_SAVE_TIFLIS)
+	expect(game.state).toBe("retreat_cancel")
+	game = rules.action(game, AP_ROLE, "proceed_retreat")
+	expect(game.state).toBe("retreat")
+
+	game = rules.action(game, AP_ROLE, "piece", RU_I_CAUCASIAN)
+	game = rules.action(game, AP_ROLE, "space", KARS)
+	game = rules.action(game, AP_ROLE, "piece", RU_I_CAUCASIAN)
+	game = rules.action(game, AP_ROLE, "space", ALEKSANDROPOL)
+
+	expect(game.state).toBe("save_tiflis_retreat")
+
+	game = rules.action(game, AP_ROLE, "piece", RU_CAV_1)
+	game = rules.action(game, AP_ROLE, "space", JULFA)
+	game = rules.action(game, AP_ROLE, "done")
+
+	expect(game.state).toBe("advance")
+	game = rules.action(game, CP_ROLE, "piece", TU_1_CAUCASIAN)
+	expect(game.pieces[TU_1_CAUCASIAN]).toBe(SARIKAMIS)
+
+	const view = rules.view(game, CP_ROLE)
+	expect(view.actions.piece).toBeUndefined()
+	expect(view.actions.space).toBeUndefined()
+	expect(view.actions.end_advance).toBeTruthy()
+})
+
+test("SAVE TIFLIS: 普通撤退被取消后若回援撤退腾空战斗地，TU 仍可挺进该 1 格", () => {
+	let game = makeGame()
+	setupResolvedRetreatChoiceState(game, {
+		battleSpace: TABRIZ,
+		attackerHome: ARDEBIL,
+		noAdvance: true,
+		defenderLosses: 2,
+		retreatDistance: 1
+	})
+
+	game = rules.action(game, CP_ROLE, "play_cc", CC_CP_SAVE_TIFLIS)
+	expect(game.state).toBe("retreat_cancel")
+
+	game = rules.action(game, AP_ROLE, "piece", RU_I_CAUCASIAN)
+	expect(game.state).toBe("save_tiflis_retreat")
+	expect(game.pieces[RU_I_CAUCASIAN]).toBe(TABRIZ)
+
+	game = rules.action(game, AP_ROLE, "piece", RU_I_CAUCASIAN)
+	let view = rules.view(game, AP_ROLE)
+	expect(view.actions.space).toContain(JULFA)
+
+	game = rules.action(game, AP_ROLE, "space", JULFA)
+	expect(game.pieces[RU_I_CAUCASIAN]).toBe(JULFA)
+
+	game = rules.action(game, AP_ROLE, "done")
+	expect(game.state).toBe("advance")
+	expect(game.advance_space).toBe(TABRIZ)
+	expect(game.advance_pieces).toContain(TU_1_CAUCASIAN)
+
+	game = rules.action(game, CP_ROLE, "piece", TU_1_CAUCASIAN)
+	expect(game.pieces[TU_1_CAUCASIAN]).toBe(TABRIZ)
+
+	view = rules.view(game, CP_ROLE)
+	expect(view.actions.piece).toBeUndefined()
+	expect(view.actions.space).toBeUndefined()
+	expect(view.actions.end_advance).toBeTruthy()
 })
 
 test("SAVE TIFLIS: 波斯区域的俄国单位也满足出牌条件", () => {

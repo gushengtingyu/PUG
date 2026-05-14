@@ -411,8 +411,12 @@ module.exports = function (Engine) {
 	function can_play_save_tiflis(game) {
 		if (!can_play_in_window(game, "retreat_choice_cc_cp")) return false
 
-		// Turkish LCU must be the attacker
-		let has_tu_lcu_attacker = attacker_has_piece(game, (p) => {
+		// Turkish LCU must have attacked in this battle. Use the battle pool so
+		// an LCU replaced by an SCU after taking losses still satisfies this.
+		let has_tu_lcu_attacker = get_battle_piece_pool(game).some((p) => {
+			let was_attacker =
+				set_has(game.attack?.initial_attackers || [], p) || set_has(game.attack?.pieces || [], p)
+			if (!was_attacker) return false
 			return (
 				(piece_counts_as_nation_for_rule(game, p, "tu") || piece_counts_as_nation_for_rule(game, p, "tua")) &&
 				game_utils.is_lcu(p)
