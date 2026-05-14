@@ -226,6 +226,10 @@
 			<form id="propose_rollback_form">
 				<label class="rollback_label" for="rollback_checkpoint">回滚到:</label>
 				<select name="checkpoint" id="rollback_checkpoint" onchange="update_rollback_dialog()"></select>
+				<div id="rollback_timepoint_group" hidden>
+					<label class="rollback_label" for="rollback_timepoint">时间点:</label>
+					<select name="timepoint" id="rollback_timepoint" onchange="update_rollback_dialog()"></select>
+				</div>
 			</form>
 			<div id="propose_rollback_details"></div>
 			<div class="rollback_buttons">

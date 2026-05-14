@@ -484,6 +484,7 @@ const ACTION_ONE_OP = "one_op"
 
 const MAX_ROLLBACK_TURNS = 2
 const MAX_ROLLBACK_ACTION_ROUNDS = 4
+const MAX_COMBAT_ROLLBACK_POINTS_PER_ACTION = 5
 
 // ... (Scenario Constants omitted for brevity, assuming data.js handles most) ...
 // Just defined key ones if needed.
@@ -700,7 +701,11 @@ exports.action = function (state, current, action, arg) {
 	if (state_handlers && action in state_handlers) {
 		state_handlers[action](arg, current)
 	} else {
-		if (action === "undo" && game.undo && game.undo.length > 0) pop_undo()
+		if (action === "undo") {
+			if (can_offer_undo()) pop_undo()
+			else if (is_player_role(current)) return game
+			else throw new Error("Invalid action: " + action)
+		}
 		else if (action === "propose_rollback") goto_propose_rollback(arg)
 		else if (action === "flag_supply_warnings") goto_flag_supply_warnings()
 		else if (is_player_role(current)) return game
@@ -1000,7 +1005,7 @@ exports.view = function (state, current) {
 			attack: game.attack,
 			attacked: game.attacked || [],
 			moved: game.moved || [],
-			undo: game.undo && game.undo.length > 0,
+			undo: can_offer_undo(),
 			where: game.where,
 			violations: Engine.map.check_rule_violations(game),
 			supply_warnings: game.supply_warnings || [],
@@ -1024,20 +1029,22 @@ exports.view = function (state, current) {
 				max_turns: max_rollback_turns,
 				max_action_rounds: max_rollback_action_rounds,
 				total_points: rollback_entries.length,
-				turn_points: rollback_entries.filter((r) => r.turn_start).length,
-				action_points: rollback_entries.filter((r) => !r.turn_start).length,
+				turn_points: rollback_entries.filter(is_turn_start_rollback).length,
+				action_points: rollback_entries.filter(is_action_round_rollback).length,
+				combat_points: rollback_entries.filter(is_combat_rollback).length,
 				total_events: rollback_total_events,
 				state_compressed: is_rollback_state_compressed()
 			},
 			rollback: rollback_entries.map((r) => {
-				let name = r.turn_start
-					? `回合 ${r.turn} 起始`
-					: `回合 ${r.turn} ${faction_name(r.active)} 第 ${r.action} 行动轮`
 				return {
-					name,
+					name: format_rollback_label(r),
+					kind: get_rollback_kind(r),
 					turn: r.turn,
 					active: r.active,
 					action: r.action,
+					combat_index: r.combat_index,
+					space: r.space,
+					space_name: is_combat_rollback(r) ? format_rollback_space(r.space) : undefined,
 					log_index: Number.isInteger(r.log_index) ? r.log_index : undefined,
 					turn_start: !!r.turn_start,
 					events: r.events || [],
@@ -1072,7 +1079,7 @@ exports.view = function (state, current) {
 		} else {
 			states[game.state].prompt(next)
 			if (!next.has_action("undo")) {
-				if (game.undo && game.undo.length > 0) next.action("undo")
+				if (can_offer_undo()) next.action("undo")
 				else next.set_action("undo", 0)
 			}
 
@@ -1345,6 +1352,7 @@ const HISTORY_SNAPSHOT_OMIT_KEYS = new Set([
 	"undo",
 	"rollback",
 	"rollback_state",
+	"combat_rollback_pending",
 	"supply_query_cache",
 	"event_playability_cache",
 	"supply_projection",
@@ -1401,11 +1409,121 @@ function is_rollback_state_compressed() {
 	return typeof game.rollback_state === "string" && game.rollback_state.startsWith(ROLLBACK_STATE_PREFIX)
 }
 
+function get_rollback_kind(rollback) {
+	if (rollback && rollback.kind) return rollback.kind
+	return rollback && rollback.turn_start ? "turn_start" : "action_round"
+}
+
+function is_turn_start_rollback(rollback) {
+	return get_rollback_kind(rollback) === "turn_start"
+}
+
+function is_action_round_rollback(rollback) {
+	return get_rollback_kind(rollback) === "action_round"
+}
+
+function is_combat_rollback(rollback) {
+	return get_rollback_kind(rollback) === "combat"
+}
+
+function rollback_action_active(rollback) {
+	return rollback && rollback.active ? short_faction(rollback.active) : undefined
+}
+
+function get_rollback_action_key(rollback) {
+	if (!rollback) return ""
+	return `${rollback.turn}|${rollback_action_active(rollback)}|${rollback.action || 1}`
+}
+
+function same_rollback_action(a, b) {
+	return get_rollback_action_key(a) === get_rollback_action_key(b)
+}
+
+function get_current_action_record() {
+	let faction = game.attack && game.attack.attacker ? short_faction(game.attack.attacker) : active_faction()
+	let actions = faction === AP ? game.ap_actions : game.cp_actions
+	return Array.isArray(actions) ? actions[game.action_round || 1] : null
+}
+
+function is_current_action_ops() {
+	let action = get_current_action_record()
+	return !!(action && action.type === ACTION_OPS)
+}
+
+function get_current_rollback_action() {
+	let active = game.attack && game.attack.attacker ? short_faction(game.attack.attacker) : active_faction()
+	return {
+		turn: game.turn,
+		active,
+		action: game.action_round || 1
+	}
+}
+
+function has_action_round_rollback_for(action) {
+	return !!(
+		game.rollback &&
+		game.rollback.some((rollback) => is_action_round_rollback(rollback) && same_rollback_action(rollback, action))
+	)
+}
+
+function get_combat_rollback_count_for(action) {
+	if (!game.rollback) return 0
+	return game.rollback.filter((rollback) => is_combat_rollback(rollback) && same_rollback_action(rollback, action)).length
+}
+
+function has_combat_rollback(action, combat_index) {
+	return !!(
+		game.rollback &&
+		game.rollback.some((rollback) =>
+			is_combat_rollback(rollback) &&
+			same_rollback_action(rollback, action) &&
+			rollback.combat_index === combat_index
+		)
+	)
+}
+
+function format_rollback_space(space) {
+	if (space === null || space === undefined) return ""
+	let index = Number(space)
+	if (!Number.isInteger(index) || index <= 0) return ""
+	if (!data.spaces[index]) return ""
+	return raw_space_name(index)
+}
+
+function format_rollback_label(rollback) {
+	if (is_turn_start_rollback(rollback)) {
+		return `回合 ${rollback.turn} 起始`
+	}
+	if (is_combat_rollback(rollback)) {
+		let space_text = format_rollback_space(rollback.space)
+		let target = space_text ? `${space_text} 战斗前` : `第 ${rollback.combat_index || 1} 场战斗前`
+		return `回合 ${rollback.turn} ${faction_name(rollback.active)} 第 ${rollback.action || 1} 行动轮：${target}`
+	}
+	return `回合 ${rollback.turn} ${faction_name(rollback.active)} 第 ${rollback.action || 1} 行动轮`
+}
+
+function append_rollback_state(rollback_state, rollback, snapshot) {
+	game.rollback.push(rollback)
+	rollback_state.push(snapshot)
+}
+
+function prune_orphaned_combat_rollback_points(rollback_state) {
+	if (!game.rollback) return
+	let action_keys = new Set(game.rollback.filter(is_action_round_rollback).map(get_rollback_action_key))
+	for (let i = game.rollback.length - 1; i >= 0; --i) {
+		if (is_combat_rollback(game.rollback[i]) && !action_keys.has(get_rollback_action_key(game.rollback[i]))) {
+			game.rollback.splice(i, 1)
+			rollback_state.splice(i, 1)
+		}
+	}
+}
+
 function save_rollback_point() {
 	if (game.options.no_supply_warnings) return
 
 	let rollback_state = decompress_rollback_state(game.rollback_state)
 	if (!game.rollback) game.rollback = []
+	delete game.combat_rollback_pending
 
 	const ap_action_count = Array.isArray(game.ap_actions) ? game.ap_actions.filter(Boolean).length : 0
 	const cp_action_count = Array.isArray(game.cp_actions) ? game.cp_actions.filter(Boolean).length : 0
@@ -1414,34 +1532,34 @@ function save_rollback_point() {
 	let copy = copy_history_snapshot(game)
 
 	let action_index = copy.action_round || 1
-	game.rollback.push({
+	append_rollback_state(rollback_state, {
+		kind: is_turn_start ? "turn_start" : "action_round",
 		turn: copy.turn,
 		active: copy.active,
 		action: action_index,
 		log_index: Array.isArray(game.log) ? game.log.length : 0,
 		events: [],
 		turn_start: is_turn_start
-	})
-	rollback_state.push(copy)
+	}, copy)
 
 	const maxRollbackTurns = get_max_rollback_turns()
 	const maxRollbackActionRounds = get_max_rollback_action_rounds()
 
 	if (is_turn_start) {
-		const count_turns = game.rollback.filter((r) => r.turn_start).length
+		const count_turns = game.rollback.filter(is_turn_start_rollback).length
 		if (count_turns > maxRollbackTurns) {
-			const first_turn_start = game.rollback.findIndex((r) => r.turn_start)
+			const first_turn_start = game.rollback.findIndex(is_turn_start_rollback)
 			if (first_turn_start >= 0) {
 				game.rollback.splice(first_turn_start, 1)
 				rollback_state.splice(first_turn_start, 1)
 			}
 		}
 	} else {
-		const count_action_rounds = game.rollback.filter((r) => !r.turn_start).length
+		const count_action_rounds = game.rollback.filter(is_action_round_rollback).length
 		if (count_action_rounds > maxRollbackActionRounds) {
-			const first_action_round = game.rollback.findIndex((r) => !r.turn_start)
+			const first_action_round = game.rollback.findIndex(is_action_round_rollback)
 			if (first_action_round >= 0) {
-				let removed_events = game.rollback[first_action_round].events
+				let removed_events = game.rollback[first_action_round].events || []
 				game.rollback.splice(first_action_round, 1)
 				rollback_state.splice(first_action_round, 1)
 				if (first_action_round > 0 && removed_events.length > 0) {
@@ -1451,6 +1569,58 @@ function save_rollback_point() {
 		}
 	}
 
+	prune_orphaned_combat_rollback_points(rollback_state)
+	game.rollback_state = compress_rollback_state(rollback_state)
+}
+
+function save_combat_rollback_point() {
+	if (game.options.no_supply_warnings) return
+	if (!is_current_action_ops()) return
+	if (!game.attack || !(game.attack.space > 0)) return
+
+	if (!game.rollback) game.rollback = []
+	let action = get_current_rollback_action()
+	if (!has_action_round_rollback_for(action)) {
+		delete game.combat_rollback_pending
+		return
+	}
+
+	let combat_index = (Array.isArray(game.attacked_spaces) ? game.attacked_spaces.length : 0) + 1
+	if (combat_index > MAX_COMBAT_ROLLBACK_POINTS_PER_ACTION) return
+	if (has_combat_rollback(action, combat_index)) return
+
+	let pending = game.combat_rollback_pending
+	if (pending && !same_rollback_action(pending.rollback, action)) {
+		delete game.combat_rollback_pending
+		pending = null
+	}
+	if (pending && pending.rollback.combat_index === combat_index) return
+
+	let rollback = {
+		kind: "combat",
+		turn: action.turn,
+		active: action.active,
+		action: action.action,
+		combat_index,
+		space: game.attack.space,
+		log_index: Array.isArray(game.log) ? game.log.length : 0,
+		events: [],
+		turn_start: false
+	}
+	let snapshot = copy_history_snapshot(game)
+	let combat_count = get_combat_rollback_count_for(action)
+
+	if (combat_count === 0 && !pending) {
+		game.combat_rollback_pending = { rollback, snapshot }
+		return
+	}
+
+	let rollback_state = decompress_rollback_state(game.rollback_state)
+	if (pending && !has_combat_rollback(action, pending.rollback.combat_index)) {
+		append_rollback_state(rollback_state, pending.rollback, pending.snapshot)
+	}
+	delete game.combat_rollback_pending
+	append_rollback_state(rollback_state, rollback, snapshot)
 	game.rollback_state = compress_rollback_state(rollback_state)
 }
 
@@ -1489,6 +1659,20 @@ const ROLLBACK_BLOCKED_STATES = new Set([
 	"game_over"
 ])
 
+const UNDO_BLOCKED_STATES = new Set([
+	"review_rollback_proposal",
+	"confirm_rollback",
+	"game_over"
+])
+
+function can_offer_undo() {
+	return !!(
+		game.undo &&
+		game.undo.length > 0 &&
+		!UNDO_BLOCKED_STATES.has(game.state)
+	)
+}
+
 function can_offer_rollback() {
 	return !!(
 		!game.options.no_supply_warnings &&
@@ -1513,18 +1697,14 @@ states.review_rollback_proposal = {
 	inactive: "审查回滚提议",
 	prompt(res) {
 		const rollback = game.rollback[game.rollback_proposal.index]
-		const label = rollback.turn_start
-			? `回合 ${rollback.turn} 起始`
-			: `回合 ${rollback.turn} ${faction_name(rollback.active)} 第 ${rollback.action} 行动轮`
+		const label = format_rollback_label(rollback)
 		res.prompt(`${game.rollback_proposal.faction} 提议回滚到：${label}`)
 		res.action("accept")
 		res.action("reject")
 	},
 	accept() {
 		const rollback = game.rollback[game.rollback_proposal.index]
-		const label = rollback.turn_start
-			? `回合 ${rollback.turn} 起始`
-			: `回合 ${rollback.turn} ${faction_name(rollback.active)} 第 ${rollback.action} 行动轮`
+		const label = format_rollback_label(rollback)
 		restore_rollback(game.rollback_proposal.index)
 		game.rollback_confirmation = { msg: `已回滚到：${label}`, state: game.state }
 		game.state = "confirm_rollback"
@@ -1639,6 +1819,7 @@ function pop_undo() {
 		let log_stack = game.log
 		let rollback = game.rollback
 		let rollback_state = game.rollback_state
+		let combat_rollback_pending = game.combat_rollback_pending
 
 		for (let k of Object.keys(game)) {
 			delete game[k]
@@ -1652,6 +1833,7 @@ function pop_undo() {
 		}
 		if (rollback !== undefined) game.rollback = rollback
 		if (rollback_state !== undefined) game.rollback_state = rollback_state
+		if (combat_rollback_pending !== undefined) game.combat_rollback_pending = combat_rollback_pending
 		game.supply_dirty = true
 		return true
 	}
@@ -2360,6 +2542,7 @@ exports.roles = [AP_ROLE, CP_ROLE]
 
 // Helper functions for event states
 exports.save_rollback_point = save_rollback_point
+exports.save_combat_rollback_point = save_combat_rollback_point
 exports.push_undo = push_undo
 exports.pop_undo = pop_undo
 exports.clear_undo = clear_undo
@@ -2522,6 +2705,7 @@ combat_funcs = combat_states.register(states, Engine, {
 	log_h3_faction,
 	push_undo,
 	clear_undo,
+	save_combat_rollback_point,
 	active_faction,
 	get_attackable_spaces,
 	get_pieces_in_space,

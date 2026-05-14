@@ -2671,7 +2671,12 @@ module.exports = function (Engine) {
 			Engine.combat.refresh_post_battle_defender_retreat(game)
 			delete game.reserves_to_front_spent
 			delete game.reserves_to_front_pieces
-			game.state = "post_battle_cc_cp" // Return to CC window
+			
+			if (game.post_battle_cc_resume) {
+				game.state = "post_battle_cc_cp"
+			} else {
+				Engine.states_combat.continue_after_post_battle_cc()
+			}
 		}
 	}
 

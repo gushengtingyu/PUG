@@ -15,6 +15,7 @@ exports.register = function (states, Engine, context) {
 		log,
 		push_undo,
 		clear_undo,
+		save_combat_rollback_point,
 		active_faction,
 		get_attackable_spaces: get_legal_attackable_spaces,
 		get_pieces_in_space,
@@ -530,6 +531,7 @@ exports.register = function (states, Engine, context) {
 		if (combat.get_region_defense_stack_block_reason(game, game.attack.space, selected, defender)) return false
 		delete game.region_defender_choice_prev_active
 		game.active = attacker
+		save_combat_rollback_point()
 		clear_undo()
 		start_attack_sequence()
 		return true
@@ -559,6 +561,7 @@ exports.register = function (states, Engine, context) {
 		},
 		confirm() {
 			if (begin_region_defender_stack_choice_if_needed()) return
+			save_combat_rollback_point()
 			clear_undo()
 			start_attack_sequence()
 		},

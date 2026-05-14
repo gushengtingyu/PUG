@@ -3288,14 +3288,16 @@ function propose_rollback() {
 		return
 	}
 	form.checkpoint.innerHTML = ""
-	view.rollback.forEach((rollback, i) => {
+	for (const i of get_primary_rollback_indices()) {
+		const rollback = view.rollback[i]
 		const option = document.createElement("option")
 		option.value = i
-		option.textContent = format_rollback_option_label(rollback, i === view.rollback.length - 1)
+		option.textContent = format_rollback_option_label(rollback, is_latest_rollback_family(i))
 		form.checkpoint.add(option, 0)
-	})
-	form.checkpoint.value = String(get_default_rollback_index())
-	update_rollback_dialog()
+	}
+	const default_index = get_default_rollback_index()
+	form.checkpoint.value = String(get_rollback_primary_index(default_index))
+	update_rollback_dialog(default_index)
 	document.getElementById("propose_rollback_dialog").showModal()
 }
 
@@ -3306,12 +3308,151 @@ function get_rollback_point(index) {
 	return view.rollback[index]
 }
 
+function is_combat_rollback_point(rollback) {
+	return rollback?.kind === "combat"
+}
+
+function is_action_round_rollback_point(rollback) {
+	return !!(rollback && (rollback.kind === "action_round" || (!rollback.kind && !rollback.turn_start)))
+}
+
+function get_rollback_action_key(rollback) {
+	if (!rollback) {
+		return ""
+	}
+	return `${rollback.turn}|${rollback.active}|${rollback.action || 1}`
+}
+
+function get_primary_rollback_indices() {
+	if (!Array.isArray(view?.rollback)) {
+		return []
+	}
+	const indices = []
+	for (let i = 0; i < view.rollback.length; i++) {
+		if (!is_combat_rollback_point(view.rollback[i])) {
+			indices.push(i)
+		}
+	}
+	return indices
+}
+
+function get_rollback_primary_index(index) {
+	const rollback = get_rollback_point(index)
+	if (!is_combat_rollback_point(rollback)) {
+		return index
+	}
+	const action_key = get_rollback_action_key(rollback)
+	for (let i = index - 1; i >= 0; i--) {
+		const candidate = view.rollback[i]
+		if (is_action_round_rollback_point(candidate) && get_rollback_action_key(candidate) === action_key) {
+			return i
+		}
+	}
+	return index
+}
+
+function get_combat_rollback_indices_for_action(action_index) {
+	const action = get_rollback_point(action_index)
+	if (!is_action_round_rollback_point(action)) {
+		return []
+	}
+	const action_key = get_rollback_action_key(action)
+	const indices = []
+	for (let i = action_index + 1; i < view.rollback.length; i++) {
+		const rollback = view.rollback[i]
+		if (is_combat_rollback_point(rollback) && get_rollback_action_key(rollback) === action_key) {
+			indices.push(i)
+		}
+	}
+	return indices.slice(0, 5)
+}
+
+function get_latest_rollback_index() {
+	return Array.isArray(view?.rollback) && view.rollback.length > 0 ? view.rollback.length - 1 : -1
+}
+
+function is_latest_rollback_family(index) {
+	const latest = get_latest_rollback_index()
+	if (index === latest) {
+		return true
+	}
+	return get_combat_rollback_indices_for_action(index).includes(latest)
+}
+
 function format_rollback_option_label(rollback, is_latest = false) {
 	let text = rollback.name
 	if (is_latest) {
 		text += " · 当前"
 	}
 	return text
+}
+
+function get_rollback_space_name(rollback) {
+	if (rollback?.space_name) {
+		return rollback.space_name
+	}
+	const space = Number(rollback?.space)
+	if (Number.isInteger(space) && spaces[space]?.name) {
+		return spaces[space].name
+	}
+	return rollback?.name || "战斗"
+}
+
+function format_rollback_timepoint_label(rollback, is_latest = false) {
+	let text
+	if (is_combat_rollback_point(rollback)) {
+		text = `${get_rollback_space_name(rollback)} 战斗前`
+	} else {
+		text = "行动轮开始"
+	}
+	if (is_latest) {
+		text += " · 当前"
+	}
+	return text
+}
+
+function update_rollback_timepoint_select(form, preferred_index = null) {
+	const group = document.getElementById("rollback_timepoint_group")
+	if (!form.timepoint || !group) {
+		return Number(form.checkpoint.value)
+	}
+	const action_index = Number(form.checkpoint.value)
+	const combat_indices = get_combat_rollback_indices_for_action(action_index)
+	const current_timepoint = Number(form.timepoint.value)
+	form.timepoint.innerHTML = ""
+	if (combat_indices.length < 2) {
+		group.hidden = true
+		return action_index
+	}
+
+	group.hidden = false
+	const choices = [action_index, ...combat_indices]
+	const latest = get_latest_rollback_index()
+	for (const index of choices) {
+		const rollback = get_rollback_point(index)
+		const option = document.createElement("option")
+		option.value = index
+		option.textContent = format_rollback_timepoint_label(rollback, index === latest)
+		form.timepoint.add(option)
+	}
+
+	let selected = Number.isInteger(preferred_index) && choices.includes(preferred_index)
+		? preferred_index
+		: current_timepoint
+	if (!choices.includes(selected)) {
+		selected = action_index
+	}
+	form.timepoint.value = String(selected)
+	return selected
+}
+
+function get_selected_rollback_index() {
+	const form = document.getElementById("propose_rollback_form")
+	const group = document.getElementById("rollback_timepoint_group")
+	if (form?.timepoint && group && !group.hidden) {
+		return Number(form.timepoint.value)
+	}
+	return Number(form.checkpoint.value)
 }
 
 function is_rollback_dice_record(text) {
@@ -3419,10 +3560,11 @@ function render_rollback_details(details, from_index, header_text) {
 /**
  * 更新回滚对话框内容。
  */
-function update_rollback_dialog() {
+function update_rollback_dialog(preferred_index = null) {
 	const form = document.getElementById("propose_rollback_form")
 	const details = document.getElementById("propose_rollback_details")
-	render_rollback_details(details, Number(form.checkpoint.value), "将撤销以下记录：")
+	const selected_index = update_rollback_timepoint_select(form, preferred_index)
+	render_rollback_details(details, selected_index, "将撤销以下记录：")
 }
 
 /**
@@ -3440,8 +3582,7 @@ function propose_rollback_cancel(evt) {
  */
 function propose_rollback_submit(evt) {
 	evt.preventDefault()
-	const form = document.getElementById("propose_rollback_form")
-	send_action("propose_rollback", Number(form.checkpoint.value))
+	send_action("propose_rollback", get_selected_rollback_index())
 	document.getElementById("propose_rollback_dialog").close()
 }
 
@@ -4374,6 +4515,9 @@ const UI_ACTIONS = [
 	["next", "继续"],
 	["stop", "停止"],
 	["cancel", "取消"],
+	["return_cc", "回手"],
+	["discard_cc", "弃置"],
+	["remove_cc", "移除"],
 	["check_supply", "检查补给"],
 	["apply_attrition", "执行损耗"],
 	["end_war_status", "结束战争状态"],

@@ -661,7 +661,6 @@ exports.register = function (states, Engine, context) {
 		},
 		confirm() {
 			clear_undo()
-			save_rollback_point()
 			clear_event_ctx()
 			goto_end_operations()
 		}
@@ -794,6 +793,7 @@ exports.register = function (states, Engine, context) {
 		delete game.cancelled_cc_dispositions
 		delete game.eligible_attackers
 		delete game.attacked_spaces
+		delete game.combat_rollback_pending
 		delete game.retreated
 		delete game.advanced_stopped
 		delete game.sr_moved

@@ -365,7 +365,8 @@ header.Central_Powers {
 	color: #4a3112;
 }
 
-#rollback_checkpoint {
+#rollback_checkpoint,
+#rollback_timepoint {
 	width: 100%;
 	margin-top: 4px;
 	padding: 8px 10px;

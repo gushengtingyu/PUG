@@ -42,6 +42,32 @@ function loadSpaceClickHelpers(view, overrides = {}) {
 	return context
 }
 
+function loadUiActionNames() {
+	const source = fs.readFileSync(path.join(__dirname, "..", "play.js"), "utf8")
+	const start = source.indexOf("const UI_ACTIONS = [")
+	const end = source.indexOf("function update_actions", start)
+	if (start < 0 || end < 0) {
+		throw new Error("Could not find UI_ACTIONS in play.js")
+	}
+
+	const context = {}
+	vm.createContext(context)
+	vm.runInContext(
+		`${source.slice(start, end)}
+		globalThis.UI_ACTION_NAMES = UI_ACTIONS.map(([action]) => action)`,
+		context
+	)
+	return context.UI_ACTION_NAMES
+}
+
+test("cancelled combat card disposition actions have frontend buttons", () => {
+	const actions = loadUiActionNames()
+
+	expect(actions).toContain("return_cc")
+	expect(actions).toContain("discard_cc")
+	expect(actions).toContain("remove_cc")
+})
+
 test("map-space clicks ignore card and rollback actions with matching numeric ids", () => {
 	const { get_space_click_intent } = loadSpaceClickHelpers({
 		actions: {

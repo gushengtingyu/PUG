@@ -1506,7 +1506,7 @@ module.exports = function (Engine) {
 				Engine.set_control(game, CYPRUS, "ap")
 				for (let s of CYPRUS_BEACHHEADS) Engine.set_control(game, s, "ap")
 
-				log(game, "埃及政变: 塞浦路斯成为协约国岛屿基地", ctx)
+				log(game, "塞浦路斯成为协约国岛屿基地", ctx)
 			}
 		},
 		4: {
