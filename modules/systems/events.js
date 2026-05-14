@@ -1591,7 +1591,7 @@ module.exports = function (Engine) {
 			name: "RUSSIAN REINFORCEMENTS",
 			add_rein_record: "ru",
 			name_cn: "俄国增援",
-			effect_cn: "增援:(高加索第4军团)增援:1个近卫步兵师、1个步兵师、1个骑兵师",
+			effect_cn: "增援:(高加索第4军团，以受损面进入)增援:1个近卫步兵师、1个步兵师、1个骑兵师",
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "russian_reinf")
 				game.active = AP
@@ -1604,6 +1604,8 @@ module.exports = function (Engine) {
 					"RU Cavalry #7": "either"
 				}
 				event.reinf_logic = "is_ru_rein"
+				let caucasian = find_piece(AP, "RU IV Caucasian")
+				if (caucasian >= 0) set_add(game.reduced, caucasian)
 				game.state = "event_place_reinforcements"
 			},
 			defer_end: true
