@@ -159,9 +159,7 @@ module.exports = function (Engine) {
 	}
 
 	function get_default_region_defense_stack(game, target_space, defender_faction, candidates) {
-		let ordered = candidates
-			.filter((p) => is_combat_unit(p))
-			.concat(candidates.filter((p) => !is_combat_unit(p)))
+		let ordered = candidates.filter((p) => is_combat_unit(p)).concat(candidates.filter((p) => !is_combat_unit(p)))
 		let selected = []
 		for (let p of ordered) {
 			let trial = selected.concat(p)
@@ -727,6 +725,7 @@ module.exports = function (Engine) {
 		delete game.battle_resolution_applied
 		delete game.battle_resolution_side_effects_applied
 		delete game.retreat_choice_cc_cp_done
+		delete game.retreat_phase_done
 		delete game.confused_orders
 		delete game.confused_orders_used
 		delete game.turkish_retreat
@@ -2063,10 +2062,7 @@ module.exports = function (Engine) {
 		}
 		if (game.attack && game.attack.space > 0) {
 			mark_attacked_space(game)
-			if (
-				Engine.events &&
-				typeof Engine.events.register_russian_revolution_ru_attack === "function"
-			) {
+			if (Engine.events && typeof Engine.events.register_russian_revolution_ru_attack === "function") {
 				Engine.events.register_russian_revolution_ru_attack(game, game.attack.pieces || [])
 			}
 			if (!game.attack.origin_by_piece || typeof game.attack.origin_by_piece !== "object") {
@@ -2121,6 +2117,7 @@ module.exports = function (Engine) {
 		delete game.battle_resolution_applied
 		delete game.battle_resolution_side_effects_applied
 		delete game.retreat_choice_cc_cp_done
+		delete game.retreat_phase_done
 		game.battle_result = result
 
 		// Check Mandated Offensive Fulfillment
@@ -2240,7 +2237,7 @@ module.exports = function (Engine) {
 				if (!game.forts) game.forts = { destroyed: [] }
 				if (!game.forts.destroyed) game.forts.destroyed = []
 				set_add(game.forts.destroyed, target_space)
-		if (log_fn) log_fn(`${space_log_name(target_space)} Fort is destroyed!`)
+				if (log_fn) log_fn(`${space_log_name(target_space)} Fort is destroyed!`)
 			} else if (defenders.length === 0 && remaining_losses > 0) {
 				if (log_fn)
 					log_fn(`${space_log_name(target_space)} Fort is damaged (${remaining_losses}/${fort_lf} losses).`)
@@ -2396,7 +2393,9 @@ module.exports = function (Engine) {
 						for (let p of result.used_hqs.attacker) {
 							if (winner === game.active) {
 								if (is_piece_reduced(game, p)) {
-									log_fn(`Rule 16.2.2: Winning HQ ${piece_log_name(game, p)} flipped to full strength.`)
+									log_fn(
+										`Rule 16.2.2: Winning HQ ${piece_log_name(game, p)} flipped to full strength.`
+									)
 									restore_piece(game, p)
 								}
 								if (data.pieces[p].name.includes("Army of Islam")) {
@@ -2418,7 +2417,9 @@ module.exports = function (Engine) {
 						for (let p of result.used_hqs.defender) {
 							if (winner === other_faction(game.active)) {
 								if (is_piece_reduced(game, p)) {
-									log_fn(`Rule 16.2.2: Winning HQ ${piece_log_name(game, p)} flipped to full strength.`)
+									log_fn(
+										`Rule 16.2.2: Winning HQ ${piece_log_name(game, p)} flipped to full strength.`
+									)
 									restore_piece(game, p)
 								}
 								if (data.pieces[p].name.includes("Army of Islam")) {
@@ -2443,10 +2444,10 @@ module.exports = function (Engine) {
 				if (result.used_arty && result.used_arty.attacker) {
 					for (let p of result.used_arty.attacker) {
 						if (is_piece_reduced(game, p)) {
-						log_fn(`Rule 16.4: Heavy Artillery ${piece_log_name(game, p)} removed after second use.`)
+							log_fn(`Rule 16.4: Heavy Artillery ${piece_log_name(game, p)} removed after second use.`)
 							eliminate_piece(game, p, log_fn, true)
 						} else {
-						log_fn(`Rule 16.4: Heavy Artillery ${piece_log_name(game, p)} flips after first use.`)
+							log_fn(`Rule 16.4: Heavy Artillery ${piece_log_name(game, p)} flips after first use.`)
 							reduce_piece(game, p)
 						}
 					}
@@ -2478,27 +2479,6 @@ module.exports = function (Engine) {
 				}
 
 				game.battle_resolution_side_effects_applied = true
-			}
-
-			if (!game.retreat_choice_cc_cp_done && attacker_faction === CP && defender_faction === AP) {
-				let has_save_tiflis =
-					(game.hand_cp && game.hand_cp.includes(CC_CP_SAVE_TIFLIS)) ||
-					(game.cc_retained && game.cc_retained.cp && game.cc_retained.cp.includes(CC_CP_SAVE_TIFLIS))
-				if (has_save_tiflis) {
-					let saved_state = game.state
-					game.state = "retreat_choice_cc_cp"
-					let can_play = Engine.combat_cards.can_play_combat_card(game, CC_CP_SAVE_TIFLIS)
-					game.state = saved_state
-					if (can_play) {
-						game.active = CP
-						game.state = "retreat_choice_cc_cp"
-						return
-					}
-				}
-			}
-
-			if (check_save_tiflis_event(game, log_fn)) {
-				return
 			}
 
 			game.retreat_distance = result.retreat_distance || 1
@@ -2594,7 +2574,7 @@ module.exports = function (Engine) {
 			return
 		}
 
-		if (result.retreat_needed && defenders_in_space.length > 0) {
+		if (result.retreat_needed && defenders_in_space.length > 0 && !game.retreat_phase_done) {
 			let retreating = result.retreating_units.filter((p) => !is_not_on_map(game, p) && !is_eliminated(game, p))
 
 			// Rule 12.7.5: HQs and Heavy Artillery are eliminated instead of retreating
@@ -2648,9 +2628,29 @@ module.exports = function (Engine) {
 			}
 		}
 
-		if (!result.retreat_needed || defenders_in_space.length === 0) {
-			// No retreat needed or everyone is dead.
-			// POG/PUG Rule 12.9.1: Advance if all defenders retreated or were eliminated.
+		if (!game.retreat_choice_cc_cp_done && attacker_faction === CP && defender_faction === AP) {
+			let has_save_tiflis =
+				(game.hand_cp && game.hand_cp.includes(CC_CP_SAVE_TIFLIS)) ||
+				(game.cc_retained && game.cc_retained.cp && game.cc_retained.cp.includes(CC_CP_SAVE_TIFLIS))
+			if (has_save_tiflis) {
+				let saved_state = game.state
+				game.state = "retreat_choice_cc_cp"
+				let can_play = Engine.combat_cards.can_play_combat_card(game, CC_CP_SAVE_TIFLIS)
+				game.state = saved_state
+				if (can_play) {
+					game.active = CP
+					game.state = "retreat_choice_cc_cp"
+					return
+				}
+			}
+		}
+
+		if (check_save_tiflis_event(game, log_fn)) {
+			return
+		}
+
+		if (!result.retreat_needed || defenders_in_space.length === 0 || game.retreat_phase_done) {
+			// No retreat needed, everyone is dead, or retreat already resolved.
 			if (defenders_in_space.length === 0) {
 				// PUG 12.5.1 / 15.2.3: Siege requirement for advance
 				check_advance_siege_requirement(game, result, defender_faction, log_fn)
