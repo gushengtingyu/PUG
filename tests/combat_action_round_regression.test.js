@@ -201,6 +201,7 @@ test("Massed Cavalry Charge is playable before flank declaration and can unlock 
 	expect(view.actions.play_cc || []).toContain(mcc)
 
 	rules.action(game, AP_ROLE, "play_cc", mcc)
+	rules.action(game, AP_ROLE, "confirm")
 
 	expect(game.combat_cards.attacker).toContain(mcc)
 	expect(Engine.combat.check_can_flank(game)).toBe(true)
@@ -232,6 +233,7 @@ test("German High Command cannot be reused in same action", () => {
 	expect((firstView.actions.play_cc || []).includes(germanHighCommand)).toBe(true)
 
 	rules.action(game, CP_ROLE, "play_cc", germanHighCommand)
+	rules.action(game, CP_ROLE, "confirm")
 	expect((game.action_state.used_ccs || []).includes(germanHighCommand)).toBe(true)
 
 	// Simulate the card being retained after the first battle, then open a second battle in the same action.

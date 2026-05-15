@@ -159,6 +159,25 @@ test("SR through friendly Partial Control converts the space to Full Control", (
 	expect(Engine.map.is_controlled_by(game, teheran, AP)).toBe(true)
 })
 
+test("AP SR cannot enter or pass through a friendly-controlled space occupied by a CP Tribe", () => {
+	let game = setupGame(2026051511, "Historical", { no_supply_warnings: true })
+	clearBoard(game)
+
+	let brDiv = place(game, AP, "BR DIV #1", "Abadan")
+	place(game, CP, "Marsh #1", "Basra")
+	for (let name of ["Abadan", "Basra", "Qurna"]) control(game, name, AP)
+
+	let abadan = findSpace("Abadan")
+	let basra = findSpace("Basra")
+	let qurna = findSpace("Qurna")
+
+	expect(Engine.map.can_sr_to_space(game, brDiv, basra, AP)).toBe(false)
+	expect(Engine.map.has_sr_path(game, brDiv, abadan, qurna, AP, false)).toBe(false)
+	expect(Engine.map.can_sr_to_space(game, brDiv, qurna, AP)).toBe(false)
+	expect(Engine.map.get_sr_destinations(game, brDiv, AP)).not.toContain(basra)
+	expect(Engine.map.get_sr_destinations(game, brDiv, AP)).not.toContain(qurna)
+})
+
 test("Reserve SR capital restriction uses enemy control only and respects dual nationality", () => {
 	let game = setupGame(2026050908, "Historical", { no_supply_warnings: true })
 	clearBoard(game)

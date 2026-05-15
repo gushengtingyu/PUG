@@ -412,3 +412,49 @@ test("Besika Bay beachhead 鍦ㄥ宀告棤鏁屽啗鏃跺彲浠ョЩ鍔ㄥ埌
 	let options = getSinglePieceMoveOptions(game, attacker, besikaBay)
 	expect(options).toContain(kumKale)
 })
+
+test("LCU cannot use a beachhead created earlier in the same action round", () => {
+	let game = setupGame(2026051501)
+	let lemnos = findSpace("Lemnos")
+	let besikaBay = findSpace("Besika Bay")
+	let lcu = Engine.game_utils.find_piece(AP, "BR VIII Corps")
+	let scu = Engine.game_utils.find_piece(AP, "BR DIV #4")
+
+	for (let p = 0; p < game.pieces.length; p++) {
+		if (game.pieces[p] === lemnos || game.pieces[p] === besikaBay) game.pieces[p] = 0
+	}
+
+	game.pieces[lcu] = lemnos
+	game.pieces[scu] = lemnos
+	game.unplaced_beachheads = 1
+	game.active = AP
+	game.state = "activate_spaces"
+	game.ops = 2
+	game.card_ops = 2
+	game.activated = { move: [], attack: [] }
+	game.region_activations = { move: {}, attack: {} }
+	game.activation_cost = {}
+	game.moved = []
+	game.attacked = []
+	game.retreated = []
+
+	game = rules.action(game, AP_ROLE, "activate_move", lemnos)
+	game = rules.action(game, AP_ROLE, "piece", scu)
+	game = rules.action(game, AP_ROLE, "confirm")
+	game = rules.action(game, AP_ROLE, "activate_move", lemnos)
+	game = rules.action(game, AP_ROLE, "piece", lcu)
+	game = rules.action(game, AP_ROLE, "confirm")
+
+	game = rules.action(game, AP_ROLE, "piece", scu)
+	expect(rules.view(game, AP_ROLE).actions.space || []).toContain(besikaBay)
+	game = rules.action(game, AP_ROLE, "space", besikaBay)
+
+	expect(game.beachheads || []).toContain(besikaBay)
+	expect(game.beachheads_placed_this_action_round || []).toContain(besikaBay)
+	expect(game.pieces[scu]).toBe(besikaBay)
+
+	game = rules.action(game, AP_ROLE, "piece", lcu)
+	let view = rules.view(game, AP_ROLE)
+	expect(view.actions.space || []).not.toContain(besikaBay)
+	expect(Engine.map.can_stack_move_to(game, besikaBay, AP)).toBe(false)
+})

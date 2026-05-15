@@ -21,6 +21,7 @@ const nodeGlobals = {
 const browserGlobals = {
 	view: "readonly",
 	params: "readonly",
+	game_log: "readonly",
 	window: "readonly",
 	document: "readonly",
 	navigator: "readonly",
@@ -28,6 +29,11 @@ const browserGlobals = {
 	localStorage: "readonly",
 	alert: "readonly",
 	Image: "readonly",
+	TextEncoder: "readonly",
+	TextDecoder: "readonly",
+	URL: "readonly",
+	btoa: "readonly",
+	atob: "readonly",
 	console: "readonly",
 	setTimeout: "readonly",
 	clearTimeout: "readonly",
@@ -46,7 +52,7 @@ module.exports = [
 	js.configs.recommended,
 	{
 		files: ["**/*.js"],
-		ignores: ["**/play.js", "**/alpine.js", "**/layout.js", "vitest.config.js"],
+		ignores: ["**/play.js", "**/replay.js", "**/alpine.js", "**/layout.js", "vitest.config.js"],
 		languageOptions: {
 			ecmaVersion: 2021,
 			sourceType: "script",
@@ -64,7 +70,7 @@ module.exports = [
 		rules: baseRules
 	},
 	{
-		files: ["**/play.js", "**/alpine.js", "**/layout.js"],
+		files: ["**/play.js", "**/replay.js", "**/alpine.js", "**/layout.js"],
 		languageOptions: {
 			ecmaVersion: 2021,
 			sourceType: "script",

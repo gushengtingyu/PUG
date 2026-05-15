@@ -894,7 +894,7 @@ module.exports = function (Engine) {
 
 	function finish_grand_duke_to_tiflis_cp_piece_retreat(game, rules, event, piece) {
 		let destination = game.pieces[piece]
-		if (!Engine.map.is_controlled_by(game, destination, CP) && data.pieces[piece].type === "regular") {
+		if (!Engine.map.is_controlled_by(game, destination, CP) && Engine.game_utils.is_regular(piece)) {
 			Engine.set_control(game, destination, CP)
 		}
 		if (Engine.check_persia_entry_vp_penalty) {

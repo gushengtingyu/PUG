@@ -2048,6 +2048,7 @@ exports.register = function (states, Engine, context) {
 			if (creates_beachhead) {
 				if (!game.beachheads) game.beachheads = []
 				set_add(game.beachheads, target)
+				Engine.map.mark_beachhead_placed_this_action_round(game, target)
 				game.unplaced_beachheads = Math.max(0, (game.unplaced_beachheads || 0) - 1)
 				// The step that creates a new beachhead is also the step that stops the moving stack there.
 				Engine.neutral.on_beachhead_placed(game, target, moving_faction)

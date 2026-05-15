@@ -72,7 +72,9 @@ function createConfusedOrdersState(overrides = {}) {
 
 function playConfusedOrders(game) {
 	expect(rules.view(game, CP_ROLE).actions.play_cc || []).toContain(CONFUSED_ORDERS)
-	return rules.action(game, CP_ROLE, "play_cc", CONFUSED_ORDERS)
+	let result = rules.action(game, CP_ROLE, "play_cc", CONFUSED_ORDERS)
+	rules.action(result, CP_ROLE, "confirm")
+	return result
 }
 
 test("Confused Orders is resolved by CP, not by AP", () => {
@@ -215,6 +217,7 @@ test("Water Shortage cancels the post-roll CP retreat and AP advance", () => {
 	expect(rules.view(game, CP_ROLE).actions.play_cc || []).toContain(WATER_SHORTAGE)
 
 	const next = rules.action(game, CP_ROLE, "play_cc", WATER_SHORTAGE)
+	rules.action(next, CP_ROLE, "confirm")
 
 	expect(next.state).not.toBe("retreat")
 	expect(next.state).not.toBe("advance")

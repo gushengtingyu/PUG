@@ -1063,14 +1063,24 @@ exports.register = function (states, Engine, context) {
 		states[name] = {
 			inactive: "打出战斗卡",
 			prompt(res) {
-				res.prompt(config.prompt)
-				show_attack_context(res)
 				let options = config.get_options()
+				if (options.length === 0) {
+					res.prompt(config.prompt + "（无）")
+				} else {
+					res.prompt(config.prompt)
+				}
+				show_attack_context(res)
 				for (let c of options) res.action("play_cc", c)
 				res.action("done")
 			},
 			play_cc(c) {
-				handle_play_cc(game, c, config.is_attacker)
+				if (is_cc_used_this_action(game, c)) return
+				if (config.skip_confirm) {
+					handle_play_cc(game, c, config.is_attacker, game.state)
+				} else {
+					game.pending_cc = { card: c, is_attacker: config.is_attacker, return_state: game.state }
+					game.state = "confirm_cc"
+				}
 			},
 			done() {
 				config.done()
@@ -1079,6 +1089,43 @@ exports.register = function (states, Engine, context) {
 		if (config.allow_pass) {
 			states[name].pass = function () {
 				config.done()
+			}
+		}
+	}
+
+	states.confirm_cc = {
+		inactive: "确认战斗卡",
+		prompt(res) {
+			let pending = game.pending_cc
+			if (pending) {
+				let c = pending.card
+				res.prompt(`确认打出 ${card_name(c)}？`)
+				res.action("confirm")
+				res.action("cancel")
+			} else {
+				res.prompt("确认战斗卡")
+				res.action("cancel")
+			}
+		},
+		confirm() {
+			let pending = game.pending_cc
+			if (pending) {
+				if (is_cc_used_this_action(game, pending.card)) {
+					delete game.pending_cc
+					return
+				}
+				let card = pending.card
+				let is_attacker = pending.is_attacker
+				let return_state = pending.return_state
+				delete game.pending_cc
+				handle_play_cc(game, card, is_attacker, return_state)
+			}
+		},
+		cancel() {
+			let return_state = game.pending_cc?.return_state
+			delete game.pending_cc
+			if (return_state && states[return_state]) {
+				game.state = return_state
 			}
 		}
 	}
@@ -1147,13 +1194,13 @@ exports.register = function (states, Engine, context) {
 		enter_combat_card_state(is_attacker ? "play_cc_attacker" : "play_cc_defender")
 	}
 
-	function handle_play_cc(game, c, is_attacker) {
+	function handle_play_cc(game, c, is_attacker, return_state_override) {
 		// Defense in depth: the UI should already hide these cards, but some
 		// event/state round-trips can re-enter combat windows with stale actions.
 		if (is_cc_used_this_action(game, c)) return
 		if (!game.combat_cards) game.combat_cards = { attacker: [], defender: [] }
 		if (!game.combat_cards_effected) game.combat_cards_effected = []
-		let return_state = game.state
+		let return_state = return_state_override || game.state
 		let faction = game.active
 		let info = data.cards[c]
 		let retained = get_cc_retained(faction)
@@ -1655,7 +1702,7 @@ exports.register = function (states, Engine, context) {
 			log(`>> ${format_piece_log(p)} → s${s}`)
 			game.pieces[p] = s
 			game.retreat_space = s
-			if (!Engine.map.is_controlled_by(game, s, game.active) && data.pieces[p].type === "regular") {
+			if (!Engine.map.is_controlled_by(game, s, game.active) && can_unit_gain_control(p)) {
 				set_control(game, s, game.active)
 			}
 			if (Engine.check_persia_entry_vp_penalty) {
@@ -2096,6 +2143,7 @@ exports.register = function (states, Engine, context) {
 	register_combat_card_state("retreat_choice_cc_cp", {
 		prompt: "同盟国：撤退选择阶段战斗卡",
 		is_attacker: true,
+		skip_confirm: true,
 		get_options: () => collect_window_cc_options(game, "retreat_choice_cc_cp", CP, true),
 		done() {
 			continue_after_retreat_choice_cc_window()
@@ -2463,7 +2511,7 @@ exports.register = function (states, Engine, context) {
 			}
 			if (
 				!Engine.map.is_controlled_by(game, destination, AP) &&
-				retreating.some((p) => data.pieces[p].type === "regular")
+				retreating.some((p) => can_unit_gain_control(p))
 			) {
 				set_control(game, destination, AP)
 			}
@@ -2697,6 +2745,36 @@ exports.register = function (states, Engine, context) {
 			delete game.retreat_first_spaces
 		}
 		game.retreat_steps_left = null
+	}
+
+	function can_unit_gain_control(p) {
+		return Engine.game_utils.is_regular(p)
+	}
+
+	function finalize_retreat_unit(game, p, from, destination) {
+		let faction = data.pieces[p].faction
+		if (!Engine.map.is_controlled_by(game, destination, faction)) {
+			if (can_unit_gain_control(p)) {
+				set_control(game, destination, faction)
+			}
+		}
+		if (Engine.check_persia_entry_vp_penalty) {
+			Engine.check_persia_entry_vp_penalty(game, destination, [p])
+		}
+		let retreat_origin = game.attack?.space
+		if (from > 0) {
+			Engine.sync_neutral_vp_state(game, from)
+			Engine.sync_jihad_city_state(game, from)
+			Engine.sync_region_control(game, from)
+		}
+		if (retreat_origin > 0 && retreat_origin !== from) {
+			Engine.sync_neutral_vp_state(game, retreat_origin)
+			Engine.sync_jihad_city_state(game, retreat_origin)
+			Engine.sync_region_control(game, retreat_origin)
+		}
+		Engine.sync_region_control(game, destination)
+		Engine.sync_neutral_vp_state(game, destination)
+		Engine.sync_jihad_city_state(game, destination)
 	}
 
 	function clear_battle_runtime_state() {
@@ -3207,22 +3285,7 @@ exports.register = function (states, Engine, context) {
 				let ends_retreat_here =
 					remaining <= 0 || Engine.map.is_region(game, s) || Engine.map.is_island_base(game, s)
 				if (ends_retreat_here) {
-					if (!Engine.map.is_controlled_by(game, s, game.active)) {
-						if (data.pieces[p].type === "regular") {
-							set_control(game, s, game.active)
-						}
-					}
-					if (Engine.check_persia_entry_vp_penalty) {
-						Engine.check_persia_entry_vp_penalty(game, s, [p])
-					}
-					if (from > 0) {
-						Engine.sync_neutral_vp_state(game, from)
-						Engine.sync_jihad_city_state(game, from)
-						Engine.sync_region_control(game, from)
-					}
-					Engine.sync_region_control(game, s)
-					Engine.sync_neutral_vp_state(game, s)
-					Engine.sync_jihad_city_state(game, s)
+					finalize_retreat_unit(game, p, from, s)
 					set_delete(game.retreat_pieces, p)
 					delete game.retreat_steps_left[p]
 					set_add(game.retreated, p)
@@ -3328,23 +3391,7 @@ exports.register = function (states, Engine, context) {
 				log(`>> ${format_piece_log(p)} → s${s}`)
 				game.pieces[p] = s
 
-				// Retreat control check: capture neutral spaces
-				if (!Engine.map.is_controlled_by(game, s, game.active)) {
-					if (data.pieces[p].type === "regular") {
-						set_control(game, s, game.active)
-					}
-				}
-				if (Engine.check_persia_entry_vp_penalty) {
-					Engine.check_persia_entry_vp_penalty(game, s, [p])
-				}
-				if (from > 0) {
-					Engine.sync_neutral_vp_state(game, from)
-					Engine.sync_jihad_city_state(game, from)
-					Engine.sync_region_control(game, from)
-				}
-				Engine.sync_region_control(game, s)
-				Engine.sync_neutral_vp_state(game, s)
-				Engine.sync_jihad_city_state(game, s)
+				finalize_retreat_unit(game, p, from, s)
 
 				if (game.turkish_retreat_mandatory && set_has(game.turkish_retreat_mandatory, p)) {
 					set_delete(game.turkish_retreat_mandatory, p)
@@ -3432,7 +3479,7 @@ exports.register = function (states, Engine, context) {
 		let will_control_to_space =
 			!Engine.map.is_controlled_by(game, to_space, active_faction()) &&
 			!combat.has_undestroyed_fort(game, to_space, other_faction(active_faction())) &&
-			data.pieces[p].type === "regular" &&
+			can_unit_gain_control(p) &&
 			!enemy_holds_contested_region
 		// Sync VP and jihad BEFORE set_control so the previous controller is still the old one
 		Engine.sync_neutral_vp_state(game, to_space, undefined, { silent: will_control_to_space })
@@ -3446,7 +3493,7 @@ exports.register = function (states, Engine, context) {
 				game.captured_russian_vp_in_advance = true
 			}
 			if (!combat.has_undestroyed_fort(game, to_space, other_faction(active_faction()))) {
-				if (data.pieces[p].type === "regular" && !enemy_holds_contested_region) {
+				if (can_unit_gain_control(p) && !enemy_holds_contested_region) {
 					set_control(game, to_space, active_faction())
 				}
 			}

@@ -453,6 +453,7 @@ module.exports = function (Engine) {
 		if (!state.rp_rebel) state.rp_rebel = { ca: 0, af: 0, eg: 0, in: 0 }
 		if (state.tu_rp_limit === undefined) state.tu_rp_limit = 25
 		if (state.tu_rp_recovery_pool === undefined) state.tu_rp_recovery_pool = 0
+		if (state.tu_rp_ge_converted === undefined) state.tu_rp_ge_converted = 0
 		if (!state.events) state.events = {}
 		if (state.cp_auto_victory_marker === undefined) {
 			state.cp_auto_victory_marker = null
@@ -603,6 +604,7 @@ module.exports = function (Engine) {
 			rp_rebel: { ca: 0, af: 0, eg: 0, in: 0 },
 			tu_rp_limit: 25,
 			tu_rp_recovery_pool: 0,
+			tu_rp_ge_converted: 0,
 			events: {},
 			cp_auto_victory_marker: null,
 			pending_commitment_shuffle: { ap: false, cp: false },

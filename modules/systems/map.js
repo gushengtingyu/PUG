@@ -547,8 +547,30 @@ module.exports = function (Engine) {
 		return !(!Array.isArray(game.move.pieces) || !game.move.pieces.some((mp) => is_scu(mp)))
 	}
 
+	function is_beachhead_placed_this_action_round(game, s) {
+		return !!(
+			game &&
+			Array.isArray(game.beachheads_placed_this_action_round) &&
+			set_has(game.beachheads_placed_this_action_round, s)
+		)
+	}
+
+	function mark_beachhead_placed_this_action_round(game, s) {
+		if (!game.beachheads_placed_this_action_round) game.beachheads_placed_this_action_round = []
+		set_add(game.beachheads_placed_this_action_round, s)
+	}
+
+	function get_same_action_round_beachhead_move_block_reason(game, source, target) {
+		if (is_beachhead_placed_this_action_round(game, target)) return "滩头本行动轮刚建立"
+		if (is_beachhead_placed_this_action_round(game, source) && !is_island_base(game, target)) {
+			return "滩头本行动轮刚建立"
+		}
+		return null
+	}
+
 	function clear_beachhead(game, target) {
 		if (game.beachheads) set_delete(game.beachheads, target)
+		if (game.beachheads_placed_this_action_round) set_delete(game.beachheads_placed_this_action_round, target)
 	}
 
 	function is_region(game, s) {
@@ -1015,6 +1037,12 @@ module.exports = function (Engine) {
 		}
 
 		conns = conns.filter((next) => connection_allowed(game, s, next, mode, faction))
+
+		if (mode === "move") {
+			conns = conns.filter((next) => {
+				return !get_same_action_round_beachhead_move_block_reason(game, s, next)
+			})
+		}
 
 		// Rule 13: A potential beachhead space without a Beachhead marker is inaccessible
 		// (units cannot be there, and supply cannot trace through it). Block supply traversal
@@ -1949,6 +1977,8 @@ module.exports = function (Engine) {
 		}
 		if (contains_enemy_pieces(game, target, faction) && !is_region(game, target)) return "目标有敌军"
 		let source = game.move.current
+		let same_action_round_beachhead_reason = get_same_action_round_beachhead_move_block_reason(game, source, target)
+		if (same_action_round_beachhead_reason) return same_action_round_beachhead_reason
 		if (
 			is_potential_beachhead_space(target) &&
 			!is_beachhead_space(game, target) &&
@@ -2047,6 +2077,7 @@ module.exports = function (Engine) {
 			if (get_hq_heavy_artillery_enemy_entry_reason(game, target, moving_pieces, faction)) return false
 		}
 		let source = game.move.current
+		if (get_same_action_round_beachhead_move_block_reason(game, source, target)) return false
 		if (
 			is_potential_beachhead_space(target) &&
 			!is_beachhead_space(game, target) &&
@@ -2336,6 +2367,7 @@ module.exports = function (Engine) {
 	}
 
 	function is_sr_path_space_passable(game, p, s, faction) {
+		if (is_sr_space_blocked_by_enemy_piece(game, s, faction)) return false
 		if (is_controlled_by(game, s, faction)) return true
 		if (is_friendly_partial_control(game, s, faction)) return true
 		if (is_sr_besieged_enemy_fort(game, s, faction)) return true
@@ -2350,11 +2382,16 @@ module.exports = function (Engine) {
 	}
 
 	function is_sr_end_space_allowed(game, p, s, faction) {
+		if (is_sr_space_blocked_by_enemy_piece(game, s, faction)) return false
 		if (is_controlled_by(game, s, faction)) return true
 		if (is_friendly_partial_control(game, s, faction)) return true
 		if (is_sr_besieged_enemy_fort(game, s, faction)) return true
 		if (is_enemy_controlled_contested_region(game, s, faction)) return true
 		return contains_friendly_pieces(game, s, faction)
+	}
+
+	function is_sr_space_blocked_by_enemy_piece(game, s, faction) {
+		return !is_region(game, s) && contains_enemy_pieces(game, s, faction)
 	}
 
 	function visit_sr_path_spaces(game, p, source, faction, rail_only, visit) {
@@ -2741,6 +2778,7 @@ module.exports = function (Engine) {
 
 	function has_sr_sea_port_route(game, p, source, dest, faction) {
 		let info = data.pieces[p]
+		if (is_sr_space_blocked_by_enemy_piece(game, dest, faction)) return false
 		if (!is_sea_sr_port_allowed_for_piece(game, p, source, faction)) return false
 		if (!is_sea_sr_port_allowed_for_piece(game, p, dest, faction)) return false
 		if (info.piece_class === "LCU") return false
@@ -2795,6 +2833,7 @@ module.exports = function (Engine) {
 		if (is_caspian_sea_port(source) || is_caspian_sea_port(dest)) {
 			return can_sr_to_space(game, p, dest, faction)
 		}
+		if (is_sr_space_blocked_by_enemy_piece(game, dest, faction)) return false
 		if (!skip_sea_sr_event_block && is_sr_destination_blocked_by_events(game, source, dest, faction)) return false
 		let sea_sr_destination =
 			source !== dest &&
@@ -3071,6 +3110,7 @@ module.exports = function (Engine) {
 			sea_sr &&
 			is_sea_sr_port_allowed_for_piece(game, p, source, faction) &&
 			is_sea_sr_port_allowed_for_piece(game, p, s, faction)
+		if (is_sr_space_blocked_by_enemy_piece(game, s, faction)) return false
 		if (!is_sr_end_space_allowed(game, p, s, faction) && !sea_sr_destination) return false
 
 		// Rule 19.2.3: AP units may not end a move in a space with Greek units while neutral.
@@ -4771,6 +4811,11 @@ module.exports = function (Engine) {
 		return { ge: ge_spend, tu: tu_spend }
 	}
 
+	function add_blockade_tu_recovery_credit_from_ge(game, amount) {
+		if (!(game.events && game.events["royal_navy_blockade"])) return
+		game.tu_rp_ge_converted = Math.max(0, Number(game.tu_rp_ge_converted || 0)) + amount
+	}
+
 	const REPLACEMENT_SUPPLY_REQUIREMENTS = {
 		ge: { any: ["sofia", "turkey"], require: "galicia" },
 		ah: { any: ["sofia", "turkey"], require: "galicia" },
@@ -4973,6 +5018,7 @@ module.exports = function (Engine) {
 			if (plan.ge > 0) {
 				rps.ge -= plan.ge
 				if (!can_convert_ge_to_tu_unlimited(game)) game.ge_to_tu_rp_used += plan.ge
+				add_blockade_tu_recovery_credit_from_ge(game, plan.ge)
 			}
 			if (plan.tu > 0) {
 				rps.tu -= plan.tu
@@ -5694,7 +5740,9 @@ module.exports = function (Engine) {
 		get_adjacent_island_base_for_beachhead,
 		can_ap_place_beachhead_marker,
 		can_ap_initiate_invasion_to_beachhead,
+		mark_beachhead_placed_this_action_round,
 		clear_beachhead,
+		is_beachhead_placed_this_action_round,
 		is_beachhead_space,
 		get_tribe_type,
 		is_region,

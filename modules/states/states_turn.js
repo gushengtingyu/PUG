@@ -875,23 +875,28 @@ exports.register = function (states, Engine, context) {
 		enter_replacement_rp_phase()
 	}
 
+	function get_blockade_tu_rp_recovery_pool() {
+		return (
+			Math.max(0, Number(game.tu_rp_recovery_pool || 0)) +
+			Math.max(0, Number(game.tu_rp_ge_converted || 0))
+		)
+	}
+
 	function clear_replacement_points_for_active_faction() {
 		let rps = game.active === AP ? game.rp_ap : game.rp_cp
 		if (game.active === CP && game.events["royal_navy_blockade"]) {
 			let unused_tu_rp = Number(rps.tu || 0)
-			let recoverable_tu_rp = Math.min(unused_tu_rp, Math.max(0, Number(game.tu_rp_recovery_pool || 0)))
+			let total_recovery_pool = get_blockade_tu_rp_recovery_pool()
+			let recoverable_tu_rp = Math.min(unused_tu_rp, total_recovery_pool)
 			if (recoverable_tu_rp > 0) {
 				let max_tu_rp = Math.max(0, Number(game.tu_rp_limit ?? 25))
-				let recoverable_room = Math.max(0, 25 - max_tu_rp)
-				let recovered_tu_rp = Math.min(recoverable_room, recoverable_tu_rp)
-				if (recovered_tu_rp > 0) {
-					game.tu_rp_limit = max_tu_rp + recovered_tu_rp
-					if (game && Array.isArray(game.log)) {
-						log(`皇家海军封锁：未使用土耳其 RP ${recovered_tu_rp}，最大补给限度回升至 ${game.tu_rp_limit}。`)
-					}
+				game.tu_rp_limit = max_tu_rp + recoverable_tu_rp
+				if (game && Array.isArray(game.log)) {
+					log(`皇家海军封锁：未使用土耳其 RP ${recoverable_tu_rp}，最大补给限度回升至 ${game.tu_rp_limit}。`)
 				}
 			}
 			game.tu_rp_recovery_pool = 0
+			game.tu_rp_ge_converted = 0
 		}
 		for (let key of Object.keys(rps)) {
 			rps[key] = 0

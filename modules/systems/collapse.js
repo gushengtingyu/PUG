@@ -210,7 +210,9 @@ module.exports = function (Engine) {
 			...BULGARIA_ENTRY_PLAN.cp.third_army_choice_spaces,
 			...ROMANIA_ENTRY_PLAN.ap.immediate.map((entry) => entry.space),
 			...ROMANIA_ENTRY_PLAN.ap.delayed.map((entry) => entry.space),
-			...ROMANIA_ENTRY_PLAN.cp.immediate.flatMap((entry) => [entry.space, entry.bulgaria_space]),
+			...ROMANIA_ENTRY_PLAN.cp.immediate.flatMap((entry) =>
+				"bulgaria_space" in entry ? [entry.space, entry.bulgaria_space] : [entry.space]
+			),
 			...ROMANIA_ENTRY_PLAN.cp.delayed.map((entry) => entry.space)
 		])
 		for (let name of hardcodedSpaceNames) {
