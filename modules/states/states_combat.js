@@ -1198,6 +1198,7 @@ exports.register = function (states, Engine, context) {
 		// Defense in depth: the UI should already hide these cards, but some
 		// event/state round-trips can re-enter combat windows with stale actions.
 		if (is_cc_used_this_action(game, c)) return
+		if (!combat_cards.can_play_combat_card(game, c)) return
 		if (!game.combat_cards) game.combat_cards = { attacker: [], defender: [] }
 		if (!game.combat_cards_effected) game.combat_cards_effected = []
 		let return_state = return_state_override || game.state
@@ -2900,6 +2901,38 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
+	function is_save_tiflis_exempt_space(space) {
+		if (game.save_tiflis_exempt_spaces && set_has(game.save_tiflis_exempt_spaces, space)) return true
+		if (game.save_tiflis_exempt_spaces) return false
+		let pieces_here = get_pieces_in_space(game, space)
+		return (
+			pieces_here.some((p2) => data.pieces[p2].name === "RU Yudenitch HQ") ||
+			combat.has_undestroyed_fort(game, space, AP) ||
+			combat.has_undestroyed_fort(game, space, CP)
+		)
+	}
+
+	function get_save_tiflis_retreat_spaces(piece) {
+		const TIFLIS = 12
+		let current_dist = Engine.map.get_distance(game.pieces[piece], TIFLIS)
+		let is_closer_to_tiflis = (s) => Engine.map.get_distance(s, TIFLIS) < current_dist
+		let is_friendly = (s) => Engine.map.is_controlled_by(game, s, game.active)
+		let legal = combat.get_valid_retreat_spaces(game, piece, [], 1, false).filter(is_closer_to_tiflis)
+		let friendly_legal = legal.filter(is_friendly)
+
+		if (friendly_legal.length > 0) return friendly_legal
+
+		let friendly_ignoring_stacking = combat
+			.get_valid_retreat_spaces(game, piece, [], 1, true)
+			.filter((s) => is_closer_to_tiflis(s) && is_friendly(s))
+		let friendly_blocked_by_stacking = friendly_ignoring_stacking.some(
+			(s) => !Engine.map.can_stack_end_in_space(game, s, [piece])
+		)
+
+		if (!friendly_blocked_by_stacking) return []
+		return legal.filter((s) => !is_friendly(s))
+	}
+
 	states.save_tiflis_retreat = {
 		prompt(res) {
 			if (game.selected_piece === null || game.selected_piece === undefined) {
@@ -2914,27 +2947,13 @@ exports.register = function (states, Engine, context) {
 				let piece = game.selected_piece
 				res.prompt(`正在撤退 ${piece_name(piece)} 到第比利斯`)
 
-				// Calculate spaces towards Tiflis (ID 12)
-				const TIFLIS = 12
-				let current_dist = Engine.map.get_distance(game.pieces[piece], TIFLIS)
-				let valid = []
-				let legal_retreats = combat.get_valid_retreat_spaces(game, piece, [], 1, false)
-				for (let s of legal_retreats) {
-					if (Engine.map.get_distance(s, TIFLIS) < current_dist) {
-						valid.push(s)
-					}
-				}
-
+				let valid = get_save_tiflis_retreat_spaces(piece)
 				let piece_space = game.pieces[piece]
-				let pieces_here = get_pieces_in_space(game, piece_space)
-				let with_yudenitch = pieces_here.some((p2) => data.pieces[p2].name === "RU Yudenitch HQ")
-				let in_fort =
-					combat.has_undestroyed_fort(game, piece_space, AP) ||
-					combat.has_undestroyed_fort(game, piece_space, CP)
-				let can_decline = with_yudenitch || in_fort || valid.length === 0
+				let exempt = is_save_tiflis_exempt_space(piece_space)
+				let can_decline = exempt || valid.length === 0
 
 				if (valid.length === 0) {
-					if (with_yudenitch || in_fort) {
+					if (exempt) {
 						res.prompt(`${piece_name(piece)} 免于撤退。`)
 						res.action("decline_retreat")
 					} else {
@@ -2958,6 +2977,7 @@ exports.register = function (states, Engine, context) {
 		space(s) {
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
+				if (!set_has(get_save_tiflis_retreat_spaces(p), s)) return
 				push_undo()
 				let from = game.pieces[p]
 				log(`${piece_name(p)} retreats to ${space_name(s)} (towards Tiflis).`)
@@ -2965,8 +2985,16 @@ exports.register = function (states, Engine, context) {
 				if (from === game.attack?.space) {
 					game.save_tiflis_vacated_battle_space = true
 				}
+				if (!Engine.map.is_controlled_by(game, s, game.active) && data.pieces[p].type === "regular") {
+					set_control(game, s, game.active)
+				}
+				if (Engine.check_persia_entry_vp_penalty) {
+					Engine.check_persia_entry_vp_penalty(game, s, [p])
+				}
 				if (from > 0) Engine.sync_region_control(game, from)
 				Engine.sync_region_control(game, s)
+				Engine.sync_neutral_vp_state(game, s)
+				Engine.sync_jihad_city_state(game, s)
 				set_delete(game.save_tiflis_pieces, p)
 				game.selected_piece = null
 			}
@@ -2993,6 +3021,7 @@ exports.register = function (states, Engine, context) {
 		done() {
 			clear_undo()
 			delete game.save_tiflis_pieces
+			delete game.save_tiflis_exempt_spaces
 			delete game.selected_piece
 
 			// Restore active faction to attacker (CP)
