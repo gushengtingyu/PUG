@@ -3524,19 +3524,21 @@ exports.register = function (states, Engine, context) {
 		resolve_russian_winter_offensive_advance(game, p, to_space, log)
 		let enemy_holds_contested_region =
 			!!data.spaces[to_space]?.region && Engine.map.contains_enemy_pieces(game, to_space, active_faction())
-		let will_control_to_space =
+		let can_occupy_for_czars_armories =
 			!Engine.map.is_controlled_by(game, to_space, active_faction()) &&
-			!combat.has_undestroyed_fort(game, to_space, other_faction(active_faction())) &&
 			can_unit_gain_control(p) &&
 			!enemy_holds_contested_region
+		let will_control_to_space =
+			can_occupy_for_czars_armories &&
+			!combat.has_undestroyed_fort(game, to_space, other_faction(active_faction()))
 		// Sync VP and jihad BEFORE set_control so the previous controller is still the old one
 		Engine.sync_neutral_vp_state(game, to_space, undefined, { silent: will_control_to_space })
 		Engine.sync_jihad_city_state(game, to_space)
 		if (!Engine.map.is_controlled_by(game, to_space, active_faction())) {
 			if (
-				!enemy_holds_contested_region &&
+				can_occupy_for_czars_armories &&
 				active_faction() === CP &&
-				Engine.map.is_russian_vp_space(game, to_space)
+				combat_cards.is_czars_armories_trigger_space(to_space)
 			) {
 				game.captured_russian_vp_in_advance = true
 			}

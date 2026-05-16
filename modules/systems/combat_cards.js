@@ -496,8 +496,14 @@ module.exports = function (Engine) {
 
 	function can_play_czars_armories(game) {
 		if (!can_play_in_window(game, "post_advance_cc_cp", CP)) return false
+		if (!game.attack || game.attack.attacker !== CP) return false
 		if (!game.events || !(game.events["russian_revolution"] >= 1)) return false
 		return !!game.captured_russian_vp_in_advance
+	}
+
+	function is_czars_armories_trigger_space(s) {
+		let space = data.spaces[s]
+		return !!(space && space.vp && space.area === "russia")
 	}
 
 	function can_play_jafar_pasha(game) {
@@ -800,8 +806,14 @@ module.exports = function (Engine) {
 			windows: new Set(["post_advance_cc_cp"]),
 			can_play: can_play_czars_armories,
 			on_play_after_disposition(game, ctx) {
-				game.rp_cp.tu += 4
+				game.czars_armories_rp = {
+					bonus: 4,
+					spent: 0,
+					return_state: ctx.return_state
+				}
 				ctx.mark_effected()
+				game.state = "event_czars_armories"
+				return "stop"
 			}
 		},
 		[combat.CC_CP_CONFUSED_ORDERS]: {
@@ -927,6 +939,7 @@ module.exports = function (Engine) {
 		can_play_i_order_you_to_die,
 		can_play_pasha_1,
 		can_play_czars_armories,
+		is_czars_armories_trigger_space,
 		can_play_jafar_pasha,
 		can_play_army_of_islam,
 		get_army_of_islam_space_options,

@@ -2645,6 +2645,118 @@ module.exports = function (Engine) {
 		}
 	}
 
+	// === COMBAT CARD: CZAR'S ARMORIES (ID 97) ===
+
+	const CZARS_ARMORIES_AREAS = new Set(["caucasus", "russia", "azerbaijan"])
+
+	function get_czars_armories_context(game) {
+		if (!game.czars_armories_rp || typeof game.czars_armories_rp !== "object") {
+			game.czars_armories_rp = { bonus: 4, spent: 0, return_state: "post_advance_cc_cp" }
+		}
+		return game.czars_armories_rp
+	}
+
+	function get_czars_armories_remaining(game) {
+		let context = get_czars_armories_context(game)
+		return Number(context.bonus || 0) - Number(context.spent || 0)
+	}
+
+	function is_czars_armories_space(s) {
+		let space = data.spaces[s]
+		return !!(space && CZARS_ARMORIES_AREAS.has(space.area))
+	}
+
+	function is_czars_armories_turkish_unit(info) {
+		return !!(info && info.faction === CP && (info.nation === "tu" || info.nation === "tua"))
+	}
+
+	function get_czars_armories_rebuild_spaces(game, p, rules) {
+		return rules.get_valid_rebuild_spaces(game, p, CP).filter(is_czars_armories_space)
+	}
+
+	function is_czars_armories_piece_eligible(game, p, rules) {
+		let info = data.pieces[p]
+		if (!is_czars_armories_turkish_unit(info)) return false
+		let cost = rules.get_replacement_cost(game, p)
+		if (cost <= 0 || cost > get_czars_armories_remaining(game)) return false
+
+		if (rules.is_eliminated(game, p)) {
+			return info.piece_class === "LCU" && get_czars_armories_rebuild_spaces(game, p, rules).length > 0
+		}
+
+		let s = game.pieces[p]
+		return rules.set_has(game.reduced, p) && is_czars_armories_space(s)
+	}
+
+	function finish_czars_armories(game) {
+		let return_state = game.czars_armories_rp?.return_state || "post_advance_cc_cp"
+		delete game.czars_armories_rp
+		delete game.rebuild_piece
+		game.active = CP
+		game.state = return_state
+	}
+
+	states.event_czars_armories = {
+		prompt(ctx) {
+			let { game, res, rules } = ctx
+			let remaining = get_czars_armories_remaining(game)
+			res.prompt(`缴获沙皇军火: 剩余 ${remaining} 土耳其补员点数`)
+
+			if (remaining > 0) {
+				for (let p = 0; p < data.pieces.length; p++) {
+					if (is_czars_armories_piece_eligible(game, p, rules)) res.piece(p)
+				}
+			}
+
+			res.action("done")
+		},
+		piece(ctx) {
+			let { game, rules, arg } = ctx
+			let p = Number(arg)
+			if (!Number.isInteger(p) || !is_czars_armories_piece_eligible(game, p, rules)) return
+			let cost = rules.get_replacement_cost(game, p)
+			rules.push_undo()
+			let context = get_czars_armories_context(game)
+			context.spent = Number(context.spent || 0) + cost
+
+			if (rules.is_eliminated(game, p)) {
+				game.rebuild_piece = p
+				game.state = "event_czars_armories_rebuild"
+			} else {
+				rules.set_delete(game.reduced, p)
+				rules.log(`${rules.piece_name(p)} (${rules.space_name(game.pieces[p])}) 由缴获沙皇军火补员至满员状态。`)
+			}
+		},
+		done(ctx) {
+			finish_czars_armories(ctx.game)
+		}
+	}
+
+	states.event_czars_armories_rebuild = {
+		prompt(ctx) {
+			let { game, res, rules } = ctx
+			let p = game.rebuild_piece
+			res.who(p)
+			res.prompt(`缴获沙皇军火: 选择 ${rules.piece_name(p)} 的重建位置。`)
+			for (let s of get_czars_armories_rebuild_spaces(game, p, rules)) res.space(s)
+			res.action("cancel")
+		},
+		space(ctx) {
+			let { game, rules, arg } = ctx
+			let s = Number(arg)
+			let p = game.rebuild_piece
+			if (!Number.isInteger(p) || !get_czars_armories_rebuild_spaces(game, p, rules).includes(s)) return
+			game.pieces[p] = s
+			rules.set_add(game.reduced, p)
+			rules.log(`${rules.piece_name(p)} 在 ${rules.space_name(s)} 由缴获沙皇军火重建。`)
+			delete game.rebuild_piece
+			game.state = "event_czars_armories"
+		},
+		cancel(ctx) {
+			ctx.rules.pop_undo()
+		}
+	}
+
 	// === EVENT: RESERVES TO THE FRONT (ID 59) ===
 
 	function get_reserves_to_front_rebuild_space(game, p) {
