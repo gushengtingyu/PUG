@@ -521,7 +521,7 @@ module.exports = function (Engine) {
 					(current === Engine.constants.AP || current === Engine.constants.CP)
 						? current
 						: 0
-				let previous_jihad_owner = info.jihad_city ? Engine.get_jihad_city_effective_owner(state, s) || 0 : 0
+				let previous_jihad_owner = info.jihad_city ? Engine.get_jihad_city_scoring_owner(state, s) || 0 : 0
 				let default_controller = Engine.map.get_default_controller(state, s)
 				state.control[s] = desired === default_controller ? null : desired
 				Engine.sync_vp_state(state, s, previous_vp_owner)
@@ -554,6 +554,7 @@ module.exports = function (Engine) {
 		else state.player_order = state.player_order.map(normalize_faction_token)
 		if (!Array.isArray(state.jihad_cities_flipped)) state.jihad_cities_flipped = []
 		if (!Array.isArray(state.jihad_city_effective_owner)) state.jihad_city_effective_owner = []
+		if (!Array.isArray(state.jihad_city_scoring_owner)) state.jihad_city_scoring_owner = []
 		if (!Array.isArray(state.vp_partial_disruption)) state.vp_partial_disruption = []
 		if (!Array.isArray(state.armenian_uprising_ru_vp_markers)) state.armenian_uprising_ru_vp_markers = []
 		if (!Array.isArray(state.region_disruption)) state.region_disruption = []
@@ -622,6 +623,7 @@ module.exports = function (Engine) {
 			jihad: 0,
 			jihad_cities_flipped: [],
 			jihad_city_effective_owner: [],
+			jihad_city_scoring_owner: [],
 			vp_partial_disruption: [],
 			armenian_uprising_ru_vp_markers: [],
 			soviet_uprising_markers: [],

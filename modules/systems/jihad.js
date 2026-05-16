@@ -70,7 +70,7 @@ module.exports = function (Engine) {
 		}
 	}
 
-	function get_jihad_city_effective_owner(game, s) {
+	function collect_jihad_city_presence(game, s) {
 		if (!data.spaces[s] || !data.spaces[s].jihad_city) return 0
 		const { AP, CP } = Engine.constants
 		let controller = map.get_space_controller(game, s) || 0
@@ -96,6 +96,26 @@ module.exports = function (Engine) {
 				else if (faction === CP) has_cp_partial = true
 			}
 		}
+
+		return { controller, has_ap_regular, has_cp_regular, has_ap_partial, has_cp_partial }
+	}
+
+	function get_jihad_city_effective_owner(game, s) {
+		let presence = collect_jihad_city_presence(game, s)
+		if (!presence) return 0
+		const { AP, CP } = Engine.constants
+		let { controller, has_ap_regular, has_cp_regular } = presence
+
+		if (has_ap_regular && !has_cp_regular) return AP
+		if (has_cp_regular && !has_ap_regular) return CP
+		return controller
+	}
+
+	function get_jihad_city_scoring_owner(game, s) {
+		let presence = collect_jihad_city_presence(game, s)
+		if (!presence) return 0
+		const { AP, CP } = Engine.constants
+		let { controller, has_ap_regular, has_cp_regular, has_ap_partial, has_cp_partial } = presence
 
 		if (has_ap_regular && !has_cp_regular) return AP
 		if (has_cp_regular && !has_ap_regular) return CP
@@ -128,18 +148,22 @@ module.exports = function (Engine) {
 					}
 
 		if (!Array.isArray(game.jihad_city_effective_owner)) game.jihad_city_effective_owner = []
+		if (!Array.isArray(game.jihad_city_scoring_owner)) game.jihad_city_scoring_owner = []
 
-		let stored_previous = normalize_jihad_city_owner(game.jihad_city_effective_owner[s])
+		let stored_previous = normalize_jihad_city_owner(game.jihad_city_scoring_owner[s])
+		if (stored_previous === undefined) stored_previous = normalize_jihad_city_owner(game.jihad_city_effective_owner[s])
 		let previous =
 			previous_override !== undefined
 				? normalize_jihad_city_owner(previous_override) || 0
 				: stored_previous !== undefined
 					? stored_previous
 					: map.get_space_controller(game, s) || 0
-		let next = get_jihad_city_effective_owner(game, s) || 0
+		let next = get_jihad_city_scoring_owner(game, s) || 0
+		let effective_next = get_jihad_city_effective_owner(game, s) || 0
 
 		if (previous === next) {
-			game.jihad_city_effective_owner[s] = next
+			game.jihad_city_effective_owner[s] = effective_next
+			game.jihad_city_scoring_owner[s] = next
 			return
 		}
 
@@ -159,7 +183,8 @@ module.exports = function (Engine) {
 			update_jihad_level(game, -1, push_state, () => log_jihad_city_change(game, s, -1))
 		}
 
-		game.jihad_city_effective_owner[s] = next
+		game.jihad_city_effective_owner[s] = effective_next
+		game.jihad_city_scoring_owner[s] = next
 	}
 
 	function on_control_changed(game, s, previous_controller, faction, helpers = {}) {
@@ -615,6 +640,7 @@ module.exports = function (Engine) {
 	Object.assign(exports, {
 		update_jihad_level,
 		get_jihad_city_effective_owner,
+		get_jihad_city_scoring_owner,
 		sync_jihad_city_state,
 		on_control_changed,
 		get_tribe_type,

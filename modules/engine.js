@@ -183,6 +183,11 @@ const Engine = {
 		return Engine.jihad.get_jihad_city_effective_owner(game, s)
 	},
 
+	get_jihad_city_scoring_owner(game, s) {
+		if (!Engine.jihad || typeof Engine.jihad.get_jihad_city_scoring_owner !== "function") return 0
+		return Engine.jihad.get_jihad_city_scoring_owner(game, s)
+	},
+
 	sync_jihad_city_state(game, s, previous_override) {
 		if (!Engine.jihad || typeof Engine.jihad.sync_jihad_city_state !== "function") return
 		Engine.jihad.sync_jihad_city_state(game, s, previous_override, {
@@ -307,7 +312,7 @@ const Engine = {
 		}
 		const is_vp_space = Engine.get_effective_vp_value(game, s) > 0
 		const is_jihad_city = !!(data.spaces[s] && data.spaces[s].jihad_city)
-		let previous_jihad_owner = is_jihad_city ? Engine.get_jihad_city_effective_owner(game, s) || 0 : 0
+		let previous_jihad_owner = is_jihad_city ? Engine.get_jihad_city_scoring_owner(game, s) || 0 : 0
 		let current_controller =
 			Engine.map && typeof Engine.map.get_space_controller === "function"
 				? Engine.map.get_space_controller(game, s)

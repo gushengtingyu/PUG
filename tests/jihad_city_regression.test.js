@@ -119,6 +119,35 @@ test("CP recapturing AP-controlled Baghdad still adds Jihad with a legacy empty 
 	expect(game.state).toBe("jihad_placement")
 })
 
+test("AP irregular partial control of CP-controlled Mecca lowers Jihad without changing control", () => {
+	let game = setupGame(2026051601, "Historical", { no_supply_warnings: true })
+	clearBoard(game)
+
+	let mecca = findSpace("Mecca")
+	let arab = findApPiece("Arab Revolt #1")
+
+	game.pieces[arab] = mecca
+	game.control[mecca] = null
+	game.jihad = 3
+	game.vp = 10
+	game.jihad_city_effective_owner[mecca] = CP
+	game.jihad_city_scoring_owner[mecca] = CP
+
+	Engine.sync_region_control(game, mecca)
+	Engine.sync_neutral_vp_state(game, mecca)
+	Engine.sync_jihad_city_state(game, mecca)
+
+	expect(Engine.map.get_space_controller(game, mecca)).toBe(CP)
+	expect(game.region_disruption[mecca]).toBe(AP)
+	expect(game.vp_partial_disruption[mecca]).toBe(AP)
+	expect(Engine.get_jihad_city_effective_owner(game, mecca)).toBe(CP)
+	expect(Engine.get_jihad_city_scoring_owner(game, mecca)).toBe(AP)
+	expect(game.jihad_city_effective_owner[mecca]).toBe(CP)
+	expect(game.jihad_city_scoring_owner[mecca]).toBe(AP)
+	expect(game.vp).toBe(9)
+	expect(game.jihad).toBe(2)
+})
+
 test("Jerusalem special rule entered from attack confirmation is interactive for the defender", () => {
 	let game = setupGame(2026051203, "Historical", { no_supply_warnings: true })
 	setupJerusalemAttack(game)
