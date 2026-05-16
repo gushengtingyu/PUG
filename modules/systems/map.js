@@ -2646,6 +2646,33 @@ module.exports = function (Engine) {
 		return false
 	}
 
+	function is_reserve_sr_supply_source_destination(game, p, s, faction) {
+		let info = data.pieces[p]
+		if (!info || !data.spaces[s]) return false
+		let nations = get_piece_nations_for_rule(game, p, "sr")
+		if (nations.length === 0) nations = [info.nation]
+		if (faction === AP) {
+			return nations.some((nation) => {
+				if ((nation === "ru" || nation === "ro" || nation === "sb") && is_named_ru_supply_source(game, s))
+					return true
+				if (is_black_sea_marines_supply_nation(nation) && is_black_sea_marines_special_fort(game, s))
+					return true
+				if (["br", "fr", "it", "in", "anz", "sb", "gr"].includes(nation)) {
+					if (is_sudan_and_darfur(s) || is_india(s)) return true
+					if (is_island_base(game, s) && is_controlled_by(game, s, AP)) return true
+				}
+				if (nation === "gr" && data.spaces[s].nation === "gr") {
+					if (s === ATHENS && is_controlled_by(game, s, AP)) return true
+					if (data.spaces[s].name === "Salonika" && is_base_supply_source(game, s, faction, nation, true))
+						return true
+				}
+				if (nation === "ar" && is_hejaz(s)) return true
+				return false
+			})
+		}
+		return nations.some((nation) => is_base_supply_source(game, s, faction, nation, true))
+	}
+
 	function can_sr_from_reserve_to_space(game, p, s, faction) {
 		let info = data.pieces[p]
 		if (info.piece_class === "LCU") return false
@@ -2668,6 +2695,7 @@ module.exports = function (Engine) {
 		if (data.spaces[s].terrain === DESERT) {
 			if (!can_trace_reserve_sr_desert_supply(game, p, s)) return false
 		}
+		if (is_reserve_sr_supply_source_destination(game, p, s, faction)) return true
 		if (is_reserve_sr_port_destination(game, p, s, faction)) return true
 		return has_same_nationality_supplied_unit_in_space(game, p, s)
 	}
@@ -2910,6 +2938,7 @@ module.exports = function (Engine) {
 			}
 			for (let s = 1; s < data.spaces.length; s++) {
 				if (is_reserve_sr_port_destination(game, p, s, faction)) candidates.add(s)
+				if (is_reserve_sr_supply_source_destination(game, p, s, faction)) candidates.add(s)
 			}
 			let filtered = []
 			for (let s of candidates) {
