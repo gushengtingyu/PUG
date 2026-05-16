@@ -3,7 +3,7 @@ const rules = require("../rules.js")
 
 const { setupGame, findSpace, findApPiece, findCpPiece: findPiece, clearBoard } = require("./helpers.js")
 
-const { AP, CP } = Engine.constants
+const { AP, CP, COMMITMENT_MOBILIZATION } = Engine.constants
 const AP_ROLE = rules.roles[0]
 
 function placeTurkishDivisionPair(game, space) {
@@ -46,6 +46,8 @@ test("ANZ Desert Corps can move across unfinished Sinai railroad as a normal con
 	clearBoard(game)
 	game.events = game.events || {}
 	delete game.events.xinai
+	game.control[ismailia] = AP
+	game.control[romani] = AP
 	game.pieces[anzDesertCorps] = ismailia
 	game.pieces[britishCorps] = ismailia
 	game.move = {
@@ -57,9 +59,53 @@ test("ANZ Desert Corps can move across unfinished Sinai railroad as a normal con
 	}
 
 	expect(Engine.map.can_piece_move_to(game, anzDesertCorps, romani, AP)).toBe(true)
+	expect(Engine.map.can_sr_to_space(game, anzDesertCorps, romani, AP)).toBe(true)
 
 	game.move.pieces = [britishCorps]
 	expect(Engine.map.can_piece_move_to(game, britishCorps, romani, AP)).toBe(false)
+	expect(Engine.map.can_sr_to_space(game, britishCorps, romani, AP)).toBe(false)
+})
+
+test("ANZ Desert Corps still counts toward restricted-area LCU limits", () => {
+	let game = setupGame(2026042106)
+	let romani = findSpace("Romani")
+	let elArish = findSpace("El Arish")
+	let gaza = findSpace("Gaza")
+	let anzDesertCorps = findApPiece("ANZ Desert Corps")
+	let britishCorps = findApPiece("BR IX Corps")
+
+	clearBoard(game)
+	game.events = game.events || {}
+	game.events.xinai = true
+	game.war_commitment_ap = COMMITMENT_MOBILIZATION
+	game.control[romani] = AP
+	game.control[elArish] = AP
+	game.control[gaza] = AP
+	game.pieces[anzDesertCorps] = romani
+	game.pieces[britishCorps] = gaza
+
+	let area = Engine.map.get_restricted_area(romani)
+	expect(area).toBe("syria_palestine")
+	expect(Engine.map.count_lcu_in_area(game, area, AP)).toBe(2)
+	expect(Engine.map.get_lcu_limit_for(game, AP)).toBe(1)
+	expect(Engine.map.check_rule_violations(game).some((v) => v.rule.includes("LCU Limit Exceeded"))).toBe(true)
+})
+
+test("ANZ Desert Corps does not create a desert rail violation by itself", () => {
+	let game = setupGame(2026042107)
+	let kuwait = findSpace("Kuwait")
+	let anzDesertCorps = findApPiece("ANZ Desert Corps")
+
+	clearBoard(game)
+	game.control[kuwait] = AP
+	game.pieces[anzDesertCorps] = kuwait
+
+	expect(Engine.map.is_rail_connected_to_supply(game, kuwait, AP)).toBe(false)
+	expect(
+		Engine.map
+			.check_rule_violations(game)
+			.some((v) => v.space === kuwait && v.rule.includes("Desert LCU must have rail connection"))
+	).toBe(false)
 })
 
 test("Sinai Railroad remains usable after completion turn and stays AP-only", () => {

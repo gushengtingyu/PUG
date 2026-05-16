@@ -544,7 +544,7 @@ module.exports = function (Engine) {
 		if (!can_ap_place_beachhead_marker(game, target, from)) return false
 		if (!game.move || game.move.spaces_moved > 0) return false
 		// Rule 13.2.3 STEP 2: "at least one SCU to move to it" is required to create the beachhead
-		return !(!Array.isArray(game.move.pieces) || !game.move.pieces.some((mp) => is_scu(mp)))
+		return Array.isArray(game.move.pieces) && game.move.pieces.some((mp) => is_scu(mp))
 	}
 
 	function is_beachhead_placed_this_action_round(game, s) {
@@ -2354,6 +2354,15 @@ module.exports = function (Engine) {
 			let nation_neighbors = get_piece_connected_spaces_for_rule(game, current, p, "sr")
 			let nation_set = new Set(nation_neighbors)
 			neighbors = rail_neighbors.filter((n) => nation_set.has(n))
+			if (is_anzac_desert_corps(p) && data.spaces[current]) {
+				let desert_neighbors = get_piece_connected_spaces_for_rule(game, current, p, "move")
+				for (let n of desert_neighbors) {
+					if (neighbors.includes(n)) continue
+					if (!data.spaces[n]) continue
+					if (data.spaces[current].terrain !== DESERT && data.spaces[n].terrain !== DESERT) continue
+					neighbors.push(n)
+				}
+			}
 		} else {
 			neighbors = get_piece_connected_spaces_for_rule(game, current, p, "sr")
 		}
@@ -5357,7 +5366,7 @@ module.exports = function (Engine) {
 					// Rule 180: Desert LCU must have rail supply
 					if (data.spaces[s].terrain === "desert") {
 						let faction = data.pieces[p].faction
-						if (!is_rail_connected_to_supply(game, s, faction)) {
+						if (!is_anzac_desert_corps(p) && !is_rail_connected_to_supply(game, s, faction)) {
 							violations.push({
 								space: s,
 								rule: "Rule 180: Desert LCU must have rail connection to supply source"

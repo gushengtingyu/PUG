@@ -2704,6 +2704,7 @@ combat_funcs = combat_states.register(states, Engine, {
 	log,
 	log_h3_faction,
 	push_undo,
+	pop_undo,
 	clear_undo,
 	save_combat_rollback_point,
 	active_faction,

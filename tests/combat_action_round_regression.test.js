@@ -250,6 +250,34 @@ test("German High Command cannot be reused in same action", () => {
 	expect(game.combat_cards.defender).toEqual([])
 })
 
+test("Combat card undo returns to the combat card window before older combat undo points", () => {
+	let { game } = createBattleGame()
+	let germanHighCommand = findCardByEvent("GERMAN HIGH COMMAND CC")
+	let staleUndo = JSON.parse(JSON.stringify(game))
+
+	staleUndo.state = "attack"
+	staleUndo.log = game.log.length
+	delete staleUndo.undo
+
+	game.active = rules.CP
+	game.state = "play_cc_defender"
+	game.hand_cp = [germanHighCommand]
+	game.discard_cp = []
+	game.combat_cards = { attacker: [], defender: [] }
+	game.combat_cards_effected = []
+	game.action_state = {}
+	game.undo = [staleUndo]
+
+	rules.action(game, CP_ROLE, "play_cc", germanHighCommand)
+	rules.action(game, CP_ROLE, "confirm")
+	expect(game.combat_cards.defender).toContain(germanHighCommand)
+
+	rules.action(game, CP_ROLE, "undo")
+	expect(game.state).toBe("play_cc_defender")
+	expect(game.combat_cards.defender).toEqual([])
+	expect(game.hand_cp).toContain(germanHighCommand)
+})
+
 test("Turkish retreat does not log standard no retreat message", () => {
 	let { game, ruDiv3, tuDiv8 } = createBattleGame()
 	let logs = []

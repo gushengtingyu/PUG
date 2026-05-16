@@ -14,6 +14,7 @@ exports.register = function (states, Engine, context) {
 	const {
 		log,
 		push_undo,
+		pop_undo,
 		clear_undo,
 		save_combat_rollback_point,
 		active_faction,
@@ -689,6 +690,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function finalize_attacker_cc_step() {
+		clear_undo()
 		if (!game.combat_cards) game.combat_cards = { attacker: [], defender: [] }
 		log_combat_card_side("attacker")
 		game.active = other_faction(game.active)
@@ -696,6 +698,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function finalize_defender_cc_step() {
+		clear_undo()
 		if (!game.combat_cards) game.combat_cards = { attacker: [], defender: [] }
 		log_combat_card_side("defender")
 		resolve_battle_sequence()
@@ -1075,10 +1078,18 @@ exports.register = function (states, Engine, context) {
 			},
 			play_cc(c) {
 				if (is_cc_used_this_action(game, c)) return
+				let options = config.get_options()
+				if (!options.includes(c)) return
+				push_undo()
 				if (config.skip_confirm) {
 					handle_play_cc(game, c, config.is_attacker, game.state)
 				} else {
-					game.pending_cc = { card: c, is_attacker: config.is_attacker, return_state: game.state }
+					game.pending_cc = {
+						card: c,
+						is_attacker: config.is_attacker,
+						return_state: game.state,
+						undo_pushed: true
+					}
 					game.state = "confirm_cc"
 				}
 			},
@@ -1122,7 +1133,12 @@ exports.register = function (states, Engine, context) {
 			}
 		},
 		cancel() {
-			let return_state = game.pending_cc?.return_state
+			let pending = game.pending_cc
+			if (pending?.undo_pushed && typeof pop_undo === "function" && game.undo && game.undo.length > 0) {
+				pop_undo()
+				return
+			}
+			let return_state = pending?.return_state
 			delete game.pending_cc
 			if (return_state && states[return_state]) {
 				game.state = return_state
