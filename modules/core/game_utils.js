@@ -919,12 +919,13 @@ module.exports = function (Engine) {
 		if (p < 0 || !data.pieces[p]) return 0
 		let piece = data.pieces[p]
 
+		if (is_piece_reduced(game, p)) return piece.rlf ?? piece.lf ?? 1
+
 		// Rule 337: "?" loss value determination for current combat
 		if (game && game.attack && game.attack.piece_lf && game.attack.piece_lf[p] !== undefined) {
 			return game.attack.piece_lf[p]
 		}
 
-		if (is_piece_reduced(game, p)) return piece.rlf ?? piece.lf ?? 1
 		return piece.lf ?? piece.rlf ?? 1
 	}
 
