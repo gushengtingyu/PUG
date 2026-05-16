@@ -3559,6 +3559,7 @@ exports.register = function (states, Engine, context) {
 			Engine.neutral.trigger_greece_entry(game, to_space, active_faction(), "战斗推进进入雅典", (msg) => log(msg))
 		}
 		check_immediate_jihad_rebellion_on_entry(from_space, to_space, [p])
+		combat.award_army_of_islam_advance_bonus(game, to_space, active_faction(), log)
 		return true
 	}
 

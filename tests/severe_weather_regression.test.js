@@ -184,7 +184,7 @@ test("Russian Winter Offensive only exempts Russian attackers in mixed winter mo
 	game.turn = 2
 	game.action_round = 1
 	game.active = rules.AP
-	game.events = { russian_winter_offensive: game.turn }
+	game.events = { russian_winter_offensive: { turn: game.turn, action_round: game.action_round } }
 	game.reduced = []
 	game.pieces[russian] = koprukoy
 	game.pieces[serbian] = koprukoy

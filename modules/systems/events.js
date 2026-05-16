@@ -43,6 +43,7 @@ module.exports = function (Engine) {
 		is_gallipoli,
 		is_besieged,
 		get_connected_spaces,
+		get_rail_connections,
 		get_connection_type,
 		is_russia_controlled_space,
 		has_allied_control_of_balfour_spaces
@@ -75,6 +76,7 @@ module.exports = function (Engine) {
 	const FORT_RUPEL = find_space("Ft. Rupel")
 	const LAMIA = find_space("Lamia")
 	const ATHENS = find_space("ATHENS")
+	const CONSTANTINOPLE = find_space("CONSTANTINOPLE")
 	const THERMAIKOS_BAY = find_space("Thermaikos Bay")
 	const TO_ATHENS = find_space("to Athens")
 	const CYPRUS_BEACHHEADS = ["To Adana", "To Beirut", "To Haifa", "To Jaffa"].map(find_space)
@@ -789,6 +791,26 @@ module.exports = function (Engine) {
 
 	function is_brf_35_spers_space(game, s) {
 		return (Engine.map.is_persia(s) || Engine.map.is_arabistan(s)) && Engine.map.is_controlled_by(game, s, AP)
+	}
+
+	function is_constantinople_rail_connected_to_galicia(game) {
+		if (CONSTANTINOPLE < 0 || GALICIA < 0) return false
+		if (!is_controlled_by(game, CONSTANTINOPLE, CP) || !is_controlled_by(game, GALICIA, CP)) return false
+		let queue = [CONSTANTINOPLE]
+		let queue_head = 0
+		let visited = new Set([CONSTANTINOPLE])
+		while (queue_head < queue.length) {
+			let current = queue[queue_head++]
+			if (current === GALICIA) return true
+			for (let next of get_rail_connections(game, current, CP)) {
+				if (visited.has(next)) continue
+				if (Engine.map.contains_enemy_pieces(game, next, CP) && !is_besieged(game, next)) continue
+				if (!is_controlled_by(game, next, CP)) continue
+				visited.add(next)
+				queue.push(next)
+			}
+		}
+		return false
 	}
 
 	Engine.reinf_helpers = {
@@ -3603,6 +3625,9 @@ module.exports = function (Engine) {
 			name_cn: "耶尔德里姆攻势",
 			effect_cn:
 				"(黄色事件)。(只能在君士坦丁堡-加利西亚的铁路相连时打出)。当作事件打出时，正常使用此牌记录的OP点数。本轮所有土耳其/土耳其-阿拉伯部队进攻+1drm，一次包含有耶尔德里姆师的堆叠进攻时取消所有战壕效果。",
+			can_play: function (game) {
+				return is_constantinople_rail_connected_to_galicia(game)
+			},
 			use_ops: true,
 			handler: function (game) {
 				game.events["yildrim_offensive"] = game.turn

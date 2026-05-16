@@ -79,6 +79,54 @@ module.exports = function (Engine) {
 		if (reduced === null) reduced = is_piece_reduced(game, p)
 		return reduced ? `p${p}` : `P${p}`
 	}
+
+	function is_army_of_islam_hq(p) {
+		return !!(data.pieces[p] && data.pieces[p].name === "TU Army Islam HQ")
+	}
+
+	function is_tribal_circle_space(s) {
+		return !!(data.spaces[s] && data.spaces[s].tribal_activity_grid)
+	}
+
+	function is_tu_or_tua_unit(game, p) {
+		return !!(
+			data.pieces[p] &&
+			!is_hq(p) &&
+			is_combat_unit(p) &&
+			(piece_counts_as_nation_for_rule(game, p, "tu") || piece_counts_as_nation_for_rule(game, p, "tua"))
+		)
+	}
+
+	function has_army_of_islam_tu_tua_stack(game, pieces, hq) {
+		return pieces.some((p) => p !== hq && is_tu_or_tua_unit(game, p))
+	}
+
+	function award_army_of_islam_tu_rp_bonus(game, log_fn, reason) {
+		if (game.army_of_islam_tu_rp_bonus_awarded) return false
+		if (!game.rp_cp) game.rp_cp = { ge: 0, ah: 0, tu: 0, a: 0, bu: 0 }
+		game.rp_cp.tu = Number(game.rp_cp.tu || 0) + 1
+		game.tu_rp_bonus = Number(game.tu_rp_bonus || 0) + 1
+		game.army_of_islam_tu_rp_bonus_awarded = true
+		if (log_fn) log_fn(`Army of Islam: ${reason}，土耳其奖励 RP +1。`)
+		return true
+	}
+
+	function award_army_of_islam_combat_win_bonus(game, hq, side_pieces, target_space, log_fn) {
+		if (!is_army_of_islam_hq(hq)) return false
+		if (!is_tribal_circle_space(target_space)) return false
+		if (!has_army_of_islam_tu_tua_stack(game, side_pieces, hq)) return false
+		return award_army_of_islam_tu_rp_bonus(game, log_fn, "在部落地块赢得战斗")
+	}
+
+	function award_army_of_islam_advance_bonus(game, to_space, faction, log_fn) {
+		if (faction !== CP) return false
+		if (!is_tribal_circle_space(to_space)) return false
+		let pieces = get_pieces_in_space(game, to_space).filter((p) => get_piece_effective_faction(game, p) === CP)
+		let hq = pieces.find((p) => is_army_of_islam_hq(p))
+		if (hq === undefined) return false
+		if (!has_army_of_islam_tu_tua_stack(game, pieces, hq)) return false
+		return award_army_of_islam_tu_rp_bonus(game, log_fn, "战后推进进入部落地块")
+	}
 	const { is_besieged, is_in_supply } = Engine.map
 	const { bulls_eye_ru_attack_drm } = Engine.events
 
@@ -733,6 +781,7 @@ module.exports = function (Engine) {
 		delete game.confused_orders
 		delete game.confused_orders_used
 		delete game.turkish_retreat
+		delete game.army_of_islam_tu_rp_bonus_awarded
 		clear_turkish_retreat_state(game)
 		clear_catastrophic_attack_state(game)
 	}
@@ -2419,11 +2468,7 @@ module.exports = function (Engine) {
 									restore_piece(game, p)
 								}
 								if (data.pieces[p].name.includes("Army of Islam")) {
-									let space = data.spaces[target_space]
-									if (space.tribal) {
-										log_fn(`Rule 16.3.5: Army of Islam won in a tribal space, +1 TU RP bonus.`)
-										game.tu_rp_bonus = (game.tu_rp_bonus || 0) + 1
-									}
+									award_army_of_islam_combat_win_bonus(game, p, result.attackers, target_space, log_fn)
 								}
 							} else {
 								log_fn(`Rule 16.2.2: Losing HQ ${piece_log_name(game, p)} loses 1 step.`)
@@ -2443,11 +2488,7 @@ module.exports = function (Engine) {
 									restore_piece(game, p)
 								}
 								if (data.pieces[p].name.includes("Army of Islam")) {
-									let space = data.spaces[target_space]
-									if (space.tribal) {
-										log_fn(`Rule 16.3.5: Army of Islam won in a tribal space, +1 TU RP bonus.`)
-										game.tu_rp_bonus = (game.tu_rp_bonus || 0) + 1
-									}
+									award_army_of_islam_combat_win_bonus(game, p, result.defenders, target_space, log_fn)
 								}
 							} else {
 								log_fn(`Rule 16.2.2: Losing HQ ${piece_log_name(game, p)} loses 1 step.`)
@@ -3551,6 +3592,9 @@ module.exports = function (Engine) {
 			if (hq_name.includes("Falkenhayn") || hq_name.includes("Mackensen")) {
 				if (get_piece_faction(unit_p) === "cp") return true
 			}
+			if (hq_name === "TU Army Islam HQ") {
+				if (unit_nat === "tu" || unit_nat === "tua") return true
+			}
 			return false
 		}
 
@@ -4362,6 +4406,8 @@ module.exports = function (Engine) {
 		apply_retreat_priorities,
 		get_valid_advance_spaces,
 		resolve_russian_winter_offensive_advance,
+		award_army_of_islam_combat_win_bonus,
+		award_army_of_islam_advance_bonus,
 		fire_table,
 		get_fire_result,
 		find_fire_column,
