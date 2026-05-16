@@ -14,6 +14,27 @@ function dataFaction(p) {
 	return Engine.data.pieces[p].faction
 }
 
+function setupGallipoliFlipState(game, lemnos) {
+	game.active = AP
+	game.state = "event_gallipoli_invasion_flip"
+	game.event_ctx = {
+		key: "gallipoli_invasion",
+		data: { invasion_island_base: lemnos }
+	}
+}
+
+function clearGallipoliReserveMatchingScus(game, except = []) {
+	let keep = new Set(except)
+	for (let p = 1; p < Engine.data.pieces.length; p++) {
+		if (keep.has(p)) continue
+		let info = Engine.data.pieces[p]
+		if (!info || info.faction !== AP || info.piece_class !== "SCU") continue
+		if (info.nation !== "br" && info.nation !== "anz") continue
+		let badge = Engine.game_utils.get_piece_badge(p)
+		if (badge === "infantry" || badge === "blue") game.pieces[p] = 0
+	}
+}
+
 test("SR eligibility rejects eliminated units while preserving reserve SCU SR", () => {
 	let game = setupGame(2026050702, "Historical")
 	let brDiv = findPiece(AP, "BR DIV #4")
@@ -81,12 +102,7 @@ test("Gallipoli invasion flip cannot use an eliminated SCU as the reserve-enabli
 	game.pieces[brViii] = lemnos
 	rules.set_add(game.reduced, brViii)
 	eliminateToBox(game, brDiv)
-	game.active = AP
-	game.state = "event_gallipoli_invasion_flip"
-	game.event_ctx = {
-		key: "gallipoli_invasion",
-		data: { invasion_island_base: lemnos }
-	}
+	setupGallipoliFlipState(game, lemnos)
 
 	let view = rules.view(game, AP_ROLE)
 	expect(view.actions.piece || []).not.toContain(brDiv)
@@ -94,6 +110,105 @@ test("Gallipoli invasion flip cannot use an eliminated SCU as the reserve-enabli
 	game = rules.action(game, AP_ROLE, "piece", brDiv)
 	expect(Engine.game_utils.is_eliminated(game, brDiv)).toBe(true)
 	expect(Engine.game_utils.is_piece_reduced(game, brViii)).toBe(true)
+})
+
+test("Gallipoli invasion flip does not allow reserve-enabling SR when the condition is already satisfied", () => {
+	let game = setupGame(2026050710, "Historical")
+	let lemnos = findSpace("Lemnos")
+	let portSaid = findSpace("Port Said")
+	let reserve = Engine.game_utils.get_scu_reserve_box(AP)
+	let brViii = findPiece(AP, "BR VIII Corps")
+	let reserveBrDiv = findPiece(AP, "BR DIV #4")
+	let extraBrElite = findPiece(AP, "BR Elite DIV #1")
+
+	clearGallipoliReserveMatchingScus(game, [reserveBrDiv, extraBrElite])
+	game.pieces[brViii] = lemnos
+	rules.set_add(game.reduced, brViii)
+	game.pieces[reserveBrDiv] = reserve
+	game.pieces[extraBrElite] = portSaid
+	game.control[portSaid] = AP
+	setupGallipoliFlipState(game, lemnos)
+
+	let view = rules.view(game, AP_ROLE)
+	expect(view.actions.piece || []).not.toContain(reserveBrDiv)
+	expect(view.actions.piece || []).not.toContain(extraBrElite)
+
+	game = rules.action(game, AP_ROLE, "piece", extraBrElite)
+	expect(game.pieces[extraBrElite]).toBe(portSaid)
+	expect(Engine.game_utils.is_piece_reduced(game, brViii)).toBe(true)
+
+	game = rules.action(game, AP_ROLE, "done")
+	expect(Engine.game_utils.is_piece_reduced(game, brViii)).toBe(false)
+})
+
+test("Gallipoli invasion reserve-enabling SR only accepts BR and ANZ infantry or elite SCUs", () => {
+	let game = setupGame(2026050711, "Historical")
+	let lemnos = findSpace("Lemnos")
+	let portSaid = findSpace("Port Said")
+	let brViii = findPiece(AP, "BR VIII Corps")
+	let anzac = findPiece(AP, "ANZ ANZAC")
+	let brInf = findPiece(AP, "BR DIV #5")
+	let brElite = findPiece(AP, "BR Elite DIV #1")
+	let brCavalry = findPiece(AP, "BR Cavalry #1")
+	let anzElite = findPiece(AP, "ANZ Elite DIV")
+	let anzCavalry = findPiece(AP, "ANZ Cavalry #1")
+
+	clearGallipoliReserveMatchingScus(game, [brInf, brElite, brCavalry, anzElite, anzCavalry])
+	game.pieces[brViii] = lemnos
+	game.pieces[anzac] = lemnos
+	rules.set_add(game.reduced, brViii)
+	rules.set_add(game.reduced, anzac)
+	for (let p of [brInf, brElite, brCavalry, anzElite, anzCavalry]) game.pieces[p] = portSaid
+	game.control[portSaid] = AP
+	setupGallipoliFlipState(game, lemnos)
+
+	let view = rules.view(game, AP_ROLE)
+	expect(view.actions.piece || []).toContain(brInf)
+	expect(view.actions.piece || []).toContain(brElite)
+	expect(view.actions.piece || []).toContain(anzElite)
+	expect(view.actions.piece || []).not.toContain(brCavalry)
+	expect(view.actions.piece || []).not.toContain(anzCavalry)
+
+	game = rules.action(game, AP_ROLE, "piece", brInf)
+	expect(game.pieces[brInf]).toBe(Engine.game_utils.get_scu_reserve_box(AP))
+	expect(Engine.game_utils.is_piece_reduced(game, brViii)).toBe(false)
+	expect(Engine.game_utils.is_piece_reduced(game, anzac)).toBe(true)
+})
+
+test("Gallipoli invasion reserve-enabling SR is offered only for the unsatisfied nation", () => {
+	let game = setupGame(2026050712, "Historical")
+	let lemnos = findSpace("Lemnos")
+	let portSaid = findSpace("Port Said")
+	let reserve = Engine.game_utils.get_scu_reserve_box(AP)
+	let brViii = findPiece(AP, "BR VIII Corps")
+	let anzac = findPiece(AP, "ANZ ANZAC")
+	let reserveBrDiv = findPiece(AP, "BR DIV #4")
+	let extraBrElite = findPiece(AP, "BR Elite DIV #1")
+	let anzElite = findPiece(AP, "ANZ Elite DIV")
+
+	clearGallipoliReserveMatchingScus(game, [reserveBrDiv, extraBrElite, anzElite])
+	game.pieces[brViii] = lemnos
+	game.pieces[anzac] = lemnos
+	rules.set_add(game.reduced, brViii)
+	rules.set_add(game.reduced, anzac)
+	game.pieces[reserveBrDiv] = reserve
+	game.pieces[extraBrElite] = portSaid
+	game.pieces[anzElite] = portSaid
+	game.control[portSaid] = AP
+	setupGallipoliFlipState(game, lemnos)
+
+	let view = rules.view(game, AP_ROLE)
+	expect(view.actions.piece || []).toContain(anzElite)
+	expect(view.actions.piece || []).not.toContain(reserveBrDiv)
+	expect(view.actions.piece || []).not.toContain(extraBrElite)
+
+	game = rules.action(game, AP_ROLE, "piece", anzElite)
+	expect(game.pieces[anzElite]).toBe(reserve)
+	expect(Engine.game_utils.is_piece_reduced(game, anzac)).toBe(false)
+	expect(Engine.game_utils.is_piece_reduced(game, brViii)).toBe(true)
+
+	game = rules.action(game, AP_ROLE, "done")
+	expect(Engine.game_utils.is_piece_reduced(game, brViii)).toBe(false)
 })
 
 test("Salonika invasion cannot SR an eliminated AP SCU", () => {

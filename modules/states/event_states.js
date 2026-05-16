@@ -396,6 +396,17 @@ module.exports = function (Engine) {
 			.filter((p) => p >= 0 && game.pieces[p] === island_base)
 	}
 
+	function is_gallipoli_reserve_scu_match(lcu, scu) {
+		let lcu_info = data.pieces[lcu]
+		let scu_info = data.pieces[scu]
+		if (!lcu_info || !scu_info) return false
+		if (scu_info.faction !== AP || scu_info.piece_class !== "SCU") return false
+		if (lcu_info.nation !== "br" && lcu_info.nation !== "anz") return false
+		if (scu_info.nation !== lcu_info.nation) return false
+		let badge = get_piece_badge(scu)
+		return badge === "infantry" || badge === "blue"
+	}
+
 	function get_gallipoli_flip_options(game, rules, p) {
 		let info = data.pieces[p]
 		if (!info || info.piece_class !== "LCU") return []
@@ -407,8 +418,7 @@ module.exports = function (Engine) {
 			if (!rules.is_in_reserve(game, i)) continue
 			let replacement = data.pieces[i]
 			if (replacement.piece_class !== "SCU") continue
-			if (replacement.nation !== info.nation) continue
-			if (replacement.type !== info.type) continue
+			if (!is_gallipoli_reserve_scu_match(p, i)) continue
 			if (Engine.events.is_turkish_replacement_blocked && Engine.events.is_turkish_replacement_blocked(game, i))
 				continue
 
@@ -422,6 +432,8 @@ module.exports = function (Engine) {
 		let info = data.pieces[p]
 		if (!info || info.faction !== AP || !rules.is_scu(p)) return false
 		if (game.pieces[p] <= 0 || rules.is_in_reserve(game, p)) return false
+		let badge = get_piece_badge(p)
+		if (badge !== "infantry" && badge !== "blue") return false
 		if (!rules.can_sr_piece(game, p, AP)) return false
 		if (!rules.can_sr_to_space(game, p, rules.get_reserve_box(AP), AP)) return false
 
@@ -430,11 +442,9 @@ module.exports = function (Engine) {
 		)
 		if (pending_lcus.length === 0) return false
 
-		let original_space = game.pieces[p]
-		game.pieces[p] = rules.get_reserve_box(AP)
-		let can_enable = pending_lcus.some((lcu) => get_gallipoli_flip_options(game, rules, lcu).includes(p))
-		game.pieces[p] = original_space
-		return can_enable
+		return pending_lcus.some(
+			(lcu) => is_gallipoli_reserve_scu_match(lcu, p) && get_gallipoli_flip_options(game, rules, lcu).length === 0
+		)
 	}
 
 	function get_gallipoli_target_lcu_for_scu(game, rules, p) {
@@ -445,22 +455,37 @@ module.exports = function (Engine) {
 			Engine.game_utils.is_piece_reduced(game, lcu)
 		)
 		for (let lcu of pending_lcus) {
-			let lcu_info = data.pieces[lcu]
-			if (!lcu_info) continue
-			if (lcu_info.nation === info.nation && lcu_info.type === info.type) return lcu
+			if (rules.is_in_reserve(game, p)) {
+				if (get_gallipoli_flip_options(game, rules, lcu).includes(p)) return lcu
+			} else if (
+				is_gallipoli_reserve_scu_match(lcu, p) &&
+				get_gallipoli_flip_options(game, rules, lcu).length === 0
+			) {
+				return lcu
+			}
 		}
 
 		return -1
 	}
 
-	function can_gallipoli_scu_flip_lcu(game, rules, p) {
-		if (get_gallipoli_target_lcu_for_scu(game, rules, p) < 0) return false
-		if (rules.is_in_reserve(game, p)) return true
-		return (
-			game.pieces[p] > 0 &&
-			rules.can_sr_piece(game, p, AP) &&
-			rules.can_sr_to_space(game, p, rules.get_reserve_box(AP), AP)
+	function auto_flip_gallipoli_lcus_with_reserve_scus(game, rules) {
+		let pending_lcus = get_gallipoli_invasion_lcus(game, rules).filter((p) =>
+			Engine.game_utils.is_piece_reduced(game, p)
 		)
+		for (let lcu of pending_lcus) {
+			if (get_gallipoli_flip_options(game, rules, lcu).length === 0) continue
+			rules.set_delete(game.reduced, lcu)
+			rules.log(`${rules.piece_name(lcu)} flipped.`)
+		}
+	}
+
+	function enter_gallipoli_invasion_flip_or_finish(game, rules) {
+		auto_flip_gallipoli_lcus_with_reserve_scus(game, rules)
+		let pending_lcus = get_gallipoli_invasion_lcus(game, rules).filter((p) =>
+			Engine.game_utils.is_piece_reduced(game, p)
+		)
+		if (pending_lcus.length === 0) finish_gallipoli_invasion(game, rules)
+		else game.state = "event_gallipoli_invasion_flip"
 	}
 
 	function is_ap_british_empire_scu(p) {
@@ -2128,7 +2153,7 @@ module.exports = function (Engine) {
 			let { game, rules } = ctx
 			let invasion = get_active_event_data(game)
 			if (invasion && invasion.flip_lcu_if_scu) {
-				game.state = "event_gallipoli_invasion_flip"
+				enter_gallipoli_invasion_flip_or_finish(game, rules)
 			} else if (((invasion && invasion.allow_sr_to_island) || 0) > 0) {
 				game.state = "event_salonika_invasion_sr"
 			} else {
@@ -2162,7 +2187,7 @@ module.exports = function (Engine) {
 			if (units.length === 0) {
 				if (source) delete source.reinf_to_place
 				if (invasion && invasion.flip_lcu_if_scu) {
-					game.state = "event_gallipoli_invasion_flip"
+					enter_gallipoli_invasion_flip_or_finish(game, rules)
 				} else if (((invasion && invasion.allow_sr_to_island) || 0) > 0) {
 					game.state = "event_salonika_invasion_sr"
 				} else {
@@ -2195,9 +2220,7 @@ module.exports = function (Engine) {
 
 			let scu_candidates = []
 			for (let p = 1; p < data.pieces.length; p++) {
-				if (can_gallipoli_scu_flip_lcu(game, rules, p) || can_gallipoli_scu_sr_to_reserve(game, rules, p)) {
-					scu_candidates.push(p)
-				}
+				if (can_gallipoli_scu_sr_to_reserve(game, rules, p)) scu_candidates.push(p)
 			}
 
 			if (scu_candidates.length > 0) {
@@ -2214,7 +2237,7 @@ module.exports = function (Engine) {
 			let { game, rules, arg: p } = ctx
 			let target_lcu = get_gallipoli_target_lcu_for_scu(game, rules, p)
 			if (target_lcu < 0) return
-			if (!can_gallipoli_scu_flip_lcu(game, rules, p) && !can_gallipoli_scu_sr_to_reserve(game, rules, p)) return
+			if (!can_gallipoli_scu_sr_to_reserve(game, rules, p)) return
 
 			rules.push_undo()
 			if (!rules.is_in_reserve(game, p)) {
@@ -2229,6 +2252,7 @@ module.exports = function (Engine) {
 		},
 		done(ctx) {
 			let { game, rules } = ctx
+			auto_flip_gallipoli_lcus_with_reserve_scus(game, rules)
 			finish_gallipoli_invasion(game, rules)
 		}
 	}
