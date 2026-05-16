@@ -544,6 +544,7 @@ module.exports = function (Engine) {
 		delete game.save_tiflis_failed
 		delete game.save_tiflis_vacated_battle_space
 		delete game.save_tiflis_pieces
+		delete game.save_tiflis_exempt_spaces
 		if (game.events) delete game.events["save_tiflis"]
 	}
 
@@ -2078,6 +2079,7 @@ module.exports = function (Engine) {
 				remember_attack_piece_origin(game, p)
 			}
 			let defender_faction = other_faction(game.active)
+			game.attack.initial_attackers = (game.attack.pieces || []).slice()
 			game.attack.initial_defenders = get_combat_defenders(game, game.attack.space, defender_faction)
 			game.attack.reserves_to_front_initial_reduced_pieces = []
 			for (let p of game.attack.pieces || []) {
@@ -2255,6 +2257,7 @@ module.exports = function (Engine) {
 		if (game.events && game.events["save_tiflis"] === game.turn && !game.save_tiflis_resolved) {
 			// Rule 66: Save Tiflis
 			let ru_pieces = []
+			let exempt_spaces = []
 			for (let p = 0; p < game.pieces.length; p++) {
 				if (
 					get_piece_effective_faction(game, p) === AP &&
@@ -2268,12 +2271,17 @@ module.exports = function (Engine) {
 					// Affected area: Azerbaijan, Persia, or Turkey (nation: tu)
 					if (s_data.area === "azerbaijan" || s_data.area === "persia" || s_data.nation === "tu") {
 						ru_pieces.push(p)
+						let pieces_here = get_pieces_in_space(game, s)
+						let with_yudenitch = pieces_here.some((p2) => data.pieces[p2].name === "RU Yudenitch HQ")
+						let in_fort = has_undestroyed_fort(game, s, AP) || has_undestroyed_fort(game, s, CP)
+						if (with_yudenitch || in_fort) set_add(exempt_spaces, s)
 					}
 				}
 			}
 
 			if (ru_pieces.length > 0) {
 				game.save_tiflis_pieces = ru_pieces
+				game.save_tiflis_exempt_spaces = exempt_spaces
 				game.save_tiflis_failed = false
 				game.save_tiflis_resolved = true
 				game.active = AP

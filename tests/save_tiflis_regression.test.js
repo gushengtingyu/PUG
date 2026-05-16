@@ -56,6 +56,9 @@ const RU_CAV_4 = 106 // 俄国 SCU（备用）
 const RU_DIV_1 = 112 // 俄国 SCU（备用）
 const RU_YUDENITCH_HQ = 145 // 俄国 HQ（其在场可豁免同地块单位）
 const CC_CP_SAVE_TIFLIS = 66
+const ERCIS = 66
+const KHOY = 72
+const VAN = 87
 
 const AP_RESERVE = data.spaces.findIndex((s, i) => i > 0 && s && s.name === "AP Reserve")
 
@@ -117,6 +120,8 @@ function setupResolvedRetreatChoiceState(game, opts = {}) {
 	setupRetreatChoiceState(game, opts)
 	const attackerPiece = opts.attackerPiece ?? TU_1_CAUCASIAN
 	const defenderPiece = opts.defenderPiece ?? RU_I_CAUCASIAN
+	game.attack.initial_attackers = [attackerPiece]
+	game.attack.initial_defenders = [defenderPiece]
 	game.battle_result = {
 		attacker_losses: 0,
 		defender_losses: opts.defenderLosses ?? 0,
@@ -127,6 +132,18 @@ function setupResolvedRetreatChoiceState(game, opts = {}) {
 		retreat_distance: opts.retreatDistance ?? 1,
 		no_advance: opts.noAdvance ?? true
 	}
+}
+
+function enterSaveTiflisWindowAfterOrdinaryRetreat(game, spaces) {
+	Engine.combat.end_battle_sequence(game, () => {})
+	if (game.state === "retreat_cancel") {
+		game = rules.action(game, AP_ROLE, "proceed_retreat")
+	}
+	for (let s of spaces) {
+		game = rules.action(game, AP_ROLE, "piece", RU_I_CAUCASIAN)
+		game = rules.action(game, AP_ROLE, "space", s)
+	}
+	return game
 }
 
 // ─── 测试组 1: can_play_save_tiflis 条件检查 ──────────────────────────────
@@ -220,14 +237,22 @@ test("SAVE TIFLIS: 通过真实 play_cc 动作打出后先进行普通战斗撤�
 	game.pieces[RU_CAV_1] = TABRIZ
 
 	let view = rules.view(game, CP_ROLE)
+	expect(view.actions.play_cc || []).not.toContain(CC_CP_SAVE_TIFLIS)
+
+	game = rules.action(game, CP_ROLE, "play_cc", CC_CP_SAVE_TIFLIS)
+	expect(game.state).toBe("retreat_choice_cc_cp")
+	expect(game.events["save_tiflis"]).toBeUndefined()
+
+	game = enterSaveTiflisWindowAfterOrdinaryRetreat(game, [KARS])
+	expect(game.state).toBe("retreat_choice_cc_cp")
+	expect(game.active).toBe(CP)
+
+	view = rules.view(game, CP_ROLE)
 	expect(view.actions.play_cc || []).toContain(CC_CP_SAVE_TIFLIS)
 
 	game = rules.action(game, CP_ROLE, "play_cc", CC_CP_SAVE_TIFLIS)
 
-	expect(game.state).toBe("retreat_cancel")
-	expect(game.active).toBe(AP)
-	expect(game.retreat_pieces).toContain(RU_I_CAUCASIAN)
-	expect(game.save_tiflis_pieces).toBeUndefined()
+	expect(game.state).toBe("save_tiflis_retreat")
 	expect(game.events["save_tiflis"]).toBe(game.turn)
 	expect(game.combat_cards.attacker).toContain(CC_CP_SAVE_TIFLIS)
 	expect(game.combat_cards.defender).not.toContain(CC_CP_SAVE_TIFLIS)
@@ -238,13 +263,10 @@ test("SAVE TIFLIS: 普通战斗撤退完成后才执行回援撤退，随后进�
 	setupResolvedRetreatChoiceState(game, { noAdvance: false, defenderLosses: 1 })
 	game.pieces[RU_CAV_1] = TABRIZ
 
-	game = rules.action(game, CP_ROLE, "play_cc", CC_CP_SAVE_TIFLIS)
-	expect(game.state).toBe("retreat_cancel")
+	game = enterSaveTiflisWindowAfterOrdinaryRetreat(game, [KARS])
+	expect(game.state).toBe("retreat_choice_cc_cp")
 
-	game = rules.action(game, AP_ROLE, "proceed_retreat")
-	expect(game.state).toBe("retreat")
-	game = rules.action(game, AP_ROLE, "piece", RU_I_CAUCASIAN)
-	game = rules.action(game, AP_ROLE, "space", KARS)
+	game = rules.action(game, CP_ROLE, "play_cc", CC_CP_SAVE_TIFLIS)
 
 	expect(game.state).toBe("save_tiflis_retreat")
 	expect(game.active).toBe(AP)
@@ -272,13 +294,10 @@ test("SAVE TIFLIS: 平地普通两格撤退后 TU 可挺进两格但不能追随
 		retreatDistance: 2
 	})
 
-	game = rules.action(game, CP_ROLE, "play_cc", CC_CP_SAVE_TIFLIS)
-	expect(game.state).toBe("retreat")
+	game = enterSaveTiflisWindowAfterOrdinaryRetreat(game, [RAS_UL_AIN, NAZIBIN])
+	expect(game.state).toBe("retreat_choice_cc_cp")
 
-	game = rules.action(game, AP_ROLE, "piece", RU_I_CAUCASIAN)
-	game = rules.action(game, AP_ROLE, "space", RAS_UL_AIN)
-	game = rules.action(game, AP_ROLE, "piece", RU_I_CAUCASIAN)
-	game = rules.action(game, AP_ROLE, "space", NAZIBIN)
+	game = rules.action(game, CP_ROLE, "play_cc", CC_CP_SAVE_TIFLIS)
 
 	expect(game.state).toBe("save_tiflis_retreat")
 	expect(game.retreat_first_spaces).toEqual([RAS_UL_AIN])
@@ -320,15 +339,10 @@ test("SAVE TIFLIS: 普通两格撤退后若战斗地是山地，TU 挺进进入�
 	})
 	game.pieces[RU_CAV_1] = TABRIZ
 
-	game = rules.action(game, CP_ROLE, "play_cc", CC_CP_SAVE_TIFLIS)
-	expect(game.state).toBe("retreat_cancel")
-	game = rules.action(game, AP_ROLE, "proceed_retreat")
-	expect(game.state).toBe("retreat")
+	game = enterSaveTiflisWindowAfterOrdinaryRetreat(game, [KARS, ALEKSANDROPOL])
+	expect(game.state).toBe("retreat_choice_cc_cp")
 
-	game = rules.action(game, AP_ROLE, "piece", RU_I_CAUCASIAN)
-	game = rules.action(game, AP_ROLE, "space", KARS)
-	game = rules.action(game, AP_ROLE, "piece", RU_I_CAUCASIAN)
-	game = rules.action(game, AP_ROLE, "space", ALEKSANDROPOL)
+	game = rules.action(game, CP_ROLE, "play_cc", CC_CP_SAVE_TIFLIS)
 
 	expect(game.state).toBe("save_tiflis_retreat")
 
@@ -356,10 +370,13 @@ test("SAVE TIFLIS: 普通撤退被取消后若回援撤退腾空战斗地，TU �
 		retreatDistance: 1
 	})
 
-	game = rules.action(game, CP_ROLE, "play_cc", CC_CP_SAVE_TIFLIS)
+	Engine.combat.end_battle_sequence(game, () => {})
 	expect(game.state).toBe("retreat_cancel")
 
 	game = rules.action(game, AP_ROLE, "piece", RU_I_CAUCASIAN)
+	expect(game.state).toBe("retreat_choice_cc_cp")
+
+	game = rules.action(game, CP_ROLE, "play_cc", CC_CP_SAVE_TIFLIS)
 	expect(game.state).toBe("save_tiflis_retreat")
 	expect(game.pieces[RU_I_CAUCASIAN]).toBe(TABRIZ)
 
@@ -440,6 +457,7 @@ test("SAVE TIFLIS: 选中单位后显示合法撤退目标（距第比利斯更�
 	expect(view.actions.space).toContain(JULFA)
 	// TABRIZ 的其他邻居（距 TIFLIS >= 5 格）不应出现
 	expect(view.actions.space).not.toContain(TABRIZ)
+	expect(view.actions.space).not.toContain(ENZELI)
 })
 
 test("SAVE TIFLIS: 单位成功撤退至更近地块", () => {
@@ -493,6 +511,7 @@ test("SAVE TIFLIS: 全部单位处理完毕后状态机正常推进", () => {
 
 test("SAVE TIFLIS: 多个单位依次撤退", () => {
 	const game = makeSaveTiflisRetreatGame([RU_CAV_1, RU_CAV_4])
+	clearSpaces(game, [TABRIZ, JULFA])
 	game.pieces[RU_CAV_1] = TABRIZ
 	game.pieces[RU_CAV_4] = MENJIL // 距 TIFLIS 7 格，ENZELI 距 TIFLIS 6 格
 
@@ -502,12 +521,13 @@ test("SAVE TIFLIS: 多个单位依次撤退", () => {
 
 	expect(game.pieces[RU_CAV_1]).toBe(JULFA)
 	expect(game.save_tiflis_pieces).toContain(RU_CAV_4)
+	game.pieces[RU_CAV_4] = TABRIZ
 
 	// 撤退第二个单位
 	rules.action(game, AP_ROLE, "piece", RU_CAV_4)
-	rules.action(game, AP_ROLE, "space", ENZELI)
+	rules.action(game, AP_ROLE, "space", JULFA)
 
-	expect(game.pieces[RU_CAV_4]).toBe(ENZELI)
+	expect(game.pieces[RU_CAV_4]).toBe(JULFA)
 	expect(game.save_tiflis_pieces).not.toContain(RU_CAV_4)
 })
 
@@ -709,4 +729,71 @@ test("SAVE TIFLIS: 同一行动论的下一场战斗不会重复触发（跨战�
 	Engine.combat.end_battle_sequence(game, () => {})
 	expect(game.state).not.toBe("save_tiflis_retreat")
 	expect(game.save_tiflis_pieces).toBeUndefined()
+})
+
+test("SAVE TIFLIS: units in a Yudenitch start space may decline even after the HQ is processed", () => {
+	const game = makeSaveTiflisRetreatGame([RU_CAV_1])
+	game.pieces[RU_CAV_1] = TABRIZ
+	game.pieces[RU_YUDENITCH_HQ] = JULFA
+	game.save_tiflis_exempt_spaces = [TABRIZ]
+
+	rules.action(game, AP_ROLE, "piece", RU_CAV_1)
+
+	const view = rules.view(game, AP_ROLE)
+	expect(view.actions.decline_retreat).toBeTruthy()
+
+	rules.action(game, AP_ROLE, "decline_retreat")
+
+	expect(game.pieces[RU_CAV_1]).toBe(TABRIZ)
+	expect(game.save_tiflis_failed).not.toBe(true)
+	expect(game.save_tiflis_pieces).not.toContain(RU_CAV_1)
+})
+
+function clearSpaces(game, spaces) {
+	for (let p = 1; p < game.pieces.length; p++) {
+		if (spaces.includes(game.pieces[p])) game.pieces[p] = 0
+	}
+}
+
+function fillKhoyForSaveTiflis(game) {
+	game.pieces[RU_I_CAUCASIAN] = KHOY
+	game.pieces[RU_CAV_4] = KHOY
+	game.pieces[RU_DIV_1] = KHOY
+}
+
+test("SAVE TIFLIS: friendly closer destination is prioritized over non-friendly closer destination", () => {
+	const game = makeSaveTiflisRetreatGame([RU_CAV_1])
+	clearSpaces(game, [VAN, KHOY, ERCIS])
+	game.pieces[RU_CAV_1] = VAN
+	game.control[KHOY] = AP
+	game.control[ERCIS] = CP
+
+	rules.action(game, AP_ROLE, "piece", RU_CAV_1)
+
+	const view = rules.view(game, AP_ROLE)
+	expect(view.actions.space).toContain(KHOY)
+	expect(view.actions.space).not.toContain(ERCIS)
+})
+
+test.each([
+	["enemy-controlled", CP],
+	["neutral", "neutral"]
+])("SAVE TIFLIS: retreat into an empty %s space is allowed only when closer friendly space is full", (_label, controller) => {
+	const game = makeSaveTiflisRetreatGame([RU_CAV_1])
+	clearSpaces(game, [VAN, KHOY, ERCIS])
+	game.pieces[RU_CAV_1] = VAN
+	game.control[KHOY] = AP
+	game.control[ERCIS] = controller
+	fillKhoyForSaveTiflis(game)
+
+	rules.action(game, AP_ROLE, "piece", RU_CAV_1)
+
+	const view = rules.view(game, AP_ROLE)
+	expect(view.actions.space).toContain(ERCIS)
+	expect(view.actions.space).not.toContain(KHOY)
+
+	rules.action(game, AP_ROLE, "space", ERCIS)
+
+	expect(game.pieces[RU_CAV_1]).toBe(ERCIS)
+	expect(Engine.map.get_space_controller(game, ERCIS)).toBe(AP)
 })

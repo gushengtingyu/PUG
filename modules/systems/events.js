@@ -2194,7 +2194,7 @@ module.exports = function (Engine) {
 		41: {
 			name: "BALFOUR DECLARATION",
 			name_cn: "贝尔福宣言",
-			effect_cn: "(只有在协约国控制耶路撒冷、雅法、海法或者纳布卢斯时才能打出)。-1VP。",
+			effect_cn: "(只有在协约国控制耶路撒冷、雅法、海法和纳布卢斯时才能打出)。-1VP。",
 			can_play: has_allied_control_of_balfour_spaces,
 			handler: function (game) {
 				game.vp -= 1

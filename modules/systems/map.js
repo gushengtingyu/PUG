@@ -772,9 +772,9 @@ module.exports = function (Engine) {
 
 	function has_allied_control_of_balfour_spaces(game) {
 		return (
-			is_controlled_by(game, JERUSALEM, AP) ||
-			is_controlled_by(game, JAFFA, AP) ||
-			is_controlled_by(game, HAIFA, AP) ||
+			is_controlled_by(game, JERUSALEM, AP) &&
+			is_controlled_by(game, JAFFA, AP) &&
+			is_controlled_by(game, HAIFA, AP) &&
 			is_controlled_by(game, NABLUS, AP)
 		)
 	}

@@ -410,13 +410,17 @@ module.exports = function (Engine) {
 
 	function can_play_save_tiflis(game) {
 		if (!can_play_in_window(game, "retreat_choice_cc_cp")) return false
+		if (game.battle_result && game.battle_result.retreat_needed && !game.retreat_phase_done) return false
 
-		// Turkish LCU must have attacked in this battle. Use the battle pool so
-		// an LCU replaced by an SCU after taking losses still satisfies this.
-		let has_tu_lcu_attacker = get_battle_piece_pool(game).some((p) => {
-			let was_attacker =
-				set_has(game.attack?.initial_attackers || [], p) || set_has(game.attack?.pieces || [], p)
-			if (!was_attacker) return false
+		// Turkish LCU must have attacked in this battle. Use recorded battle
+		// membership so an LCU replaced by an SCU after losses still satisfies this.
+		let attacker_candidates = [
+			...(game.attack?.initial_attackers || []),
+			...(game.attack?.pieces || []),
+			...(game.battle_result?.attackers || []),
+			...(game.attack?.eliminated_attackers || [])
+		]
+		let has_tu_lcu_attacker = attacker_candidates.some((p) => {
 			return (
 				(piece_counts_as_nation_for_rule(game, p, "tu") || piece_counts_as_nation_for_rule(game, p, "tua")) &&
 				game_utils.is_lcu(p)
@@ -424,9 +428,15 @@ module.exports = function (Engine) {
 		})
 		if (!has_tu_lcu_attacker) return false
 
-		// Russian LCU must be the defender
-		let defenders = get_space_pieces(game, game.attack.space).filter((p) => data.pieces[p].faction === AP)
-		let has_ru_lcu_defender = defenders.some((p) => {
+		// Russian LCU must have defended in this battle. At this window the
+		// ordinary combat retreat may already have moved it out of the battle space.
+		let defender_candidates = [
+			...(game.attack?.initial_defenders || []),
+			...(game.battle_result?.defenders || []),
+			...(game.attack?.eliminated_defenders || []),
+			...get_space_pieces(game, game.attack.space).filter((p) => data.pieces[p].faction === AP)
+		]
+		let has_ru_lcu_defender = defender_candidates.some((p) => {
 			return piece_counts_as_nation_for_rule(game, p, "ru") && game_utils.is_lcu(p)
 		})
 		if (!has_ru_lcu_defender) return false

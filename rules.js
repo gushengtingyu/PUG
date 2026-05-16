@@ -1260,6 +1260,8 @@ states.retreat_choice_cc_cp = {
 	},
 	play_cc(card) {
 		if (card === Engine.combat.CC_CP_SAVE_TIFLIS) {
+			if (game.battle_result && game.battle_result.retreat_needed && !game.retreat_phase_done) return
+			if (!Engine.combat_cards.can_play_combat_card(game, card)) return
 			game.events["save_tiflis"] = game.turn
 			
 			let played_from_retained = false
