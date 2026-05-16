@@ -3611,7 +3611,7 @@ module.exports = function (Engine) {
 				"(不能在1917年冬季前打出，只能在【地中海潜艇猎袭】后打出)。-1VP。。剩余的游戏时间内，阻止新的海上入侵行动事件和行动(并且移除所有预备军格(未使用的)滩头标志，海上入侵事件牌此后只能当作增援打出)。在剩余的游戏时间里，当雅典不被协约国控制的场合，协约国任何**仅通过东地中海计算补给线的部队**启动花费+1，战略调整花费+1**(指仅从塞浦路斯岛屿基地或者东地中海沿岸港口计算补给线的部队)**",
 			can_play: function (game) {
 				let year = get_year(game)
-				return (year > 1917 || (year === 1917 && get_season(game) !== "Winter")) && game.events["german_subs"]
+				return year >= 1917 && game.events["german_subs"]
 			},
 			handler: function (game, ctx) {
 				game.vp -= 1
