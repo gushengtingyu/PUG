@@ -3420,7 +3420,7 @@ module.exports = function (Engine) {
 			// Defender Cards
 			if (game.combat_cards.defender) {
 				if (game.combat_cards.defender.includes(CC_CP_I_ORDER_YOU_TO_DIE)) {
-					if (defenders.every((p) => data.pieces[p].nation === "tu" || data.pieces[p].nation === "tua")) {
+					if (defenders.every((p) => data.pieces[p].nation === "tu")) {
 						trench_bonus_cp = 1
 						i_order_you_to_die_trench_bonus = true
 						mark_effected(CC_CP_I_ORDER_YOU_TO_DIE)

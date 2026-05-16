@@ -481,7 +481,7 @@ module.exports = function (Engine) {
 			(p) => game_utils.get_piece_effective_faction(game, p) === CP
 		)
 		if (defenders.length === 0) return false
-		return defenders.every((p) => ["tu", "tua"].includes(data.pieces[p].nation))
+		return defenders.every((p) => data.pieces[p].nation === "tu")
 	}
 
 	function can_play_pasha_1(game) {
@@ -773,8 +773,8 @@ module.exports = function (Engine) {
 			windows: STANDARD_CC_WINDOWS,
 			can_play: can_play_i_order_you_to_die,
 			modifiers: {
-				drm({ has_nation, side_pieces }) {
-					return has_nation(side_pieces, ["tu", "tua"]) ? 1 : 0
+				drm({ side_pieces }) {
+					return side_pieces.length > 0 && side_pieces.every((p) => data.pieces[p].nation === "tu") ? 1 : 0
 				}
 			}
 		},
