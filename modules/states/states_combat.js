@@ -924,7 +924,13 @@ exports.register = function (states, Engine, context) {
 			}
 
 			let neighbors = get_connected_spaces(game, s)
-			let candidates = neighbors.filter((ns) => Engine.game_utils.get_capacity(game, ns) > 0)
+			let candidates = neighbors.filter((ns) => {
+				if (Engine.map.is_controlled_by(game, ns, enemy_faction)) return false
+				if (Engine.map.is_besieged(game, ns)) return false
+				if (Engine.map.contains_enemy_pieces(game, ns, helper.faction) && !Engine.map.is_region(game, ns))
+					return false
+				return Engine.game_utils.get_capacity(game, ns) > 0
+			})
 			if (candidates.length === 0) continue
 
 			let max_min_dist = -1
@@ -1316,6 +1322,17 @@ exports.register = function (states, Engine, context) {
 		space(s) {
 			push_undo()
 			Engine.events.reinforce(game, "IN 15th DIV", AP, s)
+			let indian_division = Engine.game_utils.find_piece(AP, "IN 15th DIV")
+			if (
+				indian_division >= 0 &&
+				game.attack &&
+				Array.isArray(game.attack.pieces) &&
+				get_maude_attack_origin_spaces().includes(s) &&
+				!game.attack.pieces.includes(indian_division)
+			) {
+				game.attack.pieces.push(indian_division)
+				combat.remember_attack_piece_origin(game, indian_division)
+			}
 			// The placement effect has resolved even if the battle is later cancelled.
 			mark_combat_card_effected(combat.CC_AP_MAUDE)
 			game.active = AP

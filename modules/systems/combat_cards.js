@@ -265,13 +265,6 @@ module.exports = function (Engine) {
 		if (!can_play_in_window(game, "pre_flank_cc_attacker", AP)) return false
 		for (let s of get_maude_attack_origin_spaces(game)) {
 			if (space_has_ap_nations(game, s, ["br", "in"])) return true
-			if (
-				space_has_ap_nations(game, s, ["br"]) &&
-				typeof game_utils.get_capacity === "function" &&
-				game_utils.get_capacity(game, s) > 0
-			) {
-				return true
-			}
 		}
 		return false
 	}

@@ -3661,6 +3661,13 @@ module.exports = function (Engine) {
 				return Engine.map.can_stack_end_in_space(game, s, [p_id])
 			}
 
+			function can_place_adjacent_overflow_reinforcement(s, p_id) {
+				let enemy = rules.other_faction(faction)
+				if (Engine.map.is_controlled_by(game, s, enemy)) return false
+				if (Engine.map.is_besieged(game, s)) return false
+				return can_place_reinforcement_unit_in_space(s, p_id)
+			}
+
 			if (helper && helper.check) {
 				let enemy_faction = rules.other_faction(helper.faction)
 				let enemy_spaces = []
@@ -3695,7 +3702,7 @@ module.exports = function (Engine) {
 						} else if (allow_adjacent_overflow) {
 							// Rule 7.7.2: if full, adjacent placement allowed
 							let neighbors = rules.get_connected_spaces(game, s)
-							let candidates = neighbors.filter((ns) => can_place_reinforcement_unit_in_space(ns, p_id))
+							let candidates = neighbors.filter((ns) => can_place_adjacent_overflow_reinforcement(ns, p_id))
 
 							if (candidates.length > 0) {
 								// Priority to spaces farthest from enemy units
