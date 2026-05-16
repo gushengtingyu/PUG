@@ -114,23 +114,28 @@ module.exports = function (Engine) {
 
 	function has_nation_on_side_in_battle(game, nations, faction) {
 		if (!has_attack(game)) return false
+		let pieces = get_faction_side_pieces_in_battle(game, faction)
+		return pieces.some((p) => {
+			let p_faction = get_piece_effective_faction(game, p)
+			return p_faction === faction && nations.some((nation) => piece_counts_as_nation_for_rule(game, p, nation))
+		})
+	}
+
+	function get_faction_side_pieces_in_battle(game, faction) {
+		if (!has_attack(game)) return []
 		let attackers = game.attack.pieces || []
 		let attacker_faction = game.attack.attacker
 		if (attacker_faction === undefined || attacker_faction === null) {
 			attacker_faction = attackers.length > 0 ? get_piece_effective_faction(game, attackers[0]) : null
 		}
-		let pieces
 		if (attacker_faction !== null && faction === attacker_faction) {
-			pieces = attackers
-		} else {
-			pieces = get_space_pieces(game, game.attack.space).filter(
-				(p) => get_piece_effective_faction(game, p) === faction
-			)
+			return attackers.filter((p) => get_piece_effective_faction(game, p) === faction)
 		}
-		return pieces.some((p) => {
-			let p_faction = get_piece_effective_faction(game, p)
-			return p_faction === faction && nations.some((nation) => piece_counts_as_nation_for_rule(game, p, nation))
-		})
+		return get_space_pieces(game, game.attack.space).filter((p) => get_piece_effective_faction(game, p) === faction)
+	}
+
+	function has_faction_on_side_in_battle(game, faction) {
+		return get_faction_side_pieces_in_battle(game, faction).length > 0
 	}
 
 	function get_battle_piece_pool(game) {
@@ -486,7 +491,7 @@ module.exports = function (Engine) {
 
 	function can_play_pasha_1(game) {
 		if (!has_attack(game)) return false
-		return has_nation_on_side_in_battle(game, ["ge"], CP)
+		return has_faction_on_side_in_battle(game, CP)
 	}
 
 	function can_play_czars_armories(game) {

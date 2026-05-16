@@ -812,10 +812,16 @@ module.exports = function (Engine) {
 		return get_piece_effective_faction(game, p) === CP
 	}
 
+	function is_russian_winter_offensive_active(game) {
+		let event = game.events && game.events["russian_winter_offensive"]
+		if (!event || typeof event !== "object") return false
+		return event.turn === game.turn && event.action_round === game.action_round
+	}
+
 	function has_russian_winter_offensive_weather_immunity(game, p, season) {
 		return (
 			season === "Winter" &&
-			is_turn_event(game, "russian_winter_offensive") &&
+			is_russian_winter_offensive_active(game) &&
 			piece_counts_as_nation_for_rule(game, p, "ru")
 		)
 	}
@@ -2800,7 +2806,7 @@ module.exports = function (Engine) {
 
 	function resolve_russian_winter_offensive_advance(game, p, advance_space, log_fn) {
 		if (
-			is_turn_event(game, "russian_winter_offensive") &&
+			is_russian_winter_offensive_active(game) &&
 			game.active === AP &&
 			piece_counts_as_nation_for_rule(game, p, "ru")
 		) {
@@ -3502,7 +3508,7 @@ module.exports = function (Engine) {
 		if (has_fort) {
 			let fort_val = data.spaces[target_space].fort || 0
 			// PUG Rule: Russian Winter Offensive reduces Caucasus fort firepower to 0
-			if (is_turn_event(game, "russian_winter_offensive") && game.active === AP) {
+			if (is_russian_winter_offensive_active(game) && game.active === AP) {
 				if (is_caucasus(target_space)) {
 					fort_val = 0
 					log_detail(log, "Russian Winter Offensive: Caucasus Fort firepower is 0")
@@ -3576,13 +3582,23 @@ module.exports = function (Engine) {
 			}
 		}
 
-		// 3. Attacker Heavy Artillery
+		// 3. Attacker Heavy Artillery (Rule 16.4: functions as HQ, uses LF as DRM, requires nationality match)
 		for (let p of attackers) {
 			if (data.pieces[p] && data.pieces[p].name.includes("Hvy Arty")) {
-				let bonus = get_piece_cf(game, p)
-				att_drm += bonus
-				used_arty.attacker.push(p)
-				log_detail(log, `Attacker Heavy Artillery provides +${bonus} DRM`)
+				let match = attackers.some(
+					(other) =>
+						other !== p &&
+						data.pieces[other] &&
+						!is_hq(other) &&
+						!is_heavy_arty(other) &&
+						hq_matches(p, other)
+				)
+				if (match) {
+					let bonus = set_has(game.reduced, p) ? data.pieces[p].rlf || 0 : data.pieces[p].lf || 0
+					att_drm += bonus
+					used_arty.attacker.push(p)
+					log_detail(log, `Attacker Heavy Artillery provides +${bonus} DRM`)
+				}
 			}
 		}
 
@@ -3654,7 +3670,7 @@ module.exports = function (Engine) {
 						log_detail(log, "Kitchener: +1 DRM for RU in Caucasus")
 					}
 				}
-				if (is_turn_event(game, "russian_winter_offensive")) {
+				if (is_russian_winter_offensive_active(game)) {
 					att_drm += 1
 					log_detail(log, "Russian Winter Offensive: +1 DRM for RU")
 				}

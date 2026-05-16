@@ -1878,7 +1878,8 @@ module.exports = function (Engine) {
 			if (get_piece_mf(p) < game.move.spaces_moved) {
 				set_delete(game.move.pieces, p)
 				set_add(game.moved, p)
-				if (log_fn) log_fn(`${is_piece_reduced(game, p) ? `p${p}` : `P${p}`} stops moving in s${game.move.current}`)
+				if (log_fn)
+					log_fn(`${is_piece_reduced(game, p) ? `p${p}` : `P${p}`} stops moving in s${game.move.current}`)
 				removed = true
 			}
 		}
@@ -4552,6 +4553,9 @@ module.exports = function (Engine) {
 
 		// Rule 16.2.2: HQs can never be repaired/replaced with RPs
 		if (info.type === "hq") return 0
+
+		// Rule 16.4: Heavy Artillery cannot be rebuilt
+		if (is_heavy_arty(p)) return 0
 
 		let eliminated = is_eliminated(game, p)
 		if (is_stanke_bey_unit(p)) return 0

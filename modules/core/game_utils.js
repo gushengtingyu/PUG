@@ -534,6 +534,7 @@ module.exports = function (Engine) {
 
 		let lcu_nations = get_replacement_nations_for_piece(game, p)
 		let target_badge = get_piece_badge(p)
+		let is_yellow_lcu = target_badge === "yellow"
 		let buckets = {
 			same_type_full: [],
 			same_type_reduced: [],
@@ -547,10 +548,12 @@ module.exports = function (Engine) {
 
 		for (let i = 1; i < data.pieces.length; i++) {
 			if (!can_scu_replace_lcu_by_rule_1265(game, p, i)) continue
+			let replacement_badge = get_piece_badge(i)
+			if (is_yellow_lcu && replacement_badge !== "blue" && replacement_badge !== "infantry") continue
 
 			let replacement_nations = get_replacement_nations_for_piece(game, i)
 			let primary_nation = is_primary_replacement_nation(lcu_nations, replacement_nations)
-			let same_type = target_badge && get_piece_badge(i) === target_badge
+			let same_type = target_badge && replacement_badge === target_badge
 			let reduced = is_piece_reduced(game, i)
 
 			if (primary_nation && same_type && !reduced) buckets.same_type_full.push(i)
@@ -1078,14 +1081,14 @@ module.exports = function (Engine) {
 				return s.nation === "tu" && (s_badge === "infantry" || s_badge === "blue")
 			}
 
-			// Rule 25.2.5 Substitution (Infantry > Cavalry)
+			// Rule 25.2.5 Substitution. Cavalry LCUs still need cavalry SCUs for the first two.
 			let type_match
 			if (l_badge === "yellow" || l_badge === "infantry") {
 				type_match = s_badge === "infantry" || s_badge === "blue"
 			} else if (l_badge === "blue") {
 				type_match = s_badge === "blue"
 			} else if (l_badge === "cavalry") {
-				type_match = s_badge === "cavalry" || s_badge === "infantry" || s_badge === "blue"
+				type_match = s_badge === "cavalry"
 			} else {
 				type_match = s_badge === l_badge
 			}

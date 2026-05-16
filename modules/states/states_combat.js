@@ -2197,7 +2197,7 @@ exports.register = function (states, Engine, context) {
 			res.prompt(`防守方分配损失：${game.attack.defender_losses_absorbed}/${game.attack.defender_losses}`)
 			let defenders = combat
 				.get_combat_defenders(game, game.attack.space, active_faction())
-				.filter((p) => data.pieces[p].type !== "hq")
+				.filter((p) => data.pieces[p].type !== "hq" && !Engine.game_utils.is_heavy_arty(p))
 			let fort_strength = 0
 			let defender_faction = active_faction()
 			if (combat.has_undestroyed_fort(game, game.attack.space, defender_faction)) {
@@ -2320,7 +2320,9 @@ exports.register = function (states, Engine, context) {
 			res.prompt(
 				`攻击方承伤 (已承受: ${game.attack.attacker_losses_absorbed} / 需要: ${game.attack.attacker_losses})`
 			)
-			let attackers = game.attack.pieces.filter((p) => !is_not_on_map(game, p) && data.pieces[p].type !== "hq")
+			let attackers = game.attack.pieces.filter(
+				(p) => !is_not_on_map(game, p) && data.pieces[p].type !== "hq" && !Engine.game_utils.is_heavy_arty(p)
+			)
 			let options = combat.get_loss_options(game, attackers, needed, 0, "attacker")
 			for (let p of options) res.piece(p)
 

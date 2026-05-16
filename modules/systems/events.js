@@ -79,6 +79,7 @@ module.exports = function (Engine) {
 	const TO_ATHENS = find_space("to Athens")
 	const CYPRUS_BEACHHEADS = ["To Adana", "To Beirut", "To Haifa", "To Jaffa"].map(find_space)
 	const CAUCASIAN_ARMY_REFORMS_TARGET = 12
+	const YILDRIM_OTTOMAN_SUPPLY_SOURCES = ["CONSTANTINOPLE", "Kayseri", "Erzincan", "Damascus", "Baghdad"]
 
 	const WARM_WATER_PORTS = [
 		"Mugla",
@@ -787,7 +788,7 @@ module.exports = function (Engine) {
 	}
 
 	function is_brf_35_spers_space(game, s) {
-		return Engine.map.is_persia(s) && Engine.map.is_controlled_by(game, s, AP)
+		return (Engine.map.is_persia(s) || Engine.map.is_arabistan(s)) && Engine.map.is_controlled_by(game, s, AP)
 	}
 
 	Engine.reinf_helpers = {
@@ -835,8 +836,9 @@ module.exports = function (Engine) {
 		is_brf_35_rein: {
 			faction: AP,
 			desc: (game, unit_name) => {
-				if (unit_name === "BR Dunsterforce") return "协约国控制的波斯地区或波斯大区、或协约国控制的巴格达"
-				return "协约国控制的波斯地区或波斯大区"
+				if (unit_name === "BR Dunsterforce")
+					return "协约国控制的波斯或阿拉伯斯坦地区/大区、或协约国控制的巴格达"
+				return "协约国控制的波斯或阿拉伯斯坦地区/大区"
 			},
 			check: function (game, s) {
 				let units = get_pending_reinf_units(game)
@@ -851,12 +853,12 @@ module.exports = function (Engine) {
 		},
 		is_brf_35_dunsterforce_rein: {
 			faction: AP,
-			desc: "协约国控制的波斯地区或波斯大区、或协约国控制的巴格达",
+			desc: "协约国控制的波斯或阿拉伯斯坦地区/大区、或协约国控制的巴格达",
 			check: is_brf_35_dunsterforce_space
 		},
 		is_brf_35_spers_rein: {
 			faction: AP,
-			desc: "协约国控制的波斯地区或波斯大区",
+			desc: "协约国控制的波斯或阿拉伯斯坦地区/大区",
 			check: is_brf_35_spers_space
 		},
 		is_tu: {
@@ -1026,14 +1028,13 @@ module.exports = function (Engine) {
 			desc: "任何同盟国控制且与加利西亚(Galicia)铁路连通的土耳其补给源",
 			check: function (game, s) {
 				let space = data.spaces[s]
-				if (GALICIA < 0) return false
+				if (!space || GALICIA < 0) return false
 				if (
-					(space.nation === "tu" || space.nation === "tua") &&
-					Engine.map.is_base_supply_source(game, s, CP) &&
+					YILDRIM_OTTOMAN_SUPPLY_SOURCES.includes(space.name) &&
 					Engine.map.is_controlled_by(game, s, CP)
 				) {
 					if (is_besieged(game, s)) return false
-					if (Engine.map.is_connected_by_rail(game, s, CP, [GALICIA])) {
+					if (Engine.map.is_connected_by_rail(game, s, CP, [GALICIA], null, true)) {
 						return true
 					}
 				}
@@ -2022,13 +2023,16 @@ module.exports = function (Engine) {
 			name: "RUSSIAN WINTER OFFENSIVE",
 			name_cn: "俄国冬季攻势",
 			effect_cn:
-				"(只能在冬季打出)。(黄色事件)。当作事件打出时，正常使用此牌记录的OP点数。本轮中适用以下效果:。从山地地区发起的或者向山地地区进行的俄国部队进攻无视恶劣天气修正。。所有俄国进攻+1drm。所有土耳其高加索地区的要塞火力值暂时视为0。如果俄国部队在战斗后得以挺进上述要塞地区，则可以**立即摧毁要塞，无视围攻规则。**",
+				"(只能在冬季打出)。(黄色事件)。当作事件打出时，正常使用此牌记录的OP点数。当前行动轮中适用以下效果:。从山地地区发起的或者向山地地区进行的俄国部队进攻无视恶劣天气修正。。所有俄国进攻+1drm。所有土耳其高加索地区的要塞火力值暂时视为0。如果俄国部队在战斗后得以挺进上述要塞地区，则可以**立即摧毁要塞，无视围攻规则。**",
 			can_play: function (game) {
 				return get_season(game) === "Winter"
 			},
 			use_ops: true,
 			handler: function (game) {
-				game.events["russian_winter_offensive"] = game.turn
+				game.events["russian_winter_offensive"] = {
+					turn: game.turn,
+					action_round: game.action_round
+				}
 			}
 		},
 		32: {
@@ -2099,7 +2103,7 @@ module.exports = function (Engine) {
 			add_rein_record: "br",
 			name_cn: "英国增援",
 			effect_cn:
-				"增援:邓斯特部队，英国南波斯洋枪队。两者均可增援至协约国控制的波斯地区或波斯大区，或预备格；邓斯特部队还可以增援至协约国控制的巴格达。- **邓斯特部队可以只花费4点移动力作为代价跨越绿色连线。**",
+				"增援:邓斯特部队，英国南波斯洋枪队。两者均可增援至协约国控制的波斯或阿拉伯斯坦地区/大区，或预备格；邓斯特部队还可以增援至协约国控制的巴格达。- **邓斯特部队可以只花费4点移动力作为代价跨越绿色连线。**",
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "british_reinf_35")
 				game.active = AP
@@ -2205,7 +2209,7 @@ module.exports = function (Engine) {
 			name: "JERUSALEM BY CHRISTMAS",
 			name_cn: "圣诞节前收复圣城",
 			effect_cn:
-				"协约国在一个同盟国控制的**圣战城市**或者**补给点**和两个回合后的纪录条上各放置一个\"圣诞节前收复圣城\"标志。如果在两回合后该地区被英国/印度/澳新部队占据，则-1VP，反之+1VP。",
+				"协约国在一个同盟国控制的**圣战城市**或者**完全补给点**和两个回合后的纪录条上各放置一个\"圣诞节前收复圣城\"标志。如果在两回合后该地区被英国/印度/澳新部队占据，则-1VP，反之+1VP。",
 			handler: function (game, ctx) {
 				if (ctx && typeof ctx.start_event === "function") {
 					ctx.start_event("jerusalem_by_christmas")
@@ -3312,7 +3316,7 @@ module.exports = function (Engine) {
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "turkish_reinf_92")
 				game.active = CP
-				event.reinf_to_place = ["TU-A Infantry #1", "TU-A Infantry #2", "TU-A Infantry #3", "TU-A Infantry #4"]
+				event.reinf_to_place = ["TU-A DIV #16", "TU-A DIV #17", "TU-A DIV #18", "TU-A DIV #19"]
 				event.reinf_placement = "either"
 				event.reinf_logic = "is_tua"
 				event.reinf_next_state = "event_turkish_reinf_92_trench"
@@ -3429,6 +3433,12 @@ module.exports = function (Engine) {
 			name_cn: "耶尔德里姆",
 			effect_cn:
 				"增援:3个德国耶尔德里姆步兵师，至任何可以连接至加利西亚的土耳其补给点。。如果法金汉HQ尚未被消灭，则还可以将其放置到存在耶尔德里姆师的地区。",
+			can_play: function (game) {
+				for (let s = 1; s < data.spaces.length; s++) {
+					if (Engine.reinf_helpers.is_yildrim_rein.check(game, s)) return true
+				}
+				return false
+			},
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "yildrim")
 				game.active = CP

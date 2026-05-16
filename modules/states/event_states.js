@@ -27,6 +27,15 @@ module.exports = function (Engine) {
 	const LAMIA = find_space("Lamia")
 	const ATHENS = find_space("ATHENS")
 	const CAUCASIAN_ARMY_REFORMS_TARGET = 12
+	const JERUSALEM_BY_CHRISTMAS_CP_SUPPLY_SOURCES = [
+		"Galicia",
+		"CONSTANTINOPLE",
+		"Kayseri",
+		"Erzincan",
+		"Damascus",
+		"Baghdad"
+	]
+	const JERUSALEM_BY_CHRISTMAS_LIMITED_CP_SUPPLY_SOURCES = ["Maan", "Central Asia"]
 
 	function event_space_name(rules, s) {
 		if (rules && typeof rules.space_name === "function") return rules.space_name(s)
@@ -72,13 +81,23 @@ module.exports = function (Engine) {
 			let space = data.spaces[s]
 			if (!space) continue
 			if (!Engine.map.is_controlled_by(game, s, CP)) continue
+			if (JERUSALEM_BY_CHRISTMAS_LIMITED_CP_SUPPLY_SOURCES.includes(space.name)) continue
 			let is_holy_city = !!space.jihad_city
-			let is_supply_source = Engine.map.is_base_supply_source(game, s, CP)
+			let is_supply_source = is_jerusalem_by_christmas_cp_supply_source(game, s)
 			if (is_holy_city || is_supply_source) {
 				targets.push(s)
 			}
 		}
 		return targets
+	}
+
+	function is_jerusalem_by_christmas_cp_supply_source(game, s) {
+		let space = data.spaces[s]
+		if (!space) return false
+		if (JERUSALEM_BY_CHRISTMAS_CP_SUPPLY_SOURCES.includes(space.name)) return true
+		if (space.name === "SOFIA") return !!(game.events && game.events["bulgaria"])
+		if (space.name === "Afghanistan") return !!(game.events && game.events["afghan_alliance"])
+		return false
 	}
 
 	/**
@@ -3172,7 +3191,7 @@ module.exports = function (Engine) {
 			let { game, res } = ctx
 			let event = use_event(game, "jerusalem_by_christmas")
 			let targets = get_jerusalem_by_christmas_targets(game)
-			res.prompt("圣诞节前收复圣城：选择一个由同盟国控制的圣战城市或补给源。")
+			res.prompt("圣诞节前收复圣城：选择一个由同盟国控制的圣战城市或完全补给源。")
 			for (let s of targets) {
 				res.space(s)
 			}
