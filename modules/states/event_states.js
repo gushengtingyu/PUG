@@ -2761,6 +2761,8 @@ module.exports = function (Engine) {
 
 	function get_reserves_to_front_rebuild_space(game, p) {
 		if (!game.attack || !(game.attack.space > 0)) return null
+		let recorded = game.attack.reserves_to_front_rebuild_space_by_piece?.[p]
+		if (recorded > 0) return recorded
 		let origin = game.attack.origin_by_piece?.[p]
 		if (origin > 0) return origin
 		return game.attack.space

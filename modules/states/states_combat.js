@@ -166,6 +166,14 @@ exports.register = function (states, Engine, context) {
 		if (nation !== "tu" && nation !== "tua") return
 		if (!game.attack.reserves_to_front_damaged_pieces) game.attack.reserves_to_front_damaged_pieces = []
 		set_add(game.attack.reserves_to_front_damaged_pieces, p)
+		if (!game.attack.reserves_to_front_rebuild_space_by_piece) {
+			game.attack.reserves_to_front_rebuild_space_by_piece = {}
+		}
+		if (game.attack.reserves_to_front_rebuild_space_by_piece[p] > 0) return
+		let rebuild_space = game.attack.origin_by_piece?.[p]
+		if (!(rebuild_space > 0)) rebuild_space = game.pieces[p]
+		if (!(rebuild_space > 0) && set_has(game.attack.initial_defenders, p)) rebuild_space = game.attack.space
+		if (rebuild_space > 0) game.attack.reserves_to_front_rebuild_space_by_piece[p] = rebuild_space
 	}
 
 	function can_select_all_attackers() {
@@ -2251,6 +2259,7 @@ exports.register = function (states, Engine, context) {
 			let lf = get_piece_lf(game, p)
 			let was_reduced = Engine.game_utils.is_piece_reduced(game, p)
 			combat.remember_variable_loss_other_unit_hit(game, "defender", p)
+			mark_reserves_to_front_damage(p)
 			ensure_attack_log_section("defender_loss_log_started", "防守方承伤：")
 			reduce_piece(p)
 			if (was_reduced) {
@@ -2259,7 +2268,6 @@ exports.register = function (states, Engine, context) {
 				log(`>> ${format_piece_log(p, false)} 减员`)
 			}
 			game.attack.defender_losses_absorbed += lf
-			mark_reserves_to_front_damage(p)
 		},
 		done() {
 			clear_undo()
@@ -2305,9 +2313,9 @@ exports.register = function (states, Engine, context) {
 		piece(p) {
 			push_undo()
 			log(`${format_piece_log(p, true)} 因本行动轮先前已退却，在当前战斗造成损失后被摧毁。`)
+			mark_reserves_to_front_damage(p)
 			eliminate_piece(p)
 			set_delete(game.retreated, p)
-			mark_reserves_to_front_damage(p)
 		},
 		done() {
 			game.state = "apply_defender_losses"
@@ -2353,6 +2361,7 @@ exports.register = function (states, Engine, context) {
 			let lf = get_piece_lf(game, p)
 			let was_reduced = Engine.game_utils.is_piece_reduced(game, p)
 			combat.remember_variable_loss_other_unit_hit(game, "attacker", p)
+			mark_reserves_to_front_damage(p)
 			ensure_attack_log_section("attacker_loss_log_started", "进攻方承伤：")
 			reduce_piece(p)
 			if (was_reduced) {
@@ -2361,7 +2370,6 @@ exports.register = function (states, Engine, context) {
 				log(`>> ${format_piece_log(p, false)} 减员`)
 			}
 			game.attack.attacker_losses_absorbed += lf
-			mark_reserves_to_front_damage(p)
 		},
 		done() {
 			clear_undo()

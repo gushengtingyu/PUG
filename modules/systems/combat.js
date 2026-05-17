@@ -2120,6 +2120,7 @@ module.exports = function (Engine) {
 			delete game.attack.severe_weather_checked
 			delete game.attack.reserves_to_front_damaged_pieces
 			delete game.attack.reserves_to_front_initial_reduced_pieces
+			delete game.attack.reserves_to_front_rebuild_space_by_piece
 			delete game.attack.variable_loss_other_hit_spaces
 		}
 		if (game.attack && game.attack.space > 0) {

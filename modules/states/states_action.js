@@ -57,6 +57,7 @@ exports.register = function (states, Engine, context) {
 		is_reserve_space_id,
 		get_sr_destinations,
 		save_rollback_point,
+		save_pre_replacement_rollback_point,
 		has_supply_warnings,
 		goto_review_supply_warnings,
 		start_attrition_phase,
@@ -839,6 +840,7 @@ exports.register = function (states, Engine, context) {
 		}
 
 		if (game.action_round > 6) {
+			save_pre_replacement_rollback_point()
 			start_attrition_phase()
 			return
 		}

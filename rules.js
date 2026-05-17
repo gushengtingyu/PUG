@@ -1034,6 +1034,7 @@ exports.view = function (state, current) {
 				turn_points: rollback_entries.filter(is_turn_start_rollback).length,
 				action_points: rollback_entries.filter(is_action_round_rollback).length,
 				combat_points: rollback_entries.filter(is_combat_rollback).length,
+				pre_replacement_points: rollback_entries.filter(is_pre_replacement_rollback).length,
 				total_events: rollback_total_events,
 				state_compressed: is_rollback_state_compressed()
 			},
@@ -1430,6 +1431,10 @@ function is_combat_rollback(rollback) {
 	return get_rollback_kind(rollback) === "combat"
 }
 
+function is_pre_replacement_rollback(rollback) {
+	return get_rollback_kind(rollback) === "pre_replacement"
+}
+
 function rollback_action_active(rollback) {
 	return rollback && rollback.active ? short_faction(rollback.active) : undefined
 }
@@ -1497,6 +1502,9 @@ function format_rollback_space(space) {
 function format_rollback_label(rollback) {
 	if (is_turn_start_rollback(rollback)) {
 		return `回合 ${rollback.turn} 起始`
+	}
+	if (is_pre_replacement_rollback(rollback)) {
+		return `回合 ${rollback.turn} 补员阶段前`
 	}
 	if (is_combat_rollback(rollback)) {
 		let space_text = format_rollback_space(rollback.space)
@@ -1570,6 +1578,36 @@ function save_rollback_point() {
 					game.rollback[first_action_round - 1].events.push(...removed_events)
 				}
 			}
+		}
+	}
+
+	prune_orphaned_combat_rollback_points(rollback_state)
+	game.rollback_state = compress_rollback_state(rollback_state)
+}
+
+function save_pre_replacement_rollback_point() {
+	if (game.options.no_supply_warnings) return
+
+	let rollback_state = decompress_rollback_state(game.rollback_state)
+	if (!game.rollback) game.rollback = []
+	delete game.combat_rollback_pending
+
+	let copy = copy_history_snapshot(game)
+
+	append_rollback_state(rollback_state, {
+		kind: "pre_replacement",
+		turn: copy.turn,
+		log_index: Array.isArray(game.log) ? game.log.length : 0,
+		events: []
+	}, copy)
+
+	const maxRollbackTurns = get_max_rollback_turns()
+	const pre_replacement_count = game.rollback.filter(is_pre_replacement_rollback).length
+	if (pre_replacement_count > maxRollbackTurns) {
+		const first_idx = game.rollback.findIndex(is_pre_replacement_rollback)
+		if (first_idx >= 0) {
+			game.rollback.splice(first_idx, 1)
+			rollback_state.splice(first_idx, 1)
 		}
 	}
 
@@ -2546,6 +2584,7 @@ exports.roles = [AP_ROLE, CP_ROLE]
 
 // Helper functions for event states
 exports.save_rollback_point = save_rollback_point
+exports.save_pre_replacement_rollback_point = save_pre_replacement_rollback_point
 exports.save_combat_rollback_point = save_combat_rollback_point
 exports.push_undo = push_undo
 exports.pop_undo = pop_undo
@@ -2871,6 +2910,7 @@ action_funcs = action_states.register(states, Engine, {
 	can_sr_to_space,
 	get_sr_destinations,
 	save_rollback_point,
+	save_pre_replacement_rollback_point,
 	has_supply_warnings,
 	goto_review_supply_warnings,
 	start_attrition_phase: () => turn_funcs.start_attrition_phase(),
