@@ -2979,6 +2979,17 @@ exports.register = function (states, Engine, context) {
 		return legal.filter((s) => !is_friendly(s))
 	}
 
+	function finish_save_tiflis_exempt_piece() {
+		let p = game.selected_piece
+		if (p === null || p === undefined) return false
+		if (!is_save_tiflis_exempt_space(game.pieces[p])) return false
+		push_undo()
+		log(`${piece_name(p)} is exempt from Save Tiflis retreat.`)
+		set_delete(game.save_tiflis_pieces, p)
+		game.selected_piece = null
+		return true
+	}
+
 	states.save_tiflis_retreat = {
 		prompt(res) {
 			if (game.selected_piece === null || game.selected_piece === undefined) {
@@ -3001,14 +3012,14 @@ exports.register = function (states, Engine, context) {
 				if (valid.length === 0) {
 					if (exempt) {
 						res.prompt(`${piece_name(piece)} 免于撤退。`)
-						res.action("decline_retreat")
+						res.action("done")
 					} else {
 						res.prompt(`无法让 ${piece_name(piece)} 向第比利斯方向撤退。`)
 						res.action("cannot_retreat")
 					}
 				} else {
 					for (let s of valid) res.space(s)
-					if (can_decline) res.action("decline_retreat")
+					if (can_decline) res.action("done")
 				}
 				res.piece(piece)
 			}
@@ -3065,6 +3076,9 @@ exports.register = function (states, Engine, context) {
 			}
 		},
 		done() {
+			if (game.selected_piece !== null && game.selected_piece !== undefined) {
+				if (finish_save_tiflis_exempt_piece()) return
+			}
 			clear_undo()
 			delete game.save_tiflis_pieces
 			delete game.save_tiflis_exempt_spaces

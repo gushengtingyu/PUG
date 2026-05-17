@@ -63,3 +63,36 @@ test("play.js renders AP, CP, and RU control markers through one exclusive slot"
 	expect(playSource).toContain('return "ru_control"')
 	expect(playSource).not.toContain('"russian_control"')
 })
+
+test("play.js does not render partial control as a full AP/CP control marker", () => {
+	let playSource = fs.readFileSync(path.join(__dirname, "..", "play.js"), "utf8")
+
+	let start = playSource.indexOf("function get_control_marker_type(space, state, s)")
+	let end = playSource.indexOf("function has_space_special_marker", start)
+	let fn = playSource.slice(start, end)
+
+	expect(fn).not.toContain("partial_ap_control_markers")
+	expect(fn).not.toContain("partial_cp_control_markers")
+})
+
+test("Arab Revolt in Mecca creates partial control without an AP control marker in the view", () => {
+	let game = setupGame(2026051701, "Historical", { no_supply_warnings: true })
+	clearBoard(game)
+
+	let mecca = findSpace("Mecca")
+	let arab = findApPiece("Arab Revolt #1")
+
+	game.pieces[arab] = mecca
+	game.control[mecca] = null
+
+	Engine.sync_region_control(game, mecca)
+	Engine.sync_neutral_vp_state(game, mecca)
+	Engine.sync_jihad_city_state(game, mecca)
+
+	let view = rules.view(game, CP_ROLE)
+
+	expect(Engine.map.get_space_controller(game, mecca)).toBe(CP)
+	expect(game.region_disruption[mecca]).toBe(AP)
+	expect(view.control[mecca]).toBeUndefined()
+	expect(view.partial_ap_control_markers || []).not.toContain(mecca)
+})
