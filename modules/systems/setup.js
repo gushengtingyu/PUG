@@ -506,18 +506,23 @@ module.exports = function (Engine) {
 			for (let s = 1; s < data.spaces.length; s++) {
 				let info = data.spaces[s]
 				if (!info || !info.region) continue
-				let has_ap = false
-				let has_cp = false
+				let has_ap_regular = false
+				let has_cp_regular = false
 				for (let p of Engine.map.get_pieces_in_space(state, s)) {
 					if (Engine.game_utils.is_tribe(p)) continue
 					let faction = Engine.game_utils.get_piece_effective_faction(state, p)
-					if (faction === Engine.constants.AP) has_ap = true
-					else if (faction === Engine.constants.CP) has_cp = true
-					if (has_ap && has_cp) break
+					let can_gain_control =
+						!Engine.game_utils.is_irregular(p) &&
+						!Engine.game_utils.is_hq(p) &&
+						!Engine.game_utils.is_heavy_arty(p)
+					if (!can_gain_control) continue
+					if (faction === Engine.constants.AP) has_ap_regular = true
+					else if (faction === Engine.constants.CP) has_cp_regular = true
+					if (has_ap_regular && has_cp_regular) break
 				}
-				if ((has_ap && has_cp) || (!has_ap && !has_cp)) continue
+				if ((has_ap_regular && has_cp_regular) || (!has_ap_regular && !has_cp_regular)) continue
 
-				let desired = has_ap ? Engine.constants.AP : Engine.constants.CP
+				let desired = has_ap_regular ? Engine.constants.AP : Engine.constants.CP
 				let current = Engine.map.get_space_controller(state, s)
 				if (current === desired) continue
 

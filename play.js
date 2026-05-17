@@ -4767,15 +4767,14 @@ function get_space_control(state, s) {
 
 function get_control_marker_type(space, state, s) {
 	const control = get_space_control(state, s)
-	const forcedControl = has_id(state.partial_ap_control_markers, s) ? AP : has_id(state.partial_cp_control_markers, s) ? CP : null
-	const markerControl = forcedControl || control
+	const markerControl = control
 	if (!markerControl || markerControl === "neutral") {
 		return null
 	}
 	if (markerControl === AP && has_id(state.ru_control_markers, s)) {
 		return "ru_control"
 	}
-	if (!forcedControl && markerControl === space.faction) {
+	if (markerControl === space.faction) {
 		return null
 	}
 	if (markerControl === AP) {
