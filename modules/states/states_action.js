@@ -831,6 +831,7 @@ exports.register = function (states, Engine, context) {
 		delete game.sr_moved
 		delete game.entrenching
 		delete game.entrench_attempts
+		delete game.entrench_roll_faction
 		delete game.beachheads_placed_this_action_round
 		game.action_state = {}
 

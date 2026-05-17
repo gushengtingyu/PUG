@@ -301,6 +301,92 @@ exports.register = function (states, Engine, context) {
 		)
 	}
 
+	function get_pending_entrench_pieces(faction = active_faction()) {
+		if (!Array.isArray(game.entrenching)) return []
+		return game.entrenching.filter((p) => {
+			if (!(game.pieces[p] > 0)) return false
+			return Engine.game_utils.get_piece_effective_faction(game, p) === faction
+		})
+	}
+
+	function get_pending_entrench_pieces_in_space(s, faction = active_faction()) {
+		return get_pending_entrench_pieces(faction).filter((p) => game.pieces[p] === s)
+	}
+
+	function get_pending_entrench_spaces(faction = active_faction()) {
+		let spaces = []
+		for (let p of get_pending_entrench_pieces(faction)) {
+			set_add(spaces, game.pieces[p])
+		}
+		return spaces
+	}
+
+	function get_entrench_roll_faction() {
+		return game.entrench_roll_faction || active_faction()
+	}
+
+	function mark_entrench_attempt(s, pieces) {
+		if (!Array.isArray(pieces) || pieces.length === 0) return false
+		if (!game.entrench_attempts) game.entrench_attempts = []
+		if (!game.entrenching) game.entrenching = []
+
+		set_add(game.entrench_attempts, s)
+		for (let p of pieces) {
+			if (!set_has(game.entrenching, p)) log(`>${piece_name(p)} 掘壕`)
+			set_add(game.moved, p)
+			set_add(game.entrenching, p)
+		}
+		return true
+	}
+
+	function resolve_pending_entrench_attempt(s, faction = active_faction()) {
+		let selected = get_pending_entrench_pieces_in_space(s, faction)
+		if (selected.length === 0) return false
+
+		let roll = roll_die()
+
+		// Rule 15.4.2:
+		// If an LCU participates, the attempt succeeds on 1-3.
+		// With only SCUs, the attempt succeeds on a roll no higher than the number of regular SCUs, max 3.
+		let has_lcu_val = selected.some((p) => is_lcu(p))
+		let regular_scu_count = selected.filter(
+			(p) => is_scu(p) && !is_tribe(p) && !Engine.game_utils.is_irregular(p)
+		).length
+
+		let target = has_lcu_val ? 3 : Math.min(3, regular_scu_count)
+		let success = roll >= 1 && roll <= target
+
+		log(`掘壕尝试：${space_name(s)}`)
+		log(`> ${roll} <= ${target} -> ${success ? "成功" : "失败"}`)
+		if (success) {
+			place_trench(game, s)
+		}
+
+		for (let p of selected) {
+			set_delete(game.entrenching, p)
+		}
+		return true
+	}
+
+	function goto_attack_after_movement(faction = active_faction()) {
+		game.where = -1
+		delete game.entrench_roll_faction
+		set_next_state("attack")
+		with_active_faction(faction, () => {
+			refresh_attack_eligibility()
+			if (game.eligible_attackers.length === 0) set_next_state("end_operations")
+		})
+	}
+
+	function goto_entrench_rolls_or_attack(faction = active_faction()) {
+		if (get_pending_entrench_spaces(faction).length > 0) {
+			game.entrench_roll_faction = faction
+			set_next_state("entrench_roll")
+			return
+		}
+		goto_attack_after_movement(faction)
+	}
+
 	const UPRISING_MARKER_RULES = [
 		{ key: "persian_uprising_markers", enemies: [AP], label: "Persian Uprising" },
 		{ key: "armenian_uprising_markers", enemies: [CP], label: "Armenian Uprising" },
@@ -1208,9 +1294,7 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 
-			refresh_attack_eligibility()
-			if (game.eligible_attackers.length > 0) game.state = "attack"
-			else game.state = "end_operations"
+			goto_entrench_rolls_or_attack(active_faction())
 		}
 	}
 
@@ -1319,17 +1403,23 @@ exports.register = function (states, Engine, context) {
 				res.piece(p)
 			}
 
-			if (selected.length > 0) {
-				res.action("roll")
-			}
+			if (selected.length > 0) res.action("confirm")
 			res.action("cancel")
 		},
 		piece(p) {
 			if (!game.entrench_pieces) game.entrench_pieces = []
 			set_toggle(game.entrench_pieces, p)
 		},
+		confirm() {
+			let s = game.where
+			let selected = (game.entrench_pieces || []).filter((p) => game.pieces[p] === s)
+			if (!mark_entrench_attempt(s, selected)) return
+			delete game.entrench_pieces
+			game.where = -1
+			game.state = "choose_move_space"
+		},
 		roll() {
-			game.state = "entrench_roll"
+			this.confirm()
 		},
 		cancel() {
 			delete game.entrench_pieces
@@ -1339,54 +1429,39 @@ exports.register = function (states, Engine, context) {
 
 	states.entrench_roll = {
 		prompt(res) {
-			res.prompt("掷骰尝试挖壕。")
-			res.action("roll")
+			let spaces = get_pending_entrench_spaces(get_entrench_roll_faction())
+			if (spaces.length === 0) {
+				res.prompt("没有待结算的掘壕尝试。")
+				res.action("done")
+				return
+			}
+
+			res.prompt(`为 ${spaces.map(space_name).join(", ")} 的掘壕尝试掷骰。`)
+			for (let s of spaces) res.space(s)
+			if (spaces.length === 1) res.action("roll")
 		},
 		roll() {
+			let spaces = get_pending_entrench_spaces(get_entrench_roll_faction())
+			if (spaces.length === 0) {
+				this.done()
+				return
+			}
+			this.space(spaces[0])
+		},
+		space(s) {
+			let faction = get_entrench_roll_faction()
+			if (get_pending_entrench_pieces_in_space(s, faction).length === 0) return
 			clear_undo()
-			let s = game.where
-			let selected = game.entrench_pieces
-			let roll = roll_die(6, game)
-
-			// Rule 15.4.1: Only one Trench building attempt may be made per space in an Action Round
-			if (!game.entrench_attempts) game.entrench_attempts = []
-			set_add(game.entrench_attempts, s)
-
-			// Rule 15.4.2:
-			// • If there is an LCU in the space, the Trench is built on a roll of 1–3. On a roll of 4–6, the attempt fails.
-			// • If only SCUs are in the space, a roll equal to or less than the number of regular combat SCUs indicates that the Trench was built.
-			//   However, the attempt always fails on a roll of 4-6.
-			let has_lcu_val = selected.some((p) => is_lcu(p))
-			let regular_scu_count = selected.filter(
-				(p) => is_scu(p) && !is_tribe(p) && !Engine.game_utils.is_irregular(p)
-			).length
-
-			let success = false
-			if (roll >= 1 && roll <= 3) {
-				if (has_lcu_val) {
-					success = true // LCU: 1-3
-				} else if (roll <= regular_scu_count) {
-					success = true // SCU only: roll <= count (max 3)
-				}
+			if (!resolve_pending_entrench_attempt(s, faction)) return
+			if (get_pending_entrench_spaces(faction).length > 0) {
+				game.state = "entrench_roll"
+			} else {
+				goto_attack_after_movement(faction)
 			}
-			let target = has_lcu_val ? 3 : Math.min(3, regular_scu_count)
-			log(`掘壕尝试：${space_name(s)}`)
-			log(`> ${roll} <= ${target} -> ${success ? "成功" : "失败"}`)
-			if (success) {
-				place_trench(game, s, active_faction())
-			}
-
-			// All participating units are marked as moved (cannot move further)
-			for (let p of selected) {
-				set_add(game.moved, p)
-				if (!game.entrenching) game.entrenching = []
-				set_add(game.entrenching, p)
-			}
-
-			// Clean up and return
-			delete game.entrench_pieces
-			game.where = -1
-			game.state = "choose_move_space"
+		},
+		done() {
+			if (get_pending_entrench_spaces(get_entrench_roll_faction()).length > 0) return
+			goto_attack_after_movement(get_entrench_roll_faction())
 		}
 	}
 
@@ -1849,12 +1924,9 @@ exports.register = function (states, Engine, context) {
 			let s = game.move.initial
 			let participating = game.move.pieces.slice()
 			push_undo()
-			for (let p of participating) {
-				log(`>${piece_name(p)} 掘壕`)
-			}
-			game.where = s
-			game.entrench_pieces = participating
-			game.state = "entrench_roll"
+			mark_entrench_attempt(s, participating)
+			game.where = -1
+			game.state = "choose_move_space"
 			delete game.move
 		},
 		combine() {
@@ -2218,12 +2290,7 @@ exports.register = function (states, Engine, context) {
 				goto_end_event()
 				return
 			}
-			// No more movement, go to attack
-			set_next_state("attack")
-			with_active_faction(faction, () => {
-				refresh_attack_eligibility()
-				if (game.eligible_attackers.length === 0) set_next_state("end_operations")
-			})
+			goto_entrench_rolls_or_attack(faction)
 		}
 	}
 }

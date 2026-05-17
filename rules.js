@@ -809,9 +809,17 @@ function get_control_view() {
 	const control = Array.isArray(game.control) ? game.control : []
 	for (let s = 1; s < data.spaces.length; s++) {
 		const value = control[s]
-		const default_value = data.spaces[s] && data.spaces[s].faction
-		if (value !== undefined && value !== null && value !== default_value) {
-			view_control[s] = value
+		const static_faction = data.spaces[s] && data.spaces[s].faction
+		let dynamic_default = static_faction
+		if (Engine.map && typeof Engine.map.get_default_controller === "function") {
+			dynamic_default = Engine.map.get_default_controller(game, s)
+		}
+		if (value !== undefined && value !== null) {
+			if (value !== dynamic_default) {
+				view_control[s] = value
+			}
+		} else if (dynamic_default !== static_faction) {
+			view_control[s] = dynamic_default
 		}
 	}
 	return view_control
