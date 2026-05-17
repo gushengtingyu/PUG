@@ -763,7 +763,37 @@ module.exports = function (Engine) {
 		return true
 	}
 
+	function get_ptbp_eligible_units(game, attackers) {
+		if (!attackers) return []
+		return attackers.filter((p) =>
+			!is_not_on_map(game, p) &&
+			!is_piece_reduced(game, p) &&
+			(piece_counts_as_nation_for_rule(game, p, "br") ||
+				piece_counts_as_nation_for_rule(game, p, "in") ||
+				piece_counts_as_nation_for_rule(game, p, "anz"))
+		)
+	}
+
+	function check_offer_ptbp_extra_attack(game) {
+		if (!game.ptbp_active || !Array.isArray(game.ptbp_units) || game.ptbp_units.length === 0) return false
+		game.ptbp_units = game.ptbp_units.filter((p) => !is_not_on_map(game, p) && !is_piece_reduced(game, p))
+		if (game.ptbp_units.length === 0) {
+			delete game.ptbp_active
+			delete game.ptbp_units
+			return false
+		}
+		return true
+	}
+
 	function finish_attack(game) {
+		if (check_offer_ptbp_extra_attack(game)) {
+			let attacker = game.attack?.attacker
+			if (attacker !== undefined && attacker !== null) game.active = attacker
+			game.state = "ptbp_extra_attack_prompt"
+			return
+		}
+		delete game.ptbp_active
+		delete game.ptbp_units
 		let attacker = game.attack?.attacker
 		if (game.attack && !game.attack.keep_context) {
 			clear_combat_card_context(game)
@@ -2366,8 +2396,7 @@ module.exports = function (Engine) {
 				if (!result.no_advance) can_cancel_advance = true
 			} else if (
 				defenders_now.length === 0 &&
-				!result.no_advance &&
-				result.attacker_losses >= result.defender_losses
+				!result.no_advance
 			) {
 				can_cancel_advance = true
 			}
@@ -2674,6 +2703,7 @@ module.exports = function (Engine) {
 						}
 						if (game.combat_cards.attacker.includes(CC_AP_PUSH_TO_THE_BREAKING_POINT)) {
 							game.ptbp_active = true
+							game.ptbp_units = get_ptbp_eligible_units(game, result.attackers)
 						}
 					}
 				}
@@ -2714,6 +2744,13 @@ module.exports = function (Engine) {
 		if (!result.retreat_needed || defenders_in_space.length === 0 || game.retreat_phase_done) {
 			// No retreat needed, everyone is dead, or retreat already resolved.
 			if (defenders_in_space.length === 0) {
+				// POG 12.4.6: Push to the Breaking Point (defenders eliminated case)
+				if (!game.ptbp_active && game.combat_cards && game.combat_cards.attacker && game.active === AP) {
+					if (game.combat_cards.attacker.includes(CC_AP_PUSH_TO_THE_BREAKING_POINT)) {
+						game.ptbp_active = true
+						game.ptbp_units = get_ptbp_eligible_units(game, result.attackers)
+					}
+				}
 				// PUG 12.5.1 / 15.2.3: Siege requirement for advance
 				check_advance_siege_requirement(game, result, defender_faction, log_fn)
 
@@ -4450,6 +4487,8 @@ module.exports = function (Engine) {
 		resolve_flank_attempt,
 		resolve_battle_sequence,
 		end_battle_sequence,
+		check_offer_ptbp_extra_attack,
+		get_ptbp_eligible_units,
 		record_combat_card_source,
 		has_cancelled_combat_card_dispositions,
 		apply_cancelled_combat_card_disposition,

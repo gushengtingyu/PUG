@@ -2845,6 +2845,8 @@ exports.register = function (states, Engine, context) {
 		delete game.battle_resolution_applied
 		delete game.confused_orders
 		delete game.confused_orders_used
+		delete game.ptbp_active
+		delete game.ptbp_units
 		combat.clear_catastrophic_attack_state(game)
 	}
 
@@ -3786,6 +3788,10 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 			game.bulls_eye_advanced_stack = []
+			if (combat.check_offer_ptbp_extra_attack(game)) {
+				set_next_state_after_interrupt("ptbp_extra_attack_prompt", game.active)
+				return
+			}
 			if (game.active === CP && has_window_cc_options("post_advance_cc_cp", CP, false)) {
 				set_next_state_after_interrupt("post_advance_cc_cp", CP)
 				return
@@ -3834,6 +3840,50 @@ exports.register = function (states, Engine, context) {
 		},
 		cancel() {
 			game.bulls_eye_advanced_stack = []
+			game.attack = null
+			game.state = "attack"
+		}
+	}
+
+	states.ptbp_extra_attack_prompt = {
+		prompt(res) {
+			res.prompt("竭尽全力：激活推进的英/印/澳新部队进行额外进攻？")
+			res.action("yes")
+			res.action("no")
+		},
+		yes() {
+			game.state = "ptbp_attack"
+		},
+		no() {
+			delete game.ptbp_units
+			delete game.ptbp_active
+			goto_attack()
+		}
+	}
+
+	states.ptbp_attack = {
+		prompt(res) {
+			res.prompt("竭尽全力：选择额外进攻的目标")
+			let targets = get_attackable_spaces(game.ptbp_units)
+			for (let t of targets) {
+				res.space(t)
+			}
+			res.action("cancel")
+		},
+		space(s) {
+			push_undo()
+			game.attack = {
+				pieces: game.ptbp_units,
+				space: s,
+				extra_attack: true
+			}
+			delete game.ptbp_units
+			delete game.ptbp_active
+			game.state = "confirm_attack"
+		},
+		cancel() {
+			delete game.ptbp_units
+			delete game.ptbp_active
 			game.attack = null
 			game.state = "attack"
 		}
