@@ -543,8 +543,8 @@ module.exports = function (Engine) {
 		if (!is_controlled_by(game, from, AP)) return false
 		if (!can_ap_place_beachhead_marker(game, target, from)) return false
 		if (!game.move || game.move.spaces_moved > 0) return false
-		// Rule 13.2.3 STEP 2: "at least one SCU to move to it" is required to create the beachhead
-		return Array.isArray(game.move.pieces) && game.move.pieces.some((mp) => is_scu(mp))
+		// Rule 13.2.3 STEP 2: at least one SCU or LCU is required to create the beachhead
+		return Array.isArray(game.move.pieces) && game.move.pieces.some((mp) => is_scu(mp) || is_lcu(mp))
 	}
 
 	function is_beachhead_placed_this_action_round(game, s) {

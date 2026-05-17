@@ -90,6 +90,8 @@ module.exports = function (Engine) {
 				Object.freeze({ name: "AH VI R Corps", space: "Galicia" }),
 				Object.freeze({ name: "Combined BU/AH Div", space: "CP Reserve", bulgaria_space: "SOFIA" })
 			]),
+			combined_bu_ah_name: "Combined BU/AH Div",
+			combined_bu_ah_default_space: "CP Reserve",
 			ge_division_pool: Object.freeze(["GE DIV #3", "GE DIV #4"]),
 			ah_hermannstadt_pool: Object.freeze(["AH DIV #1", "AH DIV #2"]),
 			ah_reserve_pool: Object.freeze(["AH DIV #3"]),

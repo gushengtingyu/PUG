@@ -355,6 +355,10 @@ test("移除空滩头时只需要清掉 beachhead marker", () => {
 	game.remove_beachhead_space = besikaBay
 	game.beachheads = [besikaBay]
 
+	let view = rules.view(game, AP_ROLE)
+	expect(view.prompt).toMatch(/是否移除.*Besika Bay/)
+	expect(view.prompt).not.toContain(`s${besikaBay}`)
+
 	game = rules.action(game, AP_ROLE, "confirm")
 
 	expect(game.beachheads || []).not.toContain(besikaBay)
@@ -457,4 +461,66 @@ test("LCU cannot use a beachhead created earlier in the same action round", () =
 	let view = rules.view(game, AP_ROLE)
 	expect(view.actions.space || []).not.toContain(besikaBay)
 	expect(Engine.map.can_stack_move_to(game, besikaBay, AP)).toBe(false)
+})
+
+test("火力下撤退进入确认状态，确认后返回 play_card", () => {
+	let game = setupGame(2026042214)
+	let besikaBay = findSpace("Besika Bay")
+
+	game.active = AP
+	game.state = "confirm_beachhead_withdrawal"
+	game.withdraw_beachhead_space = besikaBay
+	game.withdraw_under_fire = true
+	game.beachheads = [besikaBay]
+
+	let view = rules.view(game, AP_ROLE)
+	expect(view.prompt).toMatch(/是否确认.*Besika Bay.*撤退.*火力下/)
+	expect(view.prompt).not.toContain(`s${besikaBay}`)
+
+	game = rules.action(game, AP_ROLE, "confirm")
+
+	expect(game.state).toBe("play_card")
+	expect(game.withdraw_beachhead_space).toBeUndefined()
+	expect(game.withdraw_under_fire).toBeUndefined()
+})
+
+test("安全撤退进入确认状态，确认后返回 play_card", () => {
+	let game = setupGame(2026042215)
+	let besikaBay = findSpace("Besika Bay")
+
+	game.active = AP
+	game.state = "confirm_beachhead_withdrawal"
+	game.withdraw_beachhead_space = besikaBay
+	game.withdraw_under_fire = false
+	game.beachheads = [besikaBay]
+
+	let view = rules.view(game, AP_ROLE)
+	expect(view.prompt).toMatch(/是否确认.*Besika Bay.*撤退.*安全/)
+	expect(view.prompt).not.toContain(`s${besikaBay}`)
+
+	game = rules.action(game, AP_ROLE, "confirm")
+
+	expect(game.state).toBe("play_card")
+	expect(game.withdraw_beachhead_space).toBeUndefined()
+	expect(game.withdraw_under_fire).toBeUndefined()
+})
+
+test("滩头撤退取消后清理状态并撤销", () => {
+	let game = setupGame(2026042216)
+	let besikaBay = findSpace("Besika Bay")
+
+	game.active = AP
+	game.state = "play_card"
+	Engine.push_undo(game)
+
+	game.state = "confirm_beachhead_withdrawal"
+	game.withdraw_beachhead_space = besikaBay
+	game.withdraw_under_fire = true
+	game.beachheads = [besikaBay]
+
+	game = rules.action(game, AP_ROLE, "cancel")
+
+	expect(game.withdraw_beachhead_space).toBeUndefined()
+	expect(game.withdraw_under_fire).toBeUndefined()
+	expect(game.state).toBe("play_card")
 })

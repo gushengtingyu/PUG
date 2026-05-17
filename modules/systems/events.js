@@ -2017,10 +2017,17 @@ module.exports = function (Engine) {
 			handler: function (game, ctx) {
 				start_event_data(game, ctx, "romania_entry_29")
 				Engine.neutral.trigger_romania_entry(game)
-				if (typeof Engine.map.check_supply === "function") {
-					Engine.map.check_supply(game)
+				if (game.events["bulgaria"]) {
+					Engine.neutral.place_romania_combined_bu_ah(game)
+					game.active = CP
+					game.state = "event_romania_place_combined_bu_ah"
+				} else {
+					Engine.neutral.place_romania_combined_bu_ah(game)
+					if (typeof Engine.map.check_supply === "function") {
+						Engine.map.check_supply(game)
+					}
+					Engine.event_states.begin_romania_event_attack_activation(game)
 				}
-				Engine.event_states.begin_romania_event_attack_activation(game)
 			},
 			defer_end: true
 		},

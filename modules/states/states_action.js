@@ -490,11 +490,15 @@ exports.register = function (states, Engine, context) {
 		},
 		withdraw_under_fire(beachhead) {
 			push_undo()
-			finish_beachhead_withdrawal(beachhead, true)
+			game.withdraw_beachhead_space = beachhead
+			game.withdraw_under_fire = true
+			game.state = "confirm_beachhead_withdrawal"
 		},
 		safe_withdraw(beachhead) {
 			push_undo()
-			finish_beachhead_withdrawal(beachhead, false)
+			game.withdraw_beachhead_space = beachhead
+			game.withdraw_under_fire = false
+			game.state = "confirm_beachhead_withdrawal"
 		},
 		remove_beachhead(beachhead) {
 			push_undo()
@@ -503,11 +507,38 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
+	states.confirm_beachhead_withdrawal = {
+		prompt(res) {
+			let s = game.withdraw_beachhead_space
+			let under_fire = game.withdraw_under_fire
+			let mode = under_fire ? "交战中" : "安全"
+			let name = data.spaces[s] ? data.spaces[s].name : space_name(s)
+			res.where(s)
+			res.prompt(`是否确认从 ${name} 撤退（${mode}）？`)
+			res.action("confirm")
+			res.action("cancel")
+		},
+		confirm() {
+			let s = game.withdraw_beachhead_space
+			let under_fire = game.withdraw_under_fire
+			finish_beachhead_withdrawal(s, under_fire)
+			delete game.withdraw_beachhead_space
+			delete game.withdraw_under_fire
+			game.state = "play_card"
+		},
+		cancel() {
+			delete game.withdraw_beachhead_space
+			delete game.withdraw_under_fire
+			pop_undo()
+		}
+	}
+
 	states.confirm_remove_beachhead = {
 		prompt(res) {
 			let s = game.remove_beachhead_space
+			let name = data.spaces[s] ? data.spaces[s].name : space_name(s)
 			res.where(s)
-			res.prompt(`是否移除 ${space_name(s)} 的滩头标记？`)
+			res.prompt(`是否移除 ${name} 的滩头标记？`)
 			res.action("confirm")
 			res.action("cancel")
 		},

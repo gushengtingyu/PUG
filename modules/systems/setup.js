@@ -373,6 +373,9 @@ module.exports = function (Engine) {
 		}
 		if (Engine.neutral && typeof Engine.neutral.trigger_romania_entry === "function") {
 			Engine.neutral.trigger_romania_entry(game)
+			if (typeof Engine.neutral.place_romania_combined_bu_ah === "function") {
+				Engine.neutral.place_romania_combined_bu_ah(game)
+			}
 		}
 		game.events["arab_revolt"] = true
 		game.events["german_subs"] = true

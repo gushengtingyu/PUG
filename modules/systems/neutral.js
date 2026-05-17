@@ -473,6 +473,34 @@ module.exports = function (Engine) {
 		return true
 	}
 
+	function place_romania_combined_bu_ah(game, space) {
+		let { game_utils } = Engine
+		let plan =
+			Engine.collapse && typeof Engine.collapse.get_romanian_entry_plan === "function"
+				? Engine.collapse.get_romanian_entry_plan()
+				: null
+		let cp_plan = plan && plan.cp ? plan.cp : {}
+		let unit_name = cp_plan.combined_bu_ah_name || "Combined BU/AH Div"
+		let target_space = space || cp_plan.combined_bu_ah_default_space || "CP Reserve"
+		let p = game_utils.find_piece(CP, unit_name)
+		let space_id = get_entry_space_id(CP, target_space)
+		if (p < 0 || space_id < 0) return false
+
+		let choice_space_names = Array.isArray(cp_plan.combined_bu_ah_choice_spaces)
+			? cp_plan.combined_bu_ah_choice_spaces
+			: [cp_plan.combined_bu_ah_default_space || "CP Reserve"]
+		let choice_space_ids = choice_space_names.map((name) => get_entry_space_id(CP, name)).filter((s) => s >= 0)
+		let current_space = game.pieces[p]
+		let can_reposition_existing = choice_space_ids.includes(current_space)
+
+		if (!game_utils.is_not_on_map(game, p) && !can_reposition_existing) return false
+		if (current_space !== space_id) {
+			game.pieces[p] = space_id
+			Engine.log(game, `部署 ${piece_log_name(game, p)} 至 ${space_log_name(space_id)}`)
+		}
+		return true
+	}
+
 	function place_named_entry_piece(game, faction, unit_name, space, options = {}) {
 		let { game_utils } = Engine
 		if (options.skip_if_event && game.events && game.events[options.skip_if_event]) return false
@@ -590,9 +618,7 @@ module.exports = function (Engine) {
 		}
 
 		place_entry_placements(game, CP, plan.cp.immediate, (entry) => {
-			if (entry.name === "Combined BU/AH Div" && game.events["bulgaria"]) {
-				return { ...entry, space: entry.bulgaria_space || entry.space }
-			}
+			if (entry.name === "Combined BU/AH Div") return null
 			return entry
 		})
 		place_first_available_entry_pieces(game, CP, plan.cp.ge_division_pool, 2, "CP Reserve")
@@ -1036,6 +1062,7 @@ module.exports = function (Engine) {
 		trigger_bulgaria_entry,
 		trigger_romania_entry,
 		place_bulgaria_third_army,
+		place_romania_combined_bu_ah,
 		place_entry_units,
 		should_trigger_greece_entry_on_attack,
 		on_beachhead_placed,

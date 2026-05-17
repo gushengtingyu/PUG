@@ -3874,6 +3874,27 @@ module.exports = function (Engine) {
 		}
 	}
 
+	states.event_romania_place_combined_bu_ah = {
+		prompt(ctx) {
+			let { game, res } = ctx
+			res.prompt("罗马尼亚：选择 Combined BU/AH 师在保加利亚的放置位置")
+			for (let s = 1; s < data.spaces.length; s++) {
+				if (data.spaces[s] && data.spaces[s].nation === "bu") {
+					res.space(s)
+				}
+			}
+		},
+		space(ctx) {
+			let { game, rules, arg: s } = ctx
+			let name = data.spaces[s].name
+			Engine.neutral.place_romania_combined_bu_ah(game, name)
+			if (typeof Engine.map.check_supply === "function") {
+				Engine.map.check_supply(game)
+			}
+			Engine.event_states.begin_romania_event_attack_activation(game)
+		}
+	}
+
 	// === EVENT: BULL'S EYE DIRECTIVE (ID 58) ===
 
 	function can_bulls_eye_sr_piece_to_target(game, p, target) {

@@ -4632,6 +4632,7 @@ const UI_ACTIONS = [
 	["re-activate", "重新激活"],
 	["combine", "组合"],
 	["entrench", "掘壕"],
+	["remove_uprising_marker", "移除起义标志"],
 	["select_lcu", "选择 LCU"],
 	["select_all", "全选"],
 	["clear", "清除"],
