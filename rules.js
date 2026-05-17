@@ -265,7 +265,7 @@ function move_piece(target_game, p, s) {
 		if (target_game === game && Engine.neutral.is_greece_neutral(game) && Engine.neutral.is_athens_space(s)) {
 			// Get faction of the piece
 			let faction = data.pieces[p].faction
-			Engine.neutral.trigger_greece_entry(game, s, faction, "事件移动进入雅典", (msg) => log(msg))
+			Engine.neutral.trigger_greece_entry(game, s, other_faction(faction), "事件移动进入雅典", (msg) => log(msg))
 		}
 
 		if (target_game === game) {
@@ -2195,6 +2195,10 @@ function has_attack_targets(p, faction, enemy, enemy_space_flag = null) {
 	let adj = get_piece_connected_spaces_for_rule(game, s, p, "attack")
 	for (let t of adj) {
 		let has_enemy = enemy_space_flag ? enemy_space_flag[t] === 1 : contains_enemy_pieces(game, t, faction)
+		let has_neutral_greek_target =
+			Engine.neutral &&
+			typeof Engine.neutral.should_trigger_greece_entry_on_attack === "function" &&
+			Engine.neutral.should_trigger_greece_entry_on_attack(game, t, faction)
 		if (has_enemy) {
 			let defenders = get_pieces_in_space(game, t).filter((q) => Engine.game_utils.get_piece_effective_faction(game, q) === enemy)
 			if (
@@ -2205,7 +2209,7 @@ function has_attack_targets(p, faction, enemy, enemy_space_flag = null) {
 				has_enemy = false
 			}
 		}
-		if (has_enemy || has_undestroyed_fort(game, t, enemy)) return true
+		if (has_enemy || has_neutral_greek_target || has_undestroyed_fort(game, t, enemy)) return true
 	}
 	return false
 }

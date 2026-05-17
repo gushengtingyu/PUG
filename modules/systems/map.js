@@ -4921,6 +4921,18 @@ module.exports = function (Engine) {
 		}
 	}
 
+	function create_galicia_shared_cp_replacement_payment_options(nation) {
+		let options = []
+		if (nation === "ah" || nation === "bu") options.push(create_replacement_payment_option(nation))
+		options.push(create_replacement_payment_option("a"))
+		options.push(
+			create_replacement_payment_option("ge", {
+				can_use: ({ game, p }) => can_trace_replacement_supply_to_galicia(game, p)
+			})
+		)
+		return options
+	}
+
 	function can_use_br_to_ru_during_revolution(game) {
 		if (!(game.events && game.events["russian_revolution"] >= 1)) return true
 		if (CONSTANTINOPLE < 0) return false
@@ -5014,12 +5026,7 @@ module.exports = function (Engine) {
 
 		if (CP_REPLACEMENT_PAYMENT_OPTIONS[nation]) return CP_REPLACEMENT_PAYMENT_OPTIONS[nation]
 		if (CP_GALICIA_SHARED_REPLACEMENT_NATIONS.has(nation)) {
-			return [
-				create_replacement_payment_option("a"),
-				create_replacement_payment_option("ge", {
-					can_use: ({ game, p }) => can_trace_replacement_supply_to_galicia(game, p)
-				})
-			]
+			return create_galicia_shared_cp_replacement_payment_options(nation)
 		}
 		return [create_replacement_payment_option("a")]
 	}

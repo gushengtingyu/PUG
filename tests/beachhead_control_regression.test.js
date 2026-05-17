@@ -1,7 +1,7 @@
 const rules = require("../rules.js")
 const Engine = require("../modules/engine.js")
 
-const { setupGame, findSpace } = require("./helpers.js")
+const { setupGame, findSpace, findPiece, clearBoard } = require("./helpers.js")
 
 const { AP, CP } = Engine.constants
 const AP_ROLE = rules.roles[0]
@@ -27,6 +27,27 @@ function getSinglePieceMoveOptions(game, piece, from) {
 	}
 	game.pieces[piece] = from
 	return rules.view(game, AP_ROLE).actions.space || []
+}
+
+function setupSinglePieceBeachheadMove(game, piece, from) {
+	game.active = AP
+	game.state = "move_stack"
+	game.ops = 1
+	game.card_ops = 1
+	game.activated = { move: [], attack: [] }
+	game.region_activations = { move: {}, attack: {} }
+	game.activation_cost = { move: 0, attack: 0 }
+	game.attacked = []
+	game.retreated = []
+	game.moved = []
+	game.move = {
+		initial: from,
+		current: from,
+		spaces_moved: 0,
+		pieces: [piece],
+		touched_spaces: [from]
+	}
+	game.pieces[piece] = from
 }
 
 test("未建立 marker 的 beachhead 不会进入断补翻控制链路", () => {
@@ -101,6 +122,77 @@ test("Beirut 滩头上的 AP SCU 在 attack 阶段可以选择进攻 Beirut", ()
 	game = rules.action(game, AP_ROLE, "piece", attacker)
 	let targetView = rules.view(game, AP_ROLE)
 	expect(targetView.actions.space || []).toContain(beirut)
+})
+
+test("To Athens beachhead placement makes Greece a CP ally, but Thermaikos Bay does not", () => {
+	let toAthensGame = setupGame(2026051703)
+	let thermaikosGame = setupGame(2026051704)
+	let lemnos = findSpace("Lemnos")
+	let toAthens = findSpace("to Athens")
+	let thermaikosBay = findSpace("Thermaikos Bay")
+	let attacker = findPiece(AP, "BR DIV #4")
+
+	clearBoard(toAthensGame)
+	toAthensGame.unplaced_beachheads = 1
+	setupSinglePieceBeachheadMove(toAthensGame, attacker, lemnos)
+
+	expect(rules.view(toAthensGame, AP_ROLE).actions.space || []).toContain(toAthens)
+	toAthensGame = rules.action(toAthensGame, AP_ROLE, "space", toAthens)
+
+	expect(toAthensGame.beachheads || []).toContain(toAthens)
+	expect(Engine.neutral.get_greece_faction(toAthensGame)).toBe(CP)
+
+	clearBoard(thermaikosGame)
+	thermaikosGame.unplaced_beachheads = 1
+	setupSinglePieceBeachheadMove(thermaikosGame, attacker, lemnos)
+
+	expect(rules.view(thermaikosGame, AP_ROLE).actions.space || []).toContain(thermaikosBay)
+	thermaikosGame = rules.action(thermaikosGame, AP_ROLE, "space", thermaikosBay)
+
+	expect(thermaikosGame.beachheads || []).toContain(thermaikosBay)
+	expect(Engine.neutral.get_greece_faction(thermaikosGame)).toBe(null)
+})
+
+test("AP units already on To Athens can attack neutral Athens and flip Greece to CP", () => {
+	let game = setupGame(2026051705)
+	clearBoard(game)
+
+	let toAthens = findSpace("to Athens")
+	let athens = findSpace("ATHENS")
+	let attacker = findPiece(AP, "BR DIV #4")
+	let greekDefender = findPiece(AP, "GR DIV #1")
+
+	game.active = AP
+	game.state = "attack"
+	game.beachheads = [toAthens]
+	game.activated = { move: [], attack: [toAthens] }
+	game.region_activations = { move: {}, attack: {} }
+	game.activation_cost = { move: 0, attack: 0 }
+	game.attacked = []
+	game.attacked_spaces = []
+	game.retreated = []
+	game.balkan_attack_targets = { ap: -1, ap_mo: -1, cp: -1 }
+	game.pieces[attacker] = toAthens
+	game.pieces[greekDefender] = athens
+	delete game.attack
+	delete game.attack_eligibility_cache
+	delete game.events.greece
+
+	let attackView = rules.view(game, AP_ROLE)
+	expect(attackView.actions.piece || []).toContain(attacker)
+
+	game = rules.action(game, AP_ROLE, "piece", attacker)
+	let targetView = rules.view(game, AP_ROLE)
+	expect(targetView.actions.space || []).toContain(athens)
+
+	game = rules.action(game, AP_ROLE, "space", athens)
+	expect(game.state).toBe("confirm_attack")
+
+	game = rules.action(game, AP_ROLE, "confirm")
+
+	expect(Engine.neutral.get_greece_faction(game)).toBe(CP)
+	expect(game.attack.defender).toBe(CP)
+	expect(game.attack.initial_defenders || []).toContain(greekDefender)
 })
 
 test("Besika Bay 的 beachhead 单位可以激活并进攻 Kum Kale 空堡", () => {
@@ -474,7 +566,7 @@ test("火力下撤退进入确认状态，确认后返回 play_card", () => {
 	game.beachheads = [besikaBay]
 
 	let view = rules.view(game, AP_ROLE)
-	expect(view.prompt).toMatch(/是否确认.*Besika Bay.*撤退.*火力下/)
+	expect(view.prompt).toMatch(/是否确认.*Besika Bay.*撤退.*交战中/)
 	expect(view.prompt).not.toContain(`s${besikaBay}`)
 
 	game = rules.action(game, AP_ROLE, "confirm")

@@ -1370,7 +1370,13 @@ module.exports = function (Engine) {
 			) {
 				// Only trigger if the reinforced piece is NOT a Greek piece (Greek pieces are reinforced to Athens when they join)
 				if (!Engine.neutral.is_greek_piece(p)) {
-					Engine.neutral.trigger_greece_entry(game, space, faction, "增援进入雅典", (msg) => log(game, msg))
+					Engine.neutral.trigger_greece_entry(
+						game,
+						space,
+						Engine.utils.other_faction(faction),
+						"增援进入雅典",
+						(msg) => log(game, msg)
+					)
 				}
 			}
 

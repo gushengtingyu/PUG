@@ -96,6 +96,7 @@ module.exports = function (Engine) {
 
 	function should_trigger_greece_entry_on_beachhead(game, space_id, faction) {
 		if (!is_greece_neutral(game)) return false
+		if (faction === AP && is_athens_invasion_beachhead(space_id)) return true
 		if (data.spaces[space_id].nation !== "gr") return false
 		return !(faction === AP && is_salonika_space(space_id))
 	}
@@ -108,6 +109,14 @@ module.exports = function (Engine) {
 			if (adjacent !== island_base) return adjacent
 		}
 		return -1
+	}
+
+	function is_athens_invasion_beachhead(space_id) {
+		return is_athens_space(get_beachhead_landing_space(space_id))
+	}
+
+	function get_neutral_greece_violation_ally(faction) {
+		return Engine.utils.other_faction(faction)
 	}
 
 	function is_syrian_politics_beachhead(space_id) {
@@ -668,7 +677,8 @@ module.exports = function (Engine) {
 			Engine.log(game, "萨洛尼卡现在是协约国港口。")
 		}
 		if (should_trigger_greece_entry_on_beachhead(game, space_id, faction)) {
-			trigger_greece_entry(game, space_id, faction, "雅典滩头登陆事件", (msg) => Engine.log(game, msg))
+			let greece_joins = get_neutral_greece_violation_ally(faction)
+			trigger_greece_entry(game, space_id, greece_joins, "雅典滩头登陆事件", (msg) => Engine.log(game, msg))
 		}
 	}
 
@@ -676,14 +686,26 @@ module.exports = function (Engine) {
 		if (is_greece_neutral(game) && is_athens_space(space_id)) {
 			let non_greek = pieces.some((p) => !is_greek_piece(p))
 			if (non_greek) {
-				trigger_greece_entry(game, space_id, faction, "进入雅典事件", (msg) => Engine.log(game, msg))
+				trigger_greece_entry(
+					game,
+					space_id,
+					get_neutral_greece_violation_ally(faction),
+					"进入雅典事件",
+					(msg) => Engine.log(game, msg)
+				)
 			}
 		}
 	}
 
 	function check_attack_trigger(game, target, attacker_faction) {
 		if (should_trigger_greece_entry_on_attack(game, target, attacker_faction)) {
-			trigger_greece_entry(game, target, attacker_faction, "攻击中立希腊单位事件", (msg) => Engine.log(game, msg))
+			trigger_greece_entry(
+				game,
+				target,
+				get_neutral_greece_violation_ally(attacker_faction),
+				"攻击中立希腊单位事件",
+				(msg) => Engine.log(game, msg)
+			)
 		}
 	}
 

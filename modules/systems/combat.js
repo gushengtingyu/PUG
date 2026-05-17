@@ -1525,13 +1525,15 @@ module.exports = function (Engine) {
 				targets.push(s)
 			}
 			for (let t of adj) {
-				if (enemy_in_space[t] === 0 && !has_undestroyed_fort(game, t, enemy)) {
+				let neutral_greek_target = has_attackable_neutral_greek_defenders(game, t, faction)
+				if (enemy_in_space[t] === 0 && !neutral_greek_target && !has_undestroyed_fort(game, t, enemy)) {
 					continue
 				}
 				let defenders = get_pieces_in_space(game, t).filter(
 					(q) => get_piece_effective_faction(game, q) === enemy
 				)
 				if (
+					enemy_in_space[t] !== 0 &&
 					defenders.length > 0 &&
 					defenders.every((q) => Array.isArray(game.retreated) && set_has(game.retreated, q)) &&
 					!has_undestroyed_fort(game, t, enemy)
@@ -1588,9 +1590,11 @@ module.exports = function (Engine) {
 				!Engine.map.is_baluchistan(t)
 			)
 				continue
-			if (enemy_in_space[t] === 0 && !has_undestroyed_fort(game, t, enemy)) continue
+			let neutral_greek_target = has_attackable_neutral_greek_defenders(game, t, faction)
+			if (enemy_in_space[t] === 0 && !neutral_greek_target && !has_undestroyed_fort(game, t, enemy)) continue
 			let defenders = get_pieces_in_space(game, t).filter((q) => get_piece_effective_faction(game, q) === enemy)
 			if (
+				enemy_in_space[t] !== 0 &&
 				defenders.length > 0 &&
 				defenders.every((q) => Array.isArray(game.retreated) && set_has(game.retreated, q)) &&
 				!has_undestroyed_fort(game, t, enemy)
@@ -1842,6 +1846,14 @@ module.exports = function (Engine) {
 		if (!has_geoprotect) return true
 		return pieces.every(
 			(p) => piece_counts_as_nation_for_rule(game, p, "tu") || piece_counts_as_nation_for_rule(game, p, "tua")
+		)
+	}
+
+	function has_attackable_neutral_greek_defenders(game, target, faction) {
+		return !!(
+			Engine.neutral &&
+			typeof Engine.neutral.should_trigger_greece_entry_on_attack === "function" &&
+			Engine.neutral.should_trigger_greece_entry_on_attack(game, target, faction)
 		)
 	}
 
