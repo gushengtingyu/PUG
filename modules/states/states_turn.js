@@ -161,6 +161,60 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
+	states.attrition_phase = {
+		active: CP,
+		prompt(res) {
+			if (game.attrition_jihad_pending_finish) {
+				finish_attrition_phase()
+				if (
+					game.state !== "attrition_phase" &&
+					states[game.state] &&
+					typeof states[game.state].prompt === "function"
+				) {
+					states[game.state].prompt(res)
+					return
+				}
+			}
+			res.prompt("补给结算阶段")
+		}
+	}
+
+	function is_jihad_oos_attrition_unit(p) {
+		let info = data.pieces[p]
+		if (!info || info.faction !== AP) return false
+		if (info.type !== "regular") return false
+		if (!Engine.game_utils.is_lcu(p) && !Engine.game_utils.is_scu(p)) return false
+		let s = game.pieces[p]
+		if (!(s > 0) || !data.spaces[s]) return false
+		if (data.spaces[s].area === "balkans") return false
+		return Engine.game_utils.pieces_count_as_any_nation_for_rule(game, [p], ["ru", "br", "in", "anz"])
+	}
+
+	function finish_attrition_phase() {
+		delete game.attrition_jihad_pending_finish
+
+		if (game.vp >= 20) {
+			game.state = "game_over"
+			game.result = CP
+			game.victory = "CP Automatic Victory (VP 20+)"
+			return
+		}
+		if (game.vp <= 0) {
+			game.state = "game_over"
+			game.result = AP
+			game.victory = "AP Automatic Victory (VP 0)"
+			return
+		}
+
+		next_phase("attrition_phase")
+	}
+
+	function record_missed_mo(faction) {
+		let key = faction === AP ? "missed_mo_ap" : "missed_mo_cp"
+		if (!Array.isArray(game[key])) game[key] = []
+		set_add(game[key], game.turn)
+	}
+
 	function start_attrition_phase() {
 		game.state = "attrition_phase"
 		log_h1("补给结算阶段")
@@ -170,6 +224,7 @@ exports.register = function (states, Engine, context) {
 
 		if (game.mo_ap !== MO_NONE && !game.mo_ap_fulfilled) {
 			game.vp += 1
+			record_missed_mo(AP)
 			log("AP failed Mandated Offensive: VP +1")
 		}
 		if (game.british_mandate_violated && !game.br_attack_penalty_paid) {
@@ -180,6 +235,7 @@ exports.register = function (states, Engine, context) {
 
 		if (game.mo_cp !== MO_NONE && !game.mo_cp_fulfilled) {
 			game.vp -= 1
+			record_missed_mo(CP)
 			log("CP failed Mandated Offensive: VP -1")
 		}
 
@@ -208,9 +264,11 @@ exports.register = function (states, Engine, context) {
 		}
 
 		check_supply(game)
+		let jihad_for_oos_attrition = false
 
 		if (game.oos && game.oos.length > 0) {
 			let oos_units = [...game.oos]
+			jihad_for_oos_attrition = oos_units.some((p) => is_jihad_oos_attrition_unit(p))
 			for (let p of oos_units) {
 				log(`${piece_name(p)} eliminated (OOS)`)
 				eliminate_piece(p, true)
@@ -240,20 +298,15 @@ exports.register = function (states, Engine, context) {
 			game.oos_spaces = []
 		}
 
-		if (game.vp >= 20) {
-			game.state = "game_over"
-			game.result = CP
-			game.victory = "CP Automatic Victory (VP 20+)"
-			return
-		}
-		if (game.vp <= 0) {
-			game.state = "game_over"
-			game.result = AP
-			game.victory = "AP Automatic Victory (VP 0)"
-			return
+		if (jihad_for_oos_attrition) {
+			log("补给阶段断补消灭 AP 正规战斗单位（巴尔干外）：圣战 +1")
+			game.attrition_jihad_pending_finish = true
+			Engine.update_jihad_level(game, 1)
+			if (game.state === "jihad_placement") return
+			delete game.attrition_jihad_pending_finish
 		}
 
-		next_phase("attrition_phase")
+		finish_attrition_phase()
 	}
 
 	function next_phase(current) {

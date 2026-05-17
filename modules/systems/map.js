@@ -4048,7 +4048,11 @@ module.exports = function (Engine) {
 				) {
 					let has_serbian_unit = get_pieces_in_space(game, s).some((p) => {
 						let piece = data.pieces[p]
-						return piece && piece.faction === AP && piece.nation === "sb"
+						return (
+							piece &&
+							piece.faction === AP &&
+							piece_counts_as_nation_for_rule(game, p, "sb")
+						)
 					})
 					if (has_serbian_unit) status = "FULL"
 				}

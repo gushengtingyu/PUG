@@ -286,9 +286,13 @@ module.exports = function (Engine) {
 		let piece = data.pieces[p]
 		let space = data.spaces[space_id]
 		if (!piece || !space) return false
-		if (piece.nation !== space.nation) return false
+		let nations =
+			typeof game_utils.get_piece_nations_for_rule === "function"
+				? game_utils.get_piece_nations_for_rule(game, p)
+				: [piece.nation]
+		if (!nations.includes(space.nation)) return false
 
-		switch (piece.nation) {
+		switch (space.nation) {
 			case "gr":
 				// Rule 19.2.4 applies to Greek units only, not every AP unit inside neutral Greece.
 				return true

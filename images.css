@@ -66,6 +66,12 @@
 .marker.cp.mandatory_offensive {
 	background-image: url(pieces/MCPMO.png);
 }
+.marker.ap_missed_mo {
+	background-image: url(pieces/ap_missed_mo.webp);
+}
+.marker.cp_missed_mo {
+	background-image: url(pieces/cp_missed_mo.webp);
+}
 .marker.cp.enver_mandatory_offensive {
 	background-image: url(pieces/MEnver.png);
 }

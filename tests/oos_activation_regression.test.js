@@ -171,6 +171,45 @@ test("满编 OOS LCU 在 Attrition Phase 直接永久消灭，不会替换出 SC
 	).toBe(false)
 })
 
+test("OOS AP regular combat units outside the Balkans add one Jihad during Attrition", () => {
+	let game = setupGame(2026051702)
+	let turn = getTurnFuncs(game)
+	let brDiv = findPiece(AP, "BR DIV #1")
+	let ruDiv = findPiece(AP, "RU DIV #1")
+	let erzurum = findSpace("Erzurum")
+	let mosul = findSpace("Mosul")
+	let startingJihad = game.jihad || 0
+
+	game.pieces[brDiv] = erzurum
+	game.pieces[ruDiv] = mosul
+	game.mo_ap = "NONE"
+	game.mo_cp = "NONE"
+	game.mo_ap_fulfilled = true
+	game.mo_cp_fulfilled = true
+
+	expect(Engine.map.get_supply_status(game, erzurum, AP, brDiv)).toBe("OOS")
+	expect(Engine.map.get_supply_status(game, mosul, AP, ruDiv)).toBe("OOS")
+
+	turn.start_attrition_phase()
+
+	expect(Engine.game_utils.is_permanently_eliminated(game, brDiv)).toBe(true)
+	expect(Engine.game_utils.is_permanently_eliminated(game, ruDiv)).toBe(true)
+	expect(game.jihad).toBe(startingJihad + 1)
+	expect(game.state).toBe("jihad_placement")
+
+	let placementView = rules.view(game, CP_ROLE)
+	let tribe = placementView.actions.piece[0]
+	game = rules.action(game, CP_ROLE, "piece", tribe)
+	placementView = rules.view(game, CP_ROLE)
+	let space = placementView.actions.space[0]
+	game = rules.action(game, CP_ROLE, "space", space)
+
+	expect(game.attrition_jihad_pending_finish).toBeUndefined()
+	expect(game.state).not.toBe("attrition_phase")
+	expect(game.state).not.toBe("jihad_placement")
+	expect(game.state_stack || []).toEqual([])
+})
+
 test("部落不会被 check_supply 标记为 OOS", () => {
 	let game = setupGame(2026042309)
 	let tribe = findPiece(CP, "Bawi")

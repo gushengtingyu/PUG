@@ -1,7 +1,7 @@
 const rules = require("../rules.js")
 const Engine = require("../modules/engine.js")
 
-const { setupGame, findSpace, findPiece } = require("./helpers.js")
+const { setupGame, findSpace, findPiece, clearBoard } = require("./helpers.js")
 
 const { AP, CP, ELIMINATED } = Engine.constants
 
@@ -132,6 +132,23 @@ describe("中立国统一框架", () => {
 		game.events.serbian_collapse = true
 
 		expect(Engine.map.get_supply_status(game, nis, AP, sbArmy)).not.toBe("FULL")
+	})
+
+	test("RU/SB Yugoslav Division uses Serbian home supply before Serbian collapse", () => {
+		let game = setupGame(2026051701, "Historical")
+		let nis = findSpace("Nis")
+		let yugo = findPiece(AP, "RU/SB Yugo Infantry")
+
+		Engine.events.get_event_by_id(88).handler(game)
+		clearBoard(game)
+		game.pieces[yugo] = nis
+
+		expect(Engine.map.get_supply_status(game, nis, AP, yugo)).toBe("FULL")
+
+		Engine.map.check_supply(game)
+
+		expect(game.oos || []).not.toContain(yugo)
+		expect(game.oos_spaces || []).not.toContain(nis)
 	})
 
 	test("塞军在塞尔维亚崩溃且未触发塞族归来前不能重建", () => {

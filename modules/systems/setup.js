@@ -473,6 +473,8 @@ module.exports = function (Engine) {
 		if (state.mo_ap_fulfilled === undefined) state.mo_ap_fulfilled = false
 		if (state.mo_cp_fulfilled === undefined) state.mo_cp_fulfilled = false
 		if (state.mo_cp_cancelled === undefined) state.mo_cp_cancelled = false
+		if (!Array.isArray(state.missed_mo_ap)) state.missed_mo_ap = []
+		if (!Array.isArray(state.missed_mo_cp)) state.missed_mo_cp = []
 		if (state.ru_revolution === undefined) state.ru_revolution = 0
 		if (state.jihad === undefined) state.jihad = 0
 		if (state.vp === undefined) state.vp = 10
@@ -619,6 +621,8 @@ module.exports = function (Engine) {
 			mo_ap_fulfilled: false,
 			mo_cp_fulfilled: false,
 			mo_cp_cancelled: false,
+			missed_mo_ap: [],
+			missed_mo_cp: [],
 			ru_revolution: 0,
 			jihad: 0,
 			jihad_cities_flipped: [],

@@ -945,6 +945,8 @@ exports.view = function (state, current) {
 			mo_ap_modifier: game.mo_ap_modifier,
 			mo_ap_fulfilled: game.mo_ap_fulfilled,
 			mo_cp_fulfilled: game.mo_cp_fulfilled,
+			missed_mo_ap: Array.isArray(game.missed_mo_ap) ? game.missed_mo_ap : [],
+			missed_mo_cp: Array.isArray(game.missed_mo_cp) ? game.missed_mo_cp : [],
 			mo_cp_1_fulfilled: game.mo_cp_1_fulfilled,
 			mo_cp_2_fulfilled: game.mo_cp_2_fulfilled,
 			ru_revolution: game.ru_revolution,

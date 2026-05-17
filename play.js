@@ -103,6 +103,8 @@ function init_layout() {
 
 init_layout()
 
+const MAX_TURN_TRACK = 17
+
 const DEBUG_SPACES = false
 const DEBUG_CONNECTIONS = false
 function read_debug_switch(name, fallback = false) {
@@ -1699,6 +1701,16 @@ const marker_info = {
 		name: "Fort Destroyed",
 		counter: "marker fort_destroyed",
 		size: 75 * SCALE
+	},
+	ap_missed_mo: {
+		name: "AP Missed Mandatory Offensive",
+		counter: "marker ap_missed_mo",
+		size: 75 * SCALE
+	},
+	cp_missed_mo: {
+		name: "CP Missed Mandatory Offensive",
+		counter: "marker cp_missed_mo",
+		size: 75 * SCALE
 	}
 }
 
@@ -1867,6 +1879,22 @@ function destroy_markers(list, find) {
 			marker.element.remove()
 		}
 	} while (index >= 0)
+}
+
+// Missed MO marker tracking
+const missed_mo_ap_markers = []
+const missed_mo_cp_markers = []
+
+function build_missed_mo_marker(faction, turn) {
+	const list = faction === AP ? missed_mo_ap_markers : missed_mo_cp_markers
+	const info = faction === AP ? marker_info.ap_missed_mo : marker_info.cp_missed_mo
+	const type = faction === AP ? "ap_missed_mo" : "cp_missed_mo"
+	return build_marker(list, (e) => e.turn === turn, { type, turn }, info)
+}
+
+function destroy_missed_mo_marker(faction, turn) {
+	const list = faction === AP ? missed_mo_ap_markers : missed_mo_cp_markers
+	destroy_marker(list, (e) => e.turn === turn)
 }
 
 const CONTROL_MARKER_TYPES = new Set(["ap_control", "cp_control", "ru_control"])
@@ -4241,6 +4269,40 @@ function layout_marker_stack(stacks, key_fn) {
 }
 
 /**
+ * 更新未完成强制进攻(MO)标记在回合轨上的显示。
+ * 在缺失MO的回合格子上渲染 ap_missed_mo/cp_missed_mo 图片。
+ */
+function update_missed_mo_markers() {
+	if (!view) return
+
+	for (const stack of turn_track_stacks) {
+		let i = stack.length
+		while (i--) {
+			if (stack[i].type === "ap_missed_mo" || stack[i].type === "cp_missed_mo") {
+				stack.splice(i, 1)
+			}
+		}
+	}
+
+	for (let i = 1; i <= MAX_TURN_TRACK; i++) {
+		if (view.missed_mo_ap && view.missed_mo_ap.includes(i)) {
+			build_missed_mo_marker(AP, i)
+			const marker = missed_mo_ap_markers.find((m) => m.turn === i)
+			if (marker) turn_track_stacks[i].push(marker)
+		} else {
+			destroy_missed_mo_marker(AP, i)
+		}
+		if (view.missed_mo_cp && view.missed_mo_cp.includes(i)) {
+			build_missed_mo_marker(CP, i)
+			const marker = missed_mo_cp_markers.find((m) => m.turn === i)
+			if (marker) turn_track_stacks[i].push(marker)
+		} else {
+			destroy_missed_mo_marker(CP, i)
+		}
+	}
+}
+
+/**
  * 更新系统标记（如回合轨道、胜利点、战争状态等）。
  */
 function update_system_markers() {
@@ -4402,6 +4464,9 @@ function update_system_markers() {
 	} else {
 		ap_mo_modifier_marker.style.display = "none"
 	}
+
+	// 未完成强制进攻标记
+	update_missed_mo_markers()
 
 	// 布局标记堆栈
 	layout_marker_stack(general_records_stacks, (i) => `GR ${i}`)

@@ -71,7 +71,7 @@ module.exports = function (Engine) {
 	}
 
 	function collect_jihad_city_presence(game, s) {
-		if (!data.spaces[s] || !data.spaces[s].jihad_city) return 0
+		if (!data.spaces[s] || !data.spaces[s].jihad_city) return null
 		const { AP, CP } = Engine.constants
 		let controller = map.get_space_controller(game, s) || 0
 		let has_ap_regular = false
