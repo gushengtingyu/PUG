@@ -830,7 +830,6 @@ module.exports = function (Engine) {
 		// Rule 15.4.1 & 15.4.3
 		if (!map.is_controlled_by(game, s, faction) && !map.is_besieged(game, s)) return false
 		if (map.is_island_base(game, s)) return false
-		if (map.is_beachhead_space(game, s)) return false
 		if (map.is_region(game, s)) return false
 
 		let terrain = data.spaces[s].terrain || ""

@@ -937,10 +937,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function get_blockade_tu_rp_recovery_pool() {
-		return (
-			Math.max(0, Number(game.tu_rp_recovery_pool || 0)) +
-			Math.max(0, Number(game.tu_rp_ge_converted || 0))
-		)
+		return Math.max(0, Number(game.tu_rp_recovery_pool || 0))
 	}
 
 	function clear_replacement_points_for_active_faction() {
