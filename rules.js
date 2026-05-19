@@ -75,8 +75,11 @@ const {
 	is_hq,
 	add_rps: utils_add_rps,
 	place_trench,
+	has_trench,
+	get_trench_owner,
 	remove_trench,
-	has_trench
+	is_enemy_trench,
+	enter_trench
 } = Engine.game_utils
 const {
 	get_connected_spaces,
@@ -378,6 +381,7 @@ const event_rules = Object.freeze({
 	set_delete,
 	set_toggle,
 	place_trench,
+	has_trench,
 	refresh_attack_eligibility,
 	next_phase(phase) {
 		if (turn_funcs && turn_funcs.next_phase) {
@@ -945,6 +949,7 @@ exports.view = function (state, current) {
 			unplaced_beachheads: Math.max(0, game.unplaced_beachheads || 0),
 			trenches: game.trenches,
 			trenches_2: game.trenches_2,
+			trench_owner: game.trench_owner,
 			action_round: game.action_round,
 			mo_ap: game.mo_ap,
 			mo_cp: game.mo_cp,
@@ -1323,7 +1328,7 @@ function update_war_status(faction, amount) {
 	if (game.combined_war >= 40 && !game.events["armistice_scheduled"]) {
 		game.events["armistice_scheduled"] = true
 		let roll = roll_die()
-		let turns = 0
+		let turns
 		if (roll <= 2) turns = 3
 		else if (roll <= 4) turns = 4
 		else turns = 5
@@ -2646,6 +2651,8 @@ exports.set_add = set_add
 exports.set_has = set_has
 exports.set_delete = set_delete
 exports.other_faction = other_faction
+exports.has_trench = has_trench
+exports.get_trench_owner = get_trench_owner
 exports.is_persia = is_persia
 exports.is_central_asia = is_central_asia
 exports.is_azerbaijan = is_azerbaijan
@@ -2750,9 +2757,10 @@ activation_states.register(states, Engine, {
 	set_control,
 	bulls_eye_record_sr_space,
 	roll_die,
-	has_trench,
 	place_trench,
-	remove_trench
+	has_trench,
+	is_enemy_trench,
+	enter_trench
 })
 
 combat_funcs = combat_states.register(states, Engine, {
@@ -2821,8 +2829,8 @@ combat_funcs = combat_states.register(states, Engine, {
 	update_jihad_level: (g, amount) => update_jihad_level(g, amount),
 	AP,
 	CP,
-	has_trench,
-	remove_trench
+	is_enemy_trench,
+	enter_trench
 })
 
 turn_funcs = turn_states.register(states, Engine, {

@@ -4,7 +4,7 @@ module.exports = function (Engine) {
 	const { data } = Engine
 	const exports = {}
 
-	const { ELIMINATED, RESERVE, REMOVED, REINFORCEMENTS, AP } = Engine.constants
+	const { ELIMINATED, RESERVE, REMOVED, REINFORCEMENTS, AP, CP } = Engine.constants
 	const { set_add, set_delete, set_has } = Engine.utils
 	const STACKING_LIMIT = 3
 
@@ -857,14 +857,74 @@ module.exports = function (Engine) {
 		return []
 	}
 
-	function place_trench(game, s) {
+	function normalize_trench_owner(owner) {
+		return owner === AP || owner === CP ? owner : null
+	}
+
+	function other_trench_owner(owner) {
+		if (owner === AP) return CP
+		if (owner === CP) return AP
+		return null
+	}
+
+	function infer_trench_owner(game, s) {
+		let controller =
+			Engine.map && typeof Engine.map.get_space_controller === "function"
+				? Engine.map.get_space_controller(game, s)
+				: game.control && game.control[s]
+		controller = normalize_trench_owner(controller)
+		if (controller) return controller
+
+		// The only neutral setup trench is Doiran's preset Greek trench. Treat it
+		// as AP-owned until a CP capture path explicitly takes it over.
+		if (data.spaces[s] && data.spaces[s].name === "Doiran") return AP
+
+		let printed = normalize_trench_owner(data.spaces[s] && data.spaces[s].faction)
+		if (printed) return printed
+
+		return normalize_trench_owner(game.active) || AP
+	}
+
+	function ensure_trench_owner(game, s) {
+		if (!game.trench_owner) game.trench_owner = []
+		let owner = normalize_trench_owner(game.trench_owner[s])
+		if (!owner && has_trench(game, s) > 0) {
+			owner = infer_trench_owner(game, s)
+			game.trench_owner[s] = owner
+		}
+		return owner
+	}
+
+	function get_trench_owner(game, s) {
+		if (has_trench(game, s) <= 0) return null
+		return ensure_trench_owner(game, s)
+	}
+
+	function set_trench_owner(game, s, owner) {
+		owner = normalize_trench_owner(owner)
+		if (!owner || has_trench(game, s) <= 0) return false
+		if (!game.trench_owner) game.trench_owner = []
+		game.trench_owner[s] = owner
+		return true
+	}
+
+	function is_enemy_trench(game, s, faction) {
+		faction = normalize_trench_owner(faction)
+		if (!faction || has_trench(game, s) <= 0) return false
+		return get_trench_owner(game, s) !== faction
+	}
+
+	function place_trench(game, s, owner = null) {
 		if (!game.trenches) game.trenches = []
+		if (!game.trench_owner) game.trench_owner = []
 
 		// Rule 15.4.4: Space may never contain more than one Trench marker.
 		// Rule 15.4.4: A player can never build Level 2 trenches.
-		if (!set_has(game.trenches, s)) {
+		if (!set_has(game.trenches, s) && !set_has(game.trenches_2, s)) {
 			set_add(game.trenches, s)
 		}
+		let trench_owner = normalize_trench_owner(owner) || normalize_trench_owner(game.active) || infer_trench_owner(game, s)
+		set_trench_owner(game, s, trench_owner)
 	}
 
 	function has_trench(game, s) {
@@ -876,12 +936,67 @@ module.exports = function (Engine) {
 	}
 
 	function remove_trench(game, s) {
-		// Rule 15.4.9: Doiran starts with a Level 2 Trench which is permanent and never removed or reduced.
-		if (data.spaces[s].name === "Doiran") return
-
-		// PUG Rule: Level 1 Trench is removed when control changes. Level 2 (Doiran) is permanent.
 		if (game.trenches) set_delete(game.trenches, s)
 		if (game.trenches_2) set_delete(game.trenches_2, s)
+		if (game.trench_owner) delete game.trench_owner[s]
+	}
+
+	function set_trench_level(game, s, level, owner = null) {
+		if (!game.trenches) game.trenches = []
+		if (!game.trenches_2) game.trenches_2 = []
+		if (!game.trench_owner) game.trench_owner = []
+		set_delete(game.trenches, s)
+		set_delete(game.trenches_2, s)
+		if (level === 2) set_add(game.trenches_2, s)
+		else if (level === 1) set_add(game.trenches, s)
+		else {
+			delete game.trench_owner[s]
+			return
+		}
+		set_trench_owner(game, s, normalize_trench_owner(owner) || infer_trench_owner(game, s))
+	}
+
+	function enter_trench(game, s, entering_faction, options = {}) {
+		entering_faction = normalize_trench_owner(entering_faction)
+		let level = has_trench(game, s)
+		if (!entering_faction || level <= 0) return { changed: false, action: "none", level }
+
+		let owner = get_trench_owner(game, s)
+		if (owner === entering_faction) return { changed: false, action: "friendly", level, owner }
+
+		if (level === 1) {
+			remove_trench(game, s)
+			return { changed: true, action: "removed", previous_level: 1, previous_owner: owner }
+		}
+
+		if (level === 2 && options.capture_level_2_intact) {
+			set_trench_owner(game, s, entering_faction)
+			return { changed: owner !== entering_faction, action: "captured_intact", level: 2, previous_owner: owner }
+		}
+
+		if (level === 2) {
+			set_trench_level(game, s, 1, entering_faction)
+			return { changed: true, action: "degraded", previous_level: 2, previous_owner: owner }
+		}
+
+		return { changed: false, action: "none", level }
+	}
+
+	function apply_trench_attrition(game, s) {
+		let level = has_trench(game, s)
+		if (level <= 0) return { changed: false, action: "none", level }
+		let owner = get_trench_owner(game, s)
+		if (level === 1) {
+			remove_trench(game, s)
+			return { changed: true, action: "removed", previous_level: 1, previous_owner: owner }
+		}
+		let new_owner = other_trench_owner(owner)
+		if (!new_owner) {
+			remove_trench(game, s)
+			return { changed: true, action: "removed", previous_level: level, previous_owner: owner }
+		}
+		set_trench_level(game, s, 1, new_owner)
+		return { changed: true, action: "degraded", previous_level: 2, previous_owner: owner, owner: new_owner }
 	}
 	function is_hq(p) {
 		if (p < 0 || !data.pieces[p]) return false
@@ -1280,9 +1395,19 @@ module.exports = function (Engine) {
 		eliminate_piece,
 		replace_lcu_with_scu,
 		add_rps,
+		normalize_trench_owner,
+		other_trench_owner,
+		infer_trench_owner,
+		ensure_trench_owner,
 		has_trench,
+		get_trench_owner,
+		set_trench_owner,
+		is_enemy_trench,
 		place_trench,
 		remove_trench,
+		enter_trench,
+		apply_trench_attrition,
+		set_trench_level,
 		can_entrench_in_space,
 		get_entrenching_units_in_space
 	})

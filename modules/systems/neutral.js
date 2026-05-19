@@ -11,6 +11,7 @@ module.exports = function (Engine) {
 	const ODESSA = find_space("Odessa")
 	const LEMNOS = find_space("Lemnos")
 	const SALONIKA = find_space("Salonika")
+	const ATHENS = find_space("ATHENS")
 	const BELGRADE = find_space("BELGRADE")
 	const NIS = find_space("Nis")
 	const NEUTRAL_PERSIA_FIRST_ENTRY_PENALTY = "neutral_persia_first_entry_penalty"
@@ -410,9 +411,24 @@ module.exports = function (Engine) {
 		return !!(balkan_vp_spaces.length > 0 && balkan_vp_spaces.every((s) => !map.is_controlled_by(game, s, AP)))
 	}
 
+	function is_athens_occupied_by_enemy_of_greek_ally(game, faction) {
+		if (ATHENS < 0 || !data.spaces[ATHENS]) return false
+		let enemy = faction === AP ? CP : AP
+		return Engine.map.get_pieces_in_space(game, ATHENS).some((p) => {
+			return Engine.game_utils.get_piece_effective_faction(game, p) === enemy
+		})
+	}
+
+	function apply_greek_entry_athens_control(game, faction) {
+		if (ATHENS < 0 || !data.spaces[ATHENS]) return
+		if (is_athens_occupied_by_enemy_of_greek_ally(game, faction)) return
+		Engine.set_control(game, ATHENS, faction)
+	}
+
 	function trigger_greece_entry(game, target, entering_faction, reason, log_fn) {
 		if (!is_greece_neutral(game)) return false
 		if (game && game.event_ctx && game.event_ctx.key === "rupel") return false
+		apply_greek_entry_athens_control(game, entering_faction)
 		set_greece_faction(game, entering_faction)
 		game.entry_gr = true
 		if (typeof log_fn === "function") {

@@ -1837,6 +1837,11 @@ function view_map_get(map, key, missing) {
 function build_marker(list, find, new_marker, info, no_listeners = false) {
 	let marker = list.find(find)
 	if (marker) {
+		// Update properties if found to support reuse (e.g. trench level/owner change)
+		Object.assign(marker, new_marker)
+		marker.name = info.name
+		marker.element.className = `${info.counter} anchored`
+		marker.element.my_size = info.size
 		return marker.element
 	}
 	marker = new_marker
@@ -2074,19 +2079,18 @@ function destroy_jerusalem_by_christmas_marker(s) {
  * @param {number} level - 战壕等级。
  * @returns {HTMLElement} 标记元素。
  */
-function build_trench_marker(s, level) {
+function build_trench_marker(s, level, owner) {
 	const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
-	const faction = (view && view.control && view.control[s]) || spaces[s].faction || CP
+	const faction = owner || CP
 	const side = faction === AP ? "ap" : "cp"
 	const info = marker_info.trench[side][level] || marker_info.trench[side][1]
-	const is_doiran = s === DOIRAN // Doiran has unique level 2 trench
+	const is_doiran = s === DOIRAN && level === 2 // Doiran has unique level 2 trench
 	const counter_class = is_doiran ? `${info.counter} DOIR` : info.counter
+
 	return build_marker(
 		list,
-		(m) => {
-			return m.type === "trench" && m.value === level
-		},
-		{ type: "trench", space: s, value: level },
+		(m) => m.type === "trench",
+		{ type: "trench", space: s, value: level, owner: faction },
 		{ ...info, counter: counter_class }
 	)
 }
@@ -2188,7 +2192,14 @@ const UI_FRAME_STATE_FIELDS = [
 	{ key: "beachheads", diff: "space_set", build: () => to_id_set(view?.beachheads) },
 	{ key: "trenches", diff: "space_set", build: () => to_id_set(view?.trenches) },
 	{ key: "trenches_2", diff: "space_set", build: () => to_id_set(view?.trenches_2) },
+	{
+		key: "trench_owner",
+		diff: "control_map",
+		build: () => (view?.trench_owner && typeof view.trench_owner === "object" ? view.trench_owner : null),
+		snapshot: (value) => (value ? { ...value } : null)
+	},
 	{ key: "forts_destroyed", diff: "space_set", build: () => to_id_set(view?.forts?.destroyed) },
+	{ key: "forts_besieged", diff: "space_set", build: () => to_id_set(view?.forts?.besieged) },
 	{ key: "armenian_uprising_markers", diff: "space_set", build: () => to_id_set(view?.armenian_uprising_markers) },
 	{ key: "persian_uprising_markers", diff: "space_set", build: () => to_id_set(view?.persian_uprising_markers) },
 	{ key: "soviet_uprising_markers", diff: "space_set", build: () => to_id_set(view?.soviet_uprising_markers) },
@@ -4877,12 +4888,8 @@ function render_space_markers(space, state, s, stack_parts) {
 
 	const trench_level = has_id(state.trenches_2, s) ? 2 : has_id(state.trenches, s) ? 1 : 0
 	if (trench_level > 0) {
-		const marker_list = get_space_marker_list(s)
-		const existing = marker_list.find((marker) => marker.type === "trench")
-		if (existing && existing.value !== trench_level) {
-			destroy_marker(marker_list, (marker) => marker.type === "trench")
-		}
-		stack_parts.bottom_markers.push(build_trench_marker(s, trench_level))
+		const trench_owner = view_map_get(state.trench_owner, s, get_space_control(state, s) || CP)
+		stack_parts.bottom_markers.push(build_trench_marker(s, trench_level, trench_owner))
 	} else {
 		destroy_trench_marker(s)
 	}
@@ -4897,6 +4904,12 @@ function render_space_markers(space, state, s, stack_parts) {
 		stack_parts.bottom_markers.push(build_fort_destroyed_marker(s))
 	} else {
 		destroy_fort_destroyed_marker(s)
+	}
+
+	if (has_id(state.forts_besieged, s)) {
+		stack_parts.bottom_markers.push(build_space_marker(s, "besieged", marker_info.besieged))
+	} else {
+		destroy_space_marker(s, "besieged")
 	}
 
 	if (has_id(state.persian_uprising_markers, s)) {

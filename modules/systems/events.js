@@ -2335,7 +2335,6 @@ module.exports = function (Engine) {
 					combined_war: game.combined_war
 				}
 
-				game.vp -= 1
 				neutral.trigger_greece_entry(game, null, AP, "希腊事件", (msg) => log(game, msg, ctx))
 				game.events["greece_event_played"] = true
 			}
@@ -2861,6 +2860,9 @@ module.exports = function (Engine) {
 							}
 						}
 					}
+					if (game.neutral_vp_first_captor) {
+						delete game.neutral_vp_first_captor[ATHENS]
+					}
 
 					if (game.removed_ap) {
 						let idx = game.removed_ap.indexOf(45)
@@ -2877,7 +2879,6 @@ module.exports = function (Engine) {
 
 				if (neutral.is_greece_neutral(game) && neutral.check_constantine_entry_conditions(game)) {
 					neutral.trigger_greece_entry(game, null, CP, "康斯坦丁国王事件", (msg) => log(game, msg, ctx))
-					game.vp += 1
 				}
 
 				game.events["constantine"] = true
@@ -2978,9 +2979,12 @@ module.exports = function (Engine) {
 				Engine.utils.set_add(event.rupel_advanced_pieces, p)
 				let effects = []
 				if (Engine.game_utils.has_trench(game, target) > 0) {
-					Engine.game_utils.remove_trench(game, target)
-					if (Engine.game_utils.has_trench(game, target) > 0) effects.push("接收当地战壕")
-					else effects.push("清除当地战壕")
+					let trench_result = Engine.game_utils.enter_trench(game, target, CP, {
+						capture_level_2_intact: target === DOIRAN
+					})
+					if (trench_result.action === "captured_intact") effects.push("接收当地2级战壕")
+					else if (trench_result.action === "degraded") effects.push("当地2级战壕降为同盟国1级战壕")
+					else if (trench_result.action === "removed") effects.push("清除当地战壕")
 				}
 				if (typeof Engine.set_control === "function") Engine.set_control(game, target, CP)
 				if (data.spaces[target].fort && typeof Engine.map.set_fort_owner === "function") {

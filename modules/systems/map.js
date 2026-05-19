@@ -2013,7 +2013,7 @@ module.exports = function (Engine) {
 			if (is_controlled_by(game, target, enemy) && has_undestroyed_fort(game, target, enemy)) {
 				return "绿色连线：不能进入敌方控制且有敌方要塞的格"
 			}
-			if (is_controlled_by(game, target, enemy) && Engine.game_utils.has_trench(game, target) > 0) {
+			if (is_controlled_by(game, target, enemy) && Engine.game_utils.is_enemy_trench(game, target, faction)) {
 				return "绿色连线：不能进入敌方壕沟格"
 			}
 		}
@@ -2116,7 +2116,7 @@ module.exports = function (Engine) {
 			let enemy = other_faction(faction)
 			if (
 				is_controlled_by(game, target, enemy) &&
-				(has_undestroyed_fort(game, target, enemy) || Engine.game_utils.has_trench(game, target) > 0)
+				(has_undestroyed_fort(game, target, enemy) || Engine.game_utils.is_enemy_trench(game, target, faction))
 			) {
 				return false
 			}
@@ -4060,12 +4060,7 @@ module.exports = function (Engine) {
 					// Rule 15.4.6 Exception: Trench markers in an intact Fort space do not suffer attrition.
 					let has_fort = has_undestroyed_fort(game, s, faction)
 					if (!has_fort) {
-						if (
-							(game.trenches && set_has(game.trenches, s)) ||
-							(game.trenches_2 && set_has(game.trenches_2, s))
-						) {
-							Engine.game_utils.remove_trench(game, s)
-						}
+						Engine.game_utils.apply_trench_attrition(game, s)
 					}
 					// Rule 14.3.3: Space becomes enemy controlled during attrition phase
 					// We mark it here, and start_attrition_phase will handle the actual control change

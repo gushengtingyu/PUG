@@ -67,8 +67,8 @@ exports.register = function (states, Engine, context) {
 		card_name,
 		AP,
 		CP,
-		has_trench,
-		remove_trench
+		is_enemy_trench,
+		enter_trench
 	} = context
 	const JERUSALEM = find_space("Jerusalem")
 
@@ -1604,7 +1604,7 @@ exports.register = function (states, Engine, context) {
 				if (Engine.game_utils.get_piece_effective_faction(game, p) !== CP) continue
 				if (is_not_on_map(game, p)) continue
 				let from = game.pieces[p]
-				let neighbors = get_connected_spaces(game, from, data.pieces[p].nation, CP, p)
+				let neighbors = Engine.map.get_piece_connected_spaces_for_rule(game, from, p)
 				if (!neighbors.includes(conf.space)) continue
 				if (!can_enter_region(game, p, conf.space)) continue
 				if (!can_stack_end_in_space(game, conf.space, [p])) continue
@@ -3553,13 +3553,13 @@ exports.register = function (states, Engine, context) {
 				return false
 			}
 		}
-		if (
-			has_trench(game, to_space) > 0 &&
-			!Engine.map.is_controlled_by(game, to_space, active_faction()) &&
-			!game.advance_trench_processed
-		) {
-			remove_trench(game, to_space)
-			log(`Trench in ${space_name(to_space)} removed by enemy entry.`)
+		if (is_enemy_trench(game, to_space, active_faction()) && !game.advance_trench_processed) {
+			let trench_result = enter_trench(game, to_space, active_faction())
+			if (trench_result.action === "degraded") {
+				log(`${space_name(to_space)}处战壕已降级`)
+			} else if (trench_result.action === "removed") {
+				log(`${space_name(to_space)}处战壕已移除`)
+			}
 			game.advance_trench_processed = true
 		}
 		resolve_russian_winter_offensive_advance(game, p, to_space, log)

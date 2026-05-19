@@ -609,11 +609,14 @@ exports.register = function (states, Engine, context) {
 			return
 		}
 
-		let ap_roll = roll_die()
-		if (game.mo_ap_modifier) {
-			ap_roll += game.mo_ap_modifier
-		}
-		let cp_roll = roll_die()
+		let ap_die = roll_die()
+		let ap_drm = game.mo_ap_modifier || 0
+		let ap_roll = ap_die + ap_drm
+
+		let cp_die = roll_die()
+		let cp_drm = 0
+		let cp_roll = cp_die + cp_drm
+
 		if (game.mo_cp_cancelled) {
 			game.mo_cp = MO_NONE
 			game.mo_cp_fulfilled = true
@@ -624,8 +627,8 @@ exports.register = function (states, Engine, context) {
 			// Rule 5.1.2: Validity check (None or Reroll)
 			let status_ap = check_mo_validity(game, AP, mo_ap)
 			while (status_ap === "REROLL") {
-				ap_roll = roll_die()
-				if (game.mo_ap_modifier) ap_roll += game.mo_ap_modifier
+				ap_die = roll_die()
+				ap_roll = ap_die + ap_drm
 				mo_ap = determine_mo_ap(ap_roll)
 				status_ap = check_mo_validity(game, AP, mo_ap)
 			}
@@ -635,7 +638,8 @@ exports.register = function (states, Engine, context) {
 
 			let status_cp = check_mo_validity(game, CP, mo_cp)
 			while (status_cp === "REROLL") {
-				cp_roll = roll_die()
+				cp_die = roll_die()
+				cp_roll = cp_die + cp_drm
 				mo_cp = determine_mo_cp(cp_roll)
 				status_cp = check_mo_validity(game, CP, mo_cp)
 			}
@@ -645,6 +649,10 @@ exports.register = function (states, Engine, context) {
 
 			game.mo_ap = mo_ap
 			game.mo_cp = mo_cp
+			game.mo_ap_die = ap_die
+			game.mo_ap_drm = ap_drm
+			game.mo_cp_die = cp_die
+			game.mo_cp_drm = cp_drm
 		}
 
 		if (game.mo_ap === MO_RUSSIA && game.events["russian_revolution"]) {

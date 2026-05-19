@@ -33,6 +33,7 @@ module.exports = function (Engine) {
 		get_piece_effective_faction,
 		is_piece_reduced,
 		has_trench,
+		get_trench_owner,
 		get_piece_nation_groups_for_rule,
 		get_replacement_options,
 		piece_counts_as_nation_for_rule,
@@ -1303,10 +1304,17 @@ module.exports = function (Engine) {
 		return has_trench(game, s) > 0
 	}
 
+	function get_defender_trench_level(game, s, defender_faction, defenders = null) {
+		let level = has_trench(game, s)
+		if (level <= 0) return 0
+		if (Array.isArray(defenders) && defenders.length === 0) return 0
+		return get_trench_owner(game, s) === defender_faction ? level : 0
+	}
+
 	function can_cancel_defender_retreat(game, target_space, retreating_faction, retreating_units) {
 		if (!(target_space > 0) || !Array.isArray(retreating_units) || retreating_units.length === 0) return false
 		let target_terrain = get_combat_target_terrain(game, target_space, game.attack?.pieces)
-		let trench = has_trench(game, target_space)
+		let trench = get_defender_trench_level(game, target_space, retreating_faction, retreating_units)
 		let has_fort = has_undestroyed_fort(game, target_space, retreating_faction)
 		let defensive_ground =
 			target_terrain === FOREST ||
@@ -1386,7 +1394,7 @@ module.exports = function (Engine) {
 			terrain === "mountain" || terrain === "swamp" || terrain === "desert" || terrain === "forest"
 
 		// 2. Trenches
-		let trench_level = has_trench(game, space)
+		let trench_level = get_defender_trench_level(game, space, CP, defenders)
 		let has_trench_defense = trench_level > 0
 
 		// 3. Undestroyed Fort
@@ -2106,7 +2114,7 @@ module.exports = function (Engine) {
 		}
 		if (all_crossing) attacker_shifts--
 
-		let trench_level = has_trench(game, game.attack.space)
+		let trench_level = get_defender_trench_level(game, game.attack.space, defender_faction, defenders)
 		if (trench_level > 0) {
 			attacker_shifts -= trench_level
 			defender_shifts += 1
@@ -3337,7 +3345,8 @@ module.exports = function (Engine) {
 		let target_space = game.attack.space
 		let target_terrain = get_combat_target_terrain(game, target_space, attackers)
 		let defender_faction = other_faction(game.active)
-		let trench_level_at_target = has_trench(game, target_space)
+		let defenders = get_combat_defenders(game, target_space, defender_faction)
+		let trench_level_at_target = get_defender_trench_level(game, target_space, defender_faction, defenders)
 		let is_river_def = is_river_defense(game)
 		let ignore_trench = attacker_ignores_trench_for_flank(game, attackers, target_space)
 		let ignore_river = attacker_ignores_river_for_flank(game, attackers)
@@ -3349,8 +3358,7 @@ module.exports = function (Engine) {
 		}
 
 		let has_fort = has_undestroyed_fort(game, target_space, defender_faction)
-		let has_defending_units =
-			get_combat_defenders(game, target_space, defender_faction).filter((p) => is_combat_unit(p)).length > 0
+		let has_defending_units = defenders.filter((p) => is_combat_unit(p)).length > 0
 		let has_undefended_fort = has_fort && !has_defending_units
 		let is_region_val = is_region(game, target_space)
 
@@ -3733,7 +3741,7 @@ module.exports = function (Engine) {
 			if (attacking_spaces_count >= 2) {
 				attackers.some((p) => is_lcu(p))
 				is_river_defense(game)
-				has_trench(game, target_space)
+				get_defender_trench_level(game, target_space, defender_faction, defenders)
 				let defenders_in_space = defenders
 				has_undestroyed_fort(game, target_space, defender_faction)
 				is_besieged(game, target_space) && defenders_in_space.length > 0
@@ -3921,8 +3929,7 @@ module.exports = function (Engine) {
 		}
 
 		// PUG Rule: Trench shifts attacker 1 left, defender 1 right
-		let trench_level = has_trench(game, target_space)
-		if (defenders.length === 0) trench_level = 0 // Rule 15.1.6: Forts alone don't benefit from trenches
+		let trench_level = get_defender_trench_level(game, target_space, defender_faction, defenders)
 
 		if (trench_bonus_cp > 0) {
 			if (trench_level === 0) trench_level = 1

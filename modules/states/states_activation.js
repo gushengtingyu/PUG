@@ -64,9 +64,9 @@ exports.register = function (states, Engine, context) {
 		is_controlled_by,
 		set_control,
 		roll_die,
-		has_trench,
 		place_trench,
-		remove_trench
+		is_enemy_trench,
+		enter_trench
 	} = context
 
 	function resolve_cp_enter_empty_beachhead_by_movement(from_space, target, pieces_moving, faction = active_faction()) {
@@ -359,7 +359,7 @@ exports.register = function (states, Engine, context) {
 		log(`掘壕尝试：${space_name(s)}`)
 		log(`> ${roll} <= ${target} -> ${success ? "成功" : "失败"}`)
 		if (success) {
-			place_trench(game, s)
+			place_trench(game, s, faction)
 		}
 
 		for (let p of selected) {
@@ -1987,7 +1987,7 @@ exports.register = function (states, Engine, context) {
 
 			let all_neighbors = new Set()
 			for (let p of game.move.pieces) {
-				let neighbors = get_connected_spaces(game, s, data.pieces[p].nation, active_faction(), p)
+				let neighbors = Engine.map.get_piece_connected_spaces_for_rule(game, s, p)
 				for (let n of neighbors) all_neighbors.add(n)
 			}
 
@@ -2095,6 +2095,7 @@ exports.register = function (states, Engine, context) {
 			Engine.sync_neutral_vp_state(game, from_space)
 			Engine.sync_jihad_city_state(game, from_space)
 			Engine.sync_region_control(game, from_space)
+			sync_siege_status(from_space, moving_faction)
 		}
 
 		game.move.spaces_moved += step_cost
@@ -2130,11 +2131,14 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 
-			// Rule 15.4.6: Trenches are removed when an enemy unit enters the space
-			// remove_trench handles Doiran's permanence
-			if (has_trench(game, target) > 0 && !is_controlled_by(game, target, moving_faction)) {
-				remove_trench(game, target)
-				log(`Trench in ${space_name(target)} removed by enemy entry.`)
+			// Rule 15.4.5: enemy entry removes Level 1 trenches and downgrades Level 2 trenches.
+			if (is_enemy_trench(game, target, moving_faction)) {
+				let result = enter_trench(game, target, moving_faction)
+				if (result.action === "degraded") {
+					log(`Level 2 Trench in ${space_name(target)} reduced to Level 1 by enemy entry.`)
+				} else if (result.action === "removed") {
+					log(`Trench in ${space_name(target)} removed by enemy entry.`)
+				}
 			}
 
 			check_immediate_jihad_rebellion_on_entry(from_space, target, pieces_moving)
@@ -2206,6 +2210,19 @@ exports.register = function (states, Engine, context) {
 		})
 	}
 
+	function sync_siege_status(space, moving_faction) {
+		let fort_owner = other_faction(moving_faction)
+		if (!has_undestroyed_fort(game, space, fort_owner)) {
+			set_delete(game.forts.besieged, space)
+			return
+		}
+		if (can_besiege(game, space, Engine.map.get_besieging_pieces(game, space, fort_owner))) {
+			set_add(game.forts.besieged, space)
+		} else {
+			set_delete(game.forts.besieged, space)
+		}
+	}
+
 	function sync_vp_and_jihad_for_stopped_space(space) {
 		if (!(space > 0)) return
 		Engine.sync_neutral_vp_state(game, space)
@@ -2226,6 +2243,7 @@ exports.register = function (states, Engine, context) {
 			set_next_state("move_stack")
 			return
 		}
+		sync_siege_status(current_space, move_faction)
 		sync_vp_and_jihad_for_stopped_space(current_space)
 		log_piece_move(game.move.pieces, current_space)
 

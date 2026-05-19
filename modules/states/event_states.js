@@ -2900,7 +2900,7 @@ module.exports = function (Engine) {
 				let area = rules.get_area(s)
 				if (area === "anatolia" || area === "gallipoli") {
 					// 只能在尚未有战壕、同盟国控制且不是岛屿基地、滩头或潜在登陆点 (beach_for) 的空间放置
-					let is_empty_trench = !rules.set_has(game.trenches, s)
+					let is_empty_trench = rules.has_trench(game, s) === 0
 					let is_controlled = rules.is_controlled_by(game, s, CP)
 					let is_beachhead = rules.is_beachhead_space(game, s) || !!data.spaces[s].beach_for
 					let is_valid_type = !rules.is_island_base(game, s) && !is_beachhead
@@ -2917,7 +2917,7 @@ module.exports = function (Engine) {
 			let { game, rules, arg: s } = ctx
 			let event_data = use_event(game, "german_military_advisers")
 			rules.push_undo()
-			rules.place_trench(game, s)
+			rules.place_trench(game, s, CP)
 			event_data.trenches_to_place -= 1
 			if (event_data.trenches_to_place <= 0) {
 				rules.goto_end_event()
@@ -3591,7 +3591,7 @@ module.exports = function (Engine) {
 				if (rules.is_syria_palestine(s) || rules.is_sinai(s)) {
 					// 只能在尚未有战壕、且不是岛屿基地或滩头的空间放置
 					if (
-						!rules.set_has(game.trenches, s) &&
+						rules.has_trench(game, s) === 0 &&
 						!rules.is_island_base(game, s) &&
 						!rules.is_beachhead_space(game, s)
 					) {
@@ -3604,7 +3604,7 @@ module.exports = function (Engine) {
 		space(ctx) {
 			let { game, rules, arg: s } = ctx
 			rules.push_undo()
-			rules.place_trench(game, s)
+			rules.place_trench(game, s, CP)
 			rules.goto_end_event()
 		},
 		done(ctx) {
