@@ -593,7 +593,12 @@ exports.register = function (states, Engine, context) {
 			let selected = Array.isArray(game.attack.region_defenders) ? game.attack.region_defenders : []
 			res.where(game.attack.space)
 			res.who(selected)
-			res.prompt("Select Region defense stack.")
+			let odds = combat.fmt_attack_odds_with_max(game)
+			if (odds) {
+				res.prompt(`选择防御堆叠: ${odds}`)
+			} else {
+				res.prompt("选择防御堆叠")
+			}
 			for (let p of candidates) res.piece(p)
 			if (!combat.get_region_defense_stack_block_reason(game, game.attack.space, selected, defender)) {
 				res.action("confirm")
@@ -1771,7 +1776,7 @@ exports.register = function (states, Engine, context) {
 			push_undo()
 			ensure_attack_log_section("retreat_log_started", "撤退：")
 			log(`>> ${format_piece_log(p, true)} 无法撤退并被消灭`)
-			eliminate_piece(p, true)
+			eliminate_piece_for_failed_retreat(p)
 			set_delete(state.pieces, p)
 			game.selected_piece = null
 			if (state.pieces.length === 0) finish_jafar_pasha_retreat()
@@ -2401,12 +2406,16 @@ exports.register = function (states, Engine, context) {
 		},
 		piece(p) {
 			push_undo()
-			replace_lcu_with_scu(
+			let replacement_scu = replace_lcu_with_scu(
 				game.attack.replacement.unit,
 				game.attack.replacement.space,
 				p,
 				game.attack.replacement.runtime_state
 			)
+			if (game.attack && replacement_scu >= 0) {
+				if (!game.attack.lcu_replacement_map) game.attack.lcu_replacement_map = {}
+				game.attack.lcu_replacement_map[game.attack.replacement.unit] = replacement_scu
+			}
 			let return_state = game.attack.replacement.return_state
 			delete game.attack.replacement
 			resume_replacement_return_state(return_state)
@@ -2576,7 +2585,7 @@ exports.register = function (states, Engine, context) {
 			ensure_attack_log_section("retreat_log_started", "撤退：")
 			for (let p of retreating) {
 				log(`>> ${format_piece_log(p, true)} 无法撤退并被永久消灭`)
-				eliminate_piece(p, true)
+				eliminate_piece_for_failed_retreat(p)
 			}
 			if (from_space > 0) {
 				Engine.sync_neutral_vp_state(game, from_space)
@@ -2820,6 +2829,33 @@ exports.register = function (states, Engine, context) {
 		Engine.sync_region_control(game, destination)
 		Engine.sync_neutral_vp_state(game, destination)
 		Engine.sync_jihad_city_state(game, destination)
+	}
+
+	function get_lcu_replaced_by_scu(scu) {
+		let replacement_map = game.attack?.lcu_replacement_map
+		if (!replacement_map || typeof replacement_map !== "object") return null
+		for (let lcu of Object.keys(replacement_map)) {
+			if (Number(replacement_map[lcu]) === scu) return Number(lcu)
+		}
+		return null
+	}
+
+	function eliminate_piece_for_failed_retreat(p) {
+		if (p === null || p === undefined || !data.pieces[p]) return
+
+		// PUG 12.7.4: non-Tribe units that cannot complete retreat are PE.
+		let permanent = data.pieces[p].type !== "tribe"
+		eliminate_piece(p, permanent)
+
+		// PUG 12.7.4 note: if a combat replacement SCU fails retreat,
+		// the original LCU and the replacement SCU are both PE.
+		let replaced_lcu = get_lcu_replaced_by_scu(p)
+		if (replaced_lcu && data.pieces[replaced_lcu]) {
+			if (!Engine.game_utils.is_permanently_eliminated(game, replaced_lcu)) {
+				eliminate_piece(replaced_lcu, true)
+			}
+			delete game.attack.lcu_replacement_map[replaced_lcu]
+		}
 	}
 
 	function clear_battle_runtime_state() {
@@ -3390,7 +3426,7 @@ exports.register = function (states, Engine, context) {
 			if (p !== null && p !== undefined) {
 				ensure_attack_log_section("retreat_log_started", "撤退：")
 				log(`>> ${format_piece_log(p, true)} 无法撤退并被消灭`)
-				eliminate_piece(p, is_lcu(p))
+				eliminate_piece_for_failed_retreat(p)
 				set_delete(game.retreat_pieces, p)
 				if (game.retreat_steps_left) delete game.retreat_steps_left[p]
 				game.selected_piece = null
@@ -3500,7 +3536,7 @@ exports.register = function (states, Engine, context) {
 			if (p !== null && p !== undefined) {
 				ensure_attack_log_section("retreat_log_started", "撤退：")
 				log(`>> ${format_piece_log(p, true)} 无法撤退并被消灭`)
-				eliminate_piece(p, is_lcu(p))
+				eliminate_piece_for_failed_retreat(p)
 				if (game.turkish_retreat_mandatory && set_has(game.turkish_retreat_mandatory, p)) {
 					set_delete(game.turkish_retreat_mandatory, p)
 				}

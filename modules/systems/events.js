@@ -758,7 +758,7 @@ module.exports = function (Engine) {
 		let options = get_allied_solidarity_location_options(game, unit_name)
 		let p = unit_name ? find_piece(AP, unit_name) : -1
 		if (p < 0) return options
-		return options.filter((s) => Engine.map.can_stack_end_in_space(game, s, [p]))
+		return options.filter((s) => Engine.map.can_place_piece_in_space(game, s, p))
 	}
 
 	function can_place_allied_solidarity_units(game, units, index = 0) {
@@ -1722,7 +1722,7 @@ module.exports = function (Engine) {
 			name_cn: "阿拉伯起义",
 			effect_cn: "(只能【劳伦斯】后，且圣战等级不大于7时打出)在汉志大区放置3个阿拉伯起义军并全部启动进行战斗。",
 			can_play: function (game) {
-				return !(!game.events["lawrence"] || (game.jihad || 0) > 7)
+				return game.events["lawrence"] && (game.jihad || 0) <= 7
 			},
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "arab_revolt")
@@ -1950,7 +1950,7 @@ module.exports = function (Engine) {
 				let units = ["IN Tigris Corps", "IN 2nd Corps", "IN DIV #7"]
 				event.reinf_to_place = units
 				event.reinf_placement = {
-					"IN Tigris Corps": "either",
+					"IN Tigris Corps": "map",
 					"IN 2nd Corps": "reserve",
 					"IN DIV #7": "either"
 				}

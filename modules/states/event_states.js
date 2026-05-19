@@ -1988,6 +1988,10 @@ module.exports = function (Engine) {
 				event.reinf_to_place = ["BR VIII Corps", "ANZ ANZAC", "BR DIV #4", "FR DIV #1", "FR DIV #2"]
 				event.reinf_logic = "is_ap_invasion_rein"
 				event.reinf_prompt_prefix = "加里波利入侵（增援）"
+				let viii = rules.find_piece(AP, "BR VIII Corps")
+				if (viii >= 0) rules.set_add(game.reduced, viii)
+				let anzac = rules.find_piece(AP, "ANZ ANZAC")
+				if (anzac >= 0) rules.set_add(game.reduced, anzac)
 			}
 			game.state = "event_place_reinforcements"
 		}
@@ -2023,6 +2027,8 @@ module.exports = function (Engine) {
 				event.reinf_to_place = ["BR XVI Corps", "BR XII Corps", "FR DIV #3", "FR DIV #4"]
 				event.reinf_logic = "is_ap_invasion_rein"
 				event.reinf_prompt_prefix = "萨洛尼卡入侵（增援）"
+				let xii = rules.find_piece(AP, "BR XII Corps")
+				if (xii >= 0) rules.set_add(game.reduced, xii)
 			}
 			game.state = "event_place_reinforcements"
 		}
@@ -3659,8 +3665,7 @@ module.exports = function (Engine) {
 			function can_place_reinforcement_unit_in_space(s, p_id) {
 				if (p_id < 0) return false
 				if (Engine.map.is_potential_beachhead_space(s) && !Engine.map.is_beachhead_space(game, s)) return false
-				if (Engine.map.contains_enemy_pieces(game, s, faction) && !Engine.map.is_region(game, s)) return false
-				return Engine.map.can_stack_end_in_space(game, s, [p_id])
+				return Engine.map.can_place_piece_in_space(game, s, p_id)
 			}
 
 			function can_place_adjacent_overflow_reinforcement(s, p_id) {

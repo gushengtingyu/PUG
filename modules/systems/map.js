@@ -127,6 +127,36 @@ module.exports = function (Engine) {
 		return found
 	}
 
+	function get_piece_placement_faction(game, p) {
+		let info = data.pieces[p]
+		if (!info) return null
+		let faction = get_piece_effective_faction(game, p)
+		if (faction !== AP && faction !== CP) faction = info.faction
+		return faction
+	}
+
+	function can_opposing_units_coexist_in_space(game, s) {
+		return !!(data.spaces[s] && data.spaces[s].region)
+	}
+
+	function is_space_blocked_by_enemy_unit(game, s, faction) {
+		return !can_opposing_units_coexist_in_space(game, s) && contains_enemy_pieces(game, s, faction)
+	}
+
+	function can_place_piece_in_space(game, s, p, options = {}) {
+		if (p < 0 || !data.pieces[p] || !data.spaces[s]) return false
+		let faction = get_piece_placement_faction(game, p)
+		if (is_space_blocked_by_enemy_unit(game, s, faction)) return false
+		return can_stack_end_in_space(game, s, [p], options)
+	}
+
+	function can_place_piece_in_space_except_stacking(game, s, p, options = {}) {
+		if (p < 0 || !data.pieces[p] || !data.spaces[s]) return false
+		let faction = get_piece_placement_faction(game, p)
+		if (is_space_blocked_by_enemy_unit(game, s, faction)) return false
+		return can_stack_end_in_space(game, s, [p], { ...options, ignore_stacking: true })
+	}
+
 	function has_friendly_pieces(game, s, faction) {
 		if (faction === undefined) faction = game.active
 		let found = false
@@ -671,6 +701,11 @@ module.exports = function (Engine) {
 		return get_area(s) === "arabistan"
 	}
 
+	// Greater Persia = Persia + Azerbaijan + Arabistan (Rule 14.2.8)
+	function is_greater_persia(s) {
+		return is_persia(s) || is_azerbaijan(s) || is_arabistan(s)
+	}
+
 	function is_sinai(s) {
 		return get_area(s) === "sinai"
 	}
@@ -1005,7 +1040,7 @@ module.exports = function (Engine) {
 		let nation = data.pieces[p].nation || ""
 		if (nation === "ar") return is_syria_palestine(s) || is_hejaz(s)
 		if (nation === "arm") return is_anatolia(s) || is_caucasus(s) || is_georgia(s) || is_russia(s)
-		if (is_persian_supply_unit(p)) return is_persia(s) || is_azerbaijan(s) || is_arabistan(s)
+		if (is_persian_supply_unit(p)) return is_greater_persia(s)
 		if (name.startsWith("Afghan")) return is_afghanistan(s)
 		if (name.startsWith("CAsia")) return is_central_asia(s)
 		if (name.startsWith("Egypt")) return is_egypt(s) || is_sudan_and_darfur(s)
@@ -1426,7 +1461,7 @@ module.exports = function (Engine) {
 
 		// Rule 19.6.3: BR Persian Cordon Force restriction.
 		if (data.pieces[p].region_limit === "P") {
-			if (!is_persia(s) && !is_india(s) && !is_baluchistan(s)) return false
+			if (!is_greater_persia(s) && !is_india(s) && !is_baluchistan(s)) return false
 		}
 
 		let region = get_region(s)
@@ -2401,7 +2436,7 @@ module.exports = function (Engine) {
 	}
 
 	function is_sr_space_blocked_by_enemy_piece(game, s, faction) {
-		return !is_region(game, s) && contains_enemy_pieces(game, s, faction)
+		return is_space_blocked_by_enemy_unit(game, s, faction)
 	}
 
 	function visit_sr_path_spaces(game, p, source, faction, rail_only, visit) {
@@ -2795,10 +2830,13 @@ module.exports = function (Engine) {
 		let ports = []
 		let allow_any = !!(entry && entry.allow_any_friendly_port)
 		let zone = entry && entry.arrival_zone
+		let p = entry && entry.piece
 		for (let s = 1; s < data.spaces.length; s++) {
 			if (!data.spaces[s]) continue
 			if (!is_controlled_by(game, s, AP)) continue
 			if (!is_sea_sr_port_space(game, s)) continue
+			if (Number.isInteger(p) && !can_place_piece_in_space(game, s, p, IGNORE_HQ_HEAVY_ARTILLERY_SUPPORT))
+				continue
 			if (allow_any || is_suez_sr_arrival_zone_port(game, s, zone)) ports.push(s)
 		}
 		return ports
@@ -4191,8 +4229,8 @@ module.exports = function (Engine) {
 			) {
 				return cache_result(home_supply_status())
 			} else if (is_persian_supply_unit(p)) {
-				if (is_persia(space) || is_azerbaijan(space) || is_arabistan(space))
-					return cache_result(home_supply_status())
+				if (is_greater_persia(space))
+					return cache_result("FULL")
 			} else if (nation === "geo" || nation === "arm") {
 				if (is_caucasus(space) || is_georgia(space)) return cache_result(home_supply_status())
 			} else if (nation === "ar") {
@@ -5279,9 +5317,9 @@ module.exports = function (Engine) {
 			}
 
 			if (can_rebuild) {
-				if (can_stack_end_in_space(game, s, [p])) {
+				if (can_place_piece_in_space(game, s, p)) {
 					valid.push(s)
-				} else {
+				} else if (can_place_piece_in_space_except_stacking(game, s, p)) {
 					full_but_valid.push(s)
 				}
 			}
@@ -5297,8 +5335,7 @@ module.exports = function (Engine) {
 					if (seen.has(ns)) continue
 					if (!is_controlled_by(game, ns, faction)) continue
 					if (is_besieged(game, ns)) continue
-					if (contains_enemy_pieces(game, ns, faction) && !is_region(game, ns)) continue
-					if (!can_stack_end_in_space(game, ns, [p])) continue
+					if (!can_place_piece_in_space(game, ns, p)) continue
 					seen.add(ns)
 					valid.push(ns)
 				}
@@ -5330,6 +5367,12 @@ module.exports = function (Engine) {
 						})
 					}
 				}
+			}
+
+			let has_ap_units = pieces.some((p) => get_piece_effective_faction(game, p) === AP)
+			let has_cp_units = pieces.some((p) => get_piece_effective_faction(game, p) === CP)
+			if (has_ap_units && has_cp_units && !can_opposing_units_coexist_in_space(game, s)) {
+				violations.push({ space: s, rule: "Rule 8.5: Units of opposing sides may not stack in a space" })
 			}
 
 			if (is_unlimited_stack_space(game, s)) continue
@@ -5718,6 +5761,8 @@ module.exports = function (Engine) {
 		get_pieces_in_space,
 		for_each_piece_in_space,
 		contains_enemy_pieces,
+		is_space_blocked_by_enemy_unit,
+		can_place_piece_in_space,
 		has_friendly_pieces,
 		is_disrupted_by_enemy,
 		has_enemy_uprising_marker,
@@ -5734,6 +5779,7 @@ module.exports = function (Engine) {
 		is_egypt,
 		is_balkans,
 		is_arabistan,
+		is_greater_persia,
 		is_persia,
 		is_persian_region,
 		is_neutral_persia_space,

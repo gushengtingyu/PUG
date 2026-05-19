@@ -217,6 +217,28 @@ module.exports = function (Engine) {
 		return selected
 	}
 
+	function find_max_cf_valid_stack(game, candidates) {
+		if (!Array.isArray(candidates) || candidates.length === 0) return []
+		let best = []
+		let best_cf = -1
+		let n = candidates.length
+		for (let mask = 1; mask < (1 << n); mask++) {
+			let subset = []
+			for (let i = 0; i < n; i++) {
+				if (mask & (1 << i)) subset.push(candidates[i])
+			}
+			let reason = Engine.map.get_region_activation_stack_block_reason(game, subset)
+			if (!reason) {
+				let cf = subset.reduce((sum, p) => sum + get_piece_cf(game, p), 0)
+				if (cf > best_cf) {
+					best_cf = cf
+					best = subset.slice()
+				}
+			}
+		}
+		return best
+	}
+
 	function get_combat_defenders(game, target_space, defender_faction = null) {
 		let faction = defender_faction
 		if (faction === null || faction === undefined) {
@@ -1593,7 +1615,7 @@ module.exports = function (Engine) {
 			if (region_limit === "I" && !Engine.map.is_india(t)) continue
 			if (
 				region_limit === "P" &&
-				!Engine.map.is_persia(t) &&
+				!Engine.map.is_greater_persia(t) &&
 				!Engine.map.is_india(t) &&
 				!Engine.map.is_baluchistan(t)
 			)
@@ -2128,6 +2150,64 @@ module.exports = function (Engine) {
 		let defender_label = defender_col.name
 
 		return `${attacker_label} vs ${defender_label}`
+	}
+
+	function fmt_attack_odds_with_max(game) {
+		if (!game.attack || game.attack.space < 0 || !game.attack.pieces || game.attack.pieces.length === 0) return ""
+		let attackers = game.attack.pieces
+		let active_f = game.active
+		let defender_faction = other_faction(active_f)
+		let target_space = game.attack.space
+
+		let attack_factors = attackers.reduce((sum, p) => sum + get_piece_cf(game, p), 0)
+		let attacker_table = attackers.some(is_lcu) ? "lcu" : "scu"
+		let attacker_shifts = 0
+
+		let terrain = get_combat_target_terrain(game, target_space, attackers)
+		if (terrain === "mountain" || terrain === "swamp") attacker_shifts--
+
+		let target_is_desert = terrain === "desert"
+		let attacker_from_desert = attackers.some((p) => data.spaces[game.pieces[p]]?.terrain === "desert")
+		if (target_is_desert || attacker_from_desert) attacker_shifts--
+
+		let all_crossing = !is_cp_attacking_beachhead(game, target_space, attackers)
+		if (all_crossing) {
+			for (let p of attackers) {
+				let from = game.pieces[p]
+				let type = get_connection_type(from, target_space)
+				let crossing = get_crossing_type(from, target_space)
+				if (type !== "river" && type !== "strait" && !crossing) {
+					all_crossing = false
+					break
+				}
+			}
+		}
+		if (all_crossing) attacker_shifts--
+
+		let attacker_col = find_fire_column(attacker_table, attack_factors, attacker_shifts)
+		if (!attacker_col) return ""
+		let attacker_label = attacker_col.name
+
+		let candidates = get_region_defender_candidates(game, target_space, defender_faction)
+		if (candidates.length === 0) return ""
+		let best_stack = find_max_cf_valid_stack(game, candidates)
+		if (best_stack.length === 0) return ""
+
+		let defense_factors = best_stack.reduce((sum, p) => sum + get_piece_cf(game, p), 0)
+		if (has_undestroyed_fort(game, target_space, defender_faction)) {
+			defense_factors += data.spaces[target_space].fort || 0
+		}
+		let defender_table = best_stack.some(is_lcu) ? "lcu" : "scu"
+		let defender_shifts = 0
+		let trench_level = get_defender_trench_level(game, target_space, defender_faction, best_stack)
+		if (trench_level > 0) {
+			defender_shifts += 1
+		}
+		let defender_col = find_fire_column(defender_table, defense_factors, defender_shifts)
+		if (!defender_col) return ""
+		let defender_label = defender_col.name
+
+		return `${attacker_label} vs (MAX ${defender_label})`
 	}
 
 	function start_attack_sequence(game, log_fn) {
@@ -4502,6 +4582,8 @@ module.exports = function (Engine) {
 		is_variable_loss_piece,
 		remember_variable_loss_other_unit_hit,
 		fmt_attack_odds,
+		fmt_attack_odds_with_max,
+		find_max_cf_valid_stack,
 		start_attack_sequence,
 		resolve_flank_attempt,
 		resolve_battle_sequence,

@@ -774,7 +774,7 @@ exports.register = function (states, Engine, context) {
 
 			// Rule 13.4.2: +1 Jihad if the last AP unit drawing supply solely through
 			// a non-Balkan Beachhead or Ottoman port is sea-SR'd away.
-			if (was_sea_sr) {
+			if (active_faction() === AP && was_sea_sr) {
 				let jihad_source_emptied =
 					(from_was_non_balkan_beachhead && get_beachhead_withdrawal_units(from).length === 0) ||
 					(from_was_ottoman_port && get_port_departure_units(from).length === 0)
