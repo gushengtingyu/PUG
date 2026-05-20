@@ -49,6 +49,32 @@ module.exports = function (Engine) {
 		return reduced ? `p${p}` : `P${p}`
 	}
 
+	function set_event_state_after_interrupt(game, next_state) {
+		if (
+			game.state_stack &&
+			game.state_stack.length > 0 &&
+			(game.state === "jihad_placement" ||
+				game.state === "jihad_removal" ||
+				game.state === "jihad_rebellion_check" ||
+				game.state === "place_egyptian_rebellion")
+		) {
+			game.state_stack[game.state_stack.length - 1].state = next_state
+			return
+		}
+		game.state = next_state
+	}
+
+	function can_place_romania_combined_bu_ah_in_space(game, s) {
+		if (!(s > 0 && data.spaces[s]) || data.spaces[s].nation !== "bu") return false
+		let plan =
+			Engine.collapse && typeof Engine.collapse.get_romanian_entry_plan === "function"
+				? Engine.collapse.get_romanian_entry_plan()
+				: null
+		let unit_name = (plan && plan.cp && plan.cp.combined_bu_ah_name) || "Combined BU/AH Div"
+		let p = find_piece(CP, unit_name)
+		return p >= 0 && Engine.map.can_place_piece_in_space(game, s, p)
+	}
+
 	/**
 	 * 检查地块是否为丘吉尔胜出事件的合法增援地块
 	 */
@@ -3034,7 +3060,7 @@ module.exports = function (Engine) {
 			rules.push_undo()
 			rules.reinforce(game, event.unit_name || "PE Uprising", CP, s)
 			delete event.unit_spaces
-			game.state = "event_german_intrigues_persia_markers"
+			set_event_state_after_interrupt(game, "event_german_intrigues_persia_markers")
 		}
 	}
 
@@ -3884,13 +3910,14 @@ module.exports = function (Engine) {
 			let { game, res } = ctx
 			res.prompt("罗马尼亚：选择 Combined BU/AH 师在保加利亚的放置位置")
 			for (let s = 1; s < data.spaces.length; s++) {
-				if (data.spaces[s] && data.spaces[s].nation === "bu") {
+				if (can_place_romania_combined_bu_ah_in_space(game, s)) {
 					res.space(s)
 				}
 			}
 		},
 		space(ctx) {
 			let { game, rules, arg: s } = ctx
+			if (!can_place_romania_combined_bu_ah_in_space(game, s)) return
 			let name = data.spaces[s].name
 			Engine.neutral.place_romania_combined_bu_ah(game, name)
 			if (typeof Engine.map.check_supply === "function") {

@@ -176,9 +176,16 @@ test("Romania 事件在 BU 已参战时让 CP 选择 Combined BU/AH 师放置至
 	let buSpaces = cpView.actions.space || []
 	expect(buSpaces.length).toBeGreaterThan(0)
 	let sofia = findSpace("SOFIA")
+	let vidin = findSpace("Vidin")
 	expect(buSpaces).toContain(sofia)
+	expect(buSpaces).not.toContain(vidin)
 
-	game = rules.action(game, "cp", "space", buSpaces[0])
+	game = rules.action(game, "cp", "space", vidin)
+	expect(game.pieces[combinedBuAh]).toBe(findSpace("CP Reserve"))
+	expect(game.state).toBe("event_romania_place_combined_bu_ah")
+
+	game = rules.action(game, "cp", "space", sofia)
+	expect(game.pieces[combinedBuAh]).toBe(sofia)
 	expect(game.state).toBe("activate_spaces")
 	expect(game.active).toBe(AP)
 })

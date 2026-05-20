@@ -73,6 +73,7 @@ test("AP Persian units can remove Persian Uprising markers in isolated Persia sp
 
 		game = rules.action(game, AP_ROLE, "activate_move", hamadan)
 		expect(game.activation_cost[hamadan]).toBe(1)
+		game = rules.action(game, AP_ROLE, "done")
 
 		game = rules.action(game, AP_ROLE, "piece", unit)
 		view = rules.view(game, AP_ROLE)

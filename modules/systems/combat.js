@@ -3904,7 +3904,7 @@ module.exports = function (Engine) {
 				)
 			) {
 				att_drm += 1
-				log_detail(log, "Naval Support: +1 DRM")
+				log_detail(log, "海军支援: +1 DRM")
 			}
 		}
 
@@ -3915,12 +3915,12 @@ module.exports = function (Engine) {
 				if (is_turn_event(game, "kitchener")) {
 					if (is_caucasus(target_space)) {
 						att_drm += 1
-						log_detail(log, "Kitchener: +1 DRM for RU in Caucasus")
+						log_detail(log, "基钦纳: +1 DRM")
 					}
 				}
 				if (is_russian_winter_offensive_active(game)) {
 					att_drm += 1
-					log_detail(log, "Russian Winter Offensive: +1 DRM for RU")
+					log_detail(log, "俄国冬季攻势: +1 DRM")
 				}
 			}
 		} else if (game.active === CP) {

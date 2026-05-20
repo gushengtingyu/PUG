@@ -311,3 +311,38 @@ test("Jihad placement from German Intrigues resumes to the event placement state
 	expect(game.state).toBe("event_german_intrigues_persia_unit")
 	expect(game.active).toBe(CP)
 })
+
+test("PE Uprising placed on Qum interrupts for Jihad placement then resumes German Intrigues markers", () => {
+	let game = setupGame(2026052001, "Historical", { no_supply_warnings: true })
+	let baghdad = findSpace("Baghdad")
+	let qum = findSpace("Qum")
+	let peUprising = findCpPiece("PE Uprising")
+	let card = 78
+
+	game.active = CP
+	game.state = "play_card"
+	game.control[baghdad] = CP
+	game.jihad = 0
+	game.tribes_to_place = 0
+	if (!game.hand_cp.includes(card)) game.hand_cp.push(card)
+
+	game = rules.action(game, CP_ROLE, "play_event", card)
+	game = rules.action(game, CP_ROLE, "done")
+	game = rules.action(game, CP_ROLE, "space", qum)
+
+	expect(game.pieces[peUprising]).toBe(qum)
+	expect(game.jihad).toBe(2)
+	expect(game.tribes_to_place).toBe(1)
+	expect(game.state).toBe("jihad_placement")
+	expect(game.state_stack.at(-1)).toEqual({
+		state: "event_german_intrigues_persia_markers",
+		active: CP
+	})
+	expect(game.jihad_city_scoring_owner[qum]).toBe(CP)
+	expect(Engine.map.get_space_controller(game, qum)).toBe("neutral")
+
+	game = rules.action(game, CP_ROLE, "done")
+
+	expect(game.state).toBe("event_german_intrigues_persia_markers")
+	expect(game.active).toBe(CP)
+})
