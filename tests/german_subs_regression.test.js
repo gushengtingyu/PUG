@@ -3,39 +3,8 @@ const Engine = require("../modules/engine.js")
 
 const { setupGame, findSpace, findPieceByPredicate: findPiece } = require("./helpers.js")
 
-const { AP, CP, ELIMINATED } = Engine.constants
+const { AP, ELIMINATED } = Engine.constants
 const AP_ROLE = rules.roles[0]
-
-function createNavalSupportBattle(seed) {
-	let game = setupGame(seed)
-	let attacker = findPiece(
-		(info) => info.faction === AP && info.nation === "br" && info.piece_class === "LCU" && info.type !== "hq",
-		"BR LCU"
-	)
-	let defender = findPiece(
-		(info) => info.faction === CP && info.piece_class === "SCU" && info.type !== "hq",
-		"CP SCU"
-	)
-	let damascus = findSpace("Damascus")
-	let beirut = findSpace("Beirut")
-
-	game.pieces[attacker] = damascus
-	game.pieces[defender] = beirut
-	game.active = AP
-	game.retreated = []
-	game.reduced = []
-	game.cc_retained = { ap: [], cp: [] }
-	game.cc_retained_after_use = { ap: {}, cp: {} }
-	game.action_state = {}
-	game.attack = {
-		attacker: AP,
-		defender: CP,
-		pieces: [attacker],
-		space: beirut
-	}
-
-	return game
-}
 
 test("German Subs in the Med 只会在打出当回合封锁 AP 港口增援", () => {
 	let game = setupGame(2026042201)
@@ -90,20 +59,6 @@ test("German Subs in the Med 不会阻止 AP 在正常补员阶段于 Port Said 
 
 	let validSpaces = Engine.map.get_valid_rebuild_spaces(game, brLcu, AP)
 	expect(validSpaces).toContain(portSaid)
-})
-
-test("German Subs in the Med 不会取消 AP 的 Naval Support DRM", () => {
-	let baselineGame = createNavalSupportBattle(2026042204)
-	let germanSubsGame = createNavalSupportBattle(2026042204)
-
-	germanSubsGame.events.german_subs = true
-	germanSubsGame.events.german_subs_turn = germanSubsGame.turn
-
-	let baselineResult = Engine.combat.resolve_battle(baselineGame)
-	let germanSubsResult = Engine.combat.resolve_battle(germanSubsGame)
-
-	expect(baselineResult.att_drm).toBe(1)
-	expect(germanSubsResult.att_drm).toBe(baselineResult.att_drm)
 })
 
 function prepareChurchillPlacementState(game) {

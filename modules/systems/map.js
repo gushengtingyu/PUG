@@ -331,14 +331,6 @@ module.exports = function (Engine) {
 		return 1
 	}
 
-	function is_naval_access_space(game_or_space, maybe_space) {
-		let game = maybe_space === undefined ? null : game_or_space
-		let s = maybe_space === undefined ? game_or_space : maybe_space
-		let space = data.spaces[s]
-		if (!space) return false
-		return !!space.port || is_gallipoli(s) || (game ? is_beachhead_space(game, s) : false)
-	}
-
 	function is_port(s) {
 		let space = data.spaces[s]
 		return !!(space && space.port)
@@ -5807,7 +5799,6 @@ module.exports = function (Engine) {
 		is_russia_controlled_space,
 		has_allied_control_of_balfour_spaces,
 		destroy_fort,
-		is_naval_access_space,
 		faction_controls_strait,
 		can_use_strait,
 		get_connection_type,

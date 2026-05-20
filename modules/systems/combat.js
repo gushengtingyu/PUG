@@ -43,7 +43,6 @@ module.exports = function (Engine) {
 		get_season
 	} = Engine.game_utils
 	const {
-		is_naval_access_space,
 		is_black_sea_port,
 		can_use_strait,
 		get_pieces_in_space,
@@ -3894,21 +3893,7 @@ module.exports = function (Engine) {
 			}
 		}
 
-		// 5. Naval Support (PUG 11.5.3)
-		if (game.active === AP && is_naval_access_space(game, target_space)) {
-			if (
-				attackers.some(
-					(p) =>
-						is_lcu(p) &&
-						["br", "anz", "in"].some((nation) => piece_counts_as_nation_for_rule(game, p, nation))
-				)
-			) {
-				att_drm += 1
-				log_detail(log, "海军支援: +1 DRM")
-			}
-		}
-
-		// 6. Event DRMs
+		// 5. Event DRMs
 		if (game.active === AP) {
 			let is_ru_attacking = attackers.some((p) => piece_counts_as_nation_for_rule(game, p, "ru"))
 			if (is_ru_attacking) {
