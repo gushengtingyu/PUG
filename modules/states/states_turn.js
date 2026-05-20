@@ -482,6 +482,7 @@ exports.register = function (states, Engine, context) {
 
 		game.turn++
 		log_h1(`Turn ${game.turn}`)
+		delete game.catastrophic_attack_supply_exceptions
 
 		if (Engine.events && typeof Engine.events.complete_sinai_railroad_if_ready === "function") {
 			Engine.events.complete_sinai_railroad_if_ready(game, log)

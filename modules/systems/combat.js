@@ -2604,6 +2604,25 @@ module.exports = function (Engine) {
 				}
 			}
 		}
+		if (
+			combat_card_played(game, "defender", CC_CP_CATASTROPHIC_ATTACK) &&
+			!result.catastrophic_attack &&
+			game.attack.defender === CP &&
+			get_catastrophic_attack_stack_options(game).length > 0 &&
+			has_catastrophic_attack_surviving_defenders(game) &&
+			result.attacker_losses > result.defender_losses
+		) {
+			result.catastrophic_attack = true
+			result.turkish_retreat = false
+			result.turkish_retreat_units = []
+			result.turkish_retreat_optional_units = []
+			result.turkish_retreat_defender_retreats = false
+			result.advance_with_reduced = true
+			clear_turkish_retreat_state(game)
+			if (log_fn) {
+				log_fn("Catastrophic Attack: CP defender victory forces an AP attacking stack to retreat.")
+			}
+		}
 	}
 
 	function check_advance_siege_requirement(game, result, defender_faction, log_fn) {

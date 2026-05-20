@@ -475,6 +475,7 @@ module.exports = function (Engine) {
 	function can_play_catastrophic_attack(game) {
 		if (!has_attack(game)) return false
 		if (get_active_faction(game) !== CP) return false
+		if (!game.battle_result || game.battle_result.attacker_losses <= game.battle_result.defender_losses) return false
 		let is_active_attacker = attacker_has_piece(game, (p) => get_piece_effective_faction(game, p) === game.active)
 		if (is_active_attacker) return false
 		return combat.get_catastrophic_attack_stack_options(game).length > 0
