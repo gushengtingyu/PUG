@@ -5395,6 +5395,7 @@ module.exports = function (Engine) {
 			if (has_undestroyed_fort(game, s, AP)) fort_owner = AP
 			else if (has_undestroyed_fort(game, s, CP)) fort_owner = CP
 			if (!fort_owner) continue
+			if (Array.isArray(game.broken_sieges) && set_has(game.broken_sieges, s)) continue
 
 			let besiegers = pieces_by_space[s].filter((p) => get_piece_effective_faction(game, p) !== fort_owner)
 			if (besiegers.length > 0 && !can_besiege(game, s, besiegers)) {

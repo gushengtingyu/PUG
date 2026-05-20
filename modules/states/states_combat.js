@@ -2259,29 +2259,24 @@ exports.register = function (states, Engine, context) {
 			}
 
 			let options = combat.get_loss_options(game, defenders, needed, fort_strength, "defender")
-			for (let p of options) res.piece(p)
-
-			// POG 12.4.6: Fort destruction as loss option if all units eliminated and remaining losses >= Fort LF
-			let fort_can_be_destroyed = false
-			if (defenders.length === 0 && fort_strength > 0 && needed >= fort_strength) {
-				res.action("destroy_fort")
-				fort_can_be_destroyed = true
+			for (let option of options) {
+				if (option === combat.FORT_LOSS) res.space(game.attack.space)
+				else res.piece(option)
 			}
 
-			if (options.length === 0 && !fort_can_be_destroyed) {
+			if (options.length === 0) {
 				res.prompt(`战斗结算: ${space_name(game.attack.space)}（无可分配损失）`)
 				res.action("done")
 			}
 		},
-		destroy_fort() {
+		space(s) {
+			if (s !== game.attack.space) return
 			push_undo()
-			let s = game.attack.space
 			let fort_strength = data.spaces[s].fort || 0
-			if (!game.forts) game.forts = { destroyed: [] }
-			if (!game.forts.destroyed) game.forts.destroyed = []
-			set_add(game.forts.destroyed, s)
-			log(`Fort at ${space_name(s)} destroyed.`)
-			game.attack.defender_losses_absorbed += fort_strength
+			let defender_faction = active_faction()
+			if (combat.apply_fort_destruction(game, s, defender_faction, log)) {
+				game.attack.defender_losses_absorbed += fort_strength
+			}
 		},
 		piece(p) {
 			push_undo()
@@ -2300,6 +2295,10 @@ exports.register = function (states, Engine, context) {
 		},
 		done() {
 			clear_undo()
+			if (game.attack && game.attack.space > 0) {
+				combat.update_siege_after_combat_losses(game, game.attack.space)
+				combat.mark_broken_siege_if_needed(game, game.attack.space, game.attack.attacker)
+			}
 			// Back to attacker using absolute anchor
 			game.active = (game.attack && game.attack.attacker) || AP
 			if (game.attack.second_fire === "defender") {
@@ -2402,6 +2401,10 @@ exports.register = function (states, Engine, context) {
 		},
 		done() {
 			clear_undo()
+			if (game.attack && game.attack.space > 0) {
+				combat.update_siege_after_combat_losses(game, game.attack.space)
+				combat.mark_broken_siege_if_needed(game, game.attack.space, game.attack.defender)
+			}
 			if (game.attack.second_fire === "attacker") {
 				delete game.attack.second_fire
 				combat.resolve_second_fire(game, log)

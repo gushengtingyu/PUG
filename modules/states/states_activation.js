@@ -2091,6 +2091,10 @@ exports.register = function (states, Engine, context) {
 				if (reason) log(`移动阻断：${piece_name(p)} -> ${space_name(target)}，原因=${reason}`)
 			}
 		}
+		if (pieces_moving.length > 0 && Array.isArray(game.broken_sieges)) {
+			set_delete(game.broken_sieges, from_space)
+			set_delete(game.broken_sieges, target)
+		}
 		if (from_space > 0) {
 			Engine.sync_neutral_vp_state(game, from_space)
 			Engine.sync_jihad_city_state(game, from_space)
