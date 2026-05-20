@@ -747,7 +747,7 @@ exports.register = function (states, Engine, context) {
 
 		if (game.blockade_vp_penalty_active && get_season(game) === "Winter") {
 			let total_war_cp = game.war_commitment_cp === COMMITMENT_TOTAL
-			let railway_complete = !!game.events["berlin_constantinople_railway"] || !!game.events["berlin_baghdad"]
+			let railway_complete = Engine.map.is_rail_connected_to_galicia(game)
 
 			if (total_war_cp && railway_complete) {
 				game.blockade_vp_penalty_active = false

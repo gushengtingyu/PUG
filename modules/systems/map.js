@@ -4831,6 +4831,7 @@ module.exports = function (Engine) {
 	}
 
 	function is_rail_connected_to_galicia(game) {
+		if (CONSTANTINOPLE < 0 || !is_controlled_by(game, CONSTANTINOPLE, CP)) return false
 		let target = build_space_flag_from_sources(GALICIA_REPLACEMENT_SPACE_IDS)
 		let queue = [CONSTANTINOPLE]
 		let queue_head = 0
