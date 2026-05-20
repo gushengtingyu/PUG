@@ -837,7 +837,9 @@ exports.register = function (states, Engine, context) {
 		"pre_flank_cc_attacker",
 		"post_roll_cc_defender",
 		"post_battle_cc_cp",
+		"post_retreat_cc_ap",
 		"post_advance_cc_cp",
+		"post_advance_cc_ap",
 		"retreat_choice_cc_cp",
 		"maude_place_indian_division",
 		"maude_place_hq",
@@ -1065,6 +1067,9 @@ exports.register = function (states, Engine, context) {
 					continue_after_post_battle_cc()
 				}
 				return true
+			case "post_retreat_cc_ap":
+				continue_after_post_retreat_ap_cc(false)
+				return true
 			case "post_advance_cc_cp":
 				game.active = CP
 				if (has_window_cc_options("post_advance_cc_cp", CP, false)) {
@@ -1072,6 +1077,9 @@ exports.register = function (states, Engine, context) {
 				} else {
 					goto_attack()
 				}
+				return true
+			case "post_advance_cc_ap":
+				continue_after_post_advance_ap_cc()
 				return true
 			case "retreat_choice_cc_cp":
 				continue_after_retreat_choice_cc_window()
@@ -2181,11 +2189,27 @@ exports.register = function (states, Engine, context) {
 		done: continue_after_post_battle_cc
 	})
 
+	register_combat_card_state("post_retreat_cc_ap", {
+		prompt: "协约国：敌方撤退后战斗卡",
+		is_attacker: true,
+		get_options: () => collect_window_cc_options(game, "post_retreat_cc_ap", AP, true),
+		done() {
+			continue_after_post_retreat_ap_cc(true)
+		}
+	})
+
 	register_combat_card_state("post_advance_cc_cp", {
 		prompt: "同盟国：挺近后战斗卡",
 		is_attacker: false,
 		get_options: () => collect_window_cc_options(game, "post_advance_cc_cp", CP, false),
 		done: goto_attack
+	})
+
+	register_combat_card_state("post_advance_cc_ap", {
+		prompt: "协约国：挺进后战斗卡",
+		is_attacker: true,
+		get_options: () => collect_window_cc_options(game, "post_advance_cc_ap", AP, true),
+		done: continue_after_post_advance_ap_cc
 	})
 
 	register_combat_card_state("retreat_choice_cc_cp", {
@@ -2497,6 +2521,22 @@ exports.register = function (states, Engine, context) {
 		game.post_battle_cc_resume = resume
 		game.active = CP
 		game.state = "post_battle_cc_cp"
+		return true
+	}
+
+	function enter_post_retreat_ap_cc_window(resume) {
+		if (!has_window_cc_options("post_retreat_cc_ap", AP, true)) return false
+		game.ptbp_advance_resume = resume
+		game.active = AP
+		game.state = "post_retreat_cc_ap"
+		return true
+	}
+
+	function enter_post_advance_ap_cc_window() {
+		if (!game.ptbp_post_retreat_declined) return false
+		if (!has_window_cc_options("post_advance_cc_ap", AP, true)) return false
+		game.active = AP
+		game.state = "post_advance_cc_ap"
 		return true
 	}
 
@@ -2875,6 +2915,8 @@ exports.register = function (states, Engine, context) {
 		delete game.turkish_retreat_chosen_space
 		delete game.turkish_retreat
 		delete game.post_battle_cc_resume
+		delete game.ptbp_advance_resume
+		delete game.ptbp_post_retreat_declined
 		delete game.jerusalem_withdrawal
 		delete game.selected_piece
 		delete game.battle_result
@@ -2889,6 +2931,10 @@ exports.register = function (states, Engine, context) {
 	function enter_advance_state(resume) {
 		if (!combat.begin_advance(game, game.battle_result, resume.advance_space)) {
 			clear_save_tiflis_flags()
+			if (combat.check_offer_ptbp_extra_attack(game)) {
+				game.state = "ptbp_extra_attack_prompt"
+				return
+			}
 			goto_attack()
 			return
 		}
@@ -2916,11 +2962,38 @@ exports.register = function (states, Engine, context) {
 				clear_retreat_runtime_state()
 				return
 			}
+			if (enter_post_retreat_ap_cc_window(resume)) {
+				clear_retreat_runtime_state()
+				return
+			}
 			enter_advance_state(resume)
 			clear_retreat_runtime_state()
 			return
 		}
 		clear_save_tiflis_flags()
+		goto_attack()
+	}
+
+	function continue_after_post_retreat_ap_cc(declined) {
+		let resume = game.ptbp_advance_resume
+		delete game.ptbp_advance_resume
+		if (declined) game.ptbp_post_retreat_declined = true
+		game.active = game.attack?.attacker || AP
+		if (resume) {
+			enter_advance_state(resume)
+			clear_retreat_runtime_state()
+			return
+		}
+		goto_attack()
+	}
+
+	function continue_after_post_advance_ap_cc() {
+		delete game.ptbp_post_retreat_declined
+		if (combat.check_offer_ptbp_extra_attack(game)) {
+			game.active = AP
+			game.state = "ptbp_extra_attack_prompt"
+			return
+		}
 		goto_attack()
 	}
 
@@ -3838,6 +3911,9 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 			game.bulls_eye_advanced_stack = []
+			if (game.active === AP && enter_post_advance_ap_cc_window()) {
+				return
+			}
 			if (combat.check_offer_ptbp_extra_attack(game)) {
 				set_next_state_after_interrupt("ptbp_extra_attack_prompt", game.active)
 				return

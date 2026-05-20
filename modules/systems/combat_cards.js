@@ -366,8 +366,16 @@ module.exports = function (Engine) {
 	}
 
 	function can_play_push_to_the_breaking_point(game) {
-		if (!can_play_in_standard_cc_window(game, AP)) return false
-		return !!(game.events && game.events["allenby"])
+		let in_allowed_window =
+			can_play_in_window(game, "post_retreat_cc_ap", AP) || can_play_in_window(game, "post_advance_cc_ap", AP)
+		if (!in_allowed_window) return false
+		if (game.state === "post_advance_cc_ap" && !game.ptbp_post_retreat_declined) return false
+		if (!(game.events && game.events["allenby"])) return false
+		if (!game.attack || game.attack.attacker !== AP) return false
+		let result = game.battle_result
+		if (!result || !(result.defender_losses > result.attacker_losses)) return false
+		if (!result.retreat_needed && !game.retreat_phase_done) return false
+		return combat.get_ptbp_eligible_units(game, result.attackers).length > 0
 	}
 
 	function can_play_haversack_ruse(game) {
@@ -663,9 +671,14 @@ module.exports = function (Engine) {
 			}
 		},
 		[combat.CC_AP_PUSH_TO_THE_BREAKING_POINT]: {
-			windows: STANDARD_CC_WINDOWS,
+			windows: new Set(["post_retreat_cc_ap", "post_advance_cc_ap"]),
 			can_play: can_play_push_to_the_breaking_point,
-			modifiers: { drm: 1 }
+			on_play_after_disposition(game, ctx) {
+				game.events["push_to_breaking_point"] = game.turn
+				game.ptbp_active = true
+				game.ptbp_units = combat.get_ptbp_eligible_units(game, game.battle_result?.attackers || [])
+				ctx.mark_effected()
+			}
 		},
 		[combat.CC_AP_HAVERSACK_RUSE]: {
 			windows: get_pre_weather_attacker_windows,
