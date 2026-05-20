@@ -14,6 +14,7 @@ module.exports = function (Engine) {
 		get_piece_nation,
 		piece_name,
 		get_piece_effective_faction,
+		get_piece_faction,
 		is_regular,
 		is_irregular
 	} = game_utils

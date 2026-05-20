@@ -5869,6 +5869,7 @@ module.exports = function (Engine) {
 		can_stack_move_to,
 		can_piece_move_to,
 		can_besiege,
+		get_besieging_pieces,
 		get_sr_cost,
 		has_sr_path,
 		can_sr_piece,
