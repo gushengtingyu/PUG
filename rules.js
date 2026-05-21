@@ -642,6 +642,7 @@ function get_supply_dependency_signature() {
 		get_array_signature(game.partial_ap_control_markers),
 		get_array_signature(game.partial_cp_control_markers),
 		get_array_signature(game.ru_control_markers),
+		get_stable_object_signature(game.catastrophic_attack_supply_exceptions),
 		get_array_signature(game.vps),
 		game.entry_gr || "",
 		game.entry_bu || "",
@@ -808,6 +809,26 @@ function get_piece_supply_status_view() {
 	}
 }
 
+function get_catastrophic_attack_oos_marker_spaces() {
+	if (!Array.isArray(game.catastrophic_attack_supply_exceptions)) return []
+	const oos = Array.isArray(game.oos) ? game.oos : []
+	const markers = []
+	for (let entry of game.catastrophic_attack_supply_exceptions) {
+		if (!entry || entry.created_turn !== game.turn || !(entry.space > 0)) continue
+		if (!Array.isArray(entry.retreat_stack)) continue
+		let retreating = entry.retreat_stack.filter(
+			(p) =>
+				game.pieces[p] === entry.space &&
+				Engine.game_utils.get_piece_effective_faction(game, p) === AP &&
+				!is_not_on_map(game, p) &&
+				!is_eliminated(game, p)
+		)
+		if (retreating.length === 0) continue
+		if (retreating.every((p) => set_has(oos, p))) set_add(markers, entry.space)
+	}
+	return markers
+}
+
 function get_control_view() {
 	const view_control = {}
 	const control = Array.isArray(game.control) ? game.control : []
@@ -957,6 +978,7 @@ exports.view = function (state, current) {
 				Number.isFinite(jerusalem_by_christmas_target) && jerusalem_by_christmas_target > 0
 					? [jerusalem_by_christmas_target]
 					: [],
+			catastrophic_attack_oos_markers: get_catastrophic_attack_oos_marker_spaces(),
 			reduced: game.reduced,
 			forts: game.forts,
 			beachheads: game.beachheads,

@@ -43,7 +43,6 @@ module.exports = function (Engine) {
 		get_season
 	} = Engine.game_utils
 	const {
-		is_naval_access_space,
 		is_black_sea_port,
 		can_use_strait,
 		get_pieces_in_space,
@@ -2605,6 +2604,25 @@ module.exports = function (Engine) {
 				}
 			}
 		}
+		if (
+			combat_card_played(game, "defender", CC_CP_CATASTROPHIC_ATTACK) &&
+			!result.catastrophic_attack &&
+			game.attack.defender === CP &&
+			get_catastrophic_attack_stack_options(game).length > 0 &&
+			has_catastrophic_attack_surviving_defenders(game) &&
+			result.attacker_losses > result.defender_losses
+		) {
+			result.catastrophic_attack = true
+			result.turkish_retreat = false
+			result.turkish_retreat_units = []
+			result.turkish_retreat_optional_units = []
+			result.turkish_retreat_defender_retreats = false
+			result.advance_with_reduced = true
+			clear_turkish_retreat_state(game)
+			if (log_fn) {
+				log_fn("Catastrophic Attack: CP defender victory forces an AP attacking stack to retreat.")
+			}
+		}
 	}
 
 	function check_advance_siege_requirement(game, result, defender_faction, log_fn) {
@@ -3894,21 +3912,7 @@ module.exports = function (Engine) {
 			}
 		}
 
-		// 5. Naval Support (PUG 11.5.3)
-		if (game.active === AP && is_naval_access_space(game, target_space)) {
-			if (
-				attackers.some(
-					(p) =>
-						is_lcu(p) &&
-						["br", "anz", "in"].some((nation) => piece_counts_as_nation_for_rule(game, p, nation))
-				)
-			) {
-				att_drm += 1
-				log_detail(log, "海军支援: +1 DRM")
-			}
-		}
-
-		// 6. Event DRMs
+		// 5. Event DRMs
 		if (game.active === AP) {
 			let is_ru_attacking = attackers.some((p) => piece_counts_as_nation_for_rule(game, p, "ru"))
 			if (is_ru_attacking) {

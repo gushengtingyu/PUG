@@ -331,14 +331,6 @@ module.exports = function (Engine) {
 		return 1
 	}
 
-	function is_naval_access_space(game_or_space, maybe_space) {
-		let game = maybe_space === undefined ? null : game_or_space
-		let s = maybe_space === undefined ? game_or_space : maybe_space
-		let space = data.spaces[s]
-		if (!space) return false
-		return !!space.port || is_gallipoli(s) || (game ? is_beachhead_space(game, s) : false)
-	}
-
 	function is_port(s) {
 		let space = data.spaces[s]
 		return !!(space && space.port)
@@ -4410,10 +4402,33 @@ module.exports = function (Engine) {
 		return is_limited_supply_status(status)
 	}
 
+	function is_catastrophic_attack_supply_exception_stack_oos(game, entry, context) {
+		if (!entry || entry.created_turn !== game.turn || !(entry.space > 0)) return false
+		if (!Array.isArray(entry.retreat_stack)) return false
+		let retreating = entry.retreat_stack.filter(
+			(p) =>
+				game.pieces[p] === entry.space &&
+				get_piece_effective_faction(game, p) === AP &&
+				!is_not_on_map(game, p) &&
+				!is_eliminated(game, p)
+		)
+		if (retreating.length === 0) return false
+		return retreating.every((p) => get_supply_status(game, entry.space, AP, p, false, null, context) === "OOS")
+	}
+
+	function is_catastrophic_attack_supply_exception_transit(game, next, faction, context) {
+		if (faction !== CP || !Array.isArray(game.catastrophic_attack_supply_exceptions)) return false
+		return game.catastrophic_attack_supply_exceptions.some(
+			(entry) => entry && entry.space === next && is_catastrophic_attack_supply_exception_stack_oos(game, entry, context)
+		)
+	}
+
 	function get_supply_trace_status_to_source(game, start, faction, source, supply_context = null, options = null) {
 		let context = supply_context || create_supply_context(game)
 		let block_connection =
 			options && typeof options.block_connection === "function" ? options.block_connection : null
+		let allow_enemy_transit =
+			options && typeof options.allow_enemy_transit === "function" ? options.allow_enemy_transit : null
 		let sources = Array.isArray(source) ? source : [source]
 		let source_flag = build_space_flag_from_sources(sources)
 		let best_status = "OOS"
@@ -4451,9 +4466,17 @@ module.exports = function (Engine) {
 			let neighbors = get_connected_spaces(game, current, undefined, faction, undefined, "supply")
 			for (let next of neighbors) {
 				if (block_connection && block_connection(game, current, next, faction)) continue
+				let enemy_transit_allowed = !!(
+					(allow_enemy_transit && allow_enemy_transit(game, current, next, faction)) ||
+					is_catastrophic_attack_supply_exception_transit(game, next, faction, context)
+				)
 
 				// Blocked by enemy regular units (unless besieged)
-				if (context.enemy_regular[faction][next] === 1 && !is_besieged_with_context(game, next, context))
+				if (
+					context.enemy_regular[faction][next] === 1 &&
+					!is_besieged_with_context(game, next, context) &&
+					!enemy_transit_allowed
+				)
 					continue
 
 				// Neutral spaces block supply unless they are Greece for AP
@@ -4474,7 +4497,14 @@ module.exports = function (Engine) {
 
 				// Uprising markers disrupt supply but do not change control; only Full Control,
 				// actual Partial Control, friendly pieces, or a besieged enemy fort let the trace pass.
-				if (!is_friendly && !is_besieged_enemy && !has_friendly_pieces && !has_partial_control) continue
+				if (
+					!is_friendly &&
+					!is_besieged_enemy &&
+					!has_friendly_pieces &&
+					!has_partial_control &&
+					!enemy_transit_allowed
+				)
+					continue
 
 				let next_disrupted = current_disrupted || is_disrupted_by_enemy
 				if (source_flag[next] === 1) {
@@ -5803,7 +5833,6 @@ module.exports = function (Engine) {
 		is_russia_controlled_space,
 		has_allied_control_of_balfour_spaces,
 		destroy_fort,
-		is_naval_access_space,
 		faction_controls_strait,
 		can_use_strait,
 		get_connection_type,
