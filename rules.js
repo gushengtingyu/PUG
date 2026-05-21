@@ -822,11 +822,24 @@ function get_control_view() {
 			if (value !== dynamic_default) {
 				view_control[s] = value
 			}
-		} else if (dynamic_default !== static_faction) {
-			view_control[s] = dynamic_default
 		}
 	}
 	return view_control
+}
+
+function get_control_defaults_view() {
+	const view_defaults = {}
+	for (let s = 1; s < data.spaces.length; s++) {
+		const static_faction = data.spaces[s] && data.spaces[s].faction
+		let dynamic_default = static_faction
+		if (Engine.map && typeof Engine.map.get_default_controller === "function") {
+			dynamic_default = Engine.map.get_default_controller(game, s)
+		}
+		if (dynamic_default !== static_faction) {
+			view_defaults[s] = dynamic_default
+		}
+	}
+	return view_defaults
 }
 
 exports.view = function (state, current) {
@@ -935,6 +948,7 @@ exports.view = function (state, current) {
 			hidden_reinforcement_markers: hidden_reinforcement_markers,
 			sinai_railroad_turn,
 			control: get_control_view(),
+			control_defaults: get_control_defaults_view(),
 			ru_control_markers: game.ru_control_markers || [],
 			persian_uprising_markers: game.persian_uprising_markers || [],
 			armenian_uprising_markers: game.armenian_uprising_markers || [],

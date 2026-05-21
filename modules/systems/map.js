@@ -1027,10 +1027,10 @@ module.exports = function (Engine) {
 	}
 
 	function is_persian_supply_unit(p) {
-		let info = data.pieces[p]
-		if (!info) return false
-		if (info.nation === "pe") return true
-		return info.name === "BR/PE SPers Rifles" || info.name === "RU/PE Police North"
+		if (Engine.neutral && typeof Engine.neutral.is_persian_supply_unit === "function") {
+			return Engine.neutral.is_persian_supply_unit(p)
+		}
+		return false
 	}
 
 	// Rule 17.2.2 / 17.2.4: Irregular units cannot move or advance out of their supply area.
@@ -4080,19 +4080,11 @@ module.exports = function (Engine) {
 				else if (supply_info.disrupted.has(s)) status = "DISRUPTED"
 				if (
 					status === "OOS" &&
-					faction === AP &&
-					info.nation === "sb" &&
-					!Engine.collapse.has_serbia_collapsed(game)
+					Engine.neutral &&
+					typeof Engine.neutral.has_home_supply_for_attrition === "function" &&
+					Engine.neutral.has_home_supply_for_attrition(game, s, faction)
 				) {
-					let has_serbian_unit = get_pieces_in_space(game, s).some((p) => {
-						let piece = data.pieces[p]
-						return (
-							piece &&
-							piece.faction === AP &&
-							piece_counts_as_nation_for_rule(game, p, "sb")
-						)
-					})
-					if (has_serbian_unit) status = "FULL"
+					status = "FULL"
 				}
 				if (status === "OOS") {
 					// Rule 15.4.6 Exception: Trench markers in an intact Fort space do not suffer attrition.
@@ -4227,10 +4219,14 @@ module.exports = function (Engine) {
 				typeof Engine.neutral.has_home_supply_privilege === "function" &&
 				Engine.neutral.has_home_supply_privilege(game, p, space, faction)
 			) {
-				return cache_result(home_supply_status())
-			} else if (is_persian_supply_unit(p)) {
-				if (is_greater_persia(space))
-					return cache_result("FULL")
+				let status = home_supply_status()
+				if (
+					typeof Engine.neutral.home_supply_privilege_ignores_disruption === "function" &&
+					Engine.neutral.home_supply_privilege_ignores_disruption(game, p, space, faction)
+				) {
+					status = "FULL"
+				}
+				return cache_result(status)
 			} else if (nation === "geo" || nation === "arm") {
 				if (is_caucasus(space) || is_georgia(space)) return cache_result(home_supply_status())
 			} else if (nation === "ar") {

@@ -292,10 +292,32 @@ module.exports = function (Engine) {
 		return false
 	}
 
+	function is_persian_supply_unit(p) {
+		let info = data.pieces[p]
+		if (!info) return false
+		if (info.nation === "pe") return true
+		return info.name === "BR/PE SPers Rifles" || info.name === "RU/PE Police North"
+	}
+
+	function has_persian_home_supply_privilege(_game, p, space_id) {
+		if (!is_persian_supply_unit(p)) return false
+		return !!(
+			Engine.map &&
+			typeof Engine.map.is_greater_persia === "function" &&
+			Engine.map.is_greater_persia(space_id)
+		)
+	}
+
+	// PE home supply stays FULL so Persian units can operate inside uprising-marked Persia.
+	function home_supply_privilege_ignores_disruption(game, p, space_id, _faction) {
+		return has_persian_home_supply_privilege(game, p, space_id)
+	}
+
 	function has_home_supply_privilege(game, p, space_id, _faction) {
 		let piece = data.pieces[p]
 		let space = data.spaces[space_id]
 		if (!piece || !space) return false
+		if (has_persian_home_supply_privilege(game, p, space_id)) return true
 		let nations =
 			typeof game_utils.get_piece_nations_for_rule === "function"
 				? game_utils.get_piece_nations_for_rule(game, p)
@@ -329,6 +351,29 @@ module.exports = function (Engine) {
 				typeof Engine.collapse.has_serbia_collapsed === "function" &&
 				Engine.collapse.has_serbia_collapsed(game)
 			)
+		}
+
+		return false
+	}
+
+	function has_home_supply_for_attrition(game, space_id, faction) {
+		let space = data.spaces[space_id]
+		if (!space) return false
+
+		if (space.nation === "sb") {
+			return (
+				faction === AP &&
+				get_nation_faction(game, "sb") === AP &&
+				!(
+					Engine.collapse &&
+					typeof Engine.collapse.has_serbia_collapsed === "function" &&
+					Engine.collapse.has_serbia_collapsed(game)
+				)
+			)
+		}
+
+		if (space.nation === "gr") {
+			return get_nation_faction(game, "gr") === faction
 		}
 
 		return false
@@ -1090,8 +1135,11 @@ module.exports = function (Engine) {
 		get_space_default_controller,
 		can_piece_enter_neutral_space,
 		is_neutral_greece_supply_passable,
+		is_persian_supply_unit,
 		has_home_supply_privilege,
+		home_supply_privilege_ignores_disruption,
 		is_supply_trace_source_friendly_for_piece,
+		has_home_supply_for_attrition,
 		can_rebuild_balkan_unit_in_space,
 		can_end_move_in_neutral_greece,
 		is_on_bulgaria_entry_display,

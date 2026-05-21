@@ -2185,6 +2185,12 @@ const UI_FRAME_STATE_FIELDS = [
 		build: () => (view?.control && typeof view.control === "object" ? view.control : null),
 		snapshot: (value) => (value ? { ...value } : null)
 	},
+	{
+		key: "control_defaults",
+		diff: "control_map",
+		build: () => (view?.control_defaults && typeof view.control_defaults === "object" ? view.control_defaults : null),
+		snapshot: (value) => (value ? { ...value } : null)
+	},
 	{ key: "reduced", diff: "piece_set", build: () => to_id_set(view?.reduced) },
 	{ key: "oos", diff: "piece_set", build: () => to_id_set(view?.oos) },
 	{ key: "limited_supply", diff: "piece_set", build: () => to_id_set(view?.limited_supply) },
@@ -4772,12 +4778,17 @@ function get_space_marker_list(s) {
 	return ui.space_list[s].markers || (ui.space_list[s].markers = [])
 }
 
+function get_space_default_control(state, s) {
+	return (state.control_defaults && state.control_defaults[s]) || spaces[s].faction || null
+}
+
 function get_space_control(state, s) {
-	return (state.control && state.control[s]) || spaces[s].faction || null
+	return (state.control && state.control[s]) || get_space_default_control(state, s)
 }
 
 function get_control_marker_type(space, state, s) {
 	const control = get_space_control(state, s)
+	const defaultControl = get_space_default_control(state, s)
 	const markerControl = control
 	if (!markerControl || markerControl === "neutral") {
 		return null
@@ -4785,7 +4796,7 @@ function get_control_marker_type(space, state, s) {
 	if (markerControl === AP && has_id(state.ru_control_markers, s)) {
 		return "ru_control"
 	}
-	if (markerControl === space.faction) {
+	if (markerControl === defaultControl) {
 		return null
 	}
 	if (markerControl === AP) {
@@ -4799,8 +4810,9 @@ function get_control_marker_type(space, state, s) {
 
 function has_space_special_marker(space, state, s) {
 	const control = get_space_control(state, s)
+	const defaultControl = get_space_default_control(state, s)
 	return (
-		!!(control && control !== space.faction) ||
+		!!(control && control !== defaultControl) ||
 		has_id(state.partial_ap_control_markers, s) ||
 		has_id(state.partial_cp_control_markers, s) ||
 		has_id(state.ru_control_markers, s) ||

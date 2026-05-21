@@ -4058,7 +4058,7 @@ module.exports = function (Engine) {
 				att_shifts -= 1
 				att_shift_factors.push("-1 河流/海峡进攻")
 				def_fire_first = true
-				log_detail(log, "Attack across Strait/River: Shift 1 Left & Defender Fires First")
+				log_detail(log, "跨河/海进攻：进攻方火力列左移1列，防守方先开火")
 			}
 		}
 
@@ -4069,7 +4069,6 @@ module.exports = function (Engine) {
 					att_shifts += 1
 					att_shift_factors.push("+1 坦克")
 					mark_effected(CC_AP_TANKS)
-					log_detail(log, "Tanks: Shift 1 Right")
 				}
 			}
 		}
@@ -4423,11 +4422,11 @@ module.exports = function (Engine) {
 		let suffered_by_defender = result.defender_losses
 
 		if (suffered_by_defender > suffered_by_attacker) {
-			log(`*${suffered_by_defender}:${suffered_by_attacker} Attacker Victory`)
+			log(`*${suffered_by_defender}:${suffered_by_attacker} 进攻方获胜`)
 		} else if (suffered_by_attacker > suffered_by_defender) {
-			log(`*${suffered_by_defender}:${suffered_by_attacker} Defender Victory`)
+			log(`*${suffered_by_defender}:${suffered_by_attacker} 防守方获胜`)
 		} else {
-			log(`*${suffered_by_defender}:${suffered_by_attacker} Draw`)
+			log(`*${suffered_by_defender}:${suffered_by_attacker} 平局`)
 		}
 
 		// Recalculate retreat and Turkish Retreat

@@ -57,8 +57,11 @@ test("play.js renders AP, CP, and RU control markers through one exclusive slot"
 
 	expect(playSource).toContain('const CONTROL_MARKER_TYPES = new Set(["ap_control", "cp_control", "ru_control"])')
 	expect(playSource).toContain("function sync_control_marker(s, type, stack_parts)")
+	expect(playSource).toContain("function get_space_default_control(state, s)")
 	expect(playSource).toContain("destroy_markers(list, (m) => CONTROL_MARKER_TYPES.has(m.type) && m.type !== type)")
 	expect(playSource).toContain("function get_control_marker_type(space, state, s)")
+	expect(playSource).toContain("const defaultControl = get_space_default_control(state, s)")
+	expect(playSource).toContain("if (markerControl === defaultControl)")
 	expect(playSource).toContain("if (markerControl === AP && has_id(state.ru_control_markers, s))")
 	expect(playSource).toContain('return "ru_control"')
 	expect(playSource).not.toContain('"russian_control"')
