@@ -1811,10 +1811,10 @@ exports.register = function (states, Engine, context) {
 		game.pieces[ctx.lcu_id] = space
 		if (ctx.type === "reduced") {
 			set_add(game.reduced, ctx.lcu_id)
-			log(`${active_faction()} combines 2 SCUs into a Reduced LCU ${lcu_info.name} in ${space_name(space)}.`)
+			log(`${active_faction()} 将2个SCU组合为 ${lcu_info.name} 在 ${space_name(space)}.`)
 		} else {
 			set_delete(game.reduced, ctx.lcu_id)
-			log(`${active_faction()} combines 3 SCUs into a Full LCU ${lcu_info.name} in ${space_name(space)}.`)
+			log(`${active_faction()} 将3个SCU组合为 ${lcu_info.name} 在 ${space_name(space)}.`)
 		}
 		if (ctx.event_flag_on_success && game.event_ctx && game.event_ctx.key === ctx.event_flag_on_success.key) {
 			if (!game.event_ctx.data) game.event_ctx.data = {}

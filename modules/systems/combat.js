@@ -3829,7 +3829,7 @@ module.exports = function (Engine) {
 					let bonus = get_piece_cf(game, p)
 					att_drm += bonus
 					used_hqs.attacker.push(p)
-					log_detail(log, `Attacker HQ ${piece_log_name(game, p)} provides +${bonus} DRM`)
+					log_detail(log, `进攻方指挥部 ${piece_log_name(game, p)} 提供 +${bonus} DRM`)
 				}
 			}
 		}
@@ -3843,7 +3843,7 @@ module.exports = function (Engine) {
 					let bonus = get_piece_cf(game, p)
 					def_drm += bonus
 					used_hqs.defender.push(p)
-					log_detail(log, `Defender HQ ${piece_log_name(game, p)} provides +${bonus} DRM`)
+					log_detail(log, `防守方指挥部 ${piece_log_name(game, p)} 提供 +${bonus} DRM`)
 				}
 			}
 		}

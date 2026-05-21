@@ -123,7 +123,7 @@ module.exports = function (Engine) {
 		if (!amount) return
 		Engine.log(
 			game,
-			`圣战城市影响：${format_space_name(s)}，圣战等级 ${amount > 0 ? "+" : ""}${amount} (当前: ${game.jihad})。`
+			`圣战城市：${format_space_name(s)}，圣战等级 ${amount > 0 ? "+" : ""}${amount} (当前: ${game.jihad})。`
 		)
 	}
 

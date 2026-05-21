@@ -688,7 +688,7 @@ module.exports = function (Engine) {
 		let snapshot = runtime_state || capture_lcu_runtime_state(game, lcu)
 		game.pieces[scu] = space
 		transfer_lcu_runtime_state(game, lcu, scu, snapshot)
-		if (log) log(`LCU ${piece_log_name(game, lcu)} 被替换为 SCU ${piece_log_name(game, scu)}。`)
+		if (log) log(` ${piece_log_name(game, lcu)} 被替换为 ${piece_log_name(game, scu)}。`)
 		return scu
 	}
 

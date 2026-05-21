@@ -201,7 +201,7 @@ exports.register = function (states, Engine, context) {
 		let t0 = DEBUG_ACTION_TRACE ? action_now() : 0
 		let entry = get_event_entry(card)
 		let use_ops_fallback = !!(entry && entry.use_ops)
-		log_card_action(card, "Event")
+		log_card_action(card, "事件")
 		record_action(ACTION_EVENT, card)
 
 		if (info.remove) remove_card(card)
@@ -505,7 +505,7 @@ exports.register = function (states, Engine, context) {
 			game.card = c
 			game.last_card = c
 			let info = data.cards[c]
-			log_card_action(c, "Strategic Redeployment", info.sr)
+			log_card_action(c, "战略调整", info.sr)
 			record_action(ACTION_SR, c)
 			discard_card(c)
 			game.sr = info.sr
@@ -520,7 +520,7 @@ exports.register = function (states, Engine, context) {
 			game.card = c
 			game.last_card = c
 			let info = data.cards[c]
-			log_card_action(c, "Replacement Points")
+			log_card_action(c, "补员")
 			record_action(ACTION_RPS, c)
 			discard_card(c)
 			add_rps(info)
@@ -659,7 +659,7 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 			let info = data.cards[c]
-			log_card_action(c, "Strategic Redeployment", info.sr)
+			log_card_action(c, "战略调整", info.sr)
 			record_action(ACTION_SR, c)
 			discard_card(c)
 			game.sr = info.sr
@@ -672,7 +672,7 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 			let info = data.cards[c]
-			log_card_action(c, "Replacement Points")
+			log_card_action(c, "补员")
 			record_action(ACTION_RPS, c)
 			discard_card(c)
 			add_rps(info)
@@ -843,7 +843,7 @@ exports.register = function (states, Engine, context) {
 
 			if (!game.sr_moved) game.sr_moved = []
 			Engine.utils.set_add(game.sr_moved, p)
-			log(`${piece_name(p)} 战略调整至 ${space_name(s)} (Cost: ${total_cost})`)
+			log(`${piece_name(p)} 战略调整至 ${space_name(s)}${total_cost !== 1 ? ` (Cost: ${total_cost})` : ''}`)
 			game.sr_piece = null
 
 			// Rule 13.4.2: +1 Jihad if the last AP unit drawing supply solely through

@@ -284,7 +284,7 @@ exports.register = function (states, Engine, context) {
 				let faction = Engine.map.get_space_controller(game, s)
 				if ((faction === AP || faction === CP) && !Engine.map.has_undestroyed_fort(game, s, faction)) {
 					let opponent = other_faction(faction)
-					log(`${space_name(s)} becomes enemy-controlled due to attrition (OOS)`)
+					log(`${space_name(s)} 因断补损耗转为敌方控制`)
 					set_control(game, s, opponent)
 					if (
 						opponent === AP &&
@@ -838,7 +838,6 @@ exports.register = function (states, Engine, context) {
 			let key = faction === AP ? "ap" : "cp"
 			if (!game.pending_commitment_shuffle) game.pending_commitment_shuffle = { ap: false, cp: false }
 			game.pending_commitment_shuffle[key] = true
-			log(`${faction_name(faction)} adds ${commitment.toUpperCase()} cards.`)
 		}
 	}
 
@@ -1185,7 +1184,7 @@ exports.register = function (states, Engine, context) {
 			clear_undo()
 			if (!Array.isArray(game.discarded_ccs)) game.discarded_ccs = []
 			if (game.discarded_ccs.length > 0) {
-				log(`${faction_name(game.active)} 弃掉手牌:`)
+				log(`${faction_name(game.active)} 弃置手牌:`)
 				for (let c of game.discarded_ccs) {
 					log(card_name(c))
 				}

@@ -98,7 +98,7 @@ module.exports = function (Engine) {
 	}
 
 	function log_churchill_bombardment(rules, target, cf, roll, success) {
-		rules.log(`丘吉尔胜出：炮击 ${target}，要塞火力值 ${cf}，掷骰 ${roll}，${success ? "成功" : "失败"}。`)
+		rules.log(`炮击 ${target}，要塞火力值 ${cf}，掷骰 ${roll}，${success ? "成功" : "失败"}。`)
 	}
 
 	function get_jerusalem_by_christmas_targets(game) {
@@ -1567,7 +1567,7 @@ module.exports = function (Engine) {
 
 			Engine.map.apply_sr_control_effects(game, p, game.pieces[p], event_port, AP)
 			game.pieces[p] = event_port
-			rules.log(`${rules.piece_name(p)} 战略调整至滩头 (Cost: ${cost}).`)
+			rules.log(`${rules.piece_name(p)} 战略调整至滩头${cost !== 1 ? ` (Cost: ${cost})` : ''}.`)
 
 			if ((data_event.count || 0) >= 3) {
 				delete event.event_port
@@ -1625,7 +1625,7 @@ module.exports = function (Engine) {
 			log_churchill_bombardment(rules, rules.space_name(s), cf, roll, success)
 
 			if (success) {
-				rules.log(`丘吉尔胜出：${rules.space_name(s)} 要塞被摧毁。`)
+				rules.log(`${rules.space_name(s)} 要塞被摧毁。`)
 				if (!game.forts) game.forts = { destroyed: [] }
 				if (!game.forts.destroyed) game.forts.destroyed = []
 				rules.set_add(game.forts.destroyed, s)
@@ -1641,11 +1641,11 @@ module.exports = function (Engine) {
 				} else if (event.churchill_prevails_step === 3) {
 					event.churchill_prevails_step = 4
 				} else if (event.churchill_prevails_step === 4) {
-					rules.log("丘吉尔胜出：加里波利要塞被摧毁，皇家海军驶入马尔马拉海。")
+					rules.log("加里波利要塞被摧毁，皇家海军驶入马尔马拉海。")
 					game.state = "event_churchill_prevails_constantinople"
 				}
 			} else {
-				rules.log("丘吉尔胜出：炮击受挫，后续计划终止。")
+				rules.log("炮击受挫，后续计划终止。")
 				rules.goto_end_operations()
 			}
 		}
@@ -1661,14 +1661,14 @@ module.exports = function (Engine) {
 		bombard(ctx) {
 			let { game, rules } = ctx
 			rules.push_undo()
-			rules.log("丘吉尔胜出：皇家海军炮击君士坦丁堡，协约国 VP -1，圣战等级 +1。")
+			rules.log("皇家海军炮击君士坦丁堡，VP -1，圣战等级 +1。")
 			game.vp -= 1
 			game.state = "event_churchill_prevails_place_units"
 			rules.update_jihad_level(game, 1)
 		},
 		skip(ctx) {
 			let { game, rules } = ctx
-			rules.log("丘吉尔胜出：协约国放弃炮击君士坦丁堡。")
+			rules.log("协约国放弃炮击君士坦丁堡。")
 			game.state = "event_churchill_prevails_place_units"
 		}
 	}
@@ -1740,22 +1740,22 @@ module.exports = function (Engine) {
 						game.rp_ap.ru += 2
 					}
 					rules.log(
-						"丘吉尔胜出：博斯普鲁斯海峡要塞被摧毁，俄国立即获得 2 点补员点数，此后每回合额外获得 1 点，直到【地中海潜艇猎袭】打出。"
+						"博斯普鲁斯海峡要塞被摧毁，俄国立即获得 2 点补员点数，此后每回合额外获得 1 点，直到【地中海潜艇猎袭】打出。"
 					)
 				} else {
 					rules.log(
-						"丘吉尔胜出：博斯普鲁斯海峡要塞被摧毁，但【地中海潜艇猎袭】已生效，俄国不获得额外补员点数。"
+						"博斯普鲁斯海峡要塞被摧毁，但【地中海潜艇猎袭】已生效，俄国不获得额外补员点数。"
 					)
 				}
 				rules.goto_end_operations()
 			} else {
-				rules.log("丘吉尔胜出：炮击受挫，后续计划终止。")
+				rules.log("炮击受挫，后续计划终止。")
 				rules.goto_end_operations()
 			}
 		},
 		skip(ctx) {
 			let { rules } = ctx
-			rules.log("丘吉尔胜出：协约国不继续炮击博斯普鲁斯海峡要塞。")
+			rules.log("协约国不继续炮击博斯普鲁斯海峡要塞。")
 			rules.goto_end_operations()
 		}
 	}
