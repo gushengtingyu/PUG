@@ -5161,8 +5161,10 @@ module.exports = function (Engine) {
 		) {
 			return false
 		}
-		if (nation === "sb" && has_serbia_collapsed(game) && (!game.events || !game.events["the_serbs_return"])) {
-			return false
+		if (nation === "sb" && has_serbia_collapsed(game)) {
+			let serbs_return = !!(game.events && game.events["the_serbs_return"])
+			if (!serbs_return) return info.piece_class === "SCU"
+			if (is_eliminated(game, p) && info.piece_class === "LCU") return false
 		}
 		if (game.events && game.events["arab_desertion"] && nation === "tua") {
 			return false
