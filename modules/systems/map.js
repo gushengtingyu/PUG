@@ -1604,6 +1604,10 @@ module.exports = function (Engine) {
 	const HQ_HEAVY_ARTILLERY_DEPARTURE_REASON = "HQ/Heavy Artillery cannot be left without a friendly Combat Unit"
 	const IGNORE_HQ_HEAVY_ARTILLERY_SUPPORT = { ignore_hq_heavy_artillery_support: true }
 
+	function ignore_hq_heavy_artillery_support(options = {}) {
+		return { ...options, ignore_hq_heavy_artillery_support: true }
+	}
+
 	function get_unique_pieces(pieces) {
 		let unique = []
 		let seen = new Set()
@@ -1817,7 +1821,7 @@ module.exports = function (Engine) {
 		if (is_unlimited_stack_space(game, target)) return true
 
 		let count = get_stack_count(total)
-		return count <= 3
+		return options.ignore_stacking || count <= 3
 	}
 
 	function get_move_end_space_block_reason(game, s, faction, options = {}) {
@@ -2713,7 +2717,7 @@ module.exports = function (Engine) {
 		return nations.some((nation) => is_base_supply_source(game, s, faction, nation, true))
 	}
 
-	function can_sr_from_reserve_to_space(game, p, s, faction) {
+	function can_sr_from_reserve_to_space(game, p, s, faction, options = {}) {
 		let info = data.pieces[p]
 		if (info.piece_class === "LCU") return false
 		if (!can_use_reserve_sr_for_piece(game, p, faction)) return false
@@ -2731,7 +2735,7 @@ module.exports = function (Engine) {
 		let status = get_supply_status(game, s, faction, p, true)
 		if (!is_supply_status_in_supply(status)) return false
 		if (!can_enter_region(game, p, s)) return false
-		if (!can_stack_end_in_space(game, s, [p], IGNORE_HQ_HEAVY_ARTILLERY_SUPPORT)) return false
+		if (!can_stack_end_in_space(game, s, [p], ignore_hq_heavy_artillery_support(options))) return false
 		if (data.spaces[s].terrain === DESERT) {
 			if (!can_trace_reserve_sr_desert_supply(game, p, s)) return false
 		}
@@ -3153,7 +3157,7 @@ module.exports = function (Engine) {
 		return !is_limited_supply_status(status)
 	}
 
-	function can_sr_to_space(game, p, s, faction) {
+	function can_sr_to_space(game, p, s, faction, options = {}) {
 		let source = game.pieces[p]
 		if (!is_reserve_space(source) && (source <= 0 || !data.spaces[source])) return false
 		if (s <= 0 || !data.spaces[s]) return false
@@ -3172,7 +3176,7 @@ module.exports = function (Engine) {
 		}
 
 		if (source_reserve && dest_reserve) return false
-		if (source_reserve) return can_sr_from_reserve_to_space(game, p, s, faction)
+		if (source_reserve) return can_sr_from_reserve_to_space(game, p, s, faction, options)
 		if (dest_reserve && !can_use_reserve_sr_for_piece(game, p, faction)) return false
 		if (source !== s && !can_piece_leave_siege_by_sr(game, p, faction)) return false
 		if (is_cp_non_afghan_unit_tracing_only_to_afghanistan(game, p)) return false
@@ -3204,7 +3208,7 @@ module.exports = function (Engine) {
 		)
 			return false
 		if (!can_enter_region(game, p, s)) return false
-		if (!can_stack_end_in_space(game, s, [p], IGNORE_HQ_HEAVY_ARTILLERY_SUPPORT)) return false
+		if (!can_stack_end_in_space(game, s, [p], ignore_hq_heavy_artillery_support(options))) return false
 
 		let rail_only = info.piece_class === "LCU"
 		if (has_sr_path(game, p, source, s, faction, rail_only)) return true

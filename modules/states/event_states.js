@@ -1257,7 +1257,7 @@ module.exports = function (Engine) {
 		},
 		done(ctx) {
 			let { rules } = ctx
-			rules.goto_end_operations()
+			rules.goto_end_event()
 		}
 	}
 
@@ -1339,7 +1339,7 @@ module.exports = function (Engine) {
 			delete game.combat_card_sources
 			delete game.cancelled_cc_dispositions
 			game.active = AP
-			rules.goto_end_operations()
+			rules.goto_end_event()
 		},
 		next(ctx) {
 			let { game, rules } = ctx
@@ -3933,12 +3933,14 @@ module.exports = function (Engine) {
 
 	// === EVENT: BULL'S EYE DIRECTIVE (ID 58) ===
 
+	const BULLS_EYE_SR_OPTIONS = { ignore_stacking: true }
+
 	function can_bulls_eye_sr_piece_to_target(game, p, target) {
 		let info = data.pieces[p]
 		if (!info || info.piece_class !== "SCU") return false
 		if (info.nation !== "tu" && info.nation !== "tua") return false
 		if (!Engine.game_utils.is_in_reserve(game, p)) return false
-		return Engine.map.can_sr_to_space(game, p, target, CP)
+		return Engine.map.can_sr_to_space(game, p, target, CP, BULLS_EYE_SR_OPTIONS)
 	}
 
 	function has_bulls_eye_sr_piece_for_target(game, target) {

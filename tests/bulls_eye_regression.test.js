@@ -1,7 +1,7 @@
 const rules = require("../rules.js")
 const Engine = require("../modules/engine.js")
 
-const { setupGame, findSpace, findPiece } = require("./helpers.js")
+const { setupGame, findSpace, findPiece, clearBoard } = require("./helpers.js")
 
 const { AP, CP } = Engine.constants
 const CP_ROLE = rules.roles[1]
@@ -129,4 +129,37 @@ test("Bull's Eye SR 空间列表使用已激活进攻地块且去重", () => {
 	spaces = Engine.events.bulls_eye_get_sr_spaces(game)
 	expect(spaces).not.toContain(sA)
 	expect(spaces).toContain(sB)
+})
+
+test("Bull's Eye SR can select and place into a fully stacked attack space", () => {
+	let game = setupGame(2026052101, "Historical", { no_supply_warnings: true })
+	clearBoard(game)
+	activateBullsEye(game)
+
+	let target = findSpace("Erzurum")
+	let reserve = Engine.game_utils.get_scu_reserve_box(CP)
+	let occupying = [findPiece(CP, "TU DIV #1"), findPiece(CP, "TU DIV #2"), findPiece(CP, "TU DIV #3")]
+	let reinforcement = findPiece(CP, "TU DIV #4")
+
+	Engine.set_control(game, target, CP)
+	for (let p of occupying) game.pieces[p] = target
+	game.pieces[reinforcement] = reserve
+	game.activated = { move: [], attack: [target] }
+	game.state = "event_bulls_eye_sr"
+	game.sr_moved = []
+
+	expect(Engine.map.can_sr_to_space(game, reinforcement, target, CP)).toBe(false)
+
+	let targetView = rules.view(game, CP_ROLE)
+	expect(targetView.actions.space || []).toContain(target)
+
+	game = rules.action(game, CP_ROLE, "space", target)
+	let unitView = rules.view(game, CP_ROLE)
+	expect(unitView.actions.piece || []).toContain(reinforcement)
+
+	game = rules.action(game, CP_ROLE, "piece", reinforcement)
+
+	expect(game.pieces[reinforcement]).toBe(target)
+	expect(game.bulls_eye_sr_spaces).toContain(target)
+	expect([...occupying, reinforcement].filter((p) => game.pieces[p] === target)).toHaveLength(4)
 })
