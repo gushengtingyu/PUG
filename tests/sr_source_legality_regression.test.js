@@ -262,3 +262,34 @@ test("Salonika invasion can SR a legal AP SCU from reserve to the island base", 
 	expect(game.sr_moved || []).toContain(brDiv)
 	expect(game.event_ctx.data.allow_sr_to_island).toBe(2)
 })
+
+test("Invasion events remain playable after the previous AP action was an SR card", () => {
+	let game = setupGame(2026052101, "Historical")
+	game.active = AP
+	game.state = "play_card"
+	game.action_round = 2
+	game.ap_actions = Array(7).fill(null)
+	game.ap_actions[1] = { type: "sr", card: 35 }
+	game.hand_ap = [34]
+
+	let view = rules.view(game, AP_ROLE)
+	expect(view.actions.play_event || []).toContain(34)
+	expect(view.actions.play_sr || []).not.toContain(34)
+
+	game = rules.action(game, AP_ROLE, "play_event", 34)
+	expect(game.ap_actions[2]).toEqual({ type: "event", card: 34 })
+	expect(game.state).toBe("event_place_reinforcements")
+})
+
+test("Invasion event SR does not block the next AP action from using an SR card", () => {
+	let game = setupGame(2026052102, "Historical")
+	game.active = AP
+	game.state = "play_card"
+	game.action_round = 3
+	game.ap_actions = Array(7).fill(null)
+	game.ap_actions[2] = { type: "event", card: 34 }
+	game.hand_ap = [33]
+
+	let view = rules.view(game, AP_ROLE)
+	expect(view.actions.play_sr || []).toContain(33)
+})

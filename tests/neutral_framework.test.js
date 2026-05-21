@@ -357,4 +357,21 @@ describe("中立国统一框架", () => {
 		expect(game.events.neutral_persia_first_entry_penalty).toBeUndefined()
 		expect(game.vp).toBe(initialVp)
 	})
+
+	test("RU/PE Police North has Persian full supply across all Greater Persia areas", () => {
+		for (let spaceName of ["Meshed", "Tabriz", "Ahwaz"]) {
+			let game = setupGame(2026052104, "Historical", { no_supply_warnings: true })
+			clearBoard(game)
+			let space = findSpace(spaceName)
+			let unit = findPiece(AP, "RU/PE Police North")
+
+			game.pieces[unit] = space
+			Engine.set_control(game, space, AP)
+
+			expect(Engine.neutral.is_persian_supply_unit(unit)).toBe(true)
+			expect(Engine.map.get_supply_status(game, space, AP, unit)).toBe("FULL")
+			Engine.map.check_supply(game)
+			expect(game.oos || []).not.toContain(unit)
+		}
+	})
 })

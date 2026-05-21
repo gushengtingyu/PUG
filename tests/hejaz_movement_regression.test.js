@@ -49,6 +49,23 @@ test("Arab Revolt SCUs can move from Mecca into Medina to besiege the non-Gallip
 	expect(Engine.map.is_besieged(game, medina)).toBe(true)
 })
 
+test("ANA may move across A/T paths but not Arab-only A paths", () => {
+	let game = setupGame(2026052101, "Historical", { no_supply_warnings: true })
+	clearBoard(game)
+
+	let mecca = findSpace("Mecca")
+	let medina = findSpace("Medina")
+	let jiddah = findSpace("Jiddah")
+	let bair = findSpace("Bair")
+	let ana = findApPiece("BR ANA Arab")
+
+	game.pieces[ana] = mecca
+
+	let moveNeighbors = Engine.map.get_piece_connected_spaces_for_rule(game, mecca, ana, "move")
+	expect(moveNeighbors).toEqual(expect.arrayContaining([medina, jiddah]))
+	expect(moveNeighbors).not.toContain(bair)
+})
+
 test("enemy fort entry extra movement cost applies only on the Gallipoli map", () => {
 	let game = setupGame(2026050902, "Historical", { no_supply_warnings: true })
 	let medina = findSpace("Medina")

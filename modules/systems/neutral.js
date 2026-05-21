@@ -296,7 +296,11 @@ module.exports = function (Engine) {
 		let info = data.pieces[p]
 		if (!info) return false
 		if (info.nation === "pe") return true
-		return info.name === "BR/PE SPers Rifles" || info.name === "RU/PE Police North"
+		return (
+			info.name === "BR/PE SPers Rifles" ||
+			info.name === "RU/PE Police North" ||
+			(info.name && (info.name.startsWith("RU/PE") || info.name.startsWith("PE/RU")))
+		)
 	}
 
 	function has_persian_home_supply_privilege(_game, p, space_id) {

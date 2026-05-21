@@ -274,7 +274,7 @@ module.exports = function (Engine) {
 	function get_piece_connected_spaces_for_rule(game, from, p, mode = "move") {
 		let info = data.pieces[p]
 		if (!info) return []
-		let nations = get_piece_nations_for_rule(game, p)
+		let nations = get_piece_nations_for_rule(game, p, "connection")
 		if (nations.length === 0) nations = [info.nation]
 		if ((info.name || "").startsWith("Senussi") && !nations.includes(SENUSSI_CONNECTION_KEY)) {
 			nations = nations.concat(SENUSSI_CONNECTION_KEY)
@@ -1045,6 +1045,17 @@ module.exports = function (Engine) {
 		return Object.prototype.hasOwnProperty.call(data.spaces[a].connection_types, b)
 	}
 
+	function get_limited_connections_for_nation(space, nation) {
+		if (!space || !nation) return null
+		if (space.limited_connections && space.limited_connections[nation]) return space.limited_connections[nation]
+		if (!space.connection_nations) return null
+		let conns = []
+		for (let [next, nations] of Object.entries(space.connection_nations)) {
+			if (Array.isArray(nations) && nations.includes(nation)) conns.push(Number(next))
+		}
+		return conns.length > 0 ? conns : null
+	}
+
 	function get_connected_spaces(game, s, nation, faction, p, mode = "move") {
 		if (!data.spaces[s]) return []
 		let conns = data.spaces[s].connections || []
@@ -1059,8 +1070,9 @@ module.exports = function (Engine) {
 			// This lets units attack across restricted railroads and lets CP attack into
 			// established Beachheads from the mainland side.
 			conns = [...new Set(conns.concat(Object.keys(data.spaces[s].connection_types).map(Number)))]
-		} else if (nation && data.spaces[s].limited_connections && data.spaces[s].limited_connections[nation]) {
-			conns = data.spaces[s].limited_connections[nation]
+		} else {
+			let limited_connections = get_limited_connections_for_nation(data.spaces[s], nation)
+			if (limited_connections) conns = limited_connections
 		}
 
 		conns = conns.filter((next) => connection_allowed(game, s, next, mode, faction))

@@ -43,6 +43,24 @@ test("German Subs blocks E. Mediterranean and Aegean beachhead ports for Allied 
 	expect(legalSpaceNames(game)).not.toContain("Besika Bay")
 })
 
+test("British Empire reinforcements may use AP-controlled Salonika", () => {
+	let game = setupGame(2026052101, "Historical", { no_supply_warnings: true })
+	Engine.set_control(game, findSpace("Salonika"), AP)
+
+	Engine.events.get_event_by_id(27).handler(game, null)
+
+	expect(legalSpaceNames(game)).toContain("Salonika")
+})
+
+test("British Empire reinforcements do not treat neutral Salonika port status as control", () => {
+	let game = setupGame(2026052102, "Historical", { no_supply_warnings: true })
+	game.events.salonika_is_port = true
+
+	Engine.events.get_event_by_id(27).handler(game, null)
+
+	expect(legalSpaceNames(game)).not.toContain("Salonika")
+})
+
 test("British Empire LCU rebuilds can use established beachhead ports in the allowed seas", () => {
 	let game = setupGame(2026050704, "Historical", { no_supply_warnings: true })
 	clearBoard(game)

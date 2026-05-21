@@ -824,7 +824,7 @@ module.exports = function (Engine) {
 			check: function (game, s) {
 				let space = data.spaces[s]
 				if (!space) return false
-				if (s === SALONIKA) return false
+				if (s === SALONIKA && !Engine.map.is_controlled_by(game, s, AP)) return false
 				if (is_german_subs_blocked_port(game, s)) return false
 
 				// 1. 英国补给源 (根据 7.7.5, 即使被敌方控制也可以放置)
@@ -834,9 +834,8 @@ module.exports = function (Engine) {
 
 				// 2. 协约国控制的港口/已建立滩头 (排除特定地块)
 				if (Engine.map.is_ap_controlled_port_or_beachhead(game, s)) {
-					// 排除 阿卡巴、吉达、萨洛尼卡、黑海港口、里海港口
+					// 排除 阿卡巴、吉达、黑海港口、里海港口
 					if (s === AQABA || s === JIDDAH) return false
-					if (s === SALONIKA) return false
 					if (Engine.map.is_black_sea_port(game, s) || Engine.map.is_caspian_sea_port(game, s)) return false
 
 					let besieged = is_besieged(game, s)

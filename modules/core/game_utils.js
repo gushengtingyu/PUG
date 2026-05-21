@@ -274,7 +274,7 @@ module.exports = function (Engine) {
 		if (p < 0 || !data.pieces[p]) return []
 		let info = data.pieces[p]
 		let name = info.name || ""
-		if (name === "BR ANA Arab") return ["br", "ar"]
+		if (name === "BR ANA Arab") return purpose === "connection" ? ["br", "arab_and_tu"] : ["br", "ar"]
 		if (name === "RU/PE Police North") return ["ru"]
 		if (name === "Combined BU/AH Div") return ["bu", "ah"]
 		if (name === "German 11th Army") return ["ge", "bu"]
