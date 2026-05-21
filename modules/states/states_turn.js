@@ -470,10 +470,11 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function start_turn() {
-		let max_turn = game.scenario_max_turn || 20
+		let max_turn = game.scenario_max_turn || 17
 		if (game.turn >= max_turn) {
-			log(`End of Turn ${max_turn} reached. Game ends.`)
-			let final = final_victory_from_vp(game.vp)
+			log(`游戏结束，回合上限 ${max_turn} 到达。`)
+			let adjusted_vp = game.vp + calculate_protocol_victory_adjustments()
+			let final = final_victory_from_vp(adjusted_vp)
 			game.state = "game_over"
 			game.result = final.result
 			game.victory = `End of Turn ${max_turn} - ` + final.victory
@@ -767,8 +768,19 @@ exports.register = function (states, Engine, context) {
 		if (check_victory_conditions()) return
 
 		if (game.armistice_turn && game.turn >= game.armistice_turn) {
-			log(`Armistice turn ${game.armistice_turn} reached. Game ends.`)
-			let final = final_victory_from_vp(game.vp)
+			log(`停战回合 ${game.armistice_turn} 到达，游戏结束。`)
+			let adjusted_vp = game.vp + calculate_protocol_victory_adjustments()
+			let final = final_victory_from_vp(adjusted_vp)
+			game.state = "game_over"
+			game.result = final.result
+			game.victory = "Armistice - " + final.victory
+			return
+		}
+
+		if (game.turn >= 17) {
+			log("1918年秋季，未达成自动胜利，停战生效。")
+			let adjusted_vp = game.vp + calculate_protocol_victory_adjustments()
+			let final = final_victory_from_vp(adjusted_vp)
 			game.state = "game_over"
 			game.result = final.result
 			game.victory = "Armistice - " + final.victory
@@ -776,14 +788,6 @@ exports.register = function (states, Engine, context) {
 		}
 
 		check_war_commitment_increase()
-
-		if (game.turn >= 20) {
-			let final = final_victory_from_vp(game.vp)
-			game.state = "game_over"
-			game.result = final.result
-			game.victory = "Armistice - " + final.victory
-			return
-		}
 
 		if (Engine.collapse.handle_national_collapse(game, log)) return
 

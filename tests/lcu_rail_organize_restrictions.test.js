@@ -5,6 +5,7 @@ const { setupGame, findSpace, findApPiece, findCpPiece: findPiece, clearBoard } 
 
 const { AP, CP, COMMITMENT_MOBILIZATION } = Engine.constants
 const AP_ROLE = rules.roles[0]
+const CP_ROLE = rules.roles[1]
 
 function placeTurkishDivisionPair(game, space) {
 	game.pieces[findPiece("TU DIV #1")] = space
@@ -21,6 +22,35 @@ test("LCUs cannot organize in restricted spaces without an actual rail line", ()
 	expect(Engine.map.get_supply_status(game, aqaba, CP, findPiece("TU DIV #1"))).toBe("FULL")
 	expect(Engine.map.is_rail_connected_to_supply(game, aqaba, CP)).toBe(false)
 	expect(Engine.game_utils.can_combine_in_space(game, aqaba, CP)).toBe(false)
+})
+
+test("selected SCU combine action cannot bypass restricted rail requirement", () => {
+	let game = setupGame(2026052102)
+	let kut = findSpace("Kut")
+	let div1 = findPiece("TU DIV #1")
+	let div2 = findPiece("TU DIV #2")
+
+	game.active = CP
+	game.state = "choose_pieces_to_move"
+	game.activated = { move: [kut], attack: [] }
+	game.region_activations = { move: {}, attack: {} }
+	game.where = kut
+	game.pieces[div1] = kut
+	game.pieces[div2] = kut
+	game.control[kut] = CP
+	game.moved = []
+	game.move = {
+		initial: kut,
+		current: kut,
+		spaces_moved: 0,
+		pieces: [div1, div2],
+		touched_spaces: [kut],
+		faction: CP
+	}
+
+	expect(Engine.map.is_rail_connected_to_supply(game, kut, CP)).toBe(false)
+	expect(Engine.game_utils.can_combine_in_space(game, kut, CP)).toBe(false)
+	expect(rules.view(game, CP_ROLE).actions.combine).toBeUndefined()
 })
 
 test("LCUs cannot enter or organize in desert spaces without an actual rail line", () => {

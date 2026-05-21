@@ -78,6 +78,25 @@ test("LCUs attacking out of desert must use a supplied rail edge", () => {
 	expect(targets).not.toContain(tikrit)
 })
 
+test("incomplete Berlin-Baghdad railroad is a normal attack connection before the event", () => {
+	let game = setupGame(2026052101)
+	let eregli = findSpace("Eregli")
+	let adana = findSpace("Adana")
+	let tuDiv = findPiece(CP, "TU DIV #1")
+	let brDiv = findPiece(AP, "BR DIV #1")
+
+	resetForRuleProbe(game, CP)
+	delete game.events.berlin_baghdad
+	game.pieces[tuDiv] = eregli
+	game.pieces[brDiv] = adana
+	Engine.set_control(game, eregli, CP)
+	Engine.set_control(game, adana, AP)
+
+	expect(Engine.map.get_rail_connections(game, eregli, CP)).not.toContain(adana)
+	expect(Engine.map.get_piece_connected_spaces_for_rule(game, eregli, tuDiv, "attack")).toContain(adana)
+	expect(getAttackTargets(game, [tuDiv], CP)).toContain(adana)
+})
+
 test("colored railroads allow attacks but not movement or advance for restricted units", () => {
 	let game = setupGame(2026051206, "Historical", { no_supply_warnings: true })
 	let belgrade = findSpace("BELGRADE")

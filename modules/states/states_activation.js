@@ -686,9 +686,22 @@ exports.register = function (states, Engine, context) {
 
 	function can_selected_move_pieces_combine(selected_pieces) {
 		if (!Array.isArray(selected_pieces) || selected_pieces.length < 2 || selected_pieces.length > 3) return false
+		let space = game.move && game.move.initial > 0 ? game.move.initial : game.where
+		if (!Engine.game_utils.can_combine_in_space(game, space, active_faction())) return false
 		let available = get_available_combine_scus()
 		if (!selected_pieces.every((p) => set_has(available, p))) return false
 		return get_valid_lcus_for_selected_scus(selected_pieces).length > 0
+	}
+
+	function can_combine_in_activation_space(space = game.where) {
+		let ctx = game.combine_ctx || {}
+		return Engine.game_utils.can_combine_in_space(
+			game,
+			space,
+			active_faction(),
+			ctx.allowed_lcus || null,
+			ctx.allowed_scus || null
+		)
 	}
 
 	function attack_neighbors_include_enemy(neighbors, faction, enemy_space_flag = null) {
@@ -1471,6 +1484,10 @@ exports.register = function (states, Engine, context) {
 			res.prompt(`在 ${space_name(game.where)} 选择2或3个SCU进行组合`)
 			res.where(game.where)
 			res.who(selected)
+			if (!can_combine_in_activation_space()) {
+				res.action("cancel")
+				return
+			}
 
 			for (let p of get_available_combine_scus()) {
 				res.piece(p)
@@ -1523,6 +1540,9 @@ exports.register = function (states, Engine, context) {
 		},
 		select_lcu() {
 			let selected = get_selected_combine_scus()
+			if (!can_combine_in_activation_space()) {
+				return
+			}
 			if (selected.length < 2) {
 				return
 			}
@@ -1560,6 +1580,7 @@ exports.register = function (states, Engine, context) {
 		},
 		piece(lcu_id) {
 			let selected = get_selected_combine_scus()
+			if (!can_combine_in_activation_space()) return
 			if (!set_has(get_valid_lcus_for_selected_scus(selected), lcu_id)) return
 			if (!Engine.map.can_enter_region(game, lcu_id, game.where)) return
 			let options = get_manual_combination_for_lcu(lcu_id, selected)
@@ -1673,6 +1694,7 @@ exports.register = function (states, Engine, context) {
 
 	function get_available_combine_scus() {
 		const { game_utils } = Engine
+		if (!can_combine_in_activation_space()) return []
 		let pieces = get_pieces_in_space(game, game.where)
 		log_activation_debug(`[调试] get_available_combine_scus in space: ${game.where}, pieces in space: ${pieces}`)
 		return pieces.filter((p) => {
@@ -1762,6 +1784,7 @@ exports.register = function (states, Engine, context) {
 
 	function get_valid_lcus_for_selected_scus(selected_scus) {
 		if (selected_scus.length < 2 || selected_scus.length > 3) return []
+		if (!can_combine_in_activation_space()) return []
 		let faction = active_faction()
 		let lcus = Engine.game_utils.get_available_lcus_in_reserve(game, faction)
 		if (game.combine_ctx && game.combine_ctx.allowed_lcus) {

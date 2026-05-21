@@ -1191,8 +1191,8 @@ module.exports = function (Engine) {
 		let events = flags.map((flag) => get_event_flag(flag, mode)).filter(Boolean)
 		if (type === "conditional_rail") {
 			// Rule 9.4.5: incomplete Berlin-Baghdad Railroad connections exist for normal
-			// movement before the event, but are not railroads until the event is active.
-			if (mode === "move" && is_incomplete_berlin_baghdad_connection(flags)) return true
+			// connections before the event, but are not railroads until the event is active.
+			if (mode !== "rail" && is_incomplete_berlin_baghdad_connection(flags)) return true
 			// Rule: For other conditional rails (usually roads upgraded to rail via event),
 			// normal movement and supply are allowed even if the rail isn't active, unless
 			// it's a virtual connection that doesn't exist yet.
