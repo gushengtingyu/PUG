@@ -74,7 +74,7 @@ module.exports = function (Engine) {
 				Object.freeze({ name: "RU Dobruja", space: "Constanta" }),
 				Object.freeze({ name: "RU/SB Yugo Infantry", space: "AP Reserve" })
 			]),
-			ru_division_pool: Object.freeze(["RU DIV #19", "RU DIV #20", "RU DIV #21", "RU DIV #22", "RU DIV #23"]),
+			ru_division_pool: Object.freeze(["RU DIV #18", "RU DIV #19", "RU DIV #20", "RU DIV #21", "RU DIV #22"]),
 			delayed: Object.freeze([
 				Object.freeze({ name: "RU Danube Army", turn_offset: 1, space: "Odessa" }),
 				Object.freeze({ name: "RU 6 Army", turn_offset: 2, space: "Odessa" }),

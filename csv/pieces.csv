@@ -132,7 +132,6 @@ id,faction,nation,name,cf,lf,mf,rcf,rlf,rmf,symbol,region_limit,type,badge,piece
 131,ap,ru,RU DIV #20,2,1,4,1,1,4,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
 132,ap,ru,RU DIV #21,2,1,4,1,1,4,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
 133,ap,ru,RU DIV #22,2,1,4,1,1,4,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
-134,ap,ru,RU DIV #23,2,1,4,1,1,4,,,regular,infantry,SCU,RUDiv.png,RUDivR.png
 135,ap,ru,RU Dobruja,2,2,4,1,2,4,,B,regular,yellow,LCU,RUDobr.png,RUDobrR.png
 136,ap,ru,RU Elite DIV #1,2,2,4,1,2,4,,,regular,blue,SCU,RUEDiv.png,RUEDivR.png
 137,ap,ru,RU Elite DIV #2,2,2,4,1,2,4,,,regular,blue,SCU,RUEDiv.png,RUEDivR.png
@@ -140,6 +139,7 @@ id,faction,nation,name,cf,lf,mf,rcf,rlf,rmf,symbol,region_limit,type,badge,piece
 139,ap,ru,RU Elite DIV #4,2,2,4,1,2,4,,,regular,blue,SCU,RUEDiv.png,RUEDivR.png
 140,ap,ru,RU Elite DIV #5,2,2,4,1,2,4,,,regular,blue,SCU,RUEDiv.png,RUEDivR.png
 141,ap,ru,RU Elite DIV #6,2,2,4,1,2,4,,,regular,blue,SCU,RUEDiv.png,RUEDivR.png
+141,ap,ru,RU Elite DIV #7,2,2,4,1,2,4,,,regular,blue,SCU,RUEDiv.png,RUEDivR.png
 142,ap,ru,RU I Caucasian,3,3,4,2,3,4,,,regular,infantry,LCU,RUICaucC.png,RUICaucCR.png
 143,ap,ru,RU II Turkistani,3,3,4,2,3,4,,,regular,infantry,LCU,RUIITurkC.png,RUIITurkCR.png
 144,ap,ru,RU IV Caucasian,3,3,4,2,3,4,,,regular,infantry,LCU,RUIVCaucC.png,RUIVCaucCR.png

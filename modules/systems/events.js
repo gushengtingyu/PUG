@@ -1930,7 +1930,7 @@ module.exports = function (Engine) {
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "russian_reinf_25")
 				game.active = AP
-				let units = ["RU V Caucasian", "RU Black Sea", "RU DIV #15"]
+				let units = ["RU V Caucasian", "RU Black Sea", "RU Elite DIV #5"]
 				event.reinf_to_place = units
 				game.events["black_sea_marines_active"] = true
 				event.reinf_placement = "either"
@@ -2185,7 +2185,7 @@ module.exports = function (Engine) {
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "russian_reinf_37")
 				game.active = AP
-				let units = ["RU DIV #16", "RU DIV #17", "RU DIV #18"]
+				let units = ["RU DIV #15", "RU DIV #16", "RU DIV #17"]
 				event.reinf_to_place = units
 				event.reinf_placement = "either"
 				event.reinf_logic = "is_ru_rein"
@@ -2270,7 +2270,7 @@ module.exports = function (Engine) {
 				// 这些去地图上的补给点
 				let event = start_event_data(game, ctx, "russian_reinf_43")
 				game.active = AP
-				event.reinf_to_place = ["RU Elite DIV #5", "RU Elite DIV #6"]
+				event.reinf_to_place = ["RU Elite DIV #6", "RU Elite DIV #7"]
 				event.reinf_placement = "either"
 				event.reinf_logic = "is_ru_rein"
 				game.state = "event_place_reinforcements"
