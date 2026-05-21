@@ -67,8 +67,8 @@ exports.register = function (states, Engine, context) {
 		card_name,
 		AP,
 		CP,
-		has_trench,
-		remove_trench
+		is_enemy_trench,
+		enter_trench
 	} = context
 	const JERUSALEM = find_space("Jerusalem")
 
@@ -593,7 +593,12 @@ exports.register = function (states, Engine, context) {
 			let selected = Array.isArray(game.attack.region_defenders) ? game.attack.region_defenders : []
 			res.where(game.attack.space)
 			res.who(selected)
-			res.prompt("Select Region defense stack.")
+			let odds = combat.fmt_attack_odds_with_max(game)
+			if (odds) {
+				res.prompt(`选择防御堆叠: ${odds}`)
+			} else {
+				res.prompt("选择防御堆叠")
+			}
 			for (let p of candidates) res.piece(p)
 			if (!combat.get_region_defense_stack_block_reason(game, game.attack.space, selected, defender)) {
 				res.action("confirm")
@@ -832,7 +837,9 @@ exports.register = function (states, Engine, context) {
 		"pre_flank_cc_attacker",
 		"post_roll_cc_defender",
 		"post_battle_cc_cp",
+		"post_retreat_cc_ap",
 		"post_advance_cc_cp",
+		"post_advance_cc_ap",
 		"retreat_choice_cc_cp",
 		"maude_place_indian_division",
 		"maude_place_hq",
@@ -1060,6 +1067,9 @@ exports.register = function (states, Engine, context) {
 					continue_after_post_battle_cc()
 				}
 				return true
+			case "post_retreat_cc_ap":
+				continue_after_post_retreat_ap_cc(false)
+				return true
 			case "post_advance_cc_cp":
 				game.active = CP
 				if (has_window_cc_options("post_advance_cc_cp", CP, false)) {
@@ -1067,6 +1077,9 @@ exports.register = function (states, Engine, context) {
 				} else {
 					goto_attack()
 				}
+				return true
+			case "post_advance_cc_ap":
+				continue_after_post_advance_ap_cc()
 				return true
 			case "retreat_choice_cc_cp":
 				continue_after_retreat_choice_cc_window()
@@ -1604,7 +1617,7 @@ exports.register = function (states, Engine, context) {
 				if (Engine.game_utils.get_piece_effective_faction(game, p) !== CP) continue
 				if (is_not_on_map(game, p)) continue
 				let from = game.pieces[p]
-				let neighbors = get_connected_spaces(game, from, data.pieces[p].nation, CP, p)
+				let neighbors = Engine.map.get_piece_connected_spaces_for_rule(game, from, p)
 				if (!neighbors.includes(conf.space)) continue
 				if (!can_enter_region(game, p, conf.space)) continue
 				if (!can_stack_end_in_space(game, conf.space, [p])) continue
@@ -1771,7 +1784,7 @@ exports.register = function (states, Engine, context) {
 			push_undo()
 			ensure_attack_log_section("retreat_log_started", "撤退：")
 			log(`>> ${format_piece_log(p, true)} 无法撤退并被消灭`)
-			eliminate_piece(p, true)
+			eliminate_piece_for_failed_retreat(p)
 			set_delete(state.pieces, p)
 			game.selected_piece = null
 			if (state.pieces.length === 0) finish_jafar_pasha_retreat()
@@ -2176,11 +2189,27 @@ exports.register = function (states, Engine, context) {
 		done: continue_after_post_battle_cc
 	})
 
+	register_combat_card_state("post_retreat_cc_ap", {
+		prompt: "协约国：敌方撤退后战斗卡",
+		is_attacker: true,
+		get_options: () => collect_window_cc_options(game, "post_retreat_cc_ap", AP, true),
+		done() {
+			continue_after_post_retreat_ap_cc(true)
+		}
+	})
+
 	register_combat_card_state("post_advance_cc_cp", {
 		prompt: "同盟国：挺近后战斗卡",
 		is_attacker: false,
 		get_options: () => collect_window_cc_options(game, "post_advance_cc_cp", CP, false),
 		done: goto_attack
+	})
+
+	register_combat_card_state("post_advance_cc_ap", {
+		prompt: "协约国：挺进后战斗卡",
+		is_attacker: true,
+		get_options: () => collect_window_cc_options(game, "post_advance_cc_ap", AP, true),
+		done: continue_after_post_advance_ap_cc
 	})
 
 	register_combat_card_state("retreat_choice_cc_cp", {
@@ -2230,29 +2259,24 @@ exports.register = function (states, Engine, context) {
 			}
 
 			let options = combat.get_loss_options(game, defenders, needed, fort_strength, "defender")
-			for (let p of options) res.piece(p)
-
-			// POG 12.4.6: Fort destruction as loss option if all units eliminated and remaining losses >= Fort LF
-			let fort_can_be_destroyed = false
-			if (defenders.length === 0 && fort_strength > 0 && needed >= fort_strength) {
-				res.action("destroy_fort")
-				fort_can_be_destroyed = true
+			for (let option of options) {
+				if (option === combat.FORT_LOSS) res.space(game.attack.space)
+				else res.piece(option)
 			}
 
-			if (options.length === 0 && !fort_can_be_destroyed) {
+			if (options.length === 0) {
 				res.prompt(`战斗结算: ${space_name(game.attack.space)}（无可分配损失）`)
 				res.action("done")
 			}
 		},
-		destroy_fort() {
+		space(s) {
+			if (s !== game.attack.space) return
 			push_undo()
-			let s = game.attack.space
 			let fort_strength = data.spaces[s].fort || 0
-			if (!game.forts) game.forts = { destroyed: [] }
-			if (!game.forts.destroyed) game.forts.destroyed = []
-			set_add(game.forts.destroyed, s)
-			log(`Fort at ${space_name(s)} destroyed.`)
-			game.attack.defender_losses_absorbed += fort_strength
+			let defender_faction = active_faction()
+			if (combat.apply_fort_destruction(game, s, defender_faction, log)) {
+				game.attack.defender_losses_absorbed += fort_strength
+			}
 		},
 		piece(p) {
 			push_undo()
@@ -2271,6 +2295,10 @@ exports.register = function (states, Engine, context) {
 		},
 		done() {
 			clear_undo()
+			if (game.attack && game.attack.space > 0) {
+				combat.update_siege_after_combat_losses(game, game.attack.space)
+				combat.mark_broken_siege_if_needed(game, game.attack.space, game.attack.attacker)
+			}
 			// Back to attacker using absolute anchor
 			game.active = (game.attack && game.attack.attacker) || AP
 			if (game.attack.second_fire === "defender") {
@@ -2373,6 +2401,10 @@ exports.register = function (states, Engine, context) {
 		},
 		done() {
 			clear_undo()
+			if (game.attack && game.attack.space > 0) {
+				combat.update_siege_after_combat_losses(game, game.attack.space)
+				combat.mark_broken_siege_if_needed(game, game.attack.space, game.attack.defender)
+			}
 			if (game.attack.second_fire === "attacker") {
 				delete game.attack.second_fire
 				combat.resolve_second_fire(game, log)
@@ -2401,12 +2433,16 @@ exports.register = function (states, Engine, context) {
 		},
 		piece(p) {
 			push_undo()
-			replace_lcu_with_scu(
+			let replacement_scu = replace_lcu_with_scu(
 				game.attack.replacement.unit,
 				game.attack.replacement.space,
 				p,
 				game.attack.replacement.runtime_state
 			)
+			if (game.attack && replacement_scu >= 0) {
+				if (!game.attack.lcu_replacement_map) game.attack.lcu_replacement_map = {}
+				game.attack.lcu_replacement_map[game.attack.replacement.unit] = replacement_scu
+			}
 			let return_state = game.attack.replacement.return_state
 			delete game.attack.replacement
 			resume_replacement_return_state(return_state)
@@ -2491,6 +2527,22 @@ exports.register = function (states, Engine, context) {
 		return true
 	}
 
+	function enter_post_retreat_ap_cc_window(resume) {
+		if (!has_window_cc_options("post_retreat_cc_ap", AP, true)) return false
+		game.ptbp_advance_resume = resume
+		game.active = AP
+		game.state = "post_retreat_cc_ap"
+		return true
+	}
+
+	function enter_post_advance_ap_cc_window() {
+		if (!game.ptbp_post_retreat_declined) return false
+		if (!has_window_cc_options("post_advance_cc_ap", AP, true)) return false
+		game.active = AP
+		game.state = "post_advance_cc_ap"
+		return true
+	}
+
 	function clear_save_tiflis_flags() {
 		combat.clear_save_tiflis_state(game)
 	}
@@ -2572,11 +2624,41 @@ exports.register = function (states, Engine, context) {
 			Engine.sync_neutral_vp_state(game, destination)
 			Engine.sync_jihad_city_state(game, destination)
 			cat.retreat_space = destination
+			cat.retreat_stack = retreating.slice()
+			cat.retreat_stack_oos = retreating.every((p) => !Engine.map.is_in_supply(game, destination, AP, p))
+			if (cat.retreat_stack_oos) {
+				if (!Array.isArray(game.catastrophic_attack_supply_exceptions)) {
+					game.catastrophic_attack_supply_exceptions = []
+				}
+				game.catastrophic_attack_supply_exceptions = game.catastrophic_attack_supply_exceptions.filter(
+					(entry) => !(entry && entry.space === destination)
+				)
+				game.catastrophic_attack_supply_exceptions.push({
+					space: destination,
+					retreat_stack: retreating.slice(),
+					created_turn: game.turn
+				})
+			}
+			let ap_pieces = get_pieces_in_space(game, destination).filter(
+				(p) => Engine.game_utils.get_piece_effective_faction(game, p) === AP
+			)
+			if (Engine.map.get_stack_count(ap_pieces) > 3) {
+				if (!Array.isArray(game.catastrophic_attack_overstacks)) game.catastrophic_attack_overstacks = []
+				game.catastrophic_attack_overstacks = game.catastrophic_attack_overstacks.filter(
+					(entry) => !(entry && entry.space === destination && entry.faction === AP)
+				)
+				game.catastrophic_attack_overstacks.push({
+					space: destination,
+					faction: AP,
+					created_turn: game.turn,
+					created_action_round: game.action_round
+				})
+			}
 		} else if (retreating.length > 0) {
 			ensure_attack_log_section("retreat_log_started", "撤退：")
 			for (let p of retreating) {
 				log(`>> ${format_piece_log(p, true)} 无法撤退并被永久消灭`)
-				eliminate_piece(p, true)
+				eliminate_piece_for_failed_retreat(p)
 			}
 			if (from_space > 0) {
 				Engine.sync_neutral_vp_state(game, from_space)
@@ -2584,6 +2666,8 @@ exports.register = function (states, Engine, context) {
 				Engine.sync_region_control(game, from_space)
 			}
 			cat.retreat_space = null
+			cat.retreat_stack = []
+			cat.retreat_stack_oos = false
 		}
 		cat.retreating_pieces = []
 		if (enter_post_battle_cc_window({ kind: "catastrophic_attack" })) return
@@ -2596,9 +2680,14 @@ exports.register = function (states, Engine, context) {
 			goto_attack()
 			return
 		}
+		let initial_defenders = Array.isArray(game.attack?.initial_defenders)
+			? new Set(game.attack.initial_defenders)
+			: null
 		let defenders = get_pieces_in_space(game, cat.defender_space).filter(
 			(p) =>
+				(!initial_defenders || initial_defenders.has(p)) &&
 				Engine.game_utils.get_piece_effective_faction(game, p) === CP &&
+				Engine.game_utils.get_piece_mf(p) > 0 &&
 				!is_not_on_map(game, p) &&
 				!is_eliminated(game, p) &&
 				!(Array.isArray(game.retreated) && set_has(game.retreated, p))
@@ -2612,6 +2701,74 @@ exports.register = function (states, Engine, context) {
 		game.selected_piece = null
 		game.active = CP
 		game.state = "catastrophic_attack_advance"
+	}
+
+	function is_catastrophic_attack_retreat_transit_space(cat, s) {
+		return !!(cat?.retreat_space && s === cat.retreat_space && Engine.map.contains_enemy_pieces(game, s, CP))
+	}
+
+	function get_catastrophic_attack_forced_transit_pieces(cat) {
+		if (!cat) return []
+		return (cat.advance_candidates || []).filter(
+			(p) =>
+				!is_not_on_map(game, p) &&
+				!is_eliminated(game, p) &&
+				is_catastrophic_attack_retreat_transit_space(cat, game.pieces[p])
+		)
+	}
+
+	function is_catastrophic_attack_retreat_stack_oos(cat) {
+		if (!cat?.retreat_stack_oos || !cat.retreat_space || !Array.isArray(cat.retreat_stack)) return false
+		let retreating = cat.retreat_stack.filter(
+			(p) =>
+				game.pieces[p] === cat.retreat_space &&
+				Engine.game_utils.get_piece_effective_faction(game, p) === AP &&
+				!is_not_on_map(game, p) &&
+				!is_eliminated(game, p)
+		)
+		if (retreating.length === 0) return false
+		return retreating.every((p) => !Engine.map.is_in_supply(game, cat.retreat_space, AP, p))
+	}
+
+	function can_catastrophic_attack_use_retreat_stack_for_supply(cat, s) {
+		return !!(cat?.retreat_space && s === cat.retreat_space && is_catastrophic_attack_retreat_stack_oos(cat))
+	}
+
+	function can_catastrophic_attack_enter_beachhead(s) {
+		if (!Engine.map.is_beachhead_space(game, s)) return true
+		let adjacent = get_connected_spaces(s).filter((next) => !Engine.map.is_island_base(next))
+		return adjacent.every((next) => !Engine.map.contains_enemy_pieces(game, next, CP))
+	}
+
+	function get_catastrophic_attack_supply_status(cat, p, space) {
+		let context = Engine.map.create_supply_context(game)
+		let status = Engine.map.get_supply_status(game, space, CP, p, false, null, context)
+		if (Engine.map.is_supply_status_in_supply(status)) return status
+		if (!is_catastrophic_attack_retreat_stack_oos(cat)) return status
+
+		let sources = Engine.map.get_supply_sources_from_data(game, CP)
+		return Engine.map.get_supply_trace_status_to_source(game, space, CP, sources, context, {
+			allow_enemy_transit(_game, _current, next, faction) {
+				return faction === CP && can_catastrophic_attack_use_retreat_stack_for_supply(cat, next)
+			}
+		})
+	}
+
+	function is_catastrophic_attack_supply_legal_after_move(cat, p, to_space) {
+		let from_space = game.pieces[p]
+		let old_control = game.control[to_space]
+		let can_gain_control =
+			can_unit_gain_control(p) &&
+			!Engine.map.contains_enemy_pieces(game, to_space, CP) &&
+			!combat.has_undestroyed_fort(game, to_space, AP)
+
+		game.pieces[p] = to_space
+		if (can_gain_control) game.control[to_space] = CP
+		let status = get_catastrophic_attack_supply_status(cat, p, to_space)
+		game.pieces[p] = from_space
+		game.control[to_space] = old_control
+
+		return Engine.map.is_supply_status_in_supply(status)
 	}
 
 	function get_catastrophic_attack_advance_spaces(p, options = {}) {
@@ -2628,10 +2785,13 @@ exports.register = function (states, Engine, context) {
 		for (let s of candidates) {
 			if (exclude_space !== undefined && s === exclude_space) continue
 			if (!can_enter_region(game, p, s)) continue
-			let is_retreat_transit =
-				cat.retreat_space && s === cat.retreat_space && Engine.map.contains_enemy_pieces(game, s, CP)
+			let is_retreat_transit = is_catastrophic_attack_retreat_transit_space(cat, s)
+			if (!can_catastrophic_attack_enter_beachhead(s)) continue
 			if (!is_retreat_transit && Engine.map.contains_enemy_pieces(game, s, CP)) continue
 			if (!is_retreat_transit && !can_stack_end_in_space(game, s, [p])) continue
+			if (!is_retreat_transit && !Engine.map.is_beachhead_space(game, s)) {
+				if (!is_catastrophic_attack_supply_legal_after_move(cat, p, s)) continue
+			}
 			if (is_retreat_transit) {
 				let remaining_after_move = remaining - 1
 				if (remaining_after_move <= 0) continue
@@ -2651,8 +2811,7 @@ exports.register = function (states, Engine, context) {
 		let cat = get_catastrophic_attack_state()
 		if (!cat) return false
 		let from_space = game.pieces[p]
-		let is_retreat_transit =
-			cat.retreat_space && to_space === cat.retreat_space && Engine.map.contains_enemy_pieces(game, to_space, CP)
+		let is_retreat_transit = is_catastrophic_attack_retreat_transit_space(cat, to_space)
 		if (is_retreat_transit) {
 			game.pieces[p] = to_space
 		} else if (!advance_piece_into_space(p, from_space, to_space)) {
@@ -2666,6 +2825,11 @@ exports.register = function (states, Engine, context) {
 	function finish_catastrophic_attack_advance() {
 		game.selected_piece = null
 		let cat = get_catastrophic_attack_state()
+		let forced_transit = get_catastrophic_attack_forced_transit_pieces(cat)
+		if (forced_transit.length > 0) {
+			game.selected_piece = forced_transit[0]
+			return
+		}
 		if (
 			game.active === CP &&
 			cat &&
@@ -2822,6 +2986,33 @@ exports.register = function (states, Engine, context) {
 		Engine.sync_jihad_city_state(game, destination)
 	}
 
+	function get_lcu_replaced_by_scu(scu) {
+		let replacement_map = game.attack?.lcu_replacement_map
+		if (!replacement_map || typeof replacement_map !== "object") return null
+		for (let lcu of Object.keys(replacement_map)) {
+			if (Number(replacement_map[lcu]) === scu) return Number(lcu)
+		}
+		return null
+	}
+
+	function eliminate_piece_for_failed_retreat(p) {
+		if (p === null || p === undefined || !data.pieces[p]) return
+
+		// PUG 12.7.4: non-Tribe units that cannot complete retreat are PE.
+		let permanent = data.pieces[p].type !== "tribe"
+		eliminate_piece(p, permanent)
+
+		// PUG 12.7.4 note: if a combat replacement SCU fails retreat,
+		// the original LCU and the replacement SCU are both PE.
+		let replaced_lcu = get_lcu_replaced_by_scu(p)
+		if (replaced_lcu && data.pieces[replaced_lcu]) {
+			if (!Engine.game_utils.is_permanently_eliminated(game, replaced_lcu)) {
+				eliminate_piece(replaced_lcu, true)
+			}
+			delete game.attack.lcu_replacement_map[replaced_lcu]
+		}
+	}
+
 	function clear_battle_runtime_state() {
 		delete game.reserves_to_front_effected_pieces
 		clear_retreat_runtime_state()
@@ -2839,6 +3030,8 @@ exports.register = function (states, Engine, context) {
 		delete game.turkish_retreat_chosen_space
 		delete game.turkish_retreat
 		delete game.post_battle_cc_resume
+		delete game.ptbp_advance_resume
+		delete game.ptbp_post_retreat_declined
 		delete game.jerusalem_withdrawal
 		delete game.selected_piece
 		delete game.battle_result
@@ -2853,6 +3046,10 @@ exports.register = function (states, Engine, context) {
 	function enter_advance_state(resume) {
 		if (!combat.begin_advance(game, game.battle_result, resume.advance_space)) {
 			clear_save_tiflis_flags()
+			if (combat.check_offer_ptbp_extra_attack(game)) {
+				game.state = "ptbp_extra_attack_prompt"
+				return
+			}
 			goto_attack()
 			return
 		}
@@ -2880,11 +3077,38 @@ exports.register = function (states, Engine, context) {
 				clear_retreat_runtime_state()
 				return
 			}
+			if (enter_post_retreat_ap_cc_window(resume)) {
+				clear_retreat_runtime_state()
+				return
+			}
 			enter_advance_state(resume)
 			clear_retreat_runtime_state()
 			return
 		}
 		clear_save_tiflis_flags()
+		goto_attack()
+	}
+
+	function continue_after_post_retreat_ap_cc(declined) {
+		let resume = game.ptbp_advance_resume
+		delete game.ptbp_advance_resume
+		if (declined) game.ptbp_post_retreat_declined = true
+		game.active = game.attack?.attacker || AP
+		if (resume) {
+			enter_advance_state(resume)
+			clear_retreat_runtime_state()
+			return
+		}
+		goto_attack()
+	}
+
+	function continue_after_post_advance_ap_cc() {
+		delete game.ptbp_post_retreat_declined
+		if (combat.check_offer_ptbp_extra_attack(game)) {
+			game.active = AP
+			game.state = "ptbp_extra_attack_prompt"
+			return
+		}
 		goto_attack()
 	}
 
@@ -3217,14 +3441,15 @@ exports.register = function (states, Engine, context) {
 			let candidates = (cat.advance_candidates || []).filter(
 				(p) => !is_not_on_map(game, p) && !is_eliminated(game, p)
 			)
+			let forced_transit = get_catastrophic_attack_forced_transit_pieces(cat)
 			let movable = candidates.filter((p) => get_catastrophic_attack_advance_spaces(p).length > 0)
 			res.where(cat.defender_space)
 			res.who(candidates)
 
 			if (game.selected_piece === null || game.selected_piece === undefined) {
 				res.prompt("灾难性攻击：选择同盟国防守部队进行最多 3 格挺进")
-				res.action("end_advance")
-				for (let p of movable) res.piece(p)
+				if (forced_transit.length === 0) res.action("end_advance")
+				for (let p of forced_transit.length > 0 ? forced_transit : movable) res.piece(p)
 				return
 			}
 
@@ -3233,13 +3458,15 @@ exports.register = function (states, Engine, context) {
 			if (!candidates.includes(piece) || valid.length === 0) {
 				game.selected_piece = null
 				res.prompt("灾难性攻击：选择同盟国防守部队进行最多 3 格挺进")
-				res.action("end_advance")
-				for (let p of movable) res.piece(p)
+				if (forced_transit.length === 0) res.action("end_advance")
+				for (let p of forced_transit.length > 0 ? forced_transit : movable) res.piece(p)
 				return
 			}
 
 			res.prompt(`灾难性攻击：选择 ${piece_name(piece)} 的挺进地块`)
-			res.action("end_advance")
+			if (forced_transit.length === 0 && !is_catastrophic_attack_retreat_transit_space(cat, game.pieces[piece])) {
+				res.action("end_advance")
+			}
 			for (let s of valid) res.space(s)
 			res.piece(piece)
 		},
@@ -3390,7 +3617,7 @@ exports.register = function (states, Engine, context) {
 			if (p !== null && p !== undefined) {
 				ensure_attack_log_section("retreat_log_started", "撤退：")
 				log(`>> ${format_piece_log(p, true)} 无法撤退并被消灭`)
-				eliminate_piece(p, is_lcu(p))
+				eliminate_piece_for_failed_retreat(p)
 				set_delete(game.retreat_pieces, p)
 				if (game.retreat_steps_left) delete game.retreat_steps_left[p]
 				game.selected_piece = null
@@ -3500,7 +3727,7 @@ exports.register = function (states, Engine, context) {
 			if (p !== null && p !== undefined) {
 				ensure_attack_log_section("retreat_log_started", "撤退：")
 				log(`>> ${format_piece_log(p, true)} 无法撤退并被消灭`)
-				eliminate_piece(p, is_lcu(p))
+				eliminate_piece_for_failed_retreat(p)
 				if (game.turkish_retreat_mandatory && set_has(game.turkish_retreat_mandatory, p)) {
 					set_delete(game.turkish_retreat_mandatory, p)
 				}
@@ -3553,13 +3780,13 @@ exports.register = function (states, Engine, context) {
 				return false
 			}
 		}
-		if (
-			has_trench(game, to_space) > 0 &&
-			!Engine.map.is_controlled_by(game, to_space, active_faction()) &&
-			!game.advance_trench_processed
-		) {
-			remove_trench(game, to_space)
-			log(`Trench in ${space_name(to_space)} removed by enemy entry.`)
+		if (is_enemy_trench(game, to_space, active_faction()) && !game.advance_trench_processed) {
+			let trench_result = enter_trench(game, to_space, active_faction())
+			if (trench_result.action === "degraded") {
+				log(`${space_name(to_space)}处战壕已降级`)
+			} else if (trench_result.action === "removed") {
+				log(`${space_name(to_space)}处战壕已移除`)
+			}
 			game.advance_trench_processed = true
 		}
 		resolve_russian_winter_offensive_advance(game, p, to_space, log)
@@ -3802,6 +4029,9 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 			game.bulls_eye_advanced_stack = []
+			if (game.active === AP && enter_post_advance_ap_cc_window()) {
+				return
+			}
 			if (combat.check_offer_ptbp_extra_attack(game)) {
 				set_next_state_after_interrupt("ptbp_extra_attack_prompt", game.active)
 				return

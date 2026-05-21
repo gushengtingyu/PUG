@@ -78,6 +78,7 @@ test("manual LCU replacement inherits attacked state after cleanup", () => {
 	expect(game.attack.pieces).toContain(selected)
 	expect(game.battle_result.attackers).toContain(selected)
 	expect(game.battle_result.attackers).not.toContain(lcu)
+	expect(game.attack.lcu_replacement_map[lcu]).toBe(selected)
 
 	const view = finishBackToAttackPhase(game)
 	expect(game.eligible_attackers).not.toContain(selected)
@@ -96,6 +97,7 @@ test("automatic unique LCU replacement keeps attacked state", () => {
 	expect(game.attack.pieces).toContain(replacement)
 	expect(game.battle_result.attackers).toContain(replacement)
 	expect(game.battle_result.attackers).not.toContain(lcu)
+	expect(game.attack.lcu_replacement_map[lcu]).toBe(replacement)
 
 	const view = finishBackToAttackPhase(game)
 	expect(game.eligible_attackers).not.toContain(replacement)

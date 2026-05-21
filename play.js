@@ -1694,6 +1694,11 @@ const marker_info = {
 	// markers
 	beachhead: { name: "Beachhead", counter: "marker beachhead", size: 75 * SCALE },
 	besieged: { name: "Besieged", counter: "marker besieged", size: 75 * SCALE },
+	catastrophic_attack_oos: {
+		name: "Catastrophic Attack OOS",
+		counter: "marker catastrophic_attack_oos",
+		size: 75 * SCALE
+	},
 	out_of_supply: { name: "Out of Supply", counter: "marker out_of_supply", size: 75 * SCALE },
 	limited_supply: { name: "Limited Supply", counter: "marker limited_supply", size: 75 * SCALE },
 	mo_modifier: { name: "AP MO Modifier", counter: "marker mo_modifier", size: 75 * SCALE },
@@ -1837,6 +1842,11 @@ function view_map_get(map, key, missing) {
 function build_marker(list, find, new_marker, info, no_listeners = false) {
 	let marker = list.find(find)
 	if (marker) {
+		// Update properties if found to support reuse (e.g. trench level/owner change)
+		Object.assign(marker, new_marker)
+		marker.name = info.name
+		marker.element.className = `${info.counter} anchored`
+		marker.element.my_size = info.size
 		return marker.element
 	}
 	marker = new_marker
@@ -1977,6 +1987,14 @@ function destroy_oos_marker(s) {
 	destroy_space_marker(s, "oos")
 }
 
+function build_catastrophic_attack_oos_marker(s) {
+	return build_space_marker(s, "catastrophic_attack_oos", marker_info.catastrophic_attack_oos)
+}
+
+function destroy_catastrophic_attack_oos_marker(s) {
+	destroy_space_marker(s, "catastrophic_attack_oos")
+}
+
 function build_limited_supply_marker(s) {
 	return build_space_marker(s, "limited_supply", marker_info.limited_supply)
 }
@@ -2074,19 +2092,18 @@ function destroy_jerusalem_by_christmas_marker(s) {
  * @param {number} level - 战壕等级。
  * @returns {HTMLElement} 标记元素。
  */
-function build_trench_marker(s, level) {
+function build_trench_marker(s, level, owner) {
 	const list = ui.space_list[s].markers || (ui.space_list[s].markers = [])
-	const faction = (view && view.control && view.control[s]) || spaces[s].faction || CP
+	const faction = owner || CP
 	const side = faction === AP ? "ap" : "cp"
 	const info = marker_info.trench[side][level] || marker_info.trench[side][1]
-	const is_doiran = s === DOIRAN // Doiran has unique level 2 trench
+	const is_doiran = s === DOIRAN && level === 2 // Doiran has unique level 2 trench
 	const counter_class = is_doiran ? `${info.counter} DOIR` : info.counter
+
 	return build_marker(
 		list,
-		(m) => {
-			return m.type === "trench" && m.value === level
-		},
-		{ type: "trench", space: s, value: level },
+		(m) => m.type === "trench",
+		{ type: "trench", space: s, value: level, owner: faction },
 		{ ...info, counter: counter_class }
 	)
 }
@@ -2181,6 +2198,12 @@ const UI_FRAME_STATE_FIELDS = [
 		build: () => (view?.control && typeof view.control === "object" ? view.control : null),
 		snapshot: (value) => (value ? { ...value } : null)
 	},
+	{
+		key: "control_defaults",
+		diff: "control_map",
+		build: () => (view?.control_defaults && typeof view.control_defaults === "object" ? view.control_defaults : null),
+		snapshot: (value) => (value ? { ...value } : null)
+	},
 	{ key: "reduced", diff: "piece_set", build: () => to_id_set(view?.reduced) },
 	{ key: "oos", diff: "piece_set", build: () => to_id_set(view?.oos) },
 	{ key: "limited_supply", diff: "piece_set", build: () => to_id_set(view?.limited_supply) },
@@ -2188,11 +2211,19 @@ const UI_FRAME_STATE_FIELDS = [
 	{ key: "beachheads", diff: "space_set", build: () => to_id_set(view?.beachheads) },
 	{ key: "trenches", diff: "space_set", build: () => to_id_set(view?.trenches) },
 	{ key: "trenches_2", diff: "space_set", build: () => to_id_set(view?.trenches_2) },
+	{
+		key: "trench_owner",
+		diff: "control_map",
+		build: () => (view?.trench_owner && typeof view.trench_owner === "object" ? view.trench_owner : null),
+		snapshot: (value) => (value ? { ...value } : null)
+	},
 	{ key: "forts_destroyed", diff: "space_set", build: () => to_id_set(view?.forts?.destroyed) },
+	{ key: "forts_besieged", diff: "space_set", build: () => to_id_set(view?.forts?.besieged) },
 	{ key: "armenian_uprising_markers", diff: "space_set", build: () => to_id_set(view?.armenian_uprising_markers) },
 	{ key: "persian_uprising_markers", diff: "space_set", build: () => to_id_set(view?.persian_uprising_markers) },
 	{ key: "soviet_uprising_markers", diff: "space_set", build: () => to_id_set(view?.soviet_uprising_markers) },
 	{ key: "jerusalem_by_christmas_markers", diff: "space_set", build: () => to_id_set(view?.jerusalem_by_christmas_markers) },
+	{ key: "catastrophic_attack_oos_markers", diff: "space_set", build: () => to_id_set(view?.catastrophic_attack_oos_markers) },
 	{ key: "partial_ap_control_markers", diff: "space_set", build: () => to_id_set(view?.partial_ap_control_markers) },
 	{ key: "partial_cp_control_markers", diff: "space_set", build: () => to_id_set(view?.partial_cp_control_markers) },
 	{ key: "oos_spaces", diff: "space_set", build: () => to_id_set(view?.oos_spaces) },
@@ -4761,12 +4792,17 @@ function get_space_marker_list(s) {
 	return ui.space_list[s].markers || (ui.space_list[s].markers = [])
 }
 
+function get_space_default_control(state, s) {
+	return (state.control_defaults && state.control_defaults[s]) || spaces[s].faction || null
+}
+
 function get_space_control(state, s) {
-	return (state.control && state.control[s]) || spaces[s].faction || null
+	return (state.control && state.control[s]) || get_space_default_control(state, s)
 }
 
 function get_control_marker_type(space, state, s) {
 	const control = get_space_control(state, s)
+	const defaultControl = get_space_default_control(state, s)
 	const markerControl = control
 	if (!markerControl || markerControl === "neutral") {
 		return null
@@ -4774,7 +4810,7 @@ function get_control_marker_type(space, state, s) {
 	if (markerControl === AP && has_id(state.ru_control_markers, s)) {
 		return "ru_control"
 	}
-	if (markerControl === space.faction) {
+	if (markerControl === defaultControl) {
 		return null
 	}
 	if (markerControl === AP) {
@@ -4788,8 +4824,9 @@ function get_control_marker_type(space, state, s) {
 
 function has_space_special_marker(space, state, s) {
 	const control = get_space_control(state, s)
+	const defaultControl = get_space_default_control(state, s)
 	return (
-		!!(control && control !== space.faction) ||
+		!!(control && control !== defaultControl) ||
 		has_id(state.partial_ap_control_markers, s) ||
 		has_id(state.partial_cp_control_markers, s) ||
 		has_id(state.ru_control_markers, s) ||
@@ -4801,6 +4838,7 @@ function has_space_special_marker(space, state, s) {
 		has_id(state.persian_uprising_markers, s) ||
 		has_id(state.soviet_uprising_markers, s) ||
 		has_id(state.jerusalem_by_christmas_markers, s) ||
+		has_id(state.catastrophic_attack_oos_markers, s) ||
 		has_id(state.activated_move_spaces, s) ||
 		has_id(state.activated_attack_spaces, s)
 	)
@@ -4877,12 +4915,8 @@ function render_space_markers(space, state, s, stack_parts) {
 
 	const trench_level = has_id(state.trenches_2, s) ? 2 : has_id(state.trenches, s) ? 1 : 0
 	if (trench_level > 0) {
-		const marker_list = get_space_marker_list(s)
-		const existing = marker_list.find((marker) => marker.type === "trench")
-		if (existing && existing.value !== trench_level) {
-			destroy_marker(marker_list, (marker) => marker.type === "trench")
-		}
-		stack_parts.bottom_markers.push(build_trench_marker(s, trench_level))
+		const trench_owner = view_map_get(state.trench_owner, s, get_space_control(state, s) || CP)
+		stack_parts.bottom_markers.push(build_trench_marker(s, trench_level, trench_owner))
 	} else {
 		destroy_trench_marker(s)
 	}
@@ -4897,6 +4931,12 @@ function render_space_markers(space, state, s, stack_parts) {
 		stack_parts.bottom_markers.push(build_fort_destroyed_marker(s))
 	} else {
 		destroy_fort_destroyed_marker(s)
+	}
+
+	if (has_id(state.forts_besieged, s)) {
+		stack_parts.bottom_markers.push(build_space_marker(s, "besieged", marker_info.besieged))
+	} else {
+		destroy_space_marker(s, "besieged")
 	}
 
 	if (has_id(state.persian_uprising_markers, s)) {
@@ -4948,6 +4988,12 @@ function render_space_markers(space, state, s, stack_parts) {
 		stack_parts.top_markers.push(build_oos_marker(s))
 	} else {
 		destroy_oos_marker(s)
+	}
+
+	if (has_id(state.catastrophic_attack_oos_markers, s)) {
+		stack_parts.top_markers.push(build_catastrophic_attack_oos_marker(s))
+	} else {
+		destroy_catastrophic_attack_oos_marker(s)
 	}
 
 	if (stack_parts.has_limited_supply_unit) {

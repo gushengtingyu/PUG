@@ -117,16 +117,41 @@ module.exports = function (Engine) {
 		}
 	}
 
+	function fmt_mo_roll(die, drm, faction) {
+		if (die === undefined || die === null) return ""
+		const color = faction === AP ? "W" : "B"
+		let s = `${color}${die}`
+		if (drm !== undefined && drm !== 0) {
+			const final = Math.max(1, die + drm)
+			if (drm > 0) s += ` + ${drm} = ${final}`
+			else s += ` - ${-drm} = ${final}`
+		}
+		return s
+	}
+
+	function format_mo_log(mo, die, drm, faction) {
+		const roll_str = fmt_mo_roll(die, drm, faction)
+		const name = mo_name(mo)
+		return roll_str ? `${roll_str} -> ${name}` : name
+	}
+
 	function format_cp_mo_result(game) {
 		if (game && game.mo_cp === MO_ENVER) {
-			return `恩维尔（#1 ${mo_name(game.mo_cp_1)}，#2 ${mo_name(game.mo_cp_2)}）`
+			let s1 = mo_name(game.mo_cp_1)
+			let s2 = format_mo_log(game.mo_cp_2, game.mo_cp_die_2, game.mo_cp_drm_2, CP)
+			return `恩维尔（#1 ${s1}，#2 ${s2}）`
 		}
-		return mo_name(game && game.mo_cp)
+		return format_mo_log(game && game.mo_cp, game && game.mo_cp_die, game && game.mo_cp_drm, CP)
 	}
 
 	function log_mo_results(game, log) {
 		if (!game || !log) return
-		log(`AP：${mo_name(game.mo_ap)}`)
+		if (game.turn === 1) {
+			log(`AP：俄国`)
+			log(`CP：俄国`)
+			return
+		}
+		log(`AP：${format_mo_log(game.mo_ap, game.mo_ap_die, game.mo_ap_drm, AP)}`)
 		log(`CP：${format_cp_mo_result(game)}`)
 	}
 
@@ -539,8 +564,10 @@ module.exports = function (Engine) {
 	 */
 	function resolve_enver_2(game, log) {
 		if (!game) return
-		const roll = roll_die(6, game)
-		let second = determine_mo_cp(roll)
+		const die = roll_die(6, game)
+		game.mo_cp_die_2 = die
+		game.mo_cp_drm_2 = 0
+		let second = determine_mo_cp(die)
 		if (second === MO_RUSSIA && is_russian_mo_ignored_for_cp(game)) {
 			second = MO_NONE
 		}

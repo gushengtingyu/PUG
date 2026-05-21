@@ -58,7 +58,7 @@ test("Romania 事件会按展示板正确放置单位、切换罗马尼亚控制
 	expect(game.pieces[findPiece(AP, "RO Cavalry")]).toBe(findSpace("Ploesti"))
 	expect(game.pieces[findPiece(AP, "RU Dobruja")]).toBe(findSpace("Constanta"))
 	expect(game.pieces[findPiece(AP, "RU/SB Yugo Infantry")]).toBe(findSpace("AP Reserve"))
-	expect(countPoolUnitsInSpace(game, AP, ["RU DIV #11", "RU DIV #12", "RU DIV #13", "RU DIV #14", "RU DIV #15"], "AP Reserve")).toBe(2)
+	expect(countPoolUnitsInSpace(game, AP, ["RU DIV #19", "RU DIV #20", "RU DIV #21", "RU DIV #22", "RU DIV #23"], "AP Reserve")).toBe(2)
 
 	expect(game.pieces[findPiece(CP, "GE IX Army")]).toBe(findSpace("Galicia"))
 	expect(game.pieces[findPiece(CP, "GE Alpenkorps")]).toBe(findSpace("Galicia"))
@@ -176,9 +176,16 @@ test("Romania 事件在 BU 已参战时让 CP 选择 Combined BU/AH 师放置至
 	let buSpaces = cpView.actions.space || []
 	expect(buSpaces.length).toBeGreaterThan(0)
 	let sofia = findSpace("SOFIA")
+	let vidin = findSpace("Vidin")
 	expect(buSpaces).toContain(sofia)
+	expect(buSpaces).not.toContain(vidin)
 
-	game = rules.action(game, "cp", "space", buSpaces[0])
+	game = rules.action(game, "cp", "space", vidin)
+	expect(game.pieces[combinedBuAh]).toBe(findSpace("CP Reserve"))
+	expect(game.state).toBe("event_romania_place_combined_bu_ah")
+
+	game = rules.action(game, "cp", "space", sofia)
+	expect(game.pieces[combinedBuAh]).toBe(sofia)
 	expect(game.state).toBe("activate_spaces")
 	expect(game.active).toBe(AP)
 })

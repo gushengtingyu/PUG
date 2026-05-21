@@ -6,6 +6,7 @@ const { setupGame, findSpace, findPiece, clearBoard } = require("./helpers.js")
 
 const { AP, CP } = Engine.constants
 const AP_ROLE = rules.roles[0]
+const CP_ROLE = rules.roles[1]
 
 function control(game, name, faction) {
 	Engine.set_control(game, findSpace(name), faction)
@@ -68,6 +69,47 @@ test("CP sea SR respects Suez access before blockade and Black/Caspian-only acce
 
 	game.events.royal_navy_blockade = game.turn
 	expect(Engine.map.can_sr_to_space(game, tuDiv, findSpace("Kuwait"), CP)).toBe(false)
+})
+
+test("CP sea SR from an Ottoman port does not add Jihad", () => {
+	let game = setupGame(2026051901, "Historical", { no_supply_warnings: true })
+	clearBoard(game)
+
+	let tuDiv = place(game, CP, "TU DIV #1", "Haifa")
+	for (let name of ["Haifa", "Kuwait", "Suez"]) control(game, name, CP)
+	delete game.events.royal_navy_blockade
+	game.jihad = 0
+
+	expect(Engine.map.can_sr_to_space(game, tuDiv, findSpace("Kuwait"), CP)).toBe(true)
+
+	game.active = CP
+	game.state = "sr_move"
+	game.sr_piece = tuDiv
+	game.sr = 3
+	game = rules.action(game, CP_ROLE, "space", findSpace("Kuwait"))
+
+	expect(game.pieces[tuDiv]).toBe(findSpace("Kuwait"))
+	expect(game.jihad).toBe(0)
+})
+
+test("AP sea SR away from the last Ottoman port supply unit still adds Jihad", () => {
+	let game = setupGame(2026051902, "Historical", { no_supply_warnings: true })
+	clearBoard(game)
+
+	let brDiv = place(game, AP, "BR DIV #1", "Haifa")
+	for (let name of ["Haifa", "Port Said"]) control(game, name, AP)
+	game.jihad = 0
+
+	expect(Engine.map.can_sr_to_space(game, brDiv, findSpace("Port Said"), AP)).toBe(true)
+
+	game.active = AP
+	game.state = "sr_move"
+	game.sr_piece = brDiv
+	game.sr = 3
+	game = rules.action(game, AP_ROLE, "space", findSpace("Port Said"))
+
+	expect(game.pieces[brDiv]).toBe(findSpace("Port Said"))
+	expect(game.jihad).toBe(1)
 })
 
 test("AP Black Sea sea SR to outside ports requires the opened straits, while special RU units can reserve SR to Aegean", () => {

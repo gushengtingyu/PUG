@@ -21760,7 +21760,7 @@ var data = {
 		"id": 113,
 		"faction": "ap",
 		"nation": "ru",
-		"name": "RU DIV #10",
+		"name": "RU DIV #2",
 		"cf": 2,
 		"lf": 1,
 		"mf": 4,
@@ -21777,7 +21777,7 @@ var data = {
 		"id": 114,
 		"faction": "ap",
 		"nation": "ru",
-		"name": "RU DIV #11",
+		"name": "RU DIV #3",
 		"cf": 2,
 		"lf": 1,
 		"mf": 4,
@@ -21794,7 +21794,7 @@ var data = {
 		"id": 115,
 		"faction": "ap",
 		"nation": "ru",
-		"name": "RU DIV #12",
+		"name": "RU DIV #4",
 		"cf": 2,
 		"lf": 1,
 		"mf": 4,
@@ -21811,7 +21811,7 @@ var data = {
 		"id": 116,
 		"faction": "ap",
 		"nation": "ru",
-		"name": "RU DIV #13",
+		"name": "RU DIV #5",
 		"cf": 2,
 		"lf": 1,
 		"mf": 4,
@@ -21828,7 +21828,7 @@ var data = {
 		"id": 117,
 		"faction": "ap",
 		"nation": "ru",
-		"name": "RU DIV #14",
+		"name": "RU DIV #6",
 		"cf": 2,
 		"lf": 1,
 		"mf": 4,
@@ -21845,7 +21845,7 @@ var data = {
 		"id": 118,
 		"faction": "ap",
 		"nation": "ru",
-		"name": "RU DIV #15",
+		"name": "RU DIV #7",
 		"cf": 2,
 		"lf": 1,
 		"mf": 4,
@@ -21862,7 +21862,7 @@ var data = {
 		"id": 119,
 		"faction": "ap",
 		"nation": "ru",
-		"name": "RU DIV #16",
+		"name": "RU DIV #8",
 		"cf": 2,
 		"lf": 1,
 		"mf": 4,
@@ -21879,7 +21879,7 @@ var data = {
 		"id": 120,
 		"faction": "ap",
 		"nation": "ru",
-		"name": "RU DIV #17",
+		"name": "RU DIV #9",
 		"cf": 2,
 		"lf": 1,
 		"mf": 4,
@@ -21896,7 +21896,7 @@ var data = {
 		"id": 121,
 		"faction": "ap",
 		"nation": "ru",
-		"name": "RU DIV #18",
+		"name": "RU DIV #10",
 		"cf": 2,
 		"lf": 1,
 		"mf": 4,
@@ -21913,7 +21913,7 @@ var data = {
 		"id": 122,
 		"faction": "ap",
 		"nation": "ru",
-		"name": "RU DIV #19",
+		"name": "RU DIV #11",
 		"cf": 2,
 		"lf": 1,
 		"mf": 4,
@@ -21930,7 +21930,7 @@ var data = {
 		"id": 123,
 		"faction": "ap",
 		"nation": "ru",
-		"name": "RU DIV #2",
+		"name": "RU DIV #12",
 		"cf": 2,
 		"lf": 1,
 		"mf": 4,
@@ -21947,7 +21947,7 @@ var data = {
 		"id": 124,
 		"faction": "ap",
 		"nation": "ru",
-		"name": "RU DIV #20",
+		"name": "RU DIV #13",
 		"cf": 2,
 		"lf": 1,
 		"mf": 4,
@@ -21964,7 +21964,7 @@ var data = {
 		"id": 125,
 		"faction": "ap",
 		"nation": "ru",
-		"name": "RU DIV #3",
+		"name": "RU DIV #14",
 		"cf": 2,
 		"lf": 1,
 		"mf": 4,
@@ -21981,7 +21981,7 @@ var data = {
 		"id": 126,
 		"faction": "ap",
 		"nation": "ru",
-		"name": "RU DIV #4",
+		"name": "RU DIV #15",
 		"cf": 2,
 		"lf": 1,
 		"mf": 4,
@@ -21998,7 +21998,7 @@ var data = {
 		"id": 127,
 		"faction": "ap",
 		"nation": "ru",
-		"name": "RU DIV #5",
+		"name": "RU DIV #16",
 		"cf": 2,
 		"lf": 1,
 		"mf": 4,
@@ -22015,7 +22015,7 @@ var data = {
 		"id": 128,
 		"faction": "ap",
 		"nation": "ru",
-		"name": "RU DIV #6",
+		"name": "RU DIV #17",
 		"cf": 2,
 		"lf": 1,
 		"mf": 4,
@@ -22032,7 +22032,7 @@ var data = {
 		"id": 129,
 		"faction": "ap",
 		"nation": "ru",
-		"name": "RU DIV #7",
+		"name": "RU DIV #18",
 		"cf": 2,
 		"lf": 1,
 		"mf": 4,
@@ -22049,7 +22049,7 @@ var data = {
 		"id": 130,
 		"faction": "ap",
 		"nation": "ru",
-		"name": "RU DIV #8",
+		"name": "RU DIV #19",
 		"cf": 2,
 		"lf": 1,
 		"mf": 4,
@@ -22066,7 +22066,7 @@ var data = {
 		"id": 131,
 		"faction": "ap",
 		"nation": "ru",
-		"name": "RU DIV #9",
+		"name": "RU DIV #20",
 		"cf": 2,
 		"lf": 1,
 		"mf": 4,
@@ -22081,6 +22081,57 @@ var data = {
 	},
 	{
 		"id": 132,
+		"faction": "ap",
+		"nation": "ru",
+		"name": "RU DIV #21",
+		"cf": 2,
+		"lf": 1,
+		"mf": 4,
+		"rcf": 1,
+		"rlf": 1,
+		"rmf": 4,
+		"type": "regular",
+		"badge": "infantry",
+		"piece_class": "SCU",
+		"image_full": "RUDiv.png",
+		"image_reduced": "RUDivR.png"
+	},
+	{
+		"id": 133,
+		"faction": "ap",
+		"nation": "ru",
+		"name": "RU DIV #22",
+		"cf": 2,
+		"lf": 1,
+		"mf": 4,
+		"rcf": 1,
+		"rlf": 1,
+		"rmf": 4,
+		"type": "regular",
+		"badge": "infantry",
+		"piece_class": "SCU",
+		"image_full": "RUDiv.png",
+		"image_reduced": "RUDivR.png"
+	},
+	{
+		"id": 134,
+		"faction": "ap",
+		"nation": "ru",
+		"name": "RU DIV #23",
+		"cf": 2,
+		"lf": 1,
+		"mf": 4,
+		"rcf": 1,
+		"rlf": 1,
+		"rmf": 4,
+		"type": "regular",
+		"badge": "infantry",
+		"piece_class": "SCU",
+		"image_full": "RUDiv.png",
+		"image_reduced": "RUDivR.png"
+	},
+	{
+		"id": 135,
 		"faction": "ap",
 		"nation": "ru",
 		"name": "RU Dobruja",
@@ -22098,7 +22149,7 @@ var data = {
 		"image_reduced": "RUDobrR.png"
 	},
 	{
-		"id": 133,
+		"id": 136,
 		"faction": "ap",
 		"nation": "ru",
 		"name": "RU Elite DIV #1",
@@ -22115,7 +22166,7 @@ var data = {
 		"image_reduced": "RUEDivR.png"
 	},
 	{
-		"id": 134,
+		"id": 137,
 		"faction": "ap",
 		"nation": "ru",
 		"name": "RU Elite DIV #2",
@@ -22132,7 +22183,7 @@ var data = {
 		"image_reduced": "RUEDivR.png"
 	},
 	{
-		"id": 135,
+		"id": 138,
 		"faction": "ap",
 		"nation": "ru",
 		"name": "RU Elite DIV #3",
@@ -22149,7 +22200,7 @@ var data = {
 		"image_reduced": "RUEDivR.png"
 	},
 	{
-		"id": 136,
+		"id": 139,
 		"faction": "ap",
 		"nation": "ru",
 		"name": "RU Elite DIV #4",
@@ -22166,7 +22217,7 @@ var data = {
 		"image_reduced": "RUEDivR.png"
 	},
 	{
-		"id": 137,
+		"id": 140,
 		"faction": "ap",
 		"nation": "ru",
 		"name": "RU Elite DIV #5",
@@ -22183,7 +22234,7 @@ var data = {
 		"image_reduced": "RUEDivR.png"
 	},
 	{
-		"id": 138,
+		"id": 141,
 		"faction": "ap",
 		"nation": "ru",
 		"name": "RU Elite DIV #6",
@@ -22200,7 +22251,7 @@ var data = {
 		"image_reduced": "RUEDivR.png"
 	},
 	{
-		"id": 139,
+		"id": 142,
 		"faction": "ap",
 		"nation": "ru",
 		"name": "RU I Caucasian",
@@ -22217,7 +22268,7 @@ var data = {
 		"image_reduced": "RUICaucCR.png"
 	},
 	{
-		"id": 140,
+		"id": 143,
 		"faction": "ap",
 		"nation": "ru",
 		"name": "RU II Turkistani",
@@ -22234,7 +22285,7 @@ var data = {
 		"image_reduced": "RUIITurkCR.png"
 	},
 	{
-		"id": 141,
+		"id": 144,
 		"faction": "ap",
 		"nation": "ru",
 		"name": "RU IV Caucasian",
@@ -22251,7 +22302,7 @@ var data = {
 		"image_reduced": "RUIVCaucCR.png"
 	},
 	{
-		"id": 142,
+		"id": 145,
 		"faction": "ap",
 		"nation": "ru",
 		"name": "RU Persian coss",
@@ -22269,7 +22320,7 @@ var data = {
 		"image_reduced": "RUPECosR.png"
 	},
 	{
-		"id": 143,
+		"id": 146,
 		"faction": "ap",
 		"nation": "ru",
 		"name": "RU V Caucasian",
@@ -22286,7 +22337,7 @@ var data = {
 		"image_reduced": "RUVCaucCR.png"
 	},
 	{
-		"id": 144,
+		"id": 147,
 		"faction": "ap",
 		"nation": "ru",
 		"name": "RU VII Caucasian",
@@ -22303,7 +22354,7 @@ var data = {
 		"image_reduced": "RUVIICaucCR.png"
 	},
 	{
-		"id": 145,
+		"id": 148,
 		"faction": "ap",
 		"nation": "ru",
 		"name": "RU Yudenitch HQ",
@@ -22319,7 +22370,7 @@ var data = {
 		"image_reduced": "RUYudHQR.png"
 	},
 	{
-		"id": 146,
+		"id": 149,
 		"faction": "ap",
 		"nation": "ru",
 		"name": "RU/PE Police North",
@@ -22337,7 +22388,7 @@ var data = {
 		"image_reduced": "RUPEPNR.png"
 	},
 	{
-		"id": 147,
+		"id": 150,
 		"faction": "ap",
 		"nation": "ru",
 		"name": "RU/SB Yugo Infantry",
@@ -22354,7 +22405,7 @@ var data = {
 		"image_reduced": "RUSBDivR.png"
 	},
 	{
-		"id": 148,
+		"id": 151,
 		"faction": "ap",
 		"nation": "sb",
 		"name": "SB 1 Army",
@@ -22372,7 +22423,7 @@ var data = {
 		"image_reduced": "SB1AR.png"
 	},
 	{
-		"id": 149,
+		"id": 152,
 		"faction": "ap",
 		"nation": "sb",
 		"name": "SB 2 Army",
@@ -22390,7 +22441,7 @@ var data = {
 		"image_reduced": "SB2AR.png"
 	},
 	{
-		"id": 150,
+		"id": 153,
 		"faction": "ap",
 		"nation": "sb",
 		"name": "SB 3 Army",
@@ -22408,7 +22459,7 @@ var data = {
 		"image_reduced": "SB3AR.png"
 	},
 	{
-		"id": 151,
+		"id": 154,
 		"faction": "ap",
 		"nation": "sb",
 		"name": "SB Cavalry",
@@ -22426,7 +22477,7 @@ var data = {
 		"image_reduced": "SBCDivR.png"
 	},
 	{
-		"id": 152,
+		"id": 155,
 		"faction": "ap",
 		"nation": "sb",
 		"name": "SB DIV #1",
@@ -22444,7 +22495,7 @@ var data = {
 		"image_reduced": "SBDivR.png"
 	},
 	{
-		"id": 153,
+		"id": 156,
 		"faction": "ap",
 		"nation": "sb",
 		"name": "SB DIV #2",
@@ -22462,7 +22513,7 @@ var data = {
 		"image_reduced": "SBDivR.png"
 	},
 	{
-		"id": 154,
+		"id": 157,
 		"faction": "ap",
 		"nation": "sb",
 		"name": "SB DIV #3",
@@ -22480,7 +22531,7 @@ var data = {
 		"image_reduced": "SBDivR.png"
 	},
 	{
-		"id": 155,
+		"id": 158,
 		"faction": "ap",
 		"nation": "sb",
 		"name": "SB DIV #4",
@@ -22498,7 +22549,7 @@ var data = {
 		"image_reduced": "SBDivR.png"
 	},
 	{
-		"id": 156,
+		"id": 159,
 		"faction": "ap",
 		"nation": "sb",
 		"name": "SB DIV #5",
@@ -22516,7 +22567,7 @@ var data = {
 		"image_reduced": "SBDivR.png"
 	},
 	{
-		"id": 157,
+		"id": 160,
 		"faction": "ap",
 		"nation": "sb",
 		"name": "SB DIV #6",
@@ -22534,7 +22585,7 @@ var data = {
 		"image_reduced": "SBDivR.png"
 	},
 	{
-		"id": 158,
+		"id": 161,
 		"faction": "ap",
 		"nation": "sb",
 		"name": "SB DIV #7",
@@ -22552,7 +22603,7 @@ var data = {
 		"image_reduced": "SBDivR.png"
 	},
 	{
-		"id": 159,
+		"id": 162,
 		"faction": "ap",
 		"nation": "sb",
 		"name": "SB Garrison",
@@ -22570,7 +22621,7 @@ var data = {
 		"image_reduced": "SBDivR.png"
 	},
 	{
-		"id": 160,
+		"id": 163,
 		"faction": "cp",
 		"nation": "ah",
 		"name": "AH DIV #1",
@@ -22588,7 +22639,7 @@ var data = {
 		"image_reduced": "AHDivR.png"
 	},
 	{
-		"id": 161,
+		"id": 164,
 		"faction": "cp",
 		"nation": "ah",
 		"name": "AH DIV #2",
@@ -22606,7 +22657,7 @@ var data = {
 		"image_reduced": "AHDivR.png"
 	},
 	{
-		"id": 162,
+		"id": 165,
 		"faction": "cp",
 		"nation": "ah",
 		"name": "AH DIV #3",
@@ -22624,7 +22675,7 @@ var data = {
 		"image_reduced": "AHDivR.png"
 	},
 	{
-		"id": 163,
+		"id": 166,
 		"faction": "cp",
 		"nation": "ah",
 		"name": "AH DIV #4",
@@ -22642,7 +22693,7 @@ var data = {
 		"image_reduced": "AHDivR.png"
 	},
 	{
-		"id": 164,
+		"id": 167,
 		"faction": "cp",
 		"nation": "ah",
 		"name": "AH DIV #5",
@@ -22660,7 +22711,7 @@ var data = {
 		"image_reduced": "AHDivR.png"
 	},
 	{
-		"id": 165,
+		"id": 168,
 		"faction": "cp",
 		"nation": "ah",
 		"name": "AH DIV #6",
@@ -22678,7 +22729,7 @@ var data = {
 		"image_reduced": "AHDivR.png"
 	},
 	{
-		"id": 166,
+		"id": 169,
 		"faction": "cp",
 		"nation": "ah",
 		"name": "AH VI R Corps",
@@ -22696,7 +22747,7 @@ var data = {
 		"image_reduced": "AHVIRCR.png"
 	},
 	{
-		"id": 167,
+		"id": 170,
 		"faction": "cp",
 		"nation": "ah",
 		"name": "AH VIII Corps",
@@ -22714,7 +22765,7 @@ var data = {
 		"image_reduced": "AHVIIICR.png"
 	},
 	{
-		"id": 168,
+		"id": 171,
 		"faction": "cp",
 		"nation": "ah",
 		"name": "AH XXII R Corps",
@@ -22732,7 +22783,7 @@ var data = {
 		"image_reduced": "AHXXIIRCR.png"
 	},
 	{
-		"id": 169,
+		"id": 172,
 		"faction": "cp",
 		"nation": "arm",
 		"name": "Arm Transcas #1",
@@ -22749,7 +22800,7 @@ var data = {
 		"image_reduced": "ARMTRANSCR.png"
 	},
 	{
-		"id": 170,
+		"id": 173,
 		"faction": "cp",
 		"nation": "arm",
 		"name": "Arm Transcas #2",
@@ -22766,7 +22817,7 @@ var data = {
 		"image_reduced": "ARMTRANSCR.png"
 	},
 	{
-		"id": 171,
+		"id": 174,
 		"faction": "cp",
 		"nation": "arm",
 		"name": "Arm Transcas #3",
@@ -22783,7 +22834,7 @@ var data = {
 		"image_reduced": "ARMTRANSCR.png"
 	},
 	{
-		"id": 172,
+		"id": 175,
 		"faction": "cp",
 		"nation": "bu",
 		"name": "BU 1 Army",
@@ -22801,7 +22852,7 @@ var data = {
 		"image_reduced": "BU1AR.png"
 	},
 	{
-		"id": 173,
+		"id": 176,
 		"faction": "cp",
 		"nation": "bu",
 		"name": "BU 2 Army",
@@ -22819,7 +22870,7 @@ var data = {
 		"image_reduced": "BU2AR.png"
 	},
 	{
-		"id": 174,
+		"id": 177,
 		"faction": "cp",
 		"nation": "bu",
 		"name": "BU 3 Army",
@@ -22837,7 +22888,7 @@ var data = {
 		"image_reduced": "BU3AR.png"
 	},
 	{
-		"id": 175,
+		"id": 178,
 		"faction": "cp",
 		"nation": "bu",
 		"name": "BU 4 Army",
@@ -22855,7 +22906,7 @@ var data = {
 		"image_reduced": "BU4AR.png"
 	},
 	{
-		"id": 176,
+		"id": 179,
 		"faction": "cp",
 		"nation": "bu",
 		"name": "BU DIV #1",
@@ -22873,7 +22924,7 @@ var data = {
 		"image_reduced": "BUDivR.png"
 	},
 	{
-		"id": 177,
+		"id": 180,
 		"faction": "cp",
 		"nation": "bu",
 		"name": "BU DIV #2",
@@ -22891,7 +22942,7 @@ var data = {
 		"image_reduced": "BUDivR.png"
 	},
 	{
-		"id": 178,
+		"id": 181,
 		"faction": "cp",
 		"nation": "bu",
 		"name": "BU DIV #3",
@@ -22909,7 +22960,7 @@ var data = {
 		"image_reduced": "BUDivR.png"
 	},
 	{
-		"id": 179,
+		"id": 182,
 		"faction": "cp",
 		"nation": "bu",
 		"name": "BU DIV #4",
@@ -22927,7 +22978,7 @@ var data = {
 		"image_reduced": "BUDivR.png"
 	},
 	{
-		"id": 180,
+		"id": 183,
 		"faction": "cp",
 		"nation": "bu",
 		"name": "BU DIV #5",
@@ -22945,7 +22996,7 @@ var data = {
 		"image_reduced": "BUDivR.png"
 	},
 	{
-		"id": 181,
+		"id": 184,
 		"faction": "cp",
 		"nation": "bu",
 		"name": "BU DIV #6",
@@ -22963,7 +23014,7 @@ var data = {
 		"image_reduced": "BUDivR.png"
 	},
 	{
-		"id": 182,
+		"id": 185,
 		"faction": "cp",
 		"nation": "bu",
 		"name": "BU DIV #7",
@@ -22981,7 +23032,7 @@ var data = {
 		"image_reduced": "BUDivR.png"
 	},
 	{
-		"id": 183,
+		"id": 186,
 		"faction": "cp",
 		"nation": "bu",
 		"name": "Combined BU/AH Div",
@@ -22999,7 +23050,7 @@ var data = {
 		"image_reduced": "CBUAHDivR.png"
 	},
 	{
-		"id": 184,
+		"id": 187,
 		"faction": "cp",
 		"nation": "ge",
 		"name": "GE Alpenkorps",
@@ -23017,7 +23068,7 @@ var data = {
 		"image_reduced": "GEAlpKdivR.png"
 	},
 	{
-		"id": 185,
+		"id": 188,
 		"faction": "cp",
 		"nation": "ge",
 		"name": "GE DIV #1",
@@ -23035,7 +23086,7 @@ var data = {
 		"image_reduced": "GEDivR.png"
 	},
 	{
-		"id": 186,
+		"id": 189,
 		"faction": "cp",
 		"nation": "ge",
 		"name": "GE DIV #2",
@@ -23053,7 +23104,7 @@ var data = {
 		"image_reduced": "GEDivR.png"
 	},
 	{
-		"id": 187,
+		"id": 190,
 		"faction": "cp",
 		"nation": "ge",
 		"name": "GE DIV #3",
@@ -23071,7 +23122,7 @@ var data = {
 		"image_reduced": "GEDivR.png"
 	},
 	{
-		"id": 188,
+		"id": 191,
 		"faction": "cp",
 		"nation": "ge",
 		"name": "GE DIV #4",
@@ -23089,7 +23140,7 @@ var data = {
 		"image_reduced": "GEDivR.png"
 	},
 	{
-		"id": 189,
+		"id": 192,
 		"faction": "cp",
 		"nation": "ge",
 		"name": "GE Falkenhayn HQ",
@@ -23105,7 +23156,7 @@ var data = {
 		"image_reduced": "GEFalkHQR.png"
 	},
 	{
-		"id": 190,
+		"id": 193,
 		"faction": "cp",
 		"nation": "ge",
 		"name": "GE GeoProtect",
@@ -23123,7 +23174,7 @@ var data = {
 		"image_reduced": "GEGEOPR.png"
 	},
 	{
-		"id": 191,
+		"id": 194,
 		"faction": "cp",
 		"nation": "ge",
 		"name": "GE Hvy Arty",
@@ -23139,7 +23190,7 @@ var data = {
 		"image_reduced": "GEHvArtyR.png"
 	},
 	{
-		"id": 192,
+		"id": 195,
 		"faction": "cp",
 		"nation": "ge",
 		"name": "GE IV R Corps",
@@ -23157,7 +23208,7 @@ var data = {
 		"image_reduced": "GEIVRCR.png"
 	},
 	{
-		"id": 193,
+		"id": 196,
 		"faction": "cp",
 		"nation": "ge",
 		"name": "GE IX Army",
@@ -23175,7 +23226,7 @@ var data = {
 		"image_reduced": "GEIXAR.png"
 	},
 	{
-		"id": 194,
+		"id": 197,
 		"faction": "cp",
 		"nation": "ge",
 		"name": "GE Mackenson HQ",
@@ -23191,7 +23242,7 @@ var data = {
 		"image_reduced": "GEMackHQR.png"
 	},
 	{
-		"id": 195,
+		"id": 198,
 		"faction": "cp",
 		"nation": "ge",
 		"name": "GE Schmettow",
@@ -23209,7 +23260,7 @@ var data = {
 		"image_reduced": "GESchmetR.png"
 	},
 	{
-		"id": 196,
+		"id": 199,
 		"faction": "cp",
 		"nation": "ge",
 		"name": "GE Yildrim #1",
@@ -23227,7 +23278,7 @@ var data = {
 		"image_reduced": "GEYildDivR.png"
 	},
 	{
-		"id": 197,
+		"id": 200,
 		"faction": "cp",
 		"nation": "ge",
 		"name": "GE Yildrim #2",
@@ -23245,7 +23296,7 @@ var data = {
 		"image_reduced": "GEYildDivR.png"
 	},
 	{
-		"id": 198,
+		"id": 201,
 		"faction": "cp",
 		"nation": "ge",
 		"name": "GE Yildrim #3",
@@ -23263,7 +23314,7 @@ var data = {
 		"image_reduced": "GEYildDivR.png"
 	},
 	{
-		"id": 199,
+		"id": 202,
 		"faction": "cp",
 		"nation": "ge",
 		"name": "German 11th Army",
@@ -23281,7 +23332,7 @@ var data = {
 		"image_reduced": "GEBUXIAR.png"
 	},
 	{
-		"id": 200,
+		"id": 203,
 		"faction": "cp",
 		"nation": "geo",
 		"name": "Geo Transcaucasian #1",
@@ -23298,7 +23349,7 @@ var data = {
 		"image_reduced": "GEOTRANCR.png"
 	},
 	{
-		"id": 201,
+		"id": 204,
 		"faction": "cp",
 		"nation": "geo",
 		"name": "Geo Transcaucasian #2",
@@ -23315,7 +23366,7 @@ var data = {
 		"image_reduced": "GEOTRANCR.png"
 	},
 	{
-		"id": 202,
+		"id": 205,
 		"faction": "cp",
 		"nation": "pe",
 		"name": "PE Uprising",
@@ -23332,7 +23383,7 @@ var data = {
 		"image_reduced": "PERUPR116R.png"
 	},
 	{
-		"id": 203,
+		"id": 206,
 		"faction": "cp",
 		"nation": "Re",
 		"name": "Afghan Uprising #1",
@@ -23348,7 +23399,7 @@ var data = {
 		"image_reduced": "AfghanUPR.png"
 	},
 	{
-		"id": 204,
+		"id": 207,
 		"faction": "cp",
 		"nation": "Re",
 		"name": "Afghan Uprising #2",
@@ -23364,7 +23415,7 @@ var data = {
 		"image_reduced": "AfghanUPR.png"
 	},
 	{
-		"id": 205,
+		"id": 208,
 		"faction": "cp",
 		"nation": "Re",
 		"name": "Afghan Uprising #3",
@@ -23380,7 +23431,7 @@ var data = {
 		"image_reduced": "AfghanUPR.png"
 	},
 	{
-		"id": 206,
+		"id": 209,
 		"faction": "cp",
 		"nation": "Re",
 		"name": "CAsia Uprising",
@@ -23396,7 +23447,7 @@ var data = {
 		"image_reduced": "CAsiaUPR.png"
 	},
 	{
-		"id": 207,
+		"id": 210,
 		"faction": "cp",
 		"nation": "Re",
 		"name": "Egypt Rebel #1",
@@ -23412,7 +23463,7 @@ var data = {
 		"image_reduced": "EgyptRebR.png"
 	},
 	{
-		"id": 208,
+		"id": 211,
 		"faction": "cp",
 		"nation": "Re",
 		"name": "Egypt Rebel #2",
@@ -23428,7 +23479,7 @@ var data = {
 		"image_reduced": "EgyptRebR.png"
 	},
 	{
-		"id": 209,
+		"id": 212,
 		"faction": "cp",
 		"nation": "Re",
 		"name": "Egypt Rebel #3",
@@ -23444,7 +23495,7 @@ var data = {
 		"image_reduced": "EgyptRebR.png"
 	},
 	{
-		"id": 210,
+		"id": 213,
 		"faction": "cp",
 		"nation": "Re",
 		"name": "Indian Mutiny #1",
@@ -23460,7 +23511,7 @@ var data = {
 		"image_reduced": "INMutinyR.png"
 	},
 	{
-		"id": 211,
+		"id": 214,
 		"faction": "cp",
 		"nation": "Re",
 		"name": "Indian Mutiny #2",
@@ -23476,7 +23527,7 @@ var data = {
 		"image_reduced": "INMutinyR.png"
 	},
 	{
-		"id": 212,
+		"id": 215,
 		"faction": "cp",
 		"nation": "Re",
 		"name": "Indian Mutiny #3",
@@ -23492,7 +23543,7 @@ var data = {
 		"image_reduced": "INMutinyR.png"
 	},
 	{
-		"id": 213,
+		"id": 216,
 		"faction": "cp",
 		"nation": "tr",
 		"name": "Bakhtiari",
@@ -23508,7 +23559,7 @@ var data = {
 		"image_reduced": "TBakhR.png"
 	},
 	{
-		"id": 214,
+		"id": 217,
 		"faction": "cp",
 		"nation": "tr",
 		"name": "Bawi",
@@ -23524,7 +23575,7 @@ var data = {
 		"image_reduced": "TBawiR.png"
 	},
 	{
-		"id": 215,
+		"id": 218,
 		"faction": "cp",
 		"nation": "tr",
 		"name": "Jangali",
@@ -23540,7 +23591,7 @@ var data = {
 		"image_reduced": "TJangR.png"
 	},
 	{
-		"id": 216,
+		"id": 219,
 		"faction": "cp",
 		"nation": "tr",
 		"name": "Kurds #1",
@@ -23556,7 +23607,7 @@ var data = {
 		"image_reduced": "TKurdsR.png"
 	},
 	{
-		"id": 217,
+		"id": 220,
 		"faction": "cp",
 		"nation": "tr",
 		"name": "Kurds #2",
@@ -23572,7 +23623,7 @@ var data = {
 		"image_reduced": "TKurdsR.png"
 	},
 	{
-		"id": 218,
+		"id": 221,
 		"faction": "cp",
 		"nation": "tr",
 		"name": "Laz",
@@ -23588,7 +23639,7 @@ var data = {
 		"image_reduced": "TLazR.png"
 	},
 	{
-		"id": 219,
+		"id": 222,
 		"faction": "cp",
 		"nation": "tr",
 		"name": "Marsh #1",
@@ -23604,7 +23655,7 @@ var data = {
 		"image_reduced": "TMarshR.png"
 	},
 	{
-		"id": 220,
+		"id": 223,
 		"faction": "cp",
 		"nation": "tr",
 		"name": "Marsh #2",
@@ -23620,7 +23671,7 @@ var data = {
 		"image_reduced": "TMarshR.png"
 	},
 	{
-		"id": 221,
+		"id": 224,
 		"faction": "cp",
 		"nation": "tr",
 		"name": "NW Frontier",
@@ -23636,7 +23687,7 @@ var data = {
 		"image_reduced": "TNWFrontR.png"
 	},
 	{
-		"id": 222,
+		"id": 225,
 		"faction": "cp",
 		"nation": "tr",
 		"name": "Qashqai",
@@ -23652,7 +23703,7 @@ var data = {
 		"image_reduced": "TQashqR.png"
 	},
 	{
-		"id": 223,
+		"id": 226,
 		"faction": "cp",
 		"nation": "tr",
 		"name": "Senussi #1",
@@ -23668,7 +23719,7 @@ var data = {
 		"image_reduced": "TSenu213R.png"
 	},
 	{
-		"id": 224,
+		"id": 227,
 		"faction": "cp",
 		"nation": "tr",
 		"name": "Senussi #2",
@@ -23684,7 +23735,7 @@ var data = {
 		"image_reduced": "TSenu113R.png"
 	},
 	{
-		"id": 225,
+		"id": 228,
 		"faction": "cp",
 		"nation": "tr",
 		"name": "Sinjabi",
@@ -23700,7 +23751,7 @@ var data = {
 		"image_reduced": "TSinjR.png"
 	},
 	{
-		"id": 226,
+		"id": 229,
 		"faction": "cp",
 		"nation": "tr",
 		"name": "Tangistani",
@@ -23716,7 +23767,7 @@ var data = {
 		"image_reduced": "TTangR.png"
 	},
 	{
-		"id": 227,
+		"id": 230,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU 1 Caucasian",
@@ -23733,7 +23784,7 @@ var data = {
 		"image_reduced": "TU1CaucCR.png"
 	},
 	{
-		"id": 228,
+		"id": 231,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU 2 Caucasian",
@@ -23750,7 +23801,7 @@ var data = {
 		"image_reduced": "TU2CaucCR.png"
 	},
 	{
-		"id": 229,
+		"id": 232,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU Army Islam HQ",
@@ -23766,7 +23817,7 @@ var data = {
 		"image_reduced": "TUAoIR.png"
 	},
 	{
-		"id": 230,
+		"id": 233,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU Cavalry #1",
@@ -23784,7 +23835,7 @@ var data = {
 		"image_reduced": "TUCDivR.png"
 	},
 	{
-		"id": 231,
+		"id": 234,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU Cavalry #2",
@@ -23802,7 +23853,7 @@ var data = {
 		"image_reduced": "TUCDivR.png"
 	},
 	{
-		"id": 232,
+		"id": 235,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU Cavalry #3",
@@ -23820,7 +23871,7 @@ var data = {
 		"image_reduced": "TUCDivR.png"
 	},
 	{
-		"id": 233,
+		"id": 236,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU Cavalry #4",
@@ -23838,7 +23889,7 @@ var data = {
 		"image_reduced": "TUCDivR.png"
 	},
 	{
-		"id": 234,
+		"id": 237,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU Cavalry #5",
@@ -23856,7 +23907,7 @@ var data = {
 		"image_reduced": "TUCDivR.png"
 	},
 	{
-		"id": 235,
+		"id": 238,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU Cavalry #6",
@@ -23874,7 +23925,7 @@ var data = {
 		"image_reduced": "TUCDivR.png"
 	},
 	{
-		"id": 236,
+		"id": 239,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU DIV #1",
@@ -23891,7 +23942,7 @@ var data = {
 		"image_reduced": "TUDivR.png"
 	},
 	{
-		"id": 237,
+		"id": 240,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU DIV #10",
@@ -23908,7 +23959,7 @@ var data = {
 		"image_reduced": "TUDivR.png"
 	},
 	{
-		"id": 238,
+		"id": 241,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU DIV #11",
@@ -23925,7 +23976,7 @@ var data = {
 		"image_reduced": "TUDivR.png"
 	},
 	{
-		"id": 239,
+		"id": 242,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU DIV #12",
@@ -23942,7 +23993,7 @@ var data = {
 		"image_reduced": "TUDivR.png"
 	},
 	{
-		"id": 240,
+		"id": 243,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU DIV #13",
@@ -23959,7 +24010,7 @@ var data = {
 		"image_reduced": "TUDivR.png"
 	},
 	{
-		"id": 241,
+		"id": 244,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU DIV #14",
@@ -23976,7 +24027,7 @@ var data = {
 		"image_reduced": "TUDivR.png"
 	},
 	{
-		"id": 242,
+		"id": 245,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU DIV #15",
@@ -23993,7 +24044,7 @@ var data = {
 		"image_reduced": "TUDivR.png"
 	},
 	{
-		"id": 243,
+		"id": 246,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU DIV #16",
@@ -24010,7 +24061,7 @@ var data = {
 		"image_reduced": "TUDivR.png"
 	},
 	{
-		"id": 244,
+		"id": 247,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU DIV #17",
@@ -24027,7 +24078,7 @@ var data = {
 		"image_reduced": "TUDivR.png"
 	},
 	{
-		"id": 245,
+		"id": 248,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU DIV #18",
@@ -24044,7 +24095,7 @@ var data = {
 		"image_reduced": "TUDivR.png"
 	},
 	{
-		"id": 246,
+		"id": 249,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU DIV #2",
@@ -24061,7 +24112,7 @@ var data = {
 		"image_reduced": "TUDivR.png"
 	},
 	{
-		"id": 247,
+		"id": 250,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU DIV #3",
@@ -24078,7 +24129,7 @@ var data = {
 		"image_reduced": "TUDivR.png"
 	},
 	{
-		"id": 248,
+		"id": 251,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU DIV #4",
@@ -24095,7 +24146,7 @@ var data = {
 		"image_reduced": "TUDivR.png"
 	},
 	{
-		"id": 249,
+		"id": 252,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU DIV #5",
@@ -24112,7 +24163,7 @@ var data = {
 		"image_reduced": "TUDivR.png"
 	},
 	{
-		"id": 250,
+		"id": 253,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU DIV #6",
@@ -24129,7 +24180,7 @@ var data = {
 		"image_reduced": "TUDivR.png"
 	},
 	{
-		"id": 251,
+		"id": 254,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU DIV #7",
@@ -24146,7 +24197,7 @@ var data = {
 		"image_reduced": "TUDivR.png"
 	},
 	{
-		"id": 252,
+		"id": 255,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU DIV #8",
@@ -24163,7 +24214,7 @@ var data = {
 		"image_reduced": "TUDivR.png"
 	},
 	{
-		"id": 253,
+		"id": 256,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU DIV #9",
@@ -24180,7 +24231,7 @@ var data = {
 		"image_reduced": "TUDivR.png"
 	},
 	{
-		"id": 254,
+		"id": 257,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU Elite DIV #1",
@@ -24198,7 +24249,7 @@ var data = {
 		"image_reduced": "TUEDivR.png"
 	},
 	{
-		"id": 255,
+		"id": 258,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU Elite DIV #10",
@@ -24216,7 +24267,7 @@ var data = {
 		"image_reduced": "TUEDivR.png"
 	},
 	{
-		"id": 256,
+		"id": 259,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU Elite DIV #2",
@@ -24234,7 +24285,7 @@ var data = {
 		"image_reduced": "TUEDivR.png"
 	},
 	{
-		"id": 257,
+		"id": 260,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU Elite DIV #3",
@@ -24252,7 +24303,7 @@ var data = {
 		"image_reduced": "TUEDivR.png"
 	},
 	{
-		"id": 258,
+		"id": 261,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU Elite DIV #4",
@@ -24270,7 +24321,7 @@ var data = {
 		"image_reduced": "TUEDivR.png"
 	},
 	{
-		"id": 259,
+		"id": 262,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU Elite DIV #5",
@@ -24288,7 +24339,7 @@ var data = {
 		"image_reduced": "TUEDivR.png"
 	},
 	{
-		"id": 260,
+		"id": 263,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU Elite DIV #6",
@@ -24306,7 +24357,7 @@ var data = {
 		"image_reduced": "TUEDivR.png"
 	},
 	{
-		"id": 261,
+		"id": 264,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU Elite DIV #7",
@@ -24324,7 +24375,7 @@ var data = {
 		"image_reduced": "TUEDivR.png"
 	},
 	{
-		"id": 262,
+		"id": 265,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU Elite DIV #8",
@@ -24342,7 +24393,7 @@ var data = {
 		"image_reduced": "TUEDivR.png"
 	},
 	{
-		"id": 263,
+		"id": 266,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU Elite DIV #9",
@@ -24360,7 +24411,7 @@ var data = {
 		"image_reduced": "TUEDivR.png"
 	},
 	{
-		"id": 264,
+		"id": 267,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU Enver HQ",
@@ -24376,7 +24427,7 @@ var data = {
 		"image_reduced": "TUAoIR.png"
 	},
 	{
-		"id": 265,
+		"id": 268,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU I Corps",
@@ -24393,7 +24444,7 @@ var data = {
 		"image_reduced": "TUICR.png"
 	},
 	{
-		"id": 266,
+		"id": 269,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU II Corps",
@@ -24410,7 +24461,7 @@ var data = {
 		"image_reduced": "TUIICR.png"
 	},
 	{
-		"id": 267,
+		"id": 270,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU III Corps",
@@ -24428,7 +24479,7 @@ var data = {
 		"image_reduced": "TUIIICR.png"
 	},
 	{
-		"id": 268,
+		"id": 271,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU IV Corps",
@@ -24445,7 +24496,7 @@ var data = {
 		"image_reduced": "TUIVCR.png"
 	},
 	{
-		"id": 269,
+		"id": 272,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU IX Corps",
@@ -24462,7 +24513,7 @@ var data = {
 		"image_reduced": "TUIXCR.png"
 	},
 	{
-		"id": 270,
+		"id": 273,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU Stanke Bey",
@@ -24480,7 +24531,7 @@ var data = {
 		"image_reduced": "TUStBeyR.png"
 	},
 	{
-		"id": 271,
+		"id": 274,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU V Corps",
@@ -24497,7 +24548,7 @@ var data = {
 		"image_reduced": "TUVCR.png"
 	},
 	{
-		"id": 272,
+		"id": 275,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU X Corps",
@@ -24514,7 +24565,7 @@ var data = {
 		"image_reduced": "TUXCR.png"
 	},
 	{
-		"id": 273,
+		"id": 276,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU XI Corps",
@@ -24531,7 +24582,7 @@ var data = {
 		"image_reduced": "TUXICR.png"
 	},
 	{
-		"id": 274,
+		"id": 277,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU XIV Corps",
@@ -24548,7 +24599,7 @@ var data = {
 		"image_reduced": "TUXIVCR.png"
 	},
 	{
-		"id": 275,
+		"id": 278,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU XV Corps",
@@ -24565,7 +24616,7 @@ var data = {
 		"image_reduced": "TUXVCR.png"
 	},
 	{
-		"id": 276,
+		"id": 279,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU XVI Corps",
@@ -24582,7 +24633,7 @@ var data = {
 		"image_reduced": "TUXVICR.png"
 	},
 	{
-		"id": 277,
+		"id": 280,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU XVII Corps",
@@ -24599,7 +24650,7 @@ var data = {
 		"image_reduced": "TUXVIICR.png"
 	},
 	{
-		"id": 278,
+		"id": 281,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU XX Corps",
@@ -24616,7 +24667,7 @@ var data = {
 		"image_reduced": "TUXXCR.png"
 	},
 	{
-		"id": 279,
+		"id": 282,
 		"faction": "cp",
 		"nation": "tu",
 		"name": "TU XXII Corps",
@@ -24633,7 +24684,7 @@ var data = {
 		"image_reduced": "TUXXIICR.png"
 	},
 	{
-		"id": 280,
+		"id": 283,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A Camel Corps",
@@ -24651,7 +24702,7 @@ var data = {
 		"image_reduced": "TUACCDivR.png"
 	},
 	{
-		"id": 281,
+		"id": 284,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A Cavalry",
@@ -24669,7 +24720,7 @@ var data = {
 		"image_reduced": "TUACDivR.png"
 	},
 	{
-		"id": 282,
+		"id": 285,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A DIV #1",
@@ -24686,7 +24737,7 @@ var data = {
 		"image_reduced": "TUADivR.png"
 	},
 	{
-		"id": 283,
+		"id": 286,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A DIV #2",
@@ -24703,7 +24754,7 @@ var data = {
 		"image_reduced": "TUADivR.png"
 	},
 	{
-		"id": 284,
+		"id": 287,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A DIV #3",
@@ -24720,7 +24771,7 @@ var data = {
 		"image_reduced": "TUADivR.png"
 	},
 	{
-		"id": 285,
+		"id": 288,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A DIV #4",
@@ -24737,7 +24788,7 @@ var data = {
 		"image_reduced": "TUADivR.png"
 	},
 	{
-		"id": 286,
+		"id": 289,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A DIV #5",
@@ -24754,7 +24805,7 @@ var data = {
 		"image_reduced": "TUADivR.png"
 	},
 	{
-		"id": 287,
+		"id": 290,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A DIV #6",
@@ -24771,7 +24822,7 @@ var data = {
 		"image_reduced": "TUADivR.png"
 	},
 	{
-		"id": 288,
+		"id": 291,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A DIV #7",
@@ -24788,7 +24839,7 @@ var data = {
 		"image_reduced": "TUADivR.png"
 	},
 	{
-		"id": 289,
+		"id": 292,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A DIV #8",
@@ -24805,7 +24856,7 @@ var data = {
 		"image_reduced": "TUADivR.png"
 	},
 	{
-		"id": 290,
+		"id": 293,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A DIV #9",
@@ -24822,7 +24873,7 @@ var data = {
 		"image_reduced": "TUADivR.png"
 	},
 	{
-		"id": 291,
+		"id": 294,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A DIV #10",
@@ -24839,7 +24890,7 @@ var data = {
 		"image_reduced": "TUADivR.png"
 	},
 	{
-		"id": 292,
+		"id": 295,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A DIV #11",
@@ -24856,7 +24907,7 @@ var data = {
 		"image_reduced": "TUADivR.png"
 	},
 	{
-		"id": 293,
+		"id": 296,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A DIV #12",
@@ -24873,7 +24924,7 @@ var data = {
 		"image_reduced": "TUADivR.png"
 	},
 	{
-		"id": 294,
+		"id": 297,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A DIV #13",
@@ -24890,7 +24941,7 @@ var data = {
 		"image_reduced": "TUADivR.png"
 	},
 	{
-		"id": 295,
+		"id": 298,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A DIV #14",
@@ -24907,7 +24958,7 @@ var data = {
 		"image_reduced": "TUADivR.png"
 	},
 	{
-		"id": 296,
+		"id": 299,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A DIV #15",
@@ -24924,7 +24975,7 @@ var data = {
 		"image_reduced": "TUADivR.png"
 	},
 	{
-		"id": 297,
+		"id": 300,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A DIV #16",
@@ -24941,7 +24992,7 @@ var data = {
 		"image_reduced": "TUADivR.png"
 	},
 	{
-		"id": 298,
+		"id": 301,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A DIV #17",
@@ -24958,7 +25009,7 @@ var data = {
 		"image_reduced": "TUADivR.png"
 	},
 	{
-		"id": 299,
+		"id": 302,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A DIV #18",
@@ -24975,7 +25026,7 @@ var data = {
 		"image_reduced": "TUADivR.png"
 	},
 	{
-		"id": 300,
+		"id": 303,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A DIV #19",
@@ -24992,7 +25043,7 @@ var data = {
 		"image_reduced": "TUADivR.png"
 	},
 	{
-		"id": 301,
+		"id": 304,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A DIV #20",
@@ -25009,7 +25060,7 @@ var data = {
 		"image_reduced": "TUADivR.png"
 	},
 	{
-		"id": 302,
+		"id": 305,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A Elite DIV #1",
@@ -25027,7 +25078,7 @@ var data = {
 		"image_reduced": "TUAEDivR.png"
 	},
 	{
-		"id": 303,
+		"id": 306,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A Elite DIV #2",
@@ -25045,7 +25096,7 @@ var data = {
 		"image_reduced": "TUAEDivR.png"
 	},
 	{
-		"id": 304,
+		"id": 307,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A Left Wing Gp",
@@ -25062,7 +25113,7 @@ var data = {
 		"image_reduced": "TUALWGR.png"
 	},
 	{
-		"id": 305,
+		"id": 308,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A VI Corps",
@@ -25079,7 +25130,7 @@ var data = {
 		"image_reduced": "TUAVICR.png"
 	},
 	{
-		"id": 306,
+		"id": 309,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A VIII Corps",
@@ -25096,7 +25147,7 @@ var data = {
 		"image_reduced": "TUAVIIICR.png"
 	},
 	{
-		"id": 307,
+		"id": 310,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A XII Corps",
@@ -25113,7 +25164,7 @@ var data = {
 		"image_reduced": "TUAXIICR.png"
 	},
 	{
-		"id": 308,
+		"id": 311,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A XIII Corps",
@@ -25130,7 +25181,7 @@ var data = {
 		"image_reduced": "TUAXIIICR.png"
 	},
 	{
-		"id": 309,
+		"id": 312,
 		"faction": "cp",
 		"nation": "tua",
 		"name": "TU-A XVIII Corps",

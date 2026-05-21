@@ -127,6 +127,36 @@ module.exports = function (Engine) {
 		return found
 	}
 
+	function get_piece_placement_faction(game, p) {
+		let info = data.pieces[p]
+		if (!info) return null
+		let faction = get_piece_effective_faction(game, p)
+		if (faction !== AP && faction !== CP) faction = info.faction
+		return faction
+	}
+
+	function can_opposing_units_coexist_in_space(game, s) {
+		return !!(data.spaces[s] && data.spaces[s].region)
+	}
+
+	function is_space_blocked_by_enemy_unit(game, s, faction) {
+		return !can_opposing_units_coexist_in_space(game, s) && contains_enemy_pieces(game, s, faction)
+	}
+
+	function can_place_piece_in_space(game, s, p, options = {}) {
+		if (p < 0 || !data.pieces[p] || !data.spaces[s]) return false
+		let faction = get_piece_placement_faction(game, p)
+		if (is_space_blocked_by_enemy_unit(game, s, faction)) return false
+		return can_stack_end_in_space(game, s, [p], options)
+	}
+
+	function can_place_piece_in_space_except_stacking(game, s, p, options = {}) {
+		if (p < 0 || !data.pieces[p] || !data.spaces[s]) return false
+		let faction = get_piece_placement_faction(game, p)
+		if (is_space_blocked_by_enemy_unit(game, s, faction)) return false
+		return can_stack_end_in_space(game, s, [p], { ...options, ignore_stacking: true })
+	}
+
 	function has_friendly_pieces(game, s, faction) {
 		if (faction === undefined) faction = game.active
 		let found = false
@@ -299,14 +329,6 @@ module.exports = function (Engine) {
 		if (!has_undestroyed_fort(game, target, other_faction(faction))) return 0
 		if (is_besieged(game, target)) return 0
 		return 1
-	}
-
-	function is_naval_access_space(game_or_space, maybe_space) {
-		let game = maybe_space === undefined ? null : game_or_space
-		let s = maybe_space === undefined ? game_or_space : maybe_space
-		let space = data.spaces[s]
-		if (!space) return false
-		return !!space.port || is_gallipoli(s) || (game ? is_beachhead_space(game, s) : false)
 	}
 
 	function is_port(s) {
@@ -671,6 +693,11 @@ module.exports = function (Engine) {
 		return get_area(s) === "arabistan"
 	}
 
+	// Greater Persia = Persia + Azerbaijan + Arabistan (Rule 14.2.8)
+	function is_greater_persia(s) {
+		return is_persia(s) || is_azerbaijan(s) || is_arabistan(s)
+	}
+
 	function is_sinai(s) {
 		return get_area(s) === "sinai"
 	}
@@ -992,10 +1019,10 @@ module.exports = function (Engine) {
 	}
 
 	function is_persian_supply_unit(p) {
-		let info = data.pieces[p]
-		if (!info) return false
-		if (info.nation === "pe") return true
-		return info.name === "BR/PE SPers Rifles" || info.name === "RU/PE Police North"
+		if (Engine.neutral && typeof Engine.neutral.is_persian_supply_unit === "function") {
+			return Engine.neutral.is_persian_supply_unit(p)
+		}
+		return false
 	}
 
 	// Rule 17.2.2 / 17.2.4: Irregular units cannot move or advance out of their supply area.
@@ -1005,7 +1032,7 @@ module.exports = function (Engine) {
 		let nation = data.pieces[p].nation || ""
 		if (nation === "ar") return is_syria_palestine(s) || is_hejaz(s)
 		if (nation === "arm") return is_anatolia(s) || is_caucasus(s) || is_georgia(s) || is_russia(s)
-		if (is_persian_supply_unit(p)) return is_persia(s) || is_azerbaijan(s) || is_arabistan(s)
+		if (is_persian_supply_unit(p)) return is_greater_persia(s)
 		if (name.startsWith("Afghan")) return is_afghanistan(s)
 		if (name.startsWith("CAsia")) return is_central_asia(s)
 		if (name.startsWith("Egypt")) return is_egypt(s) || is_sudan_and_darfur(s)
@@ -1426,7 +1453,7 @@ module.exports = function (Engine) {
 
 		// Rule 19.6.3: BR Persian Cordon Force restriction.
 		if (data.pieces[p].region_limit === "P") {
-			if (!is_persia(s) && !is_india(s) && !is_baluchistan(s)) return false
+			if (!is_greater_persia(s) && !is_india(s) && !is_baluchistan(s)) return false
 		}
 
 		let region = get_region(s)
@@ -2013,7 +2040,7 @@ module.exports = function (Engine) {
 			if (is_controlled_by(game, target, enemy) && has_undestroyed_fort(game, target, enemy)) {
 				return "绿色连线：不能进入敌方控制且有敌方要塞的格"
 			}
-			if (is_controlled_by(game, target, enemy) && Engine.game_utils.has_trench(game, target) > 0) {
+			if (is_controlled_by(game, target, enemy) && Engine.game_utils.is_enemy_trench(game, target, faction)) {
 				return "绿色连线：不能进入敌方壕沟格"
 			}
 		}
@@ -2116,7 +2143,7 @@ module.exports = function (Engine) {
 			let enemy = other_faction(faction)
 			if (
 				is_controlled_by(game, target, enemy) &&
-				(has_undestroyed_fort(game, target, enemy) || Engine.game_utils.has_trench(game, target) > 0)
+				(has_undestroyed_fort(game, target, enemy) || Engine.game_utils.is_enemy_trench(game, target, faction))
 			) {
 				return false
 			}
@@ -2401,7 +2428,7 @@ module.exports = function (Engine) {
 	}
 
 	function is_sr_space_blocked_by_enemy_piece(game, s, faction) {
-		return !is_region(game, s) && contains_enemy_pieces(game, s, faction)
+		return is_space_blocked_by_enemy_unit(game, s, faction)
 	}
 
 	function visit_sr_path_spaces(game, p, source, faction, rail_only, visit) {
@@ -2795,10 +2822,13 @@ module.exports = function (Engine) {
 		let ports = []
 		let allow_any = !!(entry && entry.allow_any_friendly_port)
 		let zone = entry && entry.arrival_zone
+		let p = entry && entry.piece
 		for (let s = 1; s < data.spaces.length; s++) {
 			if (!data.spaces[s]) continue
 			if (!is_controlled_by(game, s, AP)) continue
 			if (!is_sea_sr_port_space(game, s)) continue
+			if (Number.isInteger(p) && !can_place_piece_in_space(game, s, p, IGNORE_HQ_HEAVY_ARTILLERY_SUPPORT))
+				continue
 			if (allow_any || is_suez_sr_arrival_zone_port(game, s, zone)) ports.push(s)
 		}
 		return ports
@@ -4042,30 +4072,17 @@ module.exports = function (Engine) {
 				else if (supply_info.disrupted.has(s)) status = "DISRUPTED"
 				if (
 					status === "OOS" &&
-					faction === AP &&
-					info.nation === "sb" &&
-					!Engine.collapse.has_serbia_collapsed(game)
+					Engine.neutral &&
+					typeof Engine.neutral.has_home_supply_for_attrition === "function" &&
+					Engine.neutral.has_home_supply_for_attrition(game, s, faction)
 				) {
-					let has_serbian_unit = get_pieces_in_space(game, s).some((p) => {
-						let piece = data.pieces[p]
-						return (
-							piece &&
-							piece.faction === AP &&
-							piece_counts_as_nation_for_rule(game, p, "sb")
-						)
-					})
-					if (has_serbian_unit) status = "FULL"
+					status = "FULL"
 				}
 				if (status === "OOS") {
 					// Rule 15.4.6 Exception: Trench markers in an intact Fort space do not suffer attrition.
 					let has_fort = has_undestroyed_fort(game, s, faction)
 					if (!has_fort) {
-						if (
-							(game.trenches && set_has(game.trenches, s)) ||
-							(game.trenches_2 && set_has(game.trenches_2, s))
-						) {
-							Engine.game_utils.remove_trench(game, s)
-						}
+						Engine.game_utils.apply_trench_attrition(game, s)
 					}
 					// Rule 14.3.3: Space becomes enemy controlled during attrition phase
 					// We mark it here, and start_attrition_phase will handle the actual control change
@@ -4194,10 +4211,14 @@ module.exports = function (Engine) {
 				typeof Engine.neutral.has_home_supply_privilege === "function" &&
 				Engine.neutral.has_home_supply_privilege(game, p, space, faction)
 			) {
-				return cache_result(home_supply_status())
-			} else if (is_persian_supply_unit(p)) {
-				if (is_persia(space) || is_azerbaijan(space) || is_arabistan(space))
-					return cache_result(home_supply_status())
+				let status = home_supply_status()
+				if (
+					typeof Engine.neutral.home_supply_privilege_ignores_disruption === "function" &&
+					Engine.neutral.home_supply_privilege_ignores_disruption(game, p, space, faction)
+				) {
+					status = "FULL"
+				}
+				return cache_result(status)
 			} else if (nation === "geo" || nation === "arm") {
 				if (is_caucasus(space) || is_georgia(space)) return cache_result(home_supply_status())
 			} else if (nation === "ar") {
@@ -4381,10 +4402,33 @@ module.exports = function (Engine) {
 		return is_limited_supply_status(status)
 	}
 
+	function is_catastrophic_attack_supply_exception_stack_oos(game, entry, context) {
+		if (!entry || entry.created_turn !== game.turn || !(entry.space > 0)) return false
+		if (!Array.isArray(entry.retreat_stack)) return false
+		let retreating = entry.retreat_stack.filter(
+			(p) =>
+				game.pieces[p] === entry.space &&
+				get_piece_effective_faction(game, p) === AP &&
+				!is_not_on_map(game, p) &&
+				!is_eliminated(game, p)
+		)
+		if (retreating.length === 0) return false
+		return retreating.every((p) => get_supply_status(game, entry.space, AP, p, false, null, context) === "OOS")
+	}
+
+	function is_catastrophic_attack_supply_exception_transit(game, next, faction, context) {
+		if (faction !== CP || !Array.isArray(game.catastrophic_attack_supply_exceptions)) return false
+		return game.catastrophic_attack_supply_exceptions.some(
+			(entry) => entry && entry.space === next && is_catastrophic_attack_supply_exception_stack_oos(game, entry, context)
+		)
+	}
+
 	function get_supply_trace_status_to_source(game, start, faction, source, supply_context = null, options = null) {
 		let context = supply_context || create_supply_context(game)
 		let block_connection =
 			options && typeof options.block_connection === "function" ? options.block_connection : null
+		let allow_enemy_transit =
+			options && typeof options.allow_enemy_transit === "function" ? options.allow_enemy_transit : null
 		let sources = Array.isArray(source) ? source : [source]
 		let source_flag = build_space_flag_from_sources(sources)
 		let best_status = "OOS"
@@ -4422,9 +4466,17 @@ module.exports = function (Engine) {
 			let neighbors = get_connected_spaces(game, current, undefined, faction, undefined, "supply")
 			for (let next of neighbors) {
 				if (block_connection && block_connection(game, current, next, faction)) continue
+				let enemy_transit_allowed = !!(
+					(allow_enemy_transit && allow_enemy_transit(game, current, next, faction)) ||
+					is_catastrophic_attack_supply_exception_transit(game, next, faction, context)
+				)
 
 				// Blocked by enemy regular units (unless besieged)
-				if (context.enemy_regular[faction][next] === 1 && !is_besieged_with_context(game, next, context))
+				if (
+					context.enemy_regular[faction][next] === 1 &&
+					!is_besieged_with_context(game, next, context) &&
+					!enemy_transit_allowed
+				)
 					continue
 
 				// Neutral spaces block supply unless they are Greece for AP
@@ -4445,7 +4497,14 @@ module.exports = function (Engine) {
 
 				// Uprising markers disrupt supply but do not change control; only Full Control,
 				// actual Partial Control, friendly pieces, or a besieged enemy fort let the trace pass.
-				if (!is_friendly && !is_besieged_enemy && !has_friendly_pieces && !has_partial_control) continue
+				if (
+					!is_friendly &&
+					!is_besieged_enemy &&
+					!has_friendly_pieces &&
+					!has_partial_control &&
+					!enemy_transit_allowed
+				)
+					continue
 
 				let next_disrupted = current_disrupted || is_disrupted_by_enemy
 				if (source_flag[next] === 1) {
@@ -4798,6 +4857,7 @@ module.exports = function (Engine) {
 	}
 
 	function is_rail_connected_to_galicia(game) {
+		if (CONSTANTINOPLE < 0 || !is_controlled_by(game, CONSTANTINOPLE, CP)) return false
 		let target = build_space_flag_from_sources(GALICIA_REPLACEMENT_SPACE_IDS)
 		let queue = [CONSTANTINOPLE]
 		let queue_head = 0
@@ -5101,8 +5161,10 @@ module.exports = function (Engine) {
 		) {
 			return false
 		}
-		if (nation === "sb" && has_serbia_collapsed(game) && (!game.events || !game.events["the_serbs_return"])) {
-			return false
+		if (nation === "sb" && has_serbia_collapsed(game)) {
+			let serbs_return = !!(game.events && game.events["the_serbs_return"])
+			if (!serbs_return) return info.piece_class === "SCU"
+			if (is_eliminated(game, p) && info.piece_class === "LCU") return false
 		}
 		if (game.events && game.events["arab_desertion"] && nation === "tua") {
 			return false
@@ -5284,9 +5346,9 @@ module.exports = function (Engine) {
 			}
 
 			if (can_rebuild) {
-				if (can_stack_end_in_space(game, s, [p])) {
+				if (can_place_piece_in_space(game, s, p)) {
 					valid.push(s)
-				} else {
+				} else if (can_place_piece_in_space_except_stacking(game, s, p)) {
 					full_but_valid.push(s)
 				}
 			}
@@ -5302,8 +5364,7 @@ module.exports = function (Engine) {
 					if (seen.has(ns)) continue
 					if (!is_controlled_by(game, ns, faction)) continue
 					if (is_besieged(game, ns)) continue
-					if (contains_enemy_pieces(game, ns, faction) && !is_region(game, ns)) continue
-					if (!can_stack_end_in_space(game, ns, [p])) continue
+					if (!can_place_piece_in_space(game, ns, p)) continue
 					seen.add(ns)
 					valid.push(ns)
 				}
@@ -5337,6 +5398,12 @@ module.exports = function (Engine) {
 				}
 			}
 
+			let has_ap_units = pieces.some((p) => get_piece_effective_faction(game, p) === AP)
+			let has_cp_units = pieces.some((p) => get_piece_effective_faction(game, p) === CP)
+			if (has_ap_units && has_cp_units && !can_opposing_units_coexist_in_space(game, s)) {
+				violations.push({ space: s, rule: "Rule 8.5: Units of opposing sides may not stack in a space" })
+			}
+
 			if (is_unlimited_stack_space(game, s)) continue
 			let count = get_stack_count(pieces)
 			if (count > 3) {
@@ -5357,6 +5424,7 @@ module.exports = function (Engine) {
 			if (has_undestroyed_fort(game, s, AP)) fort_owner = AP
 			else if (has_undestroyed_fort(game, s, CP)) fort_owner = CP
 			if (!fort_owner) continue
+			if (Array.isArray(game.broken_sieges) && set_has(game.broken_sieges, s)) continue
 
 			let besiegers = pieces_by_space[s].filter((p) => get_piece_effective_faction(game, p) !== fort_owner)
 			if (besiegers.length > 0 && !can_besiege(game, s, besiegers)) {
@@ -5723,6 +5791,8 @@ module.exports = function (Engine) {
 		get_pieces_in_space,
 		for_each_piece_in_space,
 		contains_enemy_pieces,
+		is_space_blocked_by_enemy_unit,
+		can_place_piece_in_space,
 		has_friendly_pieces,
 		is_disrupted_by_enemy,
 		has_enemy_uprising_marker,
@@ -5739,6 +5809,7 @@ module.exports = function (Engine) {
 		is_egypt,
 		is_balkans,
 		is_arabistan,
+		is_greater_persia,
 		is_persia,
 		is_persian_region,
 		is_neutral_persia_space,
@@ -5764,7 +5835,6 @@ module.exports = function (Engine) {
 		is_russia_controlled_space,
 		has_allied_control_of_balfour_spaces,
 		destroy_fort,
-		is_naval_access_space,
 		faction_controls_strait,
 		can_use_strait,
 		get_connection_type,
@@ -5828,6 +5898,7 @@ module.exports = function (Engine) {
 		can_stack_move_to,
 		can_piece_move_to,
 		can_besiege,
+		get_besieging_pieces,
 		get_sr_cost,
 		has_sr_path,
 		can_sr_piece,

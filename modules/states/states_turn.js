@@ -284,7 +284,7 @@ exports.register = function (states, Engine, context) {
 				let faction = Engine.map.get_space_controller(game, s)
 				if ((faction === AP || faction === CP) && !Engine.map.has_undestroyed_fort(game, s, faction)) {
 					let opponent = other_faction(faction)
-					log(`${space_name(s)} becomes enemy-controlled due to attrition (OOS)`)
+					log(`${space_name(s)} 因断补损耗转为敌方控制`)
 					set_control(game, s, opponent)
 					if (
 						opponent === AP &&
@@ -483,6 +483,7 @@ exports.register = function (states, Engine, context) {
 
 		game.turn++
 		log_h1(`Turn ${game.turn}`)
+		delete game.catastrophic_attack_supply_exceptions
 
 		if (Engine.events && typeof Engine.events.complete_sinai_railroad_if_ready === "function") {
 			Engine.events.complete_sinai_railroad_if_ready(game, log)
@@ -610,11 +611,14 @@ exports.register = function (states, Engine, context) {
 			return
 		}
 
-		let ap_roll = roll_die()
-		if (game.mo_ap_modifier) {
-			ap_roll += game.mo_ap_modifier
-		}
-		let cp_roll = roll_die()
+		let ap_die = roll_die()
+		let ap_drm = game.mo_ap_modifier || 0
+		let ap_roll = ap_die + ap_drm
+
+		let cp_die = roll_die()
+		let cp_drm = 0
+		let cp_roll = cp_die + cp_drm
+
 		if (game.mo_cp_cancelled) {
 			game.mo_cp = MO_NONE
 			game.mo_cp_fulfilled = true
@@ -625,8 +629,8 @@ exports.register = function (states, Engine, context) {
 			// Rule 5.1.2: Validity check (None or Reroll)
 			let status_ap = check_mo_validity(game, AP, mo_ap)
 			while (status_ap === "REROLL") {
-				ap_roll = roll_die()
-				if (game.mo_ap_modifier) ap_roll += game.mo_ap_modifier
+				ap_die = roll_die()
+				ap_roll = ap_die + ap_drm
 				mo_ap = determine_mo_ap(ap_roll)
 				status_ap = check_mo_validity(game, AP, mo_ap)
 			}
@@ -636,7 +640,8 @@ exports.register = function (states, Engine, context) {
 
 			let status_cp = check_mo_validity(game, CP, mo_cp)
 			while (status_cp === "REROLL") {
-				cp_roll = roll_die()
+				cp_die = roll_die()
+				cp_roll = cp_die + cp_drm
 				mo_cp = determine_mo_cp(cp_roll)
 				status_cp = check_mo_validity(game, CP, mo_cp)
 			}
@@ -646,6 +651,10 @@ exports.register = function (states, Engine, context) {
 
 			game.mo_ap = mo_ap
 			game.mo_cp = mo_cp
+			game.mo_ap_die = ap_die
+			game.mo_ap_drm = ap_drm
+			game.mo_cp_die = cp_die
+			game.mo_cp_drm = cp_drm
 		}
 
 		if (game.mo_ap === MO_RUSSIA && game.events["russian_revolution"]) {
@@ -740,7 +749,7 @@ exports.register = function (states, Engine, context) {
 
 		if (game.blockade_vp_penalty_active && get_season(game) === "Winter") {
 			let total_war_cp = game.war_commitment_cp === COMMITMENT_TOTAL
-			let railway_complete = !!game.events["berlin_constantinople_railway"] || !!game.events["berlin_baghdad"]
+			let railway_complete = Engine.map.is_rail_connected_to_galicia(game)
 
 			if (total_war_cp && railway_complete) {
 				game.blockade_vp_penalty_active = false
@@ -833,7 +842,6 @@ exports.register = function (states, Engine, context) {
 			let key = faction === AP ? "ap" : "cp"
 			if (!game.pending_commitment_shuffle) game.pending_commitment_shuffle = { ap: false, cp: false }
 			game.pending_commitment_shuffle[key] = true
-			log(`${faction_name(faction)} adds ${commitment.toUpperCase()} cards.`)
 		}
 	}
 
@@ -933,10 +941,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function get_blockade_tu_rp_recovery_pool() {
-		return (
-			Math.max(0, Number(game.tu_rp_recovery_pool || 0)) +
-			Math.max(0, Number(game.tu_rp_ge_converted || 0))
-		)
+		return Math.max(0, Number(game.tu_rp_recovery_pool || 0))
 	}
 
 	function clear_replacement_points_for_active_faction() {
@@ -1183,7 +1188,7 @@ exports.register = function (states, Engine, context) {
 			clear_undo()
 			if (!Array.isArray(game.discarded_ccs)) game.discarded_ccs = []
 			if (game.discarded_ccs.length > 0) {
-				log(`${faction_name(game.active)} 弃掉手牌:`)
+				log(`${faction_name(game.active)} 弃置手牌:`)
 				for (let c of game.discarded_ccs) {
 					log(card_name(c))
 				}

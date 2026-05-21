@@ -4,9 +4,9 @@ module.exports = function (Engine) {
 	const { data } = Engine
 	const exports = {}
 
-	const { set_add } = Engine.utils
-	const { find_space, find_piece } = Engine.game_utils
-	const { COMMITMENT_MOBILIZATION, COMMITMENT_LIMITED, COMMITMENT_TOTAL, REMOVED } = Engine.constants
+	const { set_add, set_has } = Engine.utils
+	const { find_space, find_piece, normalize_trench_owner, infer_trench_owner, ensure_trench_owner } = Engine.game_utils
+	const { COMMITMENT_MOBILIZATION, COMMITMENT_LIMITED, COMMITMENT_TOTAL, REMOVED, AP, CP } = Engine.constants
 	const CYPRUS_BEACHHEAD_NAMES = ["To Adana", "To Beirut", "To Haifa", "To Jaffa"]
 	const piece_lookup = new Map()
 	const space_lookup = new Map()
@@ -78,7 +78,19 @@ module.exports = function (Engine) {
 		}
 	}
 
-	function place_trench(game, level, space_name) {
+	function normalize_trench_owners(game) {
+		if (!Array.isArray(game.trench_owner)) game.trench_owner = []
+		for (let s = 1; s < data.spaces.length; s++) {
+			let has_trench = set_has(game.trenches, s) || set_has(game.trenches_2, s)
+			if (!has_trench) {
+				if (game.trench_owner[s] !== undefined) delete game.trench_owner[s]
+				continue
+			}
+			ensure_trench_owner(game, s)
+		}
+	}
+
+	function place_trench(game, level, space_name, owner = CP) {
 		let s = get_space_id(space_name)
 		if (s >= 0) {
 			if (level === 2) {
@@ -86,6 +98,10 @@ module.exports = function (Engine) {
 			} else {
 				set_add(game.trenches, s)
 			}
+			if (!Array.isArray(game.trench_owner)) game.trench_owner = []
+			let resolved_owner = normalize_trench_owner(owner)
+			if (!resolved_owner) resolved_owner = infer_trench_owner(game, s)
+			game.trench_owner[s] = resolved_owner
 		} else {
 			console.log("Could not find space for trench:", space_name)
 		}
@@ -244,7 +260,7 @@ module.exports = function (Engine) {
 		place_trench(game, 1, "Catalca")
 		place_trench(game, 1, "CONSTANTINOPLE")
 		place_trench(game, 1, "Ctesiphon")
-		place_trench(game, 2, "Doiran")
+		place_trench(game, 2, "Doiran", AP)
 
 		// 保加利亚展示板单位在历史开局时预摆到固定展示位，待事件打出后再“解锁”归属。
 		// BU 3 Army 仍由事件流程决定具体落位，因此不在此处预摆。
@@ -433,9 +449,14 @@ module.exports = function (Engine) {
 		if (!Array.isArray(state.control)) state.control = Array(data.spaces.length).fill(null)
 		if (!Array.isArray(state.reduced)) state.reduced = []
 		if (!state.forts) state.forts = { destroyed: [], besieged: [] }
+		if (!Array.isArray(state.forts.destroyed)) state.forts.destroyed = []
+		if (!Array.isArray(state.forts.besieged)) state.forts.besieged = []
 		if (!state.forts.owner || typeof state.forts.owner !== "object" || Array.isArray(state.forts.owner)) state.forts.owner = {}
+		if (!Array.isArray(state.broken_sieges)) state.broken_sieges = []
 		if (!Array.isArray(state.trenches)) state.trenches = []
 		if (!Array.isArray(state.trenches_2)) state.trenches_2 = []
+		if (!Array.isArray(state.trench_owner)) state.trench_owner = []
+		normalize_trench_owners(state)
 		if (!Array.isArray(state.deck_ap)) state.deck_ap = []
 		if (!Array.isArray(state.hand_ap)) state.hand_ap = []
 		if (!Array.isArray(state.discard_ap)) state.discard_ap = []
@@ -600,8 +621,10 @@ module.exports = function (Engine) {
 			control: Array(data.spaces.length).fill(null),
 			reduced: [],
 			forts: { destroyed: [], besieged: [], owner: {} },
+			broken_sieges: [],
 			trenches: [],
 			trenches_2: [],
+			trench_owner: [],
 			deck_ap: [],
 			hand_ap: [],
 			discard_ap: [],

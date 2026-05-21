@@ -7,6 +7,7 @@ module.exports = function (Engine) {
 	const { set_has, set_add, set_delete, roll_die } = Engine.utils
 	const { AP, CP } = Engine.constants
 	const MO_BALKANS = "balkans"
+	const FORT_LOSS = "FORT"
 	const {
 		find_space,
 		is_eliminated,
@@ -33,6 +34,7 @@ module.exports = function (Engine) {
 		get_piece_effective_faction,
 		is_piece_reduced,
 		has_trench,
+		get_trench_owner,
 		get_piece_nation_groups_for_rule,
 		get_replacement_options,
 		piece_counts_as_nation_for_rule,
@@ -41,7 +43,6 @@ module.exports = function (Engine) {
 		get_season
 	} = Engine.game_utils
 	const {
-		is_naval_access_space,
 		is_black_sea_port,
 		can_use_strait,
 		get_pieces_in_space,
@@ -214,6 +215,28 @@ module.exports = function (Engine) {
 			if (!Engine.map.get_region_activation_stack_block_reason(game, trial)) selected = trial
 		}
 		return selected
+	}
+
+	function find_max_cf_valid_stack(game, candidates) {
+		if (!Array.isArray(candidates) || candidates.length === 0) return []
+		let best = []
+		let best_cf = -1
+		let n = candidates.length
+		for (let mask = 1; mask < (1 << n); mask++) {
+			let subset = []
+			for (let i = 0; i < n; i++) {
+				if (mask & (1 << i)) subset.push(candidates[i])
+			}
+			let reason = Engine.map.get_region_activation_stack_block_reason(game, subset)
+			if (!reason) {
+				let cf = subset.reduce((sum, p) => sum + get_piece_cf(game, p), 0)
+				if (cf > best_cf) {
+					best_cf = cf
+					best = subset.slice()
+				}
+			}
+		}
+		return best
 	}
 
 	function get_combat_defenders(game, target_space, defender_faction = null) {
@@ -1178,9 +1201,9 @@ module.exports = function (Engine) {
 		log_fn("**防守方**：")
 		if (has_undestroyed_fort(game, target_space, defender_faction)) {
 			if (defenders.length > 0) {
-				log_fn(`>> ${defenders.map((p) => format_piece_for_battle_log(game, p)).join(", ")}，要塞`)
+				log_fn(`>> ${defenders.map((p) => format_piece_for_battle_log(game, p)).join(", ")}，要塞（${space_name(target_space)}）`)
 			} else {
-				log_fn(">> 要塞")
+				log_fn(`>> 要塞（${space_name(target_space)}）`)
 			}
 			return
 		}
@@ -1303,10 +1326,19 @@ module.exports = function (Engine) {
 		return has_trench(game, s) > 0
 	}
 
+	function get_defender_trench_level(game, s, defender_faction, defenders = null) {
+		let level = has_trench(game, s)
+		if (level <= 0) return 0
+		if (Array.isArray(defenders) && defenders.length === 0) return 0
+		return get_trench_owner(game, s) === defender_faction ? level : 0
+	}
+
 	function can_cancel_defender_retreat(game, target_space, retreating_faction, retreating_units) {
 		if (!(target_space > 0) || !Array.isArray(retreating_units) || retreating_units.length === 0) return false
 		let target_terrain = get_combat_target_terrain(game, target_space, game.attack?.pieces)
-		let trench = has_trench(game, target_space)
+		let trench = attacker_has_maude_trench_ignore(game, target_space)
+			? 0
+			: get_defender_trench_level(game, target_space, retreating_faction, retreating_units)
 		let has_fort = has_undestroyed_fort(game, target_space, retreating_faction)
 		let defensive_ground =
 			target_terrain === FOREST ||
@@ -1386,7 +1418,7 @@ module.exports = function (Engine) {
 			terrain === "mountain" || terrain === "swamp" || terrain === "desert" || terrain === "forest"
 
 		// 2. Trenches
-		let trench_level = has_trench(game, space)
+		let trench_level = get_defender_trench_level(game, space, CP, defenders)
 		let has_trench_defense = trench_level > 0
 
 		// 3. Undestroyed Fort
@@ -1585,7 +1617,7 @@ module.exports = function (Engine) {
 			if (region_limit === "I" && !Engine.map.is_india(t)) continue
 			if (
 				region_limit === "P" &&
-				!Engine.map.is_persia(t) &&
+				!Engine.map.is_greater_persia(t) &&
 				!Engine.map.is_india(t) &&
 				!Engine.map.is_baluchistan(t)
 			)
@@ -2024,7 +2056,7 @@ module.exports = function (Engine) {
 				parent.to_satisfy >= parent.fort_strength
 			) {
 				let node = {
-					picked: [...parent.picked, "FORT"],
+					picked: [...parent.picked, FORT_LOSS],
 					to_satisfy: parent.to_satisfy - parent.fort_strength,
 					full_strength: [],
 					reduced: [],
@@ -2056,7 +2088,7 @@ module.exports = function (Engine) {
 		valid_paths.forEach((path) => {
 			if (path.picked.length > 0) {
 				let first_pick = get_tree_unit_piece(path.picked[0])
-				if (first_pick !== "FORT" && !valid_units.includes(first_pick)) {
+				if (!valid_units.includes(first_pick)) {
 					valid_units.push(first_pick)
 				}
 			}
@@ -2071,11 +2103,13 @@ module.exports = function (Engine) {
 		let active_f = game.active
 		let defender_faction = other_faction(active_f)
 		let defenders = get_combat_defenders(game, game.attack.space, defender_faction)
-		if (defenders.length === 0) return ""
+		let has_fort = has_undestroyed_fort(game, game.attack.space, defender_faction)
+		if (defenders.length === 0 && !has_fort) return ""
 
 		let attack_factors = attackers.reduce((sum, p) => sum + get_piece_cf(game, p), 0)
 		let defense_factors = defenders.reduce((sum, p) => sum + get_piece_cf(game, p), 0)
-		if (has_undestroyed_fort(game, game.attack.space, defender_faction)) {
+		// 规则 15.1.3：未被摧毁的要塞 CF 始终加入防守火力；空要塞自身提供战力（15.1.5）。
+		if (has_fort) {
 			defense_factors += data.spaces[game.attack.space].fort || 0
 		}
 
@@ -2106,7 +2140,7 @@ module.exports = function (Engine) {
 		}
 		if (all_crossing) attacker_shifts--
 
-		let trench_level = has_trench(game, game.attack.space)
+		let trench_level = get_defender_trench_level(game, game.attack.space, defender_faction, defenders)
 		if (trench_level > 0) {
 			attacker_shifts -= trench_level
 			defender_shifts += 1
@@ -2120,6 +2154,65 @@ module.exports = function (Engine) {
 		let defender_label = defender_col.name
 
 		return `${attacker_label} vs ${defender_label}`
+	}
+
+	function fmt_attack_odds_with_max(game) {
+		if (!game.attack || game.attack.space < 0 || !game.attack.pieces || game.attack.pieces.length === 0) return ""
+		let attackers = game.attack.pieces
+		let active_f = game.active
+		let defender_faction = other_faction(active_f)
+		let target_space = game.attack.space
+
+		let attack_factors = attackers.reduce((sum, p) => sum + get_piece_cf(game, p), 0)
+		let attacker_table = attackers.some(is_lcu) ? "lcu" : "scu"
+		let attacker_shifts = 0
+
+		let terrain = get_combat_target_terrain(game, target_space, attackers)
+		if (terrain === "mountain" || terrain === "swamp") attacker_shifts--
+
+		let target_is_desert = terrain === "desert"
+		let attacker_from_desert = attackers.some((p) => data.spaces[game.pieces[p]]?.terrain === "desert")
+		if (target_is_desert || attacker_from_desert) attacker_shifts--
+
+		let all_crossing = !is_cp_attacking_beachhead(game, target_space, attackers)
+		if (all_crossing) {
+			for (let p of attackers) {
+				let from = game.pieces[p]
+				let type = get_connection_type(from, target_space)
+				let crossing = get_crossing_type(from, target_space)
+				if (type !== "river" && type !== "strait" && !crossing) {
+					all_crossing = false
+					break
+				}
+			}
+		}
+		if (all_crossing) attacker_shifts--
+
+		let attacker_col = find_fire_column(attacker_table, attack_factors, attacker_shifts)
+		if (!attacker_col) return ""
+		let attacker_label = attacker_col.name
+
+		let has_fort = has_undestroyed_fort(game, target_space, defender_faction)
+		let candidates = get_region_defender_candidates(game, target_space, defender_faction)
+		if (candidates.length === 0 && !has_fort) return ""
+		let best_stack = find_max_cf_valid_stack(game, candidates)
+		if (best_stack.length === 0 && !has_fort) return ""
+
+		let defense_factors = best_stack.reduce((sum, p) => sum + get_piece_cf(game, p), 0)
+		if (has_fort) {
+			defense_factors += data.spaces[target_space].fort || 0
+		}
+		let defender_table = best_stack.some(is_lcu) ? "lcu" : "scu"
+		let defender_shifts = 0
+		let trench_level = get_defender_trench_level(game, target_space, defender_faction, best_stack)
+		if (trench_level > 0) {
+			defender_shifts += 1
+		}
+		let defender_col = find_fire_column(defender_table, defense_factors, defender_shifts)
+		if (!defender_col) return ""
+		let defender_label = defender_col.name
+
+		return `${attacker_label} vs (MAX ${defender_label})`
 	}
 
 	function start_attack_sequence(game, log_fn) {
@@ -2324,29 +2417,96 @@ module.exports = function (Engine) {
 		}
 	}
 
-	/**
-	 * 检查并处理堡垒销毁逻辑 (Rule 12.4.6)
-	 *
-	 * @param {object} game - 游戏状态
-	 * @param {function} log_fn - 日志输出函数
-	 * @param {number} target_space - 目标地区 ID
-	 * @param {string} defender_faction - 防守方势力
-	 */
+	function ensure_fort_state(game) {
+		if (!game.forts) game.forts = { destroyed: [], besieged: [], owner: {} }
+		if (!Array.isArray(game.forts.destroyed)) game.forts.destroyed = []
+		if (!Array.isArray(game.forts.besieged)) game.forts.besieged = []
+		if (!game.forts.owner || typeof game.forts.owner !== "object" || Array.isArray(game.forts.owner)) {
+			game.forts.owner = {}
+		}
+	}
+
+	function ensure_broken_siege_state(game) {
+		if (!Array.isArray(game.broken_sieges)) game.broken_sieges = []
+	}
+
+	function contains_piece_of_faction(game, space, faction) {
+		return get_pieces_in_space(game, space).some((p) => get_piece_effective_faction(game, p) === faction)
+	}
+
+	function apply_fort_destruction(game, space, defender_faction, log_fn) {
+		if (!has_undestroyed_fort(game, space, defender_faction)) return false
+		let fort_strength = data.spaces[space]?.fort || 0
+		if (!(fort_strength > 0)) return false
+
+		let attacker_faction = other_faction(defender_faction)
+		let was_besieged = Engine.map.is_besieged(game, space)
+		let was_broken_siege = Array.isArray(game.broken_sieges) && set_has(game.broken_sieges, space)
+		let has_attacker_in_space = contains_piece_of_faction(game, space, attacker_faction)
+
+		ensure_fort_state(game)
+		set_add(game.forts.destroyed, space)
+		set_delete(game.forts.besieged, space)
+
+		if (was_besieged) {
+			Engine.set_control(game, space, attacker_faction)
+			if (log_fn) log_fn(`Fort at ${space_log_name(space)} destroyed; besieging forces take control.`)
+		} else if (was_broken_siege && has_attacker_in_space) {
+			ensure_broken_siege_state(game)
+			set_delete(game.broken_sieges, space)
+			Engine.set_control(game, space, attacker_faction)
+			if (log_fn) log_fn(`Fort at ${space_log_name(space)} destroyed; former besiegers take control.`)
+		} else {
+			if (log_fn) log_fn(`Fort at ${space_log_name(space)} destroyed.`)
+		}
+
+		return true
+	}
+
+	function update_siege_after_combat_losses(game, space) {
+		if (!(space > 0) || !data.spaces[space]?.fort) return false
+		ensure_fort_state(game)
+		let fort_owner = Engine.map.get_fort_owner(game, space)
+		if (fort_owner !== AP && fort_owner !== CP) {
+			set_delete(game.forts.besieged, space)
+			return false
+		}
+		if (!has_undestroyed_fort(game, space, fort_owner)) {
+			set_delete(game.forts.besieged, space)
+			return false
+		}
+		let besiegers = Engine.map.get_besieging_pieces(game, space, fort_owner)
+		if (can_besiege(game, space, besiegers)) {
+			set_add(game.forts.besieged, space)
+			return true
+		}
+		set_delete(game.forts.besieged, space)
+		return false
+	}
+
+	function mark_broken_siege_if_needed(game, space, fort_owner) {
+		if (!(space > 0) || (fort_owner !== AP && fort_owner !== CP)) return false
+		if (!has_undestroyed_fort(game, space, fort_owner)) return false
+		if (Engine.map.is_besieged(game, space)) return false
+		let besieging_faction = other_faction(fort_owner)
+		if (!contains_piece_of_faction(game, space, besieging_faction)) return false
+		ensure_broken_siege_state(game)
+		set_add(game.broken_sieges, space)
+		return true
+	}
+
+	// Rule 15.1.5/15.1.6: if defender losses still cover an empty fort, destroy it.
 	function check_fort_destruction(game, log_fn, target_space, defender_faction) {
 		if (has_undestroyed_fort(game, target_space, defender_faction)) {
 			let fort_lf = data.spaces[target_space].fort || 0
 			let remaining_losses = game.attack.defender_losses - game.attack.defender_losses_absorbed
 
-			// Rule: Fort destroyed if no units OR units destroyed and remaining losses >= LF
+			// Rule 15.1.5 & 15.1.6: Fort destroyed if no units AND remaining losses >= LF
 			let defenders = get_combat_defenders(game, target_space, defender_faction)
 			if (defenders.length === 0 && remaining_losses >= fort_lf) {
-				if (!game.forts) game.forts = { destroyed: [] }
-				if (!game.forts.destroyed) game.forts.destroyed = []
-				set_add(game.forts.destroyed, target_space)
-				if (log_fn) log_fn(`${space_log_name(target_space)} Fort is destroyed!`)
-			} else if (defenders.length === 0 && remaining_losses > 0) {
-				if (log_fn)
-					log_fn(`${space_log_name(target_space)} Fort is damaged (${remaining_losses}/${fort_lf} losses).`)
+				if (apply_fort_destruction(game, target_space, defender_faction, log_fn)) {
+					game.attack.defender_losses_absorbed += fort_lf
+				}
 			}
 		}
 	}
@@ -2444,6 +2604,25 @@ module.exports = function (Engine) {
 				if (log_fn) {
 					log_fn("Water Shortage: winning AP units may not advance; defeated CP units do not retreat.")
 				}
+			}
+		}
+		if (
+			combat_card_played(game, "defender", CC_CP_CATASTROPHIC_ATTACK) &&
+			!result.catastrophic_attack &&
+			game.attack.defender === CP &&
+			get_catastrophic_attack_stack_options(game).length > 0 &&
+			has_catastrophic_attack_surviving_defenders(game) &&
+			result.attacker_losses > result.defender_losses
+		) {
+			result.catastrophic_attack = true
+			result.turkish_retreat = false
+			result.turkish_retreat_units = []
+			result.turkish_retreat_optional_units = []
+			result.turkish_retreat_defender_retreats = false
+			result.advance_with_reduced = true
+			clear_turkish_retreat_state(game)
+			if (log_fn) {
+				log_fn("Catastrophic Attack: CP defender victory forces an AP attacking stack to retreat.")
 			}
 		}
 	}
@@ -3337,7 +3516,8 @@ module.exports = function (Engine) {
 		let target_space = game.attack.space
 		let target_terrain = get_combat_target_terrain(game, target_space, attackers)
 		let defender_faction = other_faction(game.active)
-		let trench_level_at_target = has_trench(game, target_space)
+		let defenders = get_combat_defenders(game, target_space, defender_faction)
+		let trench_level_at_target = get_defender_trench_level(game, target_space, defender_faction, defenders)
 		let is_river_def = is_river_defense(game)
 		let ignore_trench = attacker_ignores_trench_for_flank(game, attackers, target_space)
 		let ignore_river = attacker_ignores_river_for_flank(game, attackers)
@@ -3349,8 +3529,7 @@ module.exports = function (Engine) {
 		}
 
 		let has_fort = has_undestroyed_fort(game, target_space, defender_faction)
-		let has_defending_units =
-			get_combat_defenders(game, target_space, defender_faction).filter((p) => is_combat_unit(p)).length > 0
+		let has_defending_units = defenders.filter((p) => is_combat_unit(p)).length > 0
 		let has_undefended_fort = has_fort && !has_defending_units
 		let is_region_val = is_region(game, target_space)
 
@@ -3598,20 +3777,15 @@ module.exports = function (Engine) {
 		let has_fort = has_undestroyed_fort(game, target_space, defender_faction)
 		if (has_fort) {
 			let fort_val = data.spaces[target_space].fort || 0
-			// PUG Rule: Russian Winter Offensive reduces Caucasus fort firepower to 0
+			// 俄军冬季攻势期间高加索要塞火力归零。
 			if (is_russian_winter_offensive_active(game) && game.active === AP) {
 				if (is_caucasus(target_space)) {
 					fort_val = 0
-					log_detail(log, "Russian Winter Offensive: Caucasus Fort firepower is 0")
+					log_detail(log, "俄军冬季攻势：高加索要塞火力归零。")
 				}
 			}
-			// Rule 15.4.7: A fort's Combat Factor is added to the combat strength only if a friendly unit is in the space.
-			if (defenders.length > 0) {
-				def_cf += fort_val
-				log_detail(log, `Fort CF (${fort_val}) added to defense (defenders present).`)
-			} else {
-				log_detail(log, "Fort CF not added to defense (no defenders present).")
-			}
+			// 规则 15.1.3：要塞 CF 始终加入防守火力；空要塞自身提供战力（15.1.5）。
+			def_cf += fort_val
 		}
 
 		if (game.combat_cards && game.combat_cards.attacker) {
@@ -3657,7 +3831,7 @@ module.exports = function (Engine) {
 					let bonus = get_piece_cf(game, p)
 					att_drm += bonus
 					used_hqs.attacker.push(p)
-					log_detail(log, `Attacker HQ ${piece_log_name(game, p)} provides +${bonus} DRM`)
+					log_detail(log, `进攻方指挥部 ${piece_log_name(game, p)} 提供 +${bonus} DRM`)
 				}
 			}
 		}
@@ -3671,7 +3845,7 @@ module.exports = function (Engine) {
 					let bonus = get_piece_cf(game, p)
 					def_drm += bonus
 					used_hqs.defender.push(p)
-					log_detail(log, `Defender HQ ${piece_log_name(game, p)} provides +${bonus} DRM`)
+					log_detail(log, `防守方指挥部 ${piece_log_name(game, p)} 提供 +${bonus} DRM`)
 				}
 			}
 		}
@@ -3733,40 +3907,26 @@ module.exports = function (Engine) {
 			if (attacking_spaces_count >= 2) {
 				attackers.some((p) => is_lcu(p))
 				is_river_defense(game)
-				has_trench(game, target_space)
+				get_defender_trench_level(game, target_space, defender_faction, defenders)
 				let defenders_in_space = defenders
 				has_undestroyed_fort(game, target_space, defender_faction)
 				is_besieged(game, target_space) && defenders_in_space.length > 0
 			}
 		}
 
-		// 5. Naval Support (PUG 11.5.3)
-		if (game.active === AP && is_naval_access_space(game, target_space)) {
-			if (
-				attackers.some(
-					(p) =>
-						is_lcu(p) &&
-						["br", "anz", "in"].some((nation) => piece_counts_as_nation_for_rule(game, p, nation))
-				)
-			) {
-				att_drm += 1
-				log_detail(log, "Naval Support: +1 DRM")
-			}
-		}
-
-		// 6. Event DRMs
+		// 5. Event DRMs
 		if (game.active === AP) {
 			let is_ru_attacking = attackers.some((p) => piece_counts_as_nation_for_rule(game, p, "ru"))
 			if (is_ru_attacking) {
 				if (is_turn_event(game, "kitchener")) {
 					if (is_caucasus(target_space)) {
 						att_drm += 1
-						log_detail(log, "Kitchener: +1 DRM for RU in Caucasus")
+						log_detail(log, "基钦纳: +1 DRM")
 					}
 				}
 				if (is_russian_winter_offensive_active(game)) {
 					att_drm += 1
-					log_detail(log, "Russian Winter Offensive: +1 DRM for RU")
+					log_detail(log, "俄国冬季攻势: +1 DRM")
 				}
 			}
 		} else if (game.active === CP) {
@@ -3904,7 +4064,7 @@ module.exports = function (Engine) {
 				att_shifts -= 1
 				att_shift_factors.push("-1 河流/海峡进攻")
 				def_fire_first = true
-				log_detail(log, "Attack across Strait/River: Shift 1 Left & Defender Fires First")
+				log_detail(log, "跨河/海进攻：进攻方火力列左移1列，防守方先开火")
 			}
 		}
 
@@ -3915,14 +4075,12 @@ module.exports = function (Engine) {
 					att_shifts += 1
 					att_shift_factors.push("+1 坦克")
 					mark_effected(CC_AP_TANKS)
-					log_detail(log, "Tanks: Shift 1 Right")
 				}
 			}
 		}
 
 		// PUG Rule: Trench shifts attacker 1 left, defender 1 right
-		let trench_level = has_trench(game, target_space)
-		if (defenders.length === 0) trench_level = 0 // Rule 15.1.6: Forts alone don't benefit from trenches
+		let trench_level = get_defender_trench_level(game, target_space, defender_faction, defenders)
 
 		if (trench_bonus_cp > 0) {
 			if (trench_level === 0) trench_level = 1
@@ -4047,7 +4205,6 @@ module.exports = function (Engine) {
 		let turkish_retreat_defender_retreats = false
 		let advance_with_reduced = false
 
-		// PUG Rule: Attacker never retreats based on combat results.
 		// Only the defender retreats if they lose (take more hits than they dealt).
 		if (def_losses > att_losses && !is_region(game, target_space)) {
 			retreat_needed = true
@@ -4069,9 +4226,9 @@ module.exports = function (Engine) {
 					retreat_distance -= 1
 					if (retreat_distance <= 0) {
 						retreat_needed = false
-						log("Rule 16.3.3: RU Yudenitch HQ negates retreat for Russian units.")
+						log("尤登尼奇：无需撤退")
 					} else {
-						log("Rule 16.3.3: RU Yudenitch HQ negates one space of retreat; remaining retreat 1 space.")
+						log("尤登尼奇：仍需撤退1格")
 					}
 				}
 			}
@@ -4271,11 +4428,11 @@ module.exports = function (Engine) {
 		let suffered_by_defender = result.defender_losses
 
 		if (suffered_by_defender > suffered_by_attacker) {
-			log(`*${suffered_by_defender}:${suffered_by_attacker} Attacker Victory`)
+			log(`*${suffered_by_defender}:${suffered_by_attacker} 进攻方获胜`)
 		} else if (suffered_by_attacker > suffered_by_defender) {
-			log(`*${suffered_by_defender}:${suffered_by_attacker} Defender Victory`)
+			log(`*${suffered_by_defender}:${suffered_by_attacker} 防守方获胜`)
 		} else {
-			log(`*${suffered_by_defender}:${suffered_by_attacker} Draw`)
+			log(`*${suffered_by_defender}:${suffered_by_attacker} 平局`)
 		}
 
 		// Recalculate retreat and Turkish Retreat
@@ -4299,9 +4456,9 @@ module.exports = function (Engine) {
 					result.retreat_distance -= 1
 					if (result.retreat_distance <= 0) {
 						result.retreat_needed = false
-						log("Rule 16.3.3: RU Yudenitch HQ negates retreat for Russian units.")
+						log("尤登尼奇：无需撤退")
 					} else {
-						log("Rule 16.3.3: RU Yudenitch HQ negates one space of retreat; remaining retreat 1 space.")
+						log("尤登尼奇：仍需撤退1格")
 					}
 				}
 			}
@@ -4495,10 +4652,15 @@ module.exports = function (Engine) {
 		is_variable_loss_piece,
 		remember_variable_loss_other_unit_hit,
 		fmt_attack_odds,
+		fmt_attack_odds_with_max,
+		find_max_cf_valid_stack,
 		start_attack_sequence,
 		resolve_flank_attempt,
 		resolve_battle_sequence,
 		end_battle_sequence,
+		apply_fort_destruction,
+		update_siege_after_combat_losses,
+		mark_broken_siege_if_needed,
 		check_offer_ptbp_extra_attack,
 		get_ptbp_eligible_units,
 		record_combat_card_source,
@@ -4537,7 +4699,8 @@ module.exports = function (Engine) {
 		CC_CP_CZARS_ARMORIES,
 		CC_CP_CONFUSED_ORDERS,
 		CC_CP_ARMY_OF_ISLAM,
-		CC_CP_JIHAD_OFFENSIVE
+		CC_CP_JIHAD_OFFENSIVE,
+		FORT_LOSS
 	})
 
 	return exports

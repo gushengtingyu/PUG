@@ -43,7 +43,7 @@ test("Royal Navy Blockade does not recover Max TU RP from unused bonus TU RPs al
 	expect(game.rp_cp.tu).toBe(0)
 })
 
-test("GE-converted RPs contribute to recovery pool and increase Max TU RP", () => {
+test("GE-converted RPs do not contribute to recovery pool or increase Max TU RP", () => {
 	const game = setupGame(26051205, "Historical", { no_supply_warnings: true })
 	game.active = CP
 	game.events.royal_navy_blockade = true
@@ -60,11 +60,11 @@ test("GE-converted RPs contribute to recovery pool and increase Max TU RP", () =
 
 	finishCpReplacementPhase(game)
 
-	expect(game.tu_rp_limit).toBe(25)
+	expect(game.tu_rp_limit).toBe(23)
 	expect(game.rp_cp.tu).toBe(0)
 })
 
-test("GE-converted RPs push TU max RP above the initial limit", () => {
+test("GE-converted RPs do not push TU max RP above card-recorded recovery", () => {
 	const game = setupGame(26051206, "Historical", { no_supply_warnings: true })
 	game.active = CP
 	game.events.royal_navy_blockade = true
@@ -81,11 +81,11 @@ test("GE-converted RPs push TU max RP above the initial limit", () => {
 
 	finishCpReplacementPhase(game)
 
-	expect(game.tu_rp_limit).toBe(25)
+	expect(game.tu_rp_limit).toBe(22)
 	expect(game.rp_cp.tu).toBe(0)
 })
 
-test("TU max RP can exceed 25 when GE-converted RPs combine with unused card RPs", () => {
+test("TU max RP recovers only from card-recorded RPs, not from GE-converted or bonus RPs", () => {
 	const game = setupGame(26051207, "Historical", { no_supply_warnings: true })
 	game.active = CP
 	game.events.royal_navy_blockade = true
@@ -102,6 +102,6 @@ test("TU max RP can exceed 25 when GE-converted RPs combine with unused card RPs
 
 	finishCpReplacementPhase(game)
 
-	expect(game.tu_rp_limit).toBe(29)
+	expect(game.tu_rp_limit).toBe(25)
 	expect(game.rp_cp.tu).toBe(0)
 })

@@ -127,10 +127,12 @@ describe("中立国统一框架", () => {
 		// verify the loss of Serbia's special home-supply privilege directly.
 		game.pieces[sbArmy] = nis
 
+		expect(Engine.neutral.has_home_supply_privilege(game, sbArmy, nis, AP)).toBe(true)
 		expect(Engine.map.get_supply_status(game, nis, AP, sbArmy)).toBe("FULL")
 
 		game.events.serbian_collapse = true
 
+		expect(Engine.neutral.has_home_supply_privilege(game, sbArmy, nis, AP)).toBe(false)
 		expect(Engine.map.get_supply_status(game, nis, AP, sbArmy)).not.toBe("FULL")
 	})
 
@@ -149,6 +151,28 @@ describe("中立国统一框架", () => {
 
 		expect(game.oos || []).not.toContain(yugo)
 		expect(game.oos_spaces || []).not.toContain(nis)
+	})
+
+	test("Persian units use the shared neutral home-supply privilege in Greater Persia", () => {
+		for (let [faction, unitName, spaceName] of [
+			[AP, "BR/PE SPers Rifles", "Hamadan"],
+			[AP, "RU/PE Police North", "TEHERAN"],
+			[CP, "PE Uprising", "Qum"]
+		]) {
+			let game = setupGame(2026052103, "Historical", { no_supply_warnings: true })
+			clearBoard(game)
+			let space = findSpace(spaceName)
+			let unit = findPiece(faction, unitName)
+
+			game.events.secret_treaty = true
+			game.pieces[unit] = space
+			Engine.set_control(game, space, faction)
+			game.persian_uprising_markers = [space]
+
+			expect(Engine.neutral.is_persian_supply_unit(unit)).toBe(true)
+			expect(Engine.neutral.has_home_supply_privilege(game, unit, space, faction)).toBe(true)
+			expect(Engine.map.get_supply_status(game, space, faction, unit)).toBe("FULL")
+		}
 	})
 
 	test("塞军在塞尔维亚崩溃且未触发塞族归来前不能重建", () => {
@@ -200,6 +224,49 @@ describe("中立国统一框架", () => {
 		expect(Engine.neutral.get_nation_faction(game, "ro")).toBe(AP)
 		expect(Engine.neutral.get_space_default_controller(game, bucharest)).toBe(AP)
 		expect(Engine.game_utils.get_piece_effective_faction(game, roArmy)).toBe(AP)
+	})
+
+	test("entered neutral nations expose occupation markers only when control overrides their new default", () => {
+		let game = setupGame(2026052101, "Historical")
+		let bulgariaEvent = Engine.events.get_event_by_id(88)
+		let romaniaEvent = Engine.events.get_event_by_id(29)
+		let sofia = findSpace("SOFIA")
+		let belgrade = findSpace("BELGRADE")
+		let bucharest = findSpace("BUCHAREST")
+
+		bulgariaEvent.handler(game)
+		romaniaEvent.handler(game)
+
+		let view = rules.view(game, rules.roles[0])
+		expect(view.control_defaults[sofia]).toBe(CP)
+		expect(view.control_defaults[belgrade]).toBe(AP)
+		expect(view.control_defaults[bucharest]).toBe(AP)
+		expect(view.control[sofia]).toBeUndefined()
+		expect(view.control[belgrade]).toBeUndefined()
+		expect(view.control[bucharest]).toBeUndefined()
+
+		Engine.set_control(game, sofia, AP)
+		Engine.set_control(game, belgrade, CP)
+		Engine.set_control(game, bucharest, CP)
+
+		view = rules.view(game, rules.roles[0])
+		expect(view.control[sofia]).toBe(AP)
+		expect(view.control[belgrade]).toBe(CP)
+		expect(view.control[bucharest]).toBe(CP)
+	})
+
+	test("empty uncollapsed Serbian home spaces do not become CP-controlled through attrition", () => {
+		let game = setupGame(2026052102, "Historical", { no_supply_warnings: true })
+		let bulgariaEvent = Engine.events.get_event_by_id(88)
+		let skopje = findSpace("Skopje")
+		let monastir = findSpace("Monastir")
+
+		bulgariaEvent.handler(game)
+		Engine.map.check_supply(game)
+
+		expect(game.oos_spaces || []).not.toEqual(expect.arrayContaining([skopje, monastir]))
+		expect(Engine.map.get_space_controller(game, skopje)).toBe(AP)
+		expect(Engine.map.get_space_controller(game, monastir)).toBe(AP)
 	})
 
 	test("视图中的中立国参照标志会根据持久化参战状态自动隐藏", () => {

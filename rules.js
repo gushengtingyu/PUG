@@ -75,8 +75,11 @@ const {
 	is_hq,
 	add_rps: utils_add_rps,
 	place_trench,
+	has_trench,
+	get_trench_owner,
 	remove_trench,
-	has_trench
+	is_enemy_trench,
+	enter_trench
 } = Engine.game_utils
 const {
 	get_connected_spaces,
@@ -378,6 +381,7 @@ const event_rules = Object.freeze({
 	set_delete,
 	set_toggle,
 	place_trench,
+	has_trench,
 	refresh_attack_eligibility,
 	next_phase(phase) {
 		if (turn_funcs && turn_funcs.next_phase) {
@@ -638,6 +642,7 @@ function get_supply_dependency_signature() {
 		get_array_signature(game.partial_ap_control_markers),
 		get_array_signature(game.partial_cp_control_markers),
 		get_array_signature(game.ru_control_markers),
+		get_stable_object_signature(game.catastrophic_attack_supply_exceptions),
 		get_array_signature(game.vps),
 		game.entry_gr || "",
 		game.entry_bu || "",
@@ -804,6 +809,26 @@ function get_piece_supply_status_view() {
 	}
 }
 
+function get_catastrophic_attack_oos_marker_spaces() {
+	if (!Array.isArray(game.catastrophic_attack_supply_exceptions)) return []
+	const oos = Array.isArray(game.oos) ? game.oos : []
+	const markers = []
+	for (let entry of game.catastrophic_attack_supply_exceptions) {
+		if (!entry || entry.created_turn !== game.turn || !(entry.space > 0)) continue
+		if (!Array.isArray(entry.retreat_stack)) continue
+		let retreating = entry.retreat_stack.filter(
+			(p) =>
+				game.pieces[p] === entry.space &&
+				Engine.game_utils.get_piece_effective_faction(game, p) === AP &&
+				!is_not_on_map(game, p) &&
+				!is_eliminated(game, p)
+		)
+		if (retreating.length === 0) continue
+		if (retreating.every((p) => set_has(oos, p))) set_add(markers, entry.space)
+	}
+	return markers
+}
+
 function get_control_view() {
 	const view_control = {}
 	const control = Array.isArray(game.control) ? game.control : []
@@ -818,11 +843,24 @@ function get_control_view() {
 			if (value !== dynamic_default) {
 				view_control[s] = value
 			}
-		} else if (dynamic_default !== static_faction) {
-			view_control[s] = dynamic_default
 		}
 	}
 	return view_control
+}
+
+function get_control_defaults_view() {
+	const view_defaults = {}
+	for (let s = 1; s < data.spaces.length; s++) {
+		const static_faction = data.spaces[s] && data.spaces[s].faction
+		let dynamic_default = static_faction
+		if (Engine.map && typeof Engine.map.get_default_controller === "function") {
+			dynamic_default = Engine.map.get_default_controller(game, s)
+		}
+		if (dynamic_default !== static_faction) {
+			view_defaults[s] = dynamic_default
+		}
+	}
+	return view_defaults
 }
 
 exports.view = function (state, current) {
@@ -931,6 +969,7 @@ exports.view = function (state, current) {
 			hidden_reinforcement_markers: hidden_reinforcement_markers,
 			sinai_railroad_turn,
 			control: get_control_view(),
+			control_defaults: get_control_defaults_view(),
 			ru_control_markers: game.ru_control_markers || [],
 			persian_uprising_markers: game.persian_uprising_markers || [],
 			armenian_uprising_markers: game.armenian_uprising_markers || [],
@@ -939,12 +978,14 @@ exports.view = function (state, current) {
 				Number.isFinite(jerusalem_by_christmas_target) && jerusalem_by_christmas_target > 0
 					? [jerusalem_by_christmas_target]
 					: [],
+			catastrophic_attack_oos_markers: get_catastrophic_attack_oos_marker_spaces(),
 			reduced: game.reduced,
 			forts: game.forts,
 			beachheads: game.beachheads,
 			unplaced_beachheads: Math.max(0, game.unplaced_beachheads || 0),
 			trenches: game.trenches,
 			trenches_2: game.trenches_2,
+			trench_owner: game.trench_owner,
 			action_round: game.action_round,
 			mo_ap: game.mo_ap,
 			mo_cp: game.mo_cp,
@@ -1323,7 +1364,7 @@ function update_war_status(faction, amount) {
 	if (game.combined_war >= 40 && !game.events["armistice_scheduled"]) {
 		game.events["armistice_scheduled"] = true
 		let roll = roll_die()
-		let turns = 0
+		let turns
 		if (roll <= 2) turns = 3
 		else if (roll <= 4) turns = 4
 		else turns = 5
@@ -2646,6 +2687,8 @@ exports.set_add = set_add
 exports.set_has = set_has
 exports.set_delete = set_delete
 exports.other_faction = other_faction
+exports.has_trench = has_trench
+exports.get_trench_owner = get_trench_owner
 exports.is_persia = is_persia
 exports.is_central_asia = is_central_asia
 exports.is_azerbaijan = is_azerbaijan
@@ -2750,9 +2793,10 @@ activation_states.register(states, Engine, {
 	set_control,
 	bulls_eye_record_sr_space,
 	roll_die,
-	has_trench,
 	place_trench,
-	remove_trench
+	has_trench,
+	is_enemy_trench,
+	enter_trench
 })
 
 combat_funcs = combat_states.register(states, Engine, {
@@ -2821,8 +2865,8 @@ combat_funcs = combat_states.register(states, Engine, {
 	update_jihad_level: (g, amount) => update_jihad_level(g, amount),
 	AP,
 	CP,
-	has_trench,
-	remove_trench
+	is_enemy_trench,
+	enter_trench
 })
 
 turn_funcs = turn_states.register(states, Engine, {

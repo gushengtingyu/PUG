@@ -74,6 +74,50 @@ exports.register = function (states, Engine, context) {
 		game.state = "play_card"
 	}
 
+	function get_catastrophic_attack_overstack_status(entry) {
+		if (!entry || entry.space <= 0 || !entry.faction) return null
+		let pieces = get_pieces_in_space(game, entry.space).filter(
+			(p) => Engine.game_utils.get_piece_effective_faction(game, p) === entry.faction
+		)
+		let counted = Engine.map.get_stack_counted_pieces(pieces)
+		if (counted.length <= 3) return null
+		return {
+			entry,
+			space: entry.space,
+			faction: entry.faction,
+			pieces,
+			counted
+		}
+	}
+
+	function cleanup_catastrophic_attack_overstacks() {
+		if (!Array.isArray(game.catastrophic_attack_overstacks)) return
+		game.catastrophic_attack_overstacks = game.catastrophic_attack_overstacks.filter((entry) =>
+			get_catastrophic_attack_overstack_status(entry)
+		)
+		if (game.catastrophic_attack_overstacks.length === 0) delete game.catastrophic_attack_overstacks
+	}
+
+	function is_catastrophic_attack_overstack_due(entry) {
+		if (!entry || entry.faction !== AP || game.active !== AP) return false
+		return entry.created_turn !== game.turn || entry.created_action_round !== game.action_round
+	}
+
+	function get_due_catastrophic_attack_overstacks() {
+		if (!Array.isArray(game.catastrophic_attack_overstacks)) return []
+		return game.catastrophic_attack_overstacks
+			.filter((entry) => is_catastrophic_attack_overstack_due(entry))
+			.map((entry) => get_catastrophic_attack_overstack_status(entry))
+			.filter(Boolean)
+	}
+
+	function enter_catastrophic_attack_overstack_pe() {
+		cleanup_catastrophic_attack_overstacks()
+		if (get_due_catastrophic_attack_overstacks().length === 0) return false
+		game.state = "catastrophic_attack_overstack_pe"
+		return true
+	}
+
 	function log_action_debug(payload) {
 		if (!DEBUG_ACTION_TRACE) return
 		console.log("[调试][action-perf]", payload)
@@ -157,7 +201,7 @@ exports.register = function (states, Engine, context) {
 		let t0 = DEBUG_ACTION_TRACE ? action_now() : 0
 		let entry = get_event_entry(card)
 		let use_ops_fallback = !!(entry && entry.use_ops)
-		log_card_action(card, "Event")
+		log_card_action(card, "事件")
 		record_action(ACTION_EVENT, card)
 
 		if (info.remove) remove_card(card)
@@ -461,7 +505,7 @@ exports.register = function (states, Engine, context) {
 			game.card = c
 			game.last_card = c
 			let info = data.cards[c]
-			log_card_action(c, "Strategic Redeployment", info.sr)
+			log_card_action(c, "战略调整", info.sr)
 			record_action(ACTION_SR, c)
 			discard_card(c)
 			game.sr = info.sr
@@ -476,7 +520,7 @@ exports.register = function (states, Engine, context) {
 			game.card = c
 			game.last_card = c
 			let info = data.cards[c]
-			log_card_action(c, "Replacement Points")
+			log_card_action(c, "补员")
 			record_action(ACTION_RPS, c)
 			discard_card(c)
 			add_rps(info)
@@ -555,6 +599,36 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
+	states.catastrophic_attack_overstack_pe = {
+		inactive: "灾难性进攻超堆叠",
+		prompt(res) {
+			let violations = get_due_catastrophic_attack_overstacks()
+			if (violations.length === 0) {
+				res.prompt("灾难性进攻超堆叠已处理。")
+				res.action("done")
+				return
+			}
+			let violation = violations[0]
+			res.where(violation.space)
+			res.who(violation.counted)
+			res.prompt(`灾难性进攻：${space_name(violation.space)} 仍然超堆叠，选择一个 AP 单位永久消除。`)
+			for (let p of violation.counted) res.piece(p)
+		},
+		piece(p) {
+			let violations = get_due_catastrophic_attack_overstacks()
+			let violation = violations[0]
+			if (!violation || !violation.counted.includes(p)) return
+			push_undo()
+			Engine.game_utils.eliminate_piece(game, p, log, true)
+			cleanup_catastrophic_attack_overstacks()
+			if (get_due_catastrophic_attack_overstacks().length === 0) goto_end_action()
+		},
+		done() {
+			cleanup_catastrophic_attack_overstacks()
+			if (get_due_catastrophic_attack_overstacks().length === 0) goto_end_action()
+		}
+	}
+
 	states.card_action = {
 		prompt(res) {
 			if (res && res._is_noop) return
@@ -585,7 +659,7 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 			let info = data.cards[c]
-			log_card_action(c, "Strategic Redeployment", info.sr)
+			log_card_action(c, "战略调整", info.sr)
 			record_action(ACTION_SR, c)
 			discard_card(c)
 			game.sr = info.sr
@@ -598,7 +672,7 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 			let info = data.cards[c]
-			log_card_action(c, "Replacement Points")
+			log_card_action(c, "补员")
 			record_action(ACTION_RPS, c)
 			discard_card(c)
 			add_rps(info)
@@ -769,12 +843,12 @@ exports.register = function (states, Engine, context) {
 
 			if (!game.sr_moved) game.sr_moved = []
 			Engine.utils.set_add(game.sr_moved, p)
-			log(`${piece_name(p)} 战略调整至 ${space_name(s)} (Cost: ${total_cost})`)
+			log(`${piece_name(p)} 战略调整至 ${space_name(s)}${total_cost !== 1 ? ` (Cost: ${total_cost})` : ''}`)
 			game.sr_piece = null
 
 			// Rule 13.4.2: +1 Jihad if the last AP unit drawing supply solely through
 			// a non-Balkan Beachhead or Ottoman port is sea-SR'd away.
-			if (was_sea_sr) {
+			if (active_faction() === AP && was_sea_sr) {
 				let jihad_source_emptied =
 					(from_was_non_balkan_beachhead && get_beachhead_withdrawal_units(from).length === 0) ||
 					(from_was_ottoman_port && get_port_departure_units(from).length === 0)
@@ -884,7 +958,8 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function goto_end_action() {
-		if (game.events["bulls_eye_directive"] === game.turn) {
+		if (enter_catastrophic_attack_overstack_pe()) return
+		if (game.events && game.events["bulls_eye_directive"] === game.turn) {
 			Engine.events.bulls_eye_cleanup_scus(game)
 			// Bull's Eye Directive (黄色事件) effects are scoped to the current
 			// Action Round, not the whole turn: the +1 DRM vs RU, the SR of

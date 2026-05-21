@@ -187,6 +187,9 @@
 .marker.besieged {
 	background-image: url(pieces/MBESG.png);
 }
+.marker.catastrophic_attack_oos {
+	background-image: url(pieces/MBESG.png);
+}
 .marker.out_of_supply {
 	background-image: url(pieces/oos.png);
 }

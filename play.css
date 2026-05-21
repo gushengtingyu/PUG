@@ -1364,13 +1364,13 @@ body.flat .marker {
 }
 
 body.flat .piece.entrenching {
-	box-shadow: 0 0 0 3px #8b4513;
+	box-shadow: 0 0 0 3px chocolate;
 }
 
 body.bevel .piece.entrenching {
 	box-shadow:
-		0 0 0 3px #8b4513,
-		1px 1px 4px #000;
+		0 0 0 1px #000,
+		0 0 0 4px chocolate !important;
 }
 
 .piece.disrupted_supply {

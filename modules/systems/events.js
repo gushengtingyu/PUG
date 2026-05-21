@@ -79,6 +79,7 @@ module.exports = function (Engine) {
 	const CONSTANTINOPLE = find_space("CONSTANTINOPLE")
 	const THERMAIKOS_BAY = find_space("Thermaikos Bay")
 	const TO_ATHENS = find_space("to Athens")
+	const ODESSA = find_space("Odessa")
 	const CYPRUS_BEACHHEADS = ["To Adana", "To Beirut", "To Haifa", "To Jaffa"].map(find_space)
 	const CAUCASIAN_ARMY_REFORMS_TARGET = 12
 	const YILDRIM_OTTOMAN_SUPPLY_SOURCES = ["CONSTANTINOPLE", "Kayseri", "Erzincan", "Damascus", "Baghdad"]
@@ -748,6 +749,9 @@ module.exports = function (Engine) {
 				options.push(s)
 			}
 		}
+		if (unit_name === "RU 2/4 Special" && check_reinforcement_space(game, ODESSA, AP, () => true)) {
+			options.push(ODESSA)
+		}
 		if (can_allied_solidarity_use_neutral_salonika(game, unit_name)) {
 			options.push(SALONIKA)
 		}
@@ -758,7 +762,7 @@ module.exports = function (Engine) {
 		let options = get_allied_solidarity_location_options(game, unit_name)
 		let p = unit_name ? find_piece(AP, unit_name) : -1
 		if (p < 0) return options
-		return options.filter((s) => Engine.map.can_stack_end_in_space(game, s, [p]))
+		return options.filter((s) => Engine.map.can_place_piece_in_space(game, s, p))
 	}
 
 	function can_place_allied_solidarity_units(game, units, index = 0) {
@@ -1722,7 +1726,7 @@ module.exports = function (Engine) {
 			name_cn: "阿拉伯起义",
 			effect_cn: "(只能【劳伦斯】后，且圣战等级不大于7时打出)在汉志大区放置3个阿拉伯起义军并全部启动进行战斗。",
 			can_play: function (game) {
-				return !(!game.events["lawrence"] || (game.jihad || 0) > 7)
+				return game.events["lawrence"] && (game.jihad || 0) <= 7
 			},
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "arab_revolt")
@@ -1950,7 +1954,7 @@ module.exports = function (Engine) {
 				let units = ["IN Tigris Corps", "IN 2nd Corps", "IN DIV #7"]
 				event.reinf_to_place = units
 				event.reinf_placement = {
-					"IN Tigris Corps": "either",
+					"IN Tigris Corps": "map",
 					"IN 2nd Corps": "reserve",
 					"IN DIV #7": "either"
 				}
@@ -2335,7 +2339,6 @@ module.exports = function (Engine) {
 					combined_war: game.combined_war
 				}
 
-				game.vp -= 1
 				neutral.trigger_greece_entry(game, null, AP, "希腊事件", (msg) => log(game, msg, ctx))
 				game.events["greece_event_played"] = true
 			}
@@ -2861,6 +2864,9 @@ module.exports = function (Engine) {
 							}
 						}
 					}
+					if (game.neutral_vp_first_captor) {
+						delete game.neutral_vp_first_captor[ATHENS]
+					}
 
 					if (game.removed_ap) {
 						let idx = game.removed_ap.indexOf(45)
@@ -2877,7 +2883,6 @@ module.exports = function (Engine) {
 
 				if (neutral.is_greece_neutral(game) && neutral.check_constantine_entry_conditions(game)) {
 					neutral.trigger_greece_entry(game, null, CP, "康斯坦丁国王事件", (msg) => log(game, msg, ctx))
-					game.vp += 1
 				}
 
 				game.events["constantine"] = true
@@ -2978,9 +2983,12 @@ module.exports = function (Engine) {
 				Engine.utils.set_add(event.rupel_advanced_pieces, p)
 				let effects = []
 				if (Engine.game_utils.has_trench(game, target) > 0) {
-					Engine.game_utils.remove_trench(game, target)
-					if (Engine.game_utils.has_trench(game, target) > 0) effects.push("接收当地战壕")
-					else effects.push("清除当地战壕")
+					let trench_result = Engine.game_utils.enter_trench(game, target, CP, {
+						capture_level_2_intact: target === DOIRAN
+					})
+					if (trench_result.action === "captured_intact") effects.push("接收当地2级战壕")
+					else if (trench_result.action === "degraded") effects.push("当地2级战壕降为同盟国1级战壕")
+					else if (trench_result.action === "removed") effects.push("清除当地战壕")
 				}
 				if (typeof Engine.set_control === "function") Engine.set_control(game, target, CP)
 				if (data.spaces[target].fort && typeof Engine.map.set_fort_owner === "function") {

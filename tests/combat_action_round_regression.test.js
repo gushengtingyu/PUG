@@ -54,6 +54,62 @@ function createBattleGame() {
 	return { game, ruDiv3, tuDiv8, bayburt }
 }
 
+function createMaudeRetreatCancelGame(targetName, originName = "Baghdad") {
+	let game = rules.setup(104, "Historical", { seed: 42, no_supply_warnings: true })
+	let origin = findSpaceByName(originName)
+	let target = findSpaceByName(targetName)
+	let attacker = findPieceByName("BR IX Corps")
+	let defender1 = findPieceByName("TU DIV #8")
+	let defender2 = findPieceByName("TU DIV #9")
+
+	for (let p = 0; p < game.pieces.length; p++) game.pieces[p] = 0
+	game.pieces[attacker] = origin
+	game.pieces[defender1] = target
+	game.pieces[defender2] = target
+	game.control[origin] = rules.AP
+	game.control[target] = rules.CP
+	game.active = rules.AP
+	game.reduced = []
+	game.retreated = []
+	game.events = {}
+	game.cc_retained = { ap: [], cp: [] }
+	game.cc_retained_after_use = { ap: {}, cp: {} }
+	game.action_state = {}
+	game.trenches = []
+	game.trenches_2 = []
+	game.trench_owner = []
+	Engine.game_utils.place_trench(game, target, rules.CP)
+	game.combat_cards = { attacker: [Engine.combat.CC_AP_MAUDE], defender: [] }
+	game.combat_cards_effected = []
+	game.post_roll_cc_done = true
+	game.post_battle_cc_done = true
+	game.battle_resolution_side_effects_applied = true
+	game.attack = {
+		space: target,
+		pieces: [attacker],
+		attacker: rules.AP,
+		defender: rules.CP,
+		origin_by_piece: { [attacker]: origin },
+		initial_attackers: [attacker],
+		initial_defenders: [defender1, defender2]
+	}
+	game.battle_result = {
+		attacker_losses: 0,
+		defender_losses: 2,
+		retreat_needed: true,
+		retreating_faction: rules.CP,
+		retreating_units: [defender1, defender2],
+		retreat_can_cancel: true,
+		retreat_distance: 1,
+		no_advance: false,
+		attackers: [attacker],
+		defenders: [defender1, defender2],
+		advance_with_reduced: false
+	}
+
+	return { game, target, defender1, defender2 }
+}
+
 function createSpecialUnitDrmGame(active, attackers, defenders) {
 	let game = rules.setup(103, "Historical", { seed: 42, no_supply_warnings: true })
 	let oltu = findSpaceByName("Oltu")
@@ -367,6 +423,25 @@ test("post-battle retreat refresh ignores full-strength HQ when attacking combat
 	expect(game.battle_result.retreat_needed).toBe(false)
 	expect(game.battle_result.retreating_units).toEqual([])
 	expect(game.battle_result.retreat_can_cancel).toBe(false)
+})
+
+test("Maude prevents a defender-owned trench from cancelling retreat in a non-VP clear space", () => {
+	let { game, defender1, defender2 } = createMaudeRetreatCancelGame("Ctesiphon")
+
+	Engine.combat.end_battle_sequence(game, () => {})
+
+	expect(game.state).toBe("retreat")
+	expect(game.battle_result.retreat_can_cancel).toBe(false)
+	expect(game.retreat_pieces.sort((a, b) => a - b)).toEqual([defender1, defender2].sort((a, b) => a - b))
+})
+
+test("Maude does not stop non-trench defensive terrain from cancelling retreat", () => {
+	let { game } = createMaudeRetreatCancelGame("Bayburt", "Oltu")
+
+	Engine.combat.end_battle_sequence(game, () => {})
+
+	expect(game.state).toBe("retreat_cancel")
+	expect(game.battle_result.retreat_can_cancel).toBe(true)
 })
 
 test("HQ can accompany an eligible advancing combat unit but cannot anchor advance alone", () => {

@@ -49,6 +49,32 @@ module.exports = function (Engine) {
 		return reduced ? `p${p}` : `P${p}`
 	}
 
+	function set_event_state_after_interrupt(game, next_state) {
+		if (
+			game.state_stack &&
+			game.state_stack.length > 0 &&
+			(game.state === "jihad_placement" ||
+				game.state === "jihad_removal" ||
+				game.state === "jihad_rebellion_check" ||
+				game.state === "place_egyptian_rebellion")
+		) {
+			game.state_stack[game.state_stack.length - 1].state = next_state
+			return
+		}
+		game.state = next_state
+	}
+
+	function can_place_romania_combined_bu_ah_in_space(game, s) {
+		if (!(s > 0 && data.spaces[s]) || data.spaces[s].nation !== "bu") return false
+		let plan =
+			Engine.collapse && typeof Engine.collapse.get_romanian_entry_plan === "function"
+				? Engine.collapse.get_romanian_entry_plan()
+				: null
+		let unit_name = (plan && plan.cp && plan.cp.combined_bu_ah_name) || "Combined BU/AH Div"
+		let p = find_piece(CP, unit_name)
+		return p >= 0 && Engine.map.can_place_piece_in_space(game, s, p)
+	}
+
 	/**
 	 * 检查地块是否为丘吉尔胜出事件的合法增援地块
 	 */
@@ -72,7 +98,7 @@ module.exports = function (Engine) {
 	}
 
 	function log_churchill_bombardment(rules, target, cf, roll, success) {
-		rules.log(`丘吉尔胜出：炮击 ${target}，要塞火力值 ${cf}，掷骰 ${roll}，${success ? "成功" : "失败"}。`)
+		rules.log(`炮击 ${target}，要塞火力值 ${cf}，掷骰 ${roll}，${success ? "成功" : "失败"}。`)
 	}
 
 	function get_jerusalem_by_christmas_targets(game) {
@@ -1541,7 +1567,7 @@ module.exports = function (Engine) {
 
 			Engine.map.apply_sr_control_effects(game, p, game.pieces[p], event_port, AP)
 			game.pieces[p] = event_port
-			rules.log(`${rules.piece_name(p)} 战略调整至滩头 (Cost: ${cost}).`)
+			rules.log(`${rules.piece_name(p)} 战略调整至滩头${cost !== 1 ? ` (Cost: ${cost})` : ''}.`)
 
 			if ((data_event.count || 0) >= 3) {
 				delete event.event_port
@@ -1599,7 +1625,7 @@ module.exports = function (Engine) {
 			log_churchill_bombardment(rules, rules.space_name(s), cf, roll, success)
 
 			if (success) {
-				rules.log(`丘吉尔胜出：${rules.space_name(s)} 要塞被摧毁。`)
+				rules.log(`${rules.space_name(s)} 要塞被摧毁。`)
 				if (!game.forts) game.forts = { destroyed: [] }
 				if (!game.forts.destroyed) game.forts.destroyed = []
 				rules.set_add(game.forts.destroyed, s)
@@ -1615,11 +1641,11 @@ module.exports = function (Engine) {
 				} else if (event.churchill_prevails_step === 3) {
 					event.churchill_prevails_step = 4
 				} else if (event.churchill_prevails_step === 4) {
-					rules.log("丘吉尔胜出：加里波利要塞被摧毁，皇家海军驶入马尔马拉海。")
+					rules.log("加里波利要塞被摧毁，皇家海军驶入马尔马拉海。")
 					game.state = "event_churchill_prevails_constantinople"
 				}
 			} else {
-				rules.log("丘吉尔胜出：炮击受挫，后续计划终止。")
+				rules.log("炮击受挫，后续计划终止。")
 				rules.goto_end_operations()
 			}
 		}
@@ -1635,14 +1661,14 @@ module.exports = function (Engine) {
 		bombard(ctx) {
 			let { game, rules } = ctx
 			rules.push_undo()
-			rules.log("丘吉尔胜出：皇家海军炮击君士坦丁堡，协约国 VP -1，圣战等级 +1。")
+			rules.log("皇家海军炮击君士坦丁堡，VP -1，圣战等级 +1。")
 			game.vp -= 1
 			game.state = "event_churchill_prevails_place_units"
 			rules.update_jihad_level(game, 1)
 		},
 		skip(ctx) {
 			let { game, rules } = ctx
-			rules.log("丘吉尔胜出：协约国放弃炮击君士坦丁堡。")
+			rules.log("协约国放弃炮击君士坦丁堡。")
 			game.state = "event_churchill_prevails_place_units"
 		}
 	}
@@ -1714,22 +1740,22 @@ module.exports = function (Engine) {
 						game.rp_ap.ru += 2
 					}
 					rules.log(
-						"丘吉尔胜出：博斯普鲁斯海峡要塞被摧毁，俄国立即获得 2 点补员点数，此后每回合额外获得 1 点，直到【地中海潜艇猎袭】打出。"
+						"博斯普鲁斯海峡要塞被摧毁，俄国立即获得 2 点补员点数，此后每回合额外获得 1 点，直到【地中海潜艇猎袭】打出。"
 					)
 				} else {
 					rules.log(
-						"丘吉尔胜出：博斯普鲁斯海峡要塞被摧毁，但【地中海潜艇猎袭】已生效，俄国不获得额外补员点数。"
+						"博斯普鲁斯海峡要塞被摧毁，但【地中海潜艇猎袭】已生效，俄国不获得额外补员点数。"
 					)
 				}
 				rules.goto_end_operations()
 			} else {
-				rules.log("丘吉尔胜出：炮击受挫，后续计划终止。")
+				rules.log("炮击受挫，后续计划终止。")
 				rules.goto_end_operations()
 			}
 		},
 		skip(ctx) {
 			let { rules } = ctx
-			rules.log("丘吉尔胜出：协约国不继续炮击博斯普鲁斯海峡要塞。")
+			rules.log("协约国不继续炮击博斯普鲁斯海峡要塞。")
 			rules.goto_end_operations()
 		}
 	}
@@ -1873,7 +1899,11 @@ module.exports = function (Engine) {
 					: []
 			let has_salonika_option = options.includes(SALONIKA)
 
-			if (unit === "GR National Defense" && has_salonika_option) {
+			if (unit === "RU 2/4 Special") {
+				res.prompt(
+					`盟军团结：将 ${unit} 放置在巴尔干内任一协约国控制港口或滩头标记，包括利姆诺斯岛；也可放置至协约国控制的敖德萨。`
+				)
+			} else if (unit === "GR National Defense" && has_salonika_option) {
 				res.prompt(
 					`盟军团结：将 ${unit} 放置在巴尔干内任一协约国控制港口或滩头标记，包括利姆诺斯岛；也可放置至中立萨洛尼卡。`
 				)
@@ -1988,6 +2018,10 @@ module.exports = function (Engine) {
 				event.reinf_to_place = ["BR VIII Corps", "ANZ ANZAC", "BR DIV #4", "FR DIV #1", "FR DIV #2"]
 				event.reinf_logic = "is_ap_invasion_rein"
 				event.reinf_prompt_prefix = "加里波利入侵（增援）"
+				let viii = rules.find_piece(AP, "BR VIII Corps")
+				if (viii >= 0) rules.set_add(game.reduced, viii)
+				let anzac = rules.find_piece(AP, "ANZ ANZAC")
+				if (anzac >= 0) rules.set_add(game.reduced, anzac)
 			}
 			game.state = "event_place_reinforcements"
 		}
@@ -2023,6 +2057,8 @@ module.exports = function (Engine) {
 				event.reinf_to_place = ["BR XVI Corps", "BR XII Corps", "FR DIV #3", "FR DIV #4"]
 				event.reinf_logic = "is_ap_invasion_rein"
 				event.reinf_prompt_prefix = "萨洛尼卡入侵（增援）"
+				let xii = rules.find_piece(AP, "BR XII Corps")
+				if (xii >= 0) rules.set_add(game.reduced, xii)
 			}
 			game.state = "event_place_reinforcements"
 		}
@@ -2900,7 +2936,7 @@ module.exports = function (Engine) {
 				let area = rules.get_area(s)
 				if (area === "anatolia" || area === "gallipoli") {
 					// 只能在尚未有战壕、同盟国控制且不是岛屿基地、滩头或潜在登陆点 (beach_for) 的空间放置
-					let is_empty_trench = !rules.set_has(game.trenches, s)
+					let is_empty_trench = rules.has_trench(game, s) === 0
 					let is_controlled = rules.is_controlled_by(game, s, CP)
 					let is_beachhead = rules.is_beachhead_space(game, s) || !!data.spaces[s].beach_for
 					let is_valid_type = !rules.is_island_base(game, s) && !is_beachhead
@@ -2917,7 +2953,7 @@ module.exports = function (Engine) {
 			let { game, rules, arg: s } = ctx
 			let event_data = use_event(game, "german_military_advisers")
 			rules.push_undo()
-			rules.place_trench(game, s)
+			rules.place_trench(game, s, CP)
 			event_data.trenches_to_place -= 1
 			if (event_data.trenches_to_place <= 0) {
 				rules.goto_end_event()
@@ -3028,7 +3064,7 @@ module.exports = function (Engine) {
 			rules.push_undo()
 			rules.reinforce(game, event.unit_name || "PE Uprising", CP, s)
 			delete event.unit_spaces
-			game.state = "event_german_intrigues_persia_markers"
+			set_event_state_after_interrupt(game, "event_german_intrigues_persia_markers")
 		}
 	}
 
@@ -3591,7 +3627,7 @@ module.exports = function (Engine) {
 				if (rules.is_syria_palestine(s) || rules.is_sinai(s)) {
 					// 只能在尚未有战壕、且不是岛屿基地或滩头的空间放置
 					if (
-						!rules.set_has(game.trenches, s) &&
+						rules.has_trench(game, s) === 0 &&
 						!rules.is_island_base(game, s) &&
 						!rules.is_beachhead_space(game, s)
 					) {
@@ -3604,7 +3640,7 @@ module.exports = function (Engine) {
 		space(ctx) {
 			let { game, rules, arg: s } = ctx
 			rules.push_undo()
-			rules.place_trench(game, s)
+			rules.place_trench(game, s, CP)
 			rules.goto_end_event()
 		},
 		done(ctx) {
@@ -3659,8 +3695,7 @@ module.exports = function (Engine) {
 			function can_place_reinforcement_unit_in_space(s, p_id) {
 				if (p_id < 0) return false
 				if (Engine.map.is_potential_beachhead_space(s) && !Engine.map.is_beachhead_space(game, s)) return false
-				if (Engine.map.contains_enemy_pieces(game, s, faction) && !Engine.map.is_region(game, s)) return false
-				return Engine.map.can_stack_end_in_space(game, s, [p_id])
+				return Engine.map.can_place_piece_in_space(game, s, p_id)
 			}
 
 			function can_place_adjacent_overflow_reinforcement(s, p_id) {
@@ -3879,13 +3914,14 @@ module.exports = function (Engine) {
 			let { game, res } = ctx
 			res.prompt("罗马尼亚：选择 Combined BU/AH 师在保加利亚的放置位置")
 			for (let s = 1; s < data.spaces.length; s++) {
-				if (data.spaces[s] && data.spaces[s].nation === "bu") {
+				if (can_place_romania_combined_bu_ah_in_space(game, s)) {
 					res.space(s)
 				}
 			}
 		},
 		space(ctx) {
 			let { game, rules, arg: s } = ctx
+			if (!can_place_romania_combined_bu_ah_in_space(game, s)) return
 			let name = data.spaces[s].name
 			Engine.neutral.place_romania_combined_bu_ah(game, name)
 			if (typeof Engine.map.check_supply === "function") {

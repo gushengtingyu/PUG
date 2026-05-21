@@ -66,13 +66,14 @@ test("AP Persian units can remove Persian Uprising markers in isolated Persia sp
 		game.persian_uprising_markers = [hamadan]
 		prepareActivationState(game, AP)
 
-		expect(Engine.map.get_supply_status(game, hamadan, AP, unit)).toBe("DISRUPTED")
+		expect(Engine.map.get_supply_status(game, hamadan, AP, unit)).toBe("FULL")
 
 		let view = rules.view(game, AP_ROLE)
 		expect(view.actions.activate_move).toContain(hamadan)
 
 		game = rules.action(game, AP_ROLE, "activate_move", hamadan)
-		expect(game.activation_cost[hamadan]).toBe(2)
+		expect(game.activation_cost[hamadan]).toBe(1)
+		game = rules.action(game, AP_ROLE, "done")
 
 		game = rules.action(game, AP_ROLE, "piece", unit)
 		view = rules.view(game, AP_ROLE)

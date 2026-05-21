@@ -13,8 +13,8 @@ module.exports = function (Engine) {
 		is_piece_reduced,
 		get_piece_nation,
 		piece_name,
-		get_piece_faction,
 		get_piece_effective_faction,
+		get_piece_faction,
 		is_regular,
 		is_irregular
 	} = game_utils
@@ -39,12 +39,7 @@ module.exports = function (Engine) {
 		if (!tribe_type) return false
 		if (data.spaces[s].tribal_activity_grid !== tribe_type) return false
 		
-		// Tribes cannot be placed in a space with enemy units unless it's a Region (e.g., NW Tribe in India)
-		if (!map.is_region(game, s) && map.contains_enemy_pieces(game, s, get_piece_faction(p))) {
-			return false
-		}
-		
-		return map.can_stack_end_in_space(game, s, [p])
+		return map.can_place_piece_in_space(game, s, p)
 	}
 
 	/**
@@ -128,7 +123,7 @@ module.exports = function (Engine) {
 		if (!amount) return
 		Engine.log(
 			game,
-			`圣战城市影响：${format_space_name(s)}，圣战等级 ${amount > 0 ? "+" : ""}${amount} (当前: ${game.jihad})。`
+			`圣战城市：${format_space_name(s)}，圣战等级 ${amount > 0 ? "+" : ""}${amount} (当前: ${game.jihad})。`
 		)
 	}
 
