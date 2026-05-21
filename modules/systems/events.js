@@ -79,6 +79,7 @@ module.exports = function (Engine) {
 	const CONSTANTINOPLE = find_space("CONSTANTINOPLE")
 	const THERMAIKOS_BAY = find_space("Thermaikos Bay")
 	const TO_ATHENS = find_space("to Athens")
+	const ODESSA = find_space("Odessa")
 	const CYPRUS_BEACHHEADS = ["To Adana", "To Beirut", "To Haifa", "To Jaffa"].map(find_space)
 	const CAUCASIAN_ARMY_REFORMS_TARGET = 12
 	const YILDRIM_OTTOMAN_SUPPLY_SOURCES = ["CONSTANTINOPLE", "Kayseri", "Erzincan", "Damascus", "Baghdad"]
@@ -747,6 +748,9 @@ module.exports = function (Engine) {
 			if (is_allied_solidarity_general_space(game, s)) {
 				options.push(s)
 			}
+		}
+		if (unit_name === "RU 2/4 Special" && check_reinforcement_space(game, ODESSA, AP, () => true)) {
+			options.push(ODESSA)
 		}
 		if (can_allied_solidarity_use_neutral_salonika(game, unit_name)) {
 			options.push(SALONIKA)

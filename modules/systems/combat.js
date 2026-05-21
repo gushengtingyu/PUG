@@ -1336,7 +1336,9 @@ module.exports = function (Engine) {
 	function can_cancel_defender_retreat(game, target_space, retreating_faction, retreating_units) {
 		if (!(target_space > 0) || !Array.isArray(retreating_units) || retreating_units.length === 0) return false
 		let target_terrain = get_combat_target_terrain(game, target_space, game.attack?.pieces)
-		let trench = get_defender_trench_level(game, target_space, retreating_faction, retreating_units)
+		let trench = attacker_has_maude_trench_ignore(game, target_space)
+			? 0
+			: get_defender_trench_level(game, target_space, retreating_faction, retreating_units)
 		let has_fort = has_undestroyed_fort(game, target_space, retreating_faction)
 		let defensive_ground =
 			target_terrain === FOREST ||

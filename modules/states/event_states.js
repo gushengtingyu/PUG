@@ -1899,7 +1899,11 @@ module.exports = function (Engine) {
 					: []
 			let has_salonika_option = options.includes(SALONIKA)
 
-			if (unit === "GR National Defense" && has_salonika_option) {
+			if (unit === "RU 2/4 Special") {
+				res.prompt(
+					`盟军团结：将 ${unit} 放置在巴尔干内任一协约国控制港口或滩头标记，包括利姆诺斯岛；也可放置至协约国控制的敖德萨。`
+				)
+			} else if (unit === "GR National Defense" && has_salonika_option) {
 				res.prompt(
 					`盟军团结：将 ${unit} 放置在巴尔干内任一协约国控制港口或滩头标记，包括利姆诺斯岛；也可放置至中立萨洛尼卡。`
 				)
