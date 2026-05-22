@@ -69,6 +69,13 @@ test("Romania 事件会按展示板正确放置单位、切换罗马尼亚控制
 	expect(game.pieces[findPiece(CP, "Combined BU/AH Div")]).toBe(findSpace("CP Reserve"))
 	expect(countPoolUnitsInSpace(game, CP, ["GE DIV #3", "GE DIV #4"], "CP Reserve")).toBe(2)
 
+	expect(Engine.game_utils.is_piece_reduced(game, findPiece(AP, "RO 3 Army"))).toBe(true)
+	expect(Engine.game_utils.is_piece_reduced(game, findPiece(AP, "RU Dobruja"))).toBe(true)
+	expect(Engine.game_utils.is_piece_reduced(game, findPiece(CP, "GE IX Army"))).toBe(true)
+	expect(Engine.game_utils.is_piece_reduced(game, findPiece(CP, "AH VI R Corps"))).toBe(true)
+	expect(Engine.game_utils.is_piece_reduced(game, findPiece(AP, "RO 1 Army"))).toBe(false)
+	expect(Engine.game_utils.is_piece_reduced(game, geAlpen)).toBe(false)
+
 	expect(Engine.game_utils.get_piece_effective_faction(game, geAlpen)).toBe(CP)
 	expect(hasDelayedEntry(game, AP, "RU Danube Army", game.turn + 1, "Odessa")).toBe(true)
 	expect(hasDelayedEntry(game, AP, "RU 6 Army", game.turn + 2, "Odessa")).toBe(true)

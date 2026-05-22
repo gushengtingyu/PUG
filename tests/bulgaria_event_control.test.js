@@ -61,6 +61,8 @@ test("Bulgaria 事件会原地解锁预摆单位，并立即切换保加利亚�
 	expect(game.pieces[geArmy]).toBe(galicia)
 	expect(game.pieces[ahCorps]).toBe(galicia)
 	expect(game.pieces[sbArmy]).toBe(belgrade)
+	expect(Engine.game_utils.is_piece_reduced(game, bu3Army)).toBe(true)
+	expect(Engine.game_utils.is_piece_reduced(game, buArmy)).toBe(false)
 	expect(Engine.game_utils.get_piece_effective_faction(game, buArmy)).toBe(CP)
 	expect(Engine.game_utils.get_piece_effective_faction(game, geArmy)).toBe(CP)
 	expect(Engine.game_utils.get_piece_effective_faction(game, sbArmy)).toBe(AP)
@@ -115,5 +117,6 @@ test("Bulgaria event can place BU 3 Army in Rustchuk after Romania has entered",
 	game = rules.action(game, rules.roles[1], "space", plevna)
 
 	expect(game.pieces[bu3Army]).toBe(plevna)
+	expect(Engine.game_utils.is_piece_reduced(game, bu3Army)).toBe(true)
 	expect(game.state).toBe("confirm_event")
 })

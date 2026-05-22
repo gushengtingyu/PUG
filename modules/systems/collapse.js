@@ -67,11 +67,11 @@ module.exports = function (Engine) {
 				Object.freeze({ name: "RO 2 Army", space: "Ploesti" }),
 				Object.freeze({ name: "RO DIV #3", space: "Ploesti" }),
 				Object.freeze({ name: "RO Cavalry", space: "Ploesti" }),
-				Object.freeze({ name: "RO 3 Army", space: "Turtukai" }),
+				Object.freeze({ name: "RO 3 Army", space: "Turtukai", reduced: true }),
 				Object.freeze({ name: "RO DIV #4", space: "BUCHAREST" }),
 				Object.freeze({ name: "RO DIV #5", space: "BUCHAREST" }),
 				Object.freeze({ name: "RO DIV #6", space: "AP Reserve" }),
-				Object.freeze({ name: "RU Dobruja", space: "Constanta" }),
+				Object.freeze({ name: "RU Dobruja", space: "Constanta", reduced: true }),
 				Object.freeze({ name: "RU/SB Yugo Infantry", space: "AP Reserve" })
 			]),
 			ru_division_pool: Object.freeze(["RU DIV #18", "RU DIV #19", "RU DIV #20", "RU DIV #21", "RU DIV #22"]),
@@ -84,10 +84,10 @@ module.exports = function (Engine) {
 		}),
 		cp: Object.freeze({
 			immediate: Object.freeze([
-				Object.freeze({ name: "GE IX Army", space: "Galicia" }),
+				Object.freeze({ name: "GE IX Army", space: "Galicia", reduced: true }),
 				Object.freeze({ name: "GE Falkenhayn HQ", space: "Galicia" }),
 				Object.freeze({ name: "GE Alpenkorps", space: "Galicia", unlock_bulgaria_display: true }),
-				Object.freeze({ name: "AH VI R Corps", space: "Galicia" }),
+				Object.freeze({ name: "AH VI R Corps", space: "Galicia", reduced: true }),
 				Object.freeze({ name: "Combined BU/AH Div", space: "CP Reserve", bulgaria_space: "SOFIA" })
 			]),
 			combined_bu_ah_name: "Combined BU/AH Div",

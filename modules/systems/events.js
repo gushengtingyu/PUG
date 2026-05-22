@@ -1237,6 +1237,73 @@ module.exports = function (Engine) {
 		)
 	}
 
+	function has_enver_falkenhayn_bu4_placement(game) {
+		let p = find_piece(CP, "BU 4 Army")
+		if (p < 0) return false
+		let helper = Engine.reinf_helpers && Engine.reinf_helpers.is_bu_bulgaria
+		if (!helper || typeof helper.check !== "function") return false
+
+		function can_place_reinforcement_unit_in_space(s) {
+			if (Engine.map.is_potential_beachhead_space(s) && !Engine.map.is_beachhead_space(game, s)) return false
+			return Engine.map.can_place_piece_in_space(game, s, p)
+		}
+
+		function can_place_adjacent_overflow_reinforcement(s) {
+			if (Engine.map.is_controlled_by(game, s, AP)) return false
+			if (Engine.map.is_besieged(game, s)) return false
+			return can_place_reinforcement_unit_in_space(s)
+		}
+
+		for (let s = 1; s < data.spaces.length; s++) {
+			if (!helper.check(game, s)) continue
+			if (can_place_reinforcement_unit_in_space(s)) return true
+
+			for (let ns of Engine.map.get_connected_spaces(game, s)) {
+				if (can_place_adjacent_overflow_reinforcement(ns)) return true
+			}
+		}
+		return false
+	}
+
+	function with_enver_falkenhayn_can_play_overlay(game, fn) {
+		let previous_state = game.state
+		let previous_event_ctx = game.event_ctx
+		let previous_sr_moved = game.sr_moved
+		game.state = "event_enver_falkenhayn_sr"
+		game.event_ctx = { key: "enver_falkenhayn_summit", data: { sr_points: 8, moved: [] } }
+		game.sr_moved = []
+		try {
+			return fn()
+		} finally {
+			game.state = previous_state
+			if (previous_event_ctx === undefined) delete game.event_ctx
+			else game.event_ctx = previous_event_ctx
+			if (previous_sr_moved === undefined) delete game.sr_moved
+			else game.sr_moved = previous_sr_moved
+		}
+	}
+
+	function has_enver_falkenhayn_galicia_sr_candidate(game) {
+		return with_enver_falkenhayn_can_play_overlay(game, () => {
+			for (let p = 1; p < data.pieces.length; p++) {
+				let info = data.pieces[p]
+				if (!info || (info.nation !== "tu" && info.nation !== "tua") || info.piece_class !== "LCU") continue
+				if (!Engine.map.can_sr_piece(game, p, CP)) continue
+				if (Engine.map.get_sr_cost(game, p) > 8) continue
+				if (Engine.map.get_sr_destinations(game, p, CP).includes(GALICIA)) return true
+			}
+			return false
+		})
+	}
+
+	function can_play_enver_falkenhayn_summit(game) {
+		return (
+			Engine.map.is_rail_connected_to_galicia(game) &&
+			has_enver_falkenhayn_bu4_placement(game) &&
+			has_enver_falkenhayn_galicia_sr_candidate(game)
+		)
+	}
+
 	/**
 	 * 检查当前是否处于德国潜艇 (German Subs) 封锁协约国增援的当回合
 	 * @param {object} game 游戏实例
@@ -3230,7 +3297,7 @@ module.exports = function (Engine) {
 			effect_cn:
 				"(只能在君士坦丁堡-加利西亚的铁路相连时打出)。增援:(保加利亚第4集团军)至任何保加利亚境内同盟国控制地区。同盟国获得并使用最多8点战略调整点数将土耳其/土耳其-阿拉伯部队战略调整至巴尔干。*这其中至少应包含一个至加利西亚的土耳其LCU*。每个回合损耗结算阶段，若俄国革命还未达到第4阶段，则位于加利西亚的土耳其LCU需要进行一次伤害结算，因为其在加利西亚战线对抗俄国军队经历了激烈的战斗。*进行一次掷骰来决定受到伤害的多少。**。每个夏季回合的战争状态结算阶段，若有土耳其LCU仍位于加利西亚，则由于土耳其军队在东线对抗俄国的战果，可以获得+1VP(在俄国革命阶段达到第4阶段时，无法继续获得VP)。- **(注:土耳其单位只能通过该事件进入加利西亚大区。土耳其永远不能在加利西亚重建LCU或者进行LCU组合。当能够通过己方控制地区连接至君士坦丁堡等土耳其补给源时，加利西亚的受损土耳其LCU可以接受补员)",
 			can_play: function (game) {
-				return Engine.map.is_rail_connected_to_galicia(game)
+				return can_play_enver_falkenhayn_summit(game)
 			},
 			handler: function (game, ctx) {
 				game.active = CP

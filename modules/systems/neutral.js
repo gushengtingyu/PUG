@@ -4,6 +4,7 @@ module.exports = function (Engine) {
 	const { data, game_utils } = Engine
 	const exports = {}
 	const { AP, CP } = Engine.constants
+	const { set_add } = Engine.utils
 	const { find_space } = game_utils
 	const SUPPORTED_NEUTRAL_NATIONS = new Set(["gr", "bu", "sb", "ro"])
 	const SOFIA = find_space("SOFIA")
@@ -24,6 +25,13 @@ module.exports = function (Engine) {
 	function piece_log_name(game, p) {
 		if (!data.pieces[p]) return "Unknown Unit (" + p + ")"
 		return game_utils.is_piece_reduced(game, p) ? `p${p}` : `P${p}`
+	}
+
+	function apply_entry_piece_state(game, p, options = {}) {
+		if (options.reduced) {
+			if (!Array.isArray(game.reduced)) game.reduced = []
+			set_add(game.reduced, p)
+		}
 	}
 
 	function normalize_greece_faction(value) {
@@ -542,6 +550,8 @@ module.exports = function (Engine) {
 		let can_reposition_existing = choice_space_ids.includes(current_space)
 
 		if (!game_utils.is_not_on_map(game, p) && !can_reposition_existing) return false
+		if (!Array.isArray(game.reduced)) game.reduced = []
+		set_add(game.reduced, p)
 		if (current_space !== space_id) {
 			game.pieces[p] = space_id
 			Engine.log(game, `部署 ${piece_log_name(game, p)} 至 ${space_log_name(space_id)}`)
@@ -593,6 +603,7 @@ module.exports = function (Engine) {
 			!game_utils.is_removed(game, p) &&
 			!game_utils.is_reinforcement(game, p)
 		) {
+			apply_entry_piece_state(game, p, options)
 			if (game.pieces[p] !== space_id) {
 				game.pieces[p] = space_id
 				Engine.log(game, `部署 ${piece_log_name(game, p)} 至 ${space === "RESERVE" ? "预备格" : space_log_name(space_id)}`)
@@ -600,6 +611,7 @@ module.exports = function (Engine) {
 			return true
 		}
 		if (!game_utils.is_not_on_map(game, p)) return false
+		apply_entry_piece_state(game, p, options)
 		game.pieces[p] = space_id
 		Engine.log(game, `部署 ${piece_log_name(game, p)} 至 ${space === "RESERVE" ? "预备格" : space_log_name(space_id)}`)
 		return true

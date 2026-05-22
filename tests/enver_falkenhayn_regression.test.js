@@ -5,7 +5,9 @@ const data = require("../data.js")
 const { setupGame, findCpPiece, findSpace } = require("./helpers.js")
 
 const { CP } = Engine.constants
+const CP_ROLE = rules.roles[1]
 const eventStates = Engine.event_states.states
+const ENVER_FALKENHAYN_SUMMIT = 84
 
 function createResultStub() {
 	return {
@@ -52,6 +54,30 @@ function getTurkishLcuIds() {
 		}
 	}
 	return ids
+}
+
+function isBalkansOrGalicia(s) {
+	const info = data.spaces[s]
+	return !!(info && (info.area === "balkans" || info.region === "Galicia"))
+}
+
+function prepareRailConnectedSummitGame(seed) {
+	let game = setupGame(seed, "Historical", { no_supply_warnings: true })
+	Engine.neutral.trigger_bulgaria_entry(game)
+	Engine.neutral.place_bulgaria_third_army(game)
+	if (!game.control) game.control = []
+	for (let s = 1; s < data.spaces.length; s++) {
+		if (isBalkansOrGalicia(s) || (data.spaces[s] && data.spaces[s].name === "CONSTANTINOPLE")) {
+			game.control[s] = CP
+		}
+	}
+	for (let p = 1; p < data.pieces.length; p++) {
+		let s = game.pieces[p]
+		if (data.pieces[p] && data.pieces[p].faction !== CP && s > 0 && isBalkansOrGalicia(s)) {
+			game.pieces[p] = 0
+		}
+	}
+	return game
 }
 
 test("Enver-Falkenhayn Summit SR prompt does not call a missing rules helper", () => {
@@ -120,4 +146,34 @@ test("Enver-Falkenhayn Summit prompt avoids repeated global SR destination scans
 	} finally {
 		Engine.map.get_sr_destinations = original
 	}
+})
+
+test("Enver-Falkenhayn Summit cannot be played when no Turkish LCU can enter Galicia", () => {
+	let game = prepareRailConnectedSummitGame(2026052301)
+	for (let p = 1; p < data.pieces.length; p++) {
+		let info = data.pieces[p]
+		if (info && (info.nation === "tu" || info.nation === "tua") && info.piece_class === "LCU") {
+			game.pieces[p] = 0
+		}
+	}
+
+	expect(Engine.map.is_rail_connected_to_galicia(game)).toBe(true)
+	expect(Engine.events.can_play_event(game, ENVER_FALKENHAYN_SUMMIT)).toBe(false)
+})
+
+test("Enver-Falkenhayn Summit can be played when a Turkish LCU can enter Galicia", () => {
+	let game = prepareRailConnectedSummitGame(2026052302)
+	let galicia = findSpace("Galicia")
+	let sofia = findSpace("SOFIA")
+	let tuICorps = findCpPiece("TU I Corps")
+
+	expect(Engine.events.can_play_event(game, ENVER_FALKENHAYN_SUMMIT)).toBe(true)
+
+	Engine.events.play_event(game, ENVER_FALKENHAYN_SUMMIT, { log() {} })
+	game = rules.action(game, CP_ROLE, "space", sofia)
+	game = rules.action(game, CP_ROLE, "piece", tuICorps)
+
+	let view = rules.view(game, CP_ROLE)
+	expect(game.state).toBe("event_enver_falkenhayn_sr")
+	expect(view.actions.space).toContain(galicia)
 })
