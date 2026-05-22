@@ -299,6 +299,7 @@ module.exports = function (Engine) {
 		return (
 			info.name === "BR/PE SPers Rifles" ||
 			info.name === "RU/PE Police North" ||
+			info.name === "PE/RU Persian Cossacks" ||
 			(info.name && (info.name.startsWith("RU/PE") || info.name.startsWith("PE/RU")))
 		)
 	}
@@ -863,6 +864,12 @@ module.exports = function (Engine) {
 		let controller = normalize_vp_owner(Engine.map.get_space_controller(game, s))
 		let has_ap_regular = false
 		let has_cp_regular = false
+
+		// Rule 15.1.8: An undestroyed Fort prevents enemy control and VP/Jihad point claiming.
+		// It acts as a regular unit for Disruption (10.3.1) purposes.
+		if (Engine.map.has_undestroyed_fort(game, s, AP)) has_ap_regular = true
+		if (Engine.map.has_undestroyed_fort(game, s, CP)) has_cp_regular = true
+
 		let has_ap_partial = false
 		let has_cp_partial = false
 		for (let p of Engine.map.get_pieces_in_space(game, s)) {

@@ -22305,7 +22305,7 @@ var data = {
 		"id": 145,
 		"faction": "ap",
 		"nation": "ru",
-		"name": "RU Persian coss",
+		"name": "PE/RU Persian Cossacks",
 		"cf": 2,
 		"lf": 2,
 		"mf": 6,

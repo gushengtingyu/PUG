@@ -143,7 +143,7 @@ id,faction,nation,name,cf,lf,mf,rcf,rlf,rmf,symbol,region_limit,type,badge,piece
 142,ap,ru,RU I Caucasian,3,3,4,2,3,4,,,regular,infantry,LCU,RUICaucC.png,RUICaucCR.png
 143,ap,ru,RU II Turkistani,3,3,4,2,3,4,,,regular,infantry,LCU,RUIITurkC.png,RUIITurkCR.png
 144,ap,ru,RU IV Caucasian,3,3,4,2,3,4,,,regular,infantry,LCU,RUIVCaucC.png,RUIVCaucCR.png
-145,ap,ru,RU Persian coss,2,2,6,1,1,6,triangle,,regular,cavalry,SCU,RUPECos.png,RUPECosR.png
+145,ap,ru,PE/RU Persian Cossacks,2,2,6,1,1,6,triangle,,regular,cavalry,SCU,RUPECos.png,RUPECosR.png
 146,ap,ru,RU V Caucasian,3,3,4,2,3,4,,,regular,infantry,LCU,RUVCaucC.png,RUVCaucCR.png
 147,ap,ru,RU VII Caucasian,2,2,4,1,2,4,,,regular,yellow,LCU,RUVIICaucC.png,RUVIICaucCR.png
 148,ap,ru,RU Yudenitch HQ,0,1,4,0,0,4,,,hq,,SCU,RUYudHQ.png,RUYudHQR.png

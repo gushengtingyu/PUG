@@ -248,7 +248,7 @@ module.exports = function (Engine) {
 		place_piece(game, "ap", "RU Cavalry #4", "Tabriz", false)
 		place_piece(game, "ap", "RU Cavalry #5", "TIFLIS", false)
 		place_piece(game, "ap", "RU Cavalry #6", "Central Asia", true)
-		place_piece(game, "ap", "RU Persian coss", "Tabriz", false)
+		place_piece(game, "ap", "PE/RU Persian Cossacks", "Tabriz", false)
 		place_piece(game, "ap", "RU Yudenitch HQ", "TIFLIS", false)
 
 		// Beachhead

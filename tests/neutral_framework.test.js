@@ -157,6 +157,7 @@ describe("中立国统一框架", () => {
 		for (let [faction, unitName, spaceName] of [
 			[AP, "BR/PE SPers Rifles", "Hamadan"],
 			[AP, "RU/PE Police North", "TEHERAN"],
+			[AP, "PE/RU Persian Cossacks", "TEHERAN"],
 			[CP, "PE Uprising", "Qum"]
 		]) {
 			let game = setupGame(2026052103, "Historical", { no_supply_warnings: true })
@@ -322,7 +323,7 @@ describe("中立国统一框架", () => {
 		let game = setupGame(2026042803)
 		let astara = findSpace("Astara")
 		let kazvin = findSpace("Kazvin")
-		let ruPiece = findPiece(AP, "RU Persian coss")
+		let ruPiece = findPiece(AP, "PE/RU Persian Cossacks")
 		let initialVp = game.vp
 
 		Engine.check_persia_entry_vp_penalty(game, astara, [ruPiece])
@@ -349,7 +350,7 @@ describe("中立国统一框架", () => {
 	test("进入非中立波斯不会触发中立波斯首次进入 VP 惩罚", () => {
 		let game = setupGame(2026042805)
 		let meshed = findSpace("Meshed")
-		let ruPiece = findPiece(AP, "RU Persian coss")
+		let ruPiece = findPiece(AP, "PE/RU Persian Cossacks")
 		let initialVp = game.vp
 
 		Engine.check_persia_entry_vp_penalty(game, meshed, [ruPiece])
