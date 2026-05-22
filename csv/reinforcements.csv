@@ -37,7 +37,7 @@ id,card,name,x,y,side,type
 1036,24,SB Cavalry,401,495,ap,reinforcement
 1037,25,RU V Caucasian,513,503,ap,reinforcement
 1038,25,RU Black Sea,590,495,ap,reinforcement
-1039,25,RU Elite DIV #7,658,495,ap,reinforcement
+1039,25,RU Elite DIV #5,658,495,ap,reinforcement
 1040,26,IN Tigris Corps,770,503,ap,reinforcement
 1041,26,IN 2nd Corps,854,503,ap,reinforcement
 1042,26,IN DIV #7,931,495,ap,reinforcement
@@ -67,7 +67,7 @@ id,card,name,x,y,side,type
 1066,42,J By C token,209,865,ap,reinforcement
 1067,43,RU VII Caucasian,328,865,ap,reinforcement
 1068,43,RU Caucasian Cav,412,865,ap,reinforcement
-1069,43,RU Elite DIV #5 #6,488,855,ap,reinforcement
+1069,43,RU Elite DIV #6 #7,488,855,ap,reinforcement
 1070,47,IN 3rd Corps,600,865,ap,reinforcement
 1071,47,IN Elite DIV #3,677,855,ap,reinforcement
 1072,47,IN Cavalry #6,745,855,ap,reinforcement

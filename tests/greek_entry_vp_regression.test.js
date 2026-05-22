@@ -60,3 +60,33 @@ test("Constantine counter clears Greece event Athens VP state", () => {
 	expect(game.vp).toBe(10)
 	expect(game.neutral_vp_first_captor && game.neutral_vp_first_captor[athens]).toBeUndefined()
 })
+
+test("Greek units use CP casualty boxes after Constantine brings Greece into the CP", () => {
+	let game = setupGame(2026051806, "Historical")
+	let greekEliminated = findPiece(AP, "GR DIV #1")
+	let greekRemoved = findPiece(AP, "GR DIV #2")
+	let greekPermanentlyEliminated = findPiece(AP, "GR DIV #3")
+
+	Engine.neutral.set_greece_faction(game, CP)
+
+	Engine.game_utils.eliminate_piece(game, greekEliminated, null)
+	Engine.game_utils.remove_piece_from_game(game, greekRemoved, null)
+	Engine.game_utils.eliminate_piece(game, greekPermanentlyEliminated, null, true)
+
+	expect(Engine.game_utils.get_piece_effective_faction(game, greekEliminated)).toBe(CP)
+
+	expect(game.pieces[greekEliminated]).toBe(Engine.game_utils.get_eliminated_box(CP))
+	expect(Engine.game_utils.is_eliminated(game, greekEliminated)).toBe(true)
+	expect(Engine.game_utils.get_pieces_in_eliminated(game, CP)).toContain(greekEliminated)
+	expect(Engine.game_utils.get_pieces_in_eliminated(game, AP)).not.toContain(greekEliminated)
+
+	expect(game.pieces[greekRemoved]).toBe(Engine.game_utils.get_removed_box(CP))
+	expect(Engine.game_utils.is_removed_only(game, greekRemoved)).toBe(true)
+	expect(Engine.game_utils.get_pieces_in_removed(game, CP)).toContain(greekRemoved)
+	expect(Engine.game_utils.get_pieces_in_removed(game, AP)).not.toContain(greekRemoved)
+
+	expect(game.pieces[greekPermanentlyEliminated]).toBe(Engine.game_utils.get_permanently_eliminated_box(CP))
+	expect(Engine.game_utils.is_permanently_eliminated(game, greekPermanentlyEliminated)).toBe(true)
+	expect(Engine.game_utils.get_pieces_in_removed(game, CP)).toContain(greekPermanentlyEliminated)
+	expect(Engine.game_utils.get_pieces_in_removed(game, AP)).not.toContain(greekPermanentlyEliminated)
+})

@@ -555,64 +555,196 @@ test("LCU cannot use a beachhead created earlier in the same action round", () =
 	expect(Engine.map.can_stack_move_to(game, besikaBay, AP)).toBe(false)
 })
 
-test("火力下撤退进入确认状态，确认后返回 play_card", () => {
-	let game = setupGame(2026042214)
+test("play_card no longer exposes beachhead withdrawal click actions", () => {
+	let game = setupGame(2026042214, "Historical", { no_supply_warnings: true })
 	let besikaBay = findSpace("Besika Bay")
+	let brDiv = findPiece(AP, "BR DIV #4")
 
-	game.active = AP
-	game.state = "confirm_beachhead_withdrawal"
-	game.withdraw_beachhead_space = besikaBay
-	game.withdraw_under_fire = true
-	game.beachheads = [besikaBay]
-
-	let view = rules.view(game, AP_ROLE)
-	expect(view.prompt).toMatch(/是否确认.*Besika Bay.*撤退.*交战中/)
-	expect(view.prompt).not.toContain(`s${besikaBay}`)
-
-	game = rules.action(game, AP_ROLE, "confirm")
-
-	expect(game.state).toBe("play_card")
-	expect(game.withdraw_beachhead_space).toBeUndefined()
-	expect(game.withdraw_under_fire).toBeUndefined()
-})
-
-test("安全撤退进入确认状态，确认后返回 play_card", () => {
-	let game = setupGame(2026042215)
-	let besikaBay = findSpace("Besika Bay")
-
-	game.active = AP
-	game.state = "confirm_beachhead_withdrawal"
-	game.withdraw_beachhead_space = besikaBay
-	game.withdraw_under_fire = false
-	game.beachheads = [besikaBay]
-
-	let view = rules.view(game, AP_ROLE)
-	expect(view.prompt).toMatch(/是否确认.*Besika Bay.*撤退.*安全/)
-	expect(view.prompt).not.toContain(`s${besikaBay}`)
-
-	game = rules.action(game, AP_ROLE, "confirm")
-
-	expect(game.state).toBe("play_card")
-	expect(game.withdraw_beachhead_space).toBeUndefined()
-	expect(game.withdraw_under_fire).toBeUndefined()
-})
-
-test("滩头撤退取消后清理状态并撤销", () => {
-	let game = setupGame(2026042216)
-	let besikaBay = findSpace("Besika Bay")
-
+	clearBoard(game)
 	game.active = AP
 	game.state = "play_card"
-	Engine.push_undo(game)
-
-	game.state = "confirm_beachhead_withdrawal"
-	game.withdraw_beachhead_space = besikaBay
-	game.withdraw_under_fire = true
 	game.beachheads = [besikaBay]
+	game.pieces[brDiv] = besikaBay
 
-	game = rules.action(game, AP_ROLE, "cancel")
+	let view = rules.view(game, AP_ROLE)
+	expect(view.actions.safe_withdraw).toBeUndefined()
+	expect(view.actions.withdraw_under_fire).toBeUndefined()
+})
 
-	expect(game.withdraw_beachhead_space).toBeUndefined()
-	expect(game.withdraw_under_fire).toBeUndefined()
-	expect(game.state).toBe("play_card")
+test("AP movement from a non-Balkan beachhead to its island base adds Jihad when it removes the last sole beachhead supply unit", () => {
+	let game = setupGame(2026042215, "Historical", { no_supply_warnings: true })
+	let besikaBay = findSpace("Besika Bay")
+	let lemnos = findSpace("Lemnos")
+	let brDiv = findPiece(AP, "BR DIV #4")
+
+	clearBoard(game)
+	game.beachheads = [besikaBay]
+	game.jihad = 0
+	setupSinglePieceBeachheadMove(game, brDiv, besikaBay)
+
+	expect(Engine.map.get_ap_units_supplied_solely_through_source(game, besikaBay)).toContain(brDiv)
+	expect(rules.view(game, AP_ROLE).actions.space || []).toContain(lemnos)
+
+	game = rules.action(game, AP_ROLE, "space", lemnos)
+
+	expect(game.pieces[brDiv]).toBe(lemnos)
+	expect(game.jihad).toBe(1)
+	expect(game.state).toBe("jihad_placement")
+	expect(game.beachheads || []).toContain(besikaBay)
+	expect(game.reduced || []).not.toContain(brDiv)
+	expect(Engine.game_utils.is_permanently_eliminated(game, brDiv)).toBe(false)
+})
+
+test("AP movement back to an island base does not add Jihad while another unit still draws sole supply through that beachhead", () => {
+	let game = setupGame(2026042216, "Historical", { no_supply_warnings: true })
+	let besikaBay = findSpace("Besika Bay")
+	let lemnos = findSpace("Lemnos")
+	let first = findPiece(AP, "BR DIV #4")
+	let second = findPiece(AP, "BR DIV #5")
+
+	clearBoard(game)
+	game.beachheads = [besikaBay]
+	game.jihad = 0
+	game.pieces[second] = besikaBay
+	setupSinglePieceBeachheadMove(game, first, besikaBay)
+
+	expect(Engine.map.get_ap_units_supplied_solely_through_source(game, besikaBay)).toEqual(
+		expect.arrayContaining([first, second])
+	)
+
+	game = rules.action(game, AP_ROLE, "space", lemnos)
+
+	expect(game.pieces[first]).toBe(lemnos)
+	expect(game.pieces[second]).toBe(besikaBay)
+	expect(game.jihad).toBe(0)
+	expect(game.state).not.toBe("jihad_placement")
+})
+
+test("AP movement from mainland through the beachhead to its island base adds Jihad only when the last sole beachhead supply unit leaves", () => {
+	let game = setupGame(2026042217, "Historical", { no_supply_warnings: true })
+	let besikaBay = findSpace("Besika Bay")
+	let kumKale = findSpace("Kum Kale")
+	let lemnos = findSpace("Lemnos")
+	let brDiv = findPiece(AP, "BR DIV #4")
+
+	clearBoard(game)
+	game.beachheads = [besikaBay]
+	game.jihad = 0
+	game.forts = game.forts || { destroyed: [] }
+	rules.set_add(game.forts.destroyed, kumKale)
+	game.control[kumKale] = AP
+	setupSinglePieceBeachheadMove(game, brDiv, kumKale)
+
+	expect(Engine.map.get_ap_units_supplied_solely_through_source(game, besikaBay)).toContain(brDiv)
+
+	game = rules.action(game, AP_ROLE, "space", besikaBay)
+
+	expect(game.pieces[brDiv]).toBe(besikaBay)
+	expect(game.jihad).toBe(0)
+	expect(game.state).toBe("move_stack")
+
+	game = rules.action(game, AP_ROLE, "space", lemnos)
+
+	expect(game.pieces[brDiv]).toBe(lemnos)
+	expect(game.jihad).toBe(1)
+	expect(game.state).toBe("jihad_placement")
+})
+
+test("AP movement inland from a beachhead does not count as withdrawal even if the beachhead space becomes empty", () => {
+	let game = setupGame(2026042218, "Historical", { no_supply_warnings: true })
+	let besikaBay = findSpace("Besika Bay")
+	let kumKale = findSpace("Kum Kale")
+	let brDiv = findPiece(AP, "BR DIV #4")
+
+	clearBoard(game)
+	game.beachheads = [besikaBay]
+	game.jihad = 0
+	game.forts = game.forts || { destroyed: [] }
+	rules.set_add(game.forts.destroyed, kumKale)
+	setupSinglePieceBeachheadMove(game, brDiv, besikaBay)
+
+	game = rules.action(game, AP_ROLE, "space", kumKale)
+
+	expect(game.pieces[brDiv]).toBe(kumKale)
+	expect(rules.get_pieces_in_space(game, besikaBay)).toHaveLength(0)
+	expect(Engine.map.get_ap_units_supplied_solely_through_source(game, besikaBay)).toContain(brDiv)
+	expect(game.jihad).toBe(0)
+
+	game = rules.action(game, AP_ROLE, "stop")
+
+	expect(game.jihad).toBe(0)
+	expect(game.state).not.toBe("jihad_placement")
+})
+
+test("AP withdrawal from a Balkan beachhead to its island base does not add Jihad", () => {
+	let game = setupGame(2026042219, "Historical", { no_supply_warnings: true })
+	let toAthens = findSpace("to Athens")
+	let lemnos = findSpace("Lemnos")
+	let brDiv = findPiece(AP, "BR DIV #4")
+
+	clearBoard(game)
+	game.beachheads = [toAthens]
+	game.jihad = 0
+	setupSinglePieceBeachheadMove(game, brDiv, toAthens)
+
+	expect(Engine.map.is_non_balkan_beachhead(toAthens)).toBe(false)
+
+	game = rules.action(game, AP_ROLE, "space", lemnos)
+
+	expect(game.pieces[brDiv]).toBe(lemnos)
+	expect(game.jihad).toBe(0)
+	expect(game.state).not.toBe("jihad_placement")
+})
+
+test("CP advance after combat into an emptied non-Balkan beachhead applies the under-fire capture penalty", () => {
+	let game = setupGame(2026042220, "Historical", { no_supply_warnings: true })
+	let besikaBay = findSpace("Besika Bay")
+	let kumKale = findSpace("Kum Kale")
+	let cpDiv = findPiece(CP, "TU DIV #1")
+	let apLcu = findPiece(AP, "BR VIII Corps")
+
+	clearBoard(game)
+	game.active = CP
+	game.state = "advance"
+	game.beachheads = [besikaBay]
+	game.jihad = 0
+	game.tu_rp_bonus = 0
+	game.pieces[cpDiv] = kumKale
+	game.attack = { initial_defenders: [apLcu] }
+	game.advance_space = besikaBay
+	game.advance_pieces = [cpDiv]
+	game.advance_count = 0
+	game.advance_limit = 3
+
+	game = rules.action(game, CP_ROLE, "piece", cpDiv)
+
+	expect(game.beachheads || []).not.toContain(besikaBay)
+	expect(game.pieces[cpDiv]).toBe(kumKale)
+	expect(game.jihad).toBe(2)
+	expect(game.tu_rp_bonus).toBe(1)
+	expect(game.state).toBe("jihad_placement")
+})
+
+test("AP sea SR away from the last sole beachhead supply unit adds Jihad", () => {
+	let game = setupGame(2026042221, "Historical", { no_supply_warnings: true })
+	let besikaBay = findSpace("Besika Bay")
+	let portSaid = findSpace("Port Said")
+	let brDiv = findPiece(AP, "BR DIV #4")
+
+	clearBoard(game)
+	game.active = AP
+	game.state = "sr_move"
+	game.beachheads = [besikaBay]
+	game.jihad = 0
+	game.sr_piece = brDiv
+	game.sr = 4
+	game.pieces[brDiv] = besikaBay
+
+	expect(Engine.map.can_sr_to_space(game, brDiv, portSaid, AP)).toBe(true)
+
+	game = rules.action(game, AP_ROLE, "space", portSaid)
+
+	expect(game.pieces[brDiv]).toBe(portSaid)
+	expect(game.jihad).toBe(1)
+	expect(game.state).toBe("jihad_placement")
 })

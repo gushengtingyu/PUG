@@ -41,8 +41,8 @@ module.exports = function (Engine) {
 
 	// === Basic Lookup ===
 
-	// Printed/static faction from the unit definition. Use this for box ownership,
-	// faction-specific pools, and other data-level identity checks.
+	// Printed/static faction from the unit definition. Use this for
+	// faction-specific pools and other data-level identity checks.
 	function get_piece_faction(p) {
 		if (p < 0 || !data.pieces[p]) return null
 		return data.pieces[p].faction
@@ -163,6 +163,13 @@ module.exports = function (Engine) {
 		return cached_box(s, get_removed_box(faction))
 	}
 
+	function get_piece_status_box_faction(game, p) {
+		let info = data.pieces[p]
+		if (!info) return null
+		let faction = get_piece_effective_faction(game, p)
+		return faction === AP || faction === CP ? faction : info.faction
+	}
+
 	function get_tribe_key_space(p) {
 		const tribe_type = Engine.map.get_tribe_type(p)
 		if (_tribe_key_space_cache.has(tribe_type)) return _tribe_key_space_cache.get(tribe_type)
@@ -207,7 +214,7 @@ module.exports = function (Engine) {
 	function is_eliminated(game, p) {
 		if (p < 0 || !data.pieces[p]) return false
 		let s = game.pieces[p]
-		return s === get_eliminated_box(data.pieces[p].faction) || s === ELIMINATED
+		return s === get_eliminated_box(get_piece_status_box_faction(game, p)) || s === ELIMINATED
 	}
 
 	function is_removed(game, p) {
@@ -218,15 +225,16 @@ module.exports = function (Engine) {
 	function is_removed_only(game, p) {
 		if (p < 0 || !data.pieces[p]) return false
 		let s = game.pieces[p]
-		return s === get_removed_box(data.pieces[p].faction) || s === REMOVED
+		return s === get_removed_box(get_piece_status_box_faction(game, p)) || s === REMOVED
 	}
 
 	function is_permanently_eliminated(game, p) {
 		if (p < 0 || !data.pieces[p]) return false
 		let s = game.pieces[p]
-		let pe_box = get_permanently_eliminated_box(data.pieces[p].faction)
+		let faction = get_piece_status_box_faction(game, p)
+		let pe_box = get_permanently_eliminated_box(faction)
 		// If PE box is same as removed box, we don't want recursion
-		if (pe_box === get_removed_box(data.pieces[p].faction)) return false
+		if (pe_box === get_removed_box(faction)) return false
 		return s === pe_box
 	}
 
@@ -431,7 +439,7 @@ module.exports = function (Engine) {
 	function get_pieces_in_eliminated(game, faction) {
 		let pieces = []
 		for (let p = 0; p < game.pieces.length; p++) {
-			if (data.pieces[p].faction === faction && is_eliminated(game, p)) {
+			if (data.pieces[p] && get_piece_status_box_faction(game, p) === faction && is_eliminated(game, p)) {
 				pieces.push(p)
 			}
 		}
@@ -441,7 +449,7 @@ module.exports = function (Engine) {
 	function get_pieces_in_removed(game, faction) {
 		let pieces = []
 		for (let p = 0; p < game.pieces.length; p++) {
-			if (data.pieces[p].faction === faction && is_removed(game, p)) {
+			if (data.pieces[p] && get_piece_status_box_faction(game, p) === faction && is_removed(game, p)) {
 				pieces.push(p)
 			}
 		}
@@ -451,7 +459,7 @@ module.exports = function (Engine) {
 	function get_pieces_in_removed_only(game, faction) {
 		let pieces = []
 		for (let p = 0; p < game.pieces.length; p++) {
-			if (data.pieces[p].faction === faction && is_removed_only(game, p)) {
+			if (data.pieces[p] && get_piece_status_box_faction(game, p) === faction && is_removed_only(game, p)) {
 				pieces.push(p)
 			}
 		}
@@ -711,7 +719,7 @@ module.exports = function (Engine) {
 		let info = data.pieces[p]
 		if (!info) return
 		let space = game.pieces[p]
-		game.pieces[p] = get_removed_box(info.faction)
+		game.pieces[p] = get_removed_box(get_piece_status_box_faction(game, p))
 		reset_piece_runtime_state(game, p)
 		if (log) log(`单位 ${piece_log_name(game, p)} 被移出游戏 (Removed)。`)
 		if (space > 0 && Engine.sync_neutral_vp_state) Engine.sync_neutral_vp_state(game, space)
@@ -722,6 +730,7 @@ module.exports = function (Engine) {
 	function eliminate_piece(game, p, log, permanent = false) {
 		let info = data.pieces[p]
 		let space = game.pieces[p]
+		let box_faction = get_piece_status_box_faction(game, p)
 		let is_lcu_pe = false
 		let replacement_scu = -1
 
@@ -763,15 +772,15 @@ module.exports = function (Engine) {
 			permanent || is_lcu_pe || info.symbol === "dot" || is_stanke_bey_unit(p) || is_spers_rifles_unit(p)
 
 		if (is_permanently_eliminated) {
-			game.pieces[p] = get_permanently_eliminated_box(info.faction)
+			game.pieces[p] = get_permanently_eliminated_box(box_faction)
 			if (log) {
 				let label = info.piece_class === "LCU" ? "LCU" : "单位"
 			log(`${label} ${piece_log_name(game, p)} 被永久消除 (Permanently Eliminated)。`)
 			}
 		} else if (is_tribe(p)) {
-			game.pieces[p] = get_eliminated_box(info.faction)
+			game.pieces[p] = get_eliminated_box(box_faction)
 		} else {
-			game.pieces[p] = get_eliminated_box(info.faction)
+			game.pieces[p] = get_eliminated_box(box_faction)
 		}
 
 		reset_piece_runtime_state(game, p)

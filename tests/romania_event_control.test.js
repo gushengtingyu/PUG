@@ -58,7 +58,7 @@ test("Romania 事件会按展示板正确放置单位、切换罗马尼亚控制
 	expect(game.pieces[findPiece(AP, "RO Cavalry")]).toBe(findSpace("Ploesti"))
 	expect(game.pieces[findPiece(AP, "RU Dobruja")]).toBe(findSpace("Constanta"))
 	expect(game.pieces[findPiece(AP, "RU/SB Yugo Infantry")]).toBe(findSpace("AP Reserve"))
-	expect(countPoolUnitsInSpace(game, AP, ["RU DIV #19", "RU DIV #20", "RU DIV #21", "RU DIV #22", "RU DIV #23"], "AP Reserve")).toBe(2)
+	expect(countPoolUnitsInSpace(game, AP, ["RU DIV #18", "RU DIV #19", "RU DIV #20", "RU DIV #21", "RU DIV #22"], "AP Reserve")).toBe(2)
 
 	expect(game.pieces[findPiece(CP, "GE IX Army")]).toBe(findSpace("Galicia"))
 	expect(game.pieces[findPiece(CP, "GE Alpenkorps")]).toBe(findSpace("Galicia"))

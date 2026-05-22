@@ -5737,8 +5737,6 @@ const MAP_SPACE_CLICK_ACTIONS = new Set([
 	"activate_attack_with_br",
 	"deactivate",
 	"combine",
-	"safe_withdraw",
-	"withdraw_under_fire",
 	"remove_beachhead"
 ])
 

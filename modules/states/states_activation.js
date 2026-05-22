@@ -102,6 +102,24 @@ exports.register = function (states, Engine, context) {
 		return !Engine.map.is_island_base(game, from_space)
 	}
 
+	function get_safe_beachhead_withdrawal_context(from_space, target, faction) {
+		if (faction !== AP) return null
+		if (!Engine.map.is_beachhead_space(game, from_space)) return null
+		if (!Engine.map.is_non_balkan_beachhead(from_space)) return null
+		if (Engine.map.get_adjacent_island_base_for_beachhead(from_space) !== target) return null
+		let departure_units = Engine.map.get_ap_units_supplied_solely_through_source(game, from_space)
+		if (departure_units.length === 0) return null
+		return { beachhead: from_space }
+	}
+
+	function apply_safe_beachhead_withdrawal_jihad(withdrawal) {
+		if (!withdrawal) return
+		let remaining = Engine.map.get_ap_units_supplied_solely_through_source(game, withdrawal.beachhead)
+		if (remaining.length > 0) return
+		update_jihad_level(game, 1)
+		log(`${space_name(withdrawal.beachhead)} 最后一支仅经该非巴尔干滩头补给的 AP 单位撤回岛屿基地：Jihad +1。`)
+	}
+
 	function should_create_beachhead_on_entry(from_space, target, faction = active_faction()) {
 		return Engine.map.can_ap_initiate_invasion_to_beachhead(game, from_space, target, faction)
 	}
@@ -2067,9 +2085,11 @@ exports.register = function (states, Engine, context) {
 	function move_stack_to_space(target) {
 		let from_space = game.move.current
 		let moving_faction = get_current_move_faction()
+		if (!game.move.faction) game.move.faction = moving_faction
 		let pieces_moving = []
 		let pieces_stopped = []
 		let creates_beachhead = should_create_beachhead_on_entry(from_space, target, moving_faction)
+		let safe_withdrawal = get_safe_beachhead_withdrawal_context(from_space, target, moving_faction)
 		let siege_departure_reason = Engine.map.get_siege_departure_block_reason(
 			game,
 			from_space,
@@ -2145,6 +2165,7 @@ exports.register = function (states, Engine, context) {
 		}
 
 		if (pieces_moving.length > 0) {
+			apply_safe_beachhead_withdrawal_jihad(safe_withdrawal)
 			if (creates_beachhead) {
 				if (!game.beachheads) game.beachheads = []
 				set_add(game.beachheads, target)

@@ -3270,6 +3270,59 @@ module.exports = function (Engine) {
 		return can_trace_supply_to_source(game, s, faction, source_list, options.supply_context || null)
 	}
 
+	function is_ap_piece_on_shore_or_beachhead(game, p) {
+		if (!data.pieces[p]) return false
+		if (get_piece_effective_faction(game, p) !== AP) return false
+		if (is_not_on_map(game, p)) return false
+		let s = game.pieces[p]
+		if (!(s > 0) || !data.spaces[s]) return false
+		if (is_reserve_space(s)) return false
+		return !is_island_base(game, s)
+	}
+
+	function is_ap_piece_supplied_solely_through_source(game, p, source, options = {}) {
+		if (!(source > 0) || !data.spaces[source]) return false
+		if (!is_ap_piece_on_shore_or_beachhead(game, p)) return false
+		let supply_context = options.supply_context || null
+		let source_cache = options.source_cache || null
+		let s = game.pieces[p]
+		let status = get_supply_status(game, s, AP, p, false, null, supply_context, source_cache)
+		if (!is_supply_status_in_supply(status)) return false
+		if (!can_trace_piece_supply_to_sources(game, p, source, { faction: AP, supply_context })) return false
+		let alternate_sources = get_full_supply_sources_for_unit(game, p, false, source_cache).filter(
+			(candidate) => candidate !== source
+		)
+		if (alternate_sources.length === 0) return true
+		if (is_beachhead_space(game, source)) {
+			if (s === source) return true
+			return !can_trace_supply_to_source(game, s, AP, alternate_sources, supply_context, {
+				block_connection(_game, current, next) {
+					return current === source || next === source
+				}
+			})
+		}
+		return !can_trace_piece_supply_to_sources(game, p, alternate_sources, { faction: AP, supply_context })
+	}
+
+	function get_ap_units_supplied_solely_through_source(game, source, options = {}) {
+		let result = []
+		if (!(source > 0) || !data.spaces[source]) return result
+		let supply_context = options.supply_context || create_supply_context(game)
+		let source_cache = options.source_cache || new Map()
+		for (let p = 0; p < game.pieces.length; p++) {
+			if (!data.pieces[p]) continue
+			if (
+				is_ap_piece_supplied_solely_through_source(game, p, source, {
+					supply_context,
+					source_cache
+				})
+			) {
+				result.push(p)
+			}
+		}
+		return result
+	}
+
 	// --- SUPPLY ---
 
 	const DESERT = "desert"
@@ -5946,6 +5999,8 @@ module.exports = function (Engine) {
 		can_trace_supply_to_source,
 		can_trace_piece_supply_to_space,
 		can_trace_piece_supply_to_sources,
+		is_ap_piece_supplied_solely_through_source,
+		get_ap_units_supplied_solely_through_source,
 		can_trace_supply_to_ap_port,
 		get_ru_supply_sources,
 		get_gr_supply_sources,

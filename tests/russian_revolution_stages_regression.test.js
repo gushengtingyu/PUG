@@ -60,11 +60,11 @@ test("New RU units enter reduced during Stages 2 and 3", () => {
 	game.events = { russian_revolution: 2 }
 	game.reduced = []
 
-	let ruDiv = findApPiece("RU DIV #16")
+	let ruDiv = findApPiece("RU DIV #15")
 	let odessa = findSpace("Odessa")
 	game.pieces[ruDiv] = REINFORCEMENTS
 
-	expect(Engine.events.reinforce(game, "RU DIV #16", AP, odessa)).toBe(true)
+	expect(Engine.events.reinforce(game, "RU DIV #15", AP, odessa)).toBe(true)
 	expect(game.pieces[ruDiv]).toBe(odessa)
 	expect(Engine.game_utils.is_piece_reduced(game, ruDiv)).toBe(true)
 })
@@ -160,10 +160,10 @@ test("Stage 4 blocks new RU reinforcements and RU reinforcement events", () => {
 	let game = setupGame(2026051206, "Historical", { no_supply_warnings: true })
 	game.events = { russian_revolution: 4 }
 
-	let ruDiv = findApPiece("RU DIV #16")
+	let ruDiv = findApPiece("RU DIV #15")
 	game.pieces[ruDiv] = REINFORCEMENTS
 
-	expect(Engine.events.reinforce(game, "RU DIV #16", AP, findSpace("Odessa"))).toBe(false)
+	expect(Engine.events.reinforce(game, "RU DIV #15", AP, findSpace("Odessa"))).toBe(false)
 	expect(Engine.events.can_play_event(game, findCard("RUSSIAN REINFORCEMENTS"))).toBe(false)
 	expect(Engine.events.can_play_event(game, findCard("SPHERE OF INFLUENCE"))).toBe(false)
 })

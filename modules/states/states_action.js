@@ -131,6 +131,21 @@ exports.register = function (states, Engine, context) {
 		return ""
 	}
 
+	function set_action_state(next_state) {
+		if (
+			(game.state === "jihad_placement" ||
+				game.state === "jihad_removal" ||
+				game.state === "jihad_rebellion_check" ||
+				game.state === "place_egyptian_rebellion") &&
+			game.state_stack &&
+			game.state_stack.length > 0
+		) {
+			game.state_stack[game.state_stack.length - 1].state = next_state
+		} else {
+			game.state = next_state
+		}
+	}
+
 	function begin_ops_action(card, ops) {
 		let t0 = DEBUG_ACTION_TRACE ? action_now() : 0
 		if (card === undefined || card === null) {
@@ -240,16 +255,8 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
-	function is_winter_turn() {
-		return Engine.game_utils.get_season(game) === "Winter"
-	}
-
 	function get_ap_beachheads() {
 		return Engine.map.get_beachhead_spaces(game, AP)
-	}
-
-	function get_ap_supply_sources() {
-		return Engine.map.get_supply_sources_from_data(game, AP).concat(get_ap_beachheads())
 	}
 
 	function is_ottoman_port_source(s) {
@@ -273,59 +280,8 @@ exports.register = function (states, Engine, context) {
 		return result
 	}
 
-	function is_piece_on_shore_or_beachhead(p) {
-		let s = game.pieces[p]
-		if (s <= 0 || !data.spaces[s]) return false
-		return !Engine.map.is_island_base(game, s)
-	}
-
-	function is_piece_supplied_solely_through_beachhead(p, beachhead) {
-		if (data.pieces[p].faction !== AP) return false
-		if (is_not_on_map(game, p) || is_in_reserve(game, p)) return false
-		if (!is_piece_on_shore_or_beachhead(p)) return false
-		let s = game.pieces[p]
-		if (!Engine.map.is_in_supply(game, s, AP, p)) return false
-		if (!Engine.map.can_trace_piece_supply_to_sources(game, p, beachhead)) return false
-		return !with_temporarily_removed_beachhead(beachhead, () => Engine.map.is_in_supply(game, s, AP, p))
-	}
-
-	function get_beachhead_withdrawal_units(beachhead) {
-		let result = []
-		for (let p = 0; p < game.pieces.length; p++) {
-			if (!data.pieces[p]) continue
-			if (is_piece_supplied_solely_through_beachhead(p, beachhead)) result.push(p)
-		}
-		return result
-	}
-
-	function is_piece_supplied_solely_through_source(p, source) {
-		if (data.pieces[p].faction !== AP) return false
-		if (is_not_on_map(game, p) || is_in_reserve(game, p)) return false
-		if (!is_piece_on_shore_or_beachhead(p)) return false
-		let s = game.pieces[p]
-		if (!Engine.map.is_in_supply(game, s, AP, p)) return false
-		if (!Engine.map.can_trace_piece_supply_to_sources(game, p, source)) return false
-		let alternate_sources = get_ap_supply_sources().filter((candidate) => candidate !== source)
-		if (alternate_sources.length === 0) return true
-		return !Engine.map.can_trace_piece_supply_to_sources(game, p, alternate_sources)
-	}
-
 	function get_port_departure_units(port) {
-		let result = []
-		for (let p = 0; p < game.pieces.length; p++) {
-			if (!data.pieces[p]) continue
-			if (is_piece_supplied_solely_through_source(p, port)) result.push(p)
-		}
-		return result
-	}
-
-	function get_beachhead_under_fire(beachhead) {
-		return get_beachhead_withdrawal_units(beachhead).some((p) => {
-			let s = game.pieces[p]
-			let info = data.spaces[s]
-			if (!info || !Array.isArray(info.connections)) return false
-			return info.connections.some((n) => Engine.map.contains_enemy_pieces(game, n, AP))
-		})
+		return Engine.map.get_ap_units_supplied_solely_through_source(game, port)
 	}
 
 	function can_remove_empty_beachhead(beachhead) {
@@ -349,98 +305,6 @@ exports.register = function (states, Engine, context) {
 		return stranded === 0
 	}
 
-	function get_beachhead_withdrawal_mode(beachhead) {
-		if (active_faction() !== AP) return false
-		if (is_winter_turn()) return false
-		let units = get_beachhead_withdrawal_units(beachhead)
-		if (units.length === 0) return null
-		return get_beachhead_under_fire(beachhead) ? "under_fire" : "safe"
-	}
-
-	function get_breakdown_candidates_for_lcu(lcu) {
-		let info = data.pieces[lcu]
-		let group = Engine.game_utils.get_nation_group(info.nation)
-		let pools = [
-			Engine.game_utils.get_pieces_in_reserve(game, AP),
-			Engine.game_utils.get_pieces_in_eliminated(game, AP),
-			Engine.game_utils.get_pieces_in_reinforcements(game, AP),
-			Engine.game_utils.get_pieces_in_removed_only(game, AP)
-		]
-		let result = []
-		for (let pool of pools) {
-			for (let p of pool) {
-				if (p === lcu || !data.pieces[p]) continue
-				if (data.pieces[p].piece_class !== "SCU") continue
-				if (Engine.game_utils.get_nation_group(data.pieces[p].nation) !== group) continue
-				if (!result.includes(p)) result.push(p)
-			}
-		}
-		return result
-	}
-
-	function break_down_lcu_for_withdrawal(lcu, island_base) {
-		let info = data.pieces[lcu]
-		let needed = Engine.game_utils.is_piece_reduced(game, lcu) ? 2 : 3
-		let candidates = get_breakdown_candidates_for_lcu(lcu)
-		let selected = []
-		let exact_nation = candidates.find((p) => data.pieces[p].nation === info.nation)
-		if (exact_nation !== undefined) selected.push(exact_nation)
-		for (let p of candidates) {
-			if (selected.length >= needed) break
-			if (selected.includes(p)) continue
-			selected.push(p)
-		}
-		// Rule 13.4.2: LCUs withdrawn under fire are permanently eliminated (not returned to reserve)
-		Engine.game_utils.eliminate_piece(game, lcu, log, true)
-		// Rule 13.4.2: SCUs used to break down the LCU arrive reduced
-		for (let scu of selected) {
-			game.pieces[scu] = island_base
-			Engine.utils.set_add(game.reduced, scu)
-		}
-		log(`${piece_name(lcu)} 撤离后永久消除并解编至 ${space_name(island_base)}（缩减）。`)
-		if (selected.length < needed) {
-			log(`${piece_name(lcu)} 仅找到 ${selected.length}/${needed} 个可用 SCU 进行解编。`)
-		}
-	}
-
-	function finish_beachhead_withdrawal(beachhead, under_fire) {
-		let island_base = Engine.map.get_adjacent_island_base_for_beachhead(beachhead)
-		let units = get_beachhead_withdrawal_units(beachhead)
-		let original_scu_count = units.filter((p) => data.pieces[p].piece_class === "SCU").length
-		let original_lcu_count = units.filter((p) => data.pieces[p].piece_class === "LCU").length
-		for (let p of units) {
-			if (data.pieces[p].piece_class === "LCU" && under_fire) {
-				break_down_lcu_for_withdrawal(p, island_base)
-			} else {
-				game.pieces[p] = island_base
-				log(`${piece_name(p)} 撤回至 ${space_name(island_base)}。`)
-				// Rule 13.4.2: all full-strength withdrawn units reduced; already-reduced SCUs unchanged
-				if (under_fire && !Engine.game_utils.is_piece_reduced(game, p)) {
-					Engine.utils.set_add(game.reduced, p)
-					log(`${piece_name(p)} 撤离后缩减一级。`)
-				}
-			}
-		}
-		if (under_fire) {
-			Engine.map.clear_beachhead(game, beachhead)
-			if (Engine.map.is_non_balkan_beachhead(beachhead)) {
-				update_jihad_level(game, 1)
-			}
-			let bonus = Engine.map.is_non_balkan_beachhead(beachhead)
-				? original_lcu_count + Math.floor(original_scu_count / 3)
-				: 0
-			if (bonus > 0) {
-				game.tu_rp_bonus = (game.tu_rp_bonus || 0) + bonus
-				log(`${space_name(beachhead)} 撤离：土耳其奖励 RP +${bonus}。`)
-			}
-		} else if (
-			Engine.map.is_non_balkan_beachhead(beachhead) &&
-			get_beachhead_withdrawal_units(beachhead).length === 0
-		) {
-			update_jihad_level(game, 1)
-		}
-	}
-
 	states.play_card = {
 		inactive: "行动",
 		prompt(res) {
@@ -460,9 +324,6 @@ exports.register = function (states, Engine, context) {
 			}
 			if (active_faction() === AP) {
 				for (let beachhead of get_ap_beachheads()) {
-					let withdrawal_mode = get_beachhead_withdrawal_mode(beachhead)
-					if (withdrawal_mode === "under_fire") res.action("withdraw_under_fire", beachhead)
-					else if (withdrawal_mode === "safe") res.action("safe_withdraw", beachhead)
 					if (can_remove_empty_beachhead(beachhead)) res.action("remove_beachhead", beachhead)
 				}
 			}
@@ -532,48 +393,10 @@ exports.register = function (states, Engine, context) {
 			game.last_card = c
 			perform_event_action(c, "play_card.play_event")
 		},
-		withdraw_under_fire(beachhead) {
-			push_undo()
-			game.withdraw_beachhead_space = beachhead
-			game.withdraw_under_fire = true
-			game.state = "confirm_beachhead_withdrawal"
-		},
-		safe_withdraw(beachhead) {
-			push_undo()
-			game.withdraw_beachhead_space = beachhead
-			game.withdraw_under_fire = false
-			game.state = "confirm_beachhead_withdrawal"
-		},
 		remove_beachhead(beachhead) {
 			push_undo()
 			game.remove_beachhead_space = beachhead
 			game.state = "confirm_remove_beachhead"
-		}
-	}
-
-	states.confirm_beachhead_withdrawal = {
-		prompt(res) {
-			let s = game.withdraw_beachhead_space
-			let under_fire = game.withdraw_under_fire
-			let mode = under_fire ? "交战中" : "安全"
-			let name = data.spaces[s] ? data.spaces[s].name : space_name(s)
-			res.where(s)
-			res.prompt(`是否确认从 ${name} 撤退（${mode}）？`)
-			res.action("confirm")
-			res.action("cancel")
-		},
-		confirm() {
-			let s = game.withdraw_beachhead_space
-			let under_fire = game.withdraw_under_fire
-			finish_beachhead_withdrawal(s, under_fire)
-			delete game.withdraw_beachhead_space
-			delete game.withdraw_under_fire
-			game.state = "play_card"
-		},
-		cancel() {
-			delete game.withdraw_beachhead_space
-			delete game.withdraw_under_fire
-			pop_undo()
 		}
 	}
 
@@ -808,6 +631,25 @@ exports.register = function (states, Engine, context) {
 			let from_was_non_balkan_beachhead =
 				Engine.map.is_beachhead_space(game, from) && Engine.map.is_non_balkan_beachhead(from)
 			let from_was_ottoman_port = is_ottoman_port_source(from)
+			let beachhead_departure_units_before = from_was_non_balkan_beachhead
+				? Engine.map.get_ap_units_supplied_solely_through_source(game, from)
+				: []
+			let port_departure_units_before = from_was_ottoman_port ? get_port_departure_units(from) : []
+			let apply_ap_sea_sr_departure_jihad = () => {
+				if (active_faction() !== AP || !was_sea_sr) return
+				let beachhead_emptied =
+					from_was_non_balkan_beachhead &&
+					beachhead_departure_units_before.length > 0 &&
+					Engine.map.get_ap_units_supplied_solely_through_source(game, from).length === 0
+				let ottoman_port_emptied =
+					from_was_ottoman_port &&
+					port_departure_units_before.length > 0 &&
+					get_port_departure_units(from).length === 0
+				if (beachhead_emptied || ottoman_port_emptied) {
+					update_jihad_level(game, 1)
+					log(`${space_name(from)} 最后一支仅经此处补给的 AP 单位海上 SR 离开：Jihad +1。`)
+				}
+			}
 			Engine.map.apply_sr_control_effects(game, p, from, s, active_faction())
 			if (delayed_suez_sr) {
 				if (!game.suez_delayed_sr) game.suez_delayed_sr = []
@@ -817,13 +659,14 @@ exports.register = function (states, Engine, context) {
 					arrival_zone: Engine.map.get_suez_sr_arrival_zone(game, s)
 				})
 				game.pieces[p] = Engine.constants.REINFORCEMENTS
+				apply_ap_sea_sr_departure_jihad()
 				if (!game.sr_moved) game.sr_moved = []
 				Engine.utils.set_add(game.sr_moved, p)
 				log(
 					`${piece_name(p)} Suez delayed SR: will arrive during the Replacement Phase of turn ${game.turn + 1}.`
 				)
 				game.sr_piece = null
-				game.state = "sr_phase"
+				set_action_state("sr_phase")
 				if (game.sr === 0) goto_end_operations()
 				return
 			}
@@ -846,19 +689,11 @@ exports.register = function (states, Engine, context) {
 			log(`${piece_name(p)} 战略调整至 ${space_name(s)}${total_cost !== 1 ? ` (Cost: ${total_cost})` : ''}`)
 			game.sr_piece = null
 
-			// Rule 13.4.2: +1 Jihad if the last AP unit drawing supply solely through
-			// a non-Balkan Beachhead or Ottoman port is sea-SR'd away.
-			if (active_faction() === AP && was_sea_sr) {
-				let jihad_source_emptied =
-					(from_was_non_balkan_beachhead && get_beachhead_withdrawal_units(from).length === 0) ||
-					(from_was_ottoman_port && get_port_departure_units(from).length === 0)
-				if (jihad_source_emptied) {
-					update_jihad_level(game, 1)
-					log(`${space_name(from)} 最后一支补给部队海运撤离：Jihad +1。`)
-				}
-			}
+			// Rule 13.4.2 / 18.1.2: +1 Jihad if AP sea-SRs away the last unit
+			// drawing supply solely through a non-Balkan Beachhead or Ottoman port.
+			apply_ap_sea_sr_departure_jihad()
 
-			game.state = "sr_phase"
+			set_action_state("sr_phase")
 
 			if (game.sr === 0) goto_end_operations()
 		},
