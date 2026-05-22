@@ -1295,10 +1295,15 @@ module.exports = function (Engine) {
 			return false
 		}
 
-		// Rule 204: Restricted areas need rail connection
+		// Rule 9.8.2: Restricted areas need rail connection to supply, or an AP supplied port/beachhead.
 		let area = map.get_restricted_area(s)
 		if (area) {
-			if (!map.is_rail_connected_to_supply(game, s, faction)) {
+			let can_organize_in_restricted_area =
+				map.is_rail_connected_to_supply(game, s, faction) ||
+				(faction === Engine.constants.AP &&
+					map.is_ap_controlled_port_or_beachhead(game, s) &&
+					!map.is_besieged(game, s))
+			if (!can_organize_in_restricted_area) {
 				// 受限区域且无铁路连接补给源
 				return false
 			}

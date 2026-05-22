@@ -3,13 +3,20 @@ const rules = require("../rules.js")
 
 const { setupGame, findSpace, findApPiece, findCpPiece: findPiece, clearBoard } = require("./helpers.js")
 
-const { AP, CP, COMMITMENT_MOBILIZATION } = Engine.constants
+const { AP, CP, COMMITMENT_MOBILIZATION, RESERVE } = Engine.constants
 const AP_ROLE = rules.roles[0]
 const CP_ROLE = rules.roles[1]
 
 function placeTurkishDivisionPair(game, space) {
 	game.pieces[findPiece("TU DIV #1")] = space
 	game.pieces[findPiece("TU DIV #2")] = space
+	game.moved = []
+}
+
+function placeBritishDivisionPairForReducedCorps(game, space) {
+	game.pieces[findApPiece("BR DIV #1")] = space
+	game.pieces[findApPiece("BR DIV #2")] = space
+	game.pieces[findApPiece("BR IX Corps")] = RESERVE
 	game.moved = []
 }
 
@@ -218,4 +225,35 @@ test("Turkish LCUs still cannot organize in swamp spaces", () => {
 
 	expect(Engine.map.get_supply_status(game, basra, CP, findPiece("TU DIV #1"))).toBe("FULL")
 	expect(Engine.game_utils.can_combine_in_space(game, basra, CP)).toBe(false)
+})
+
+test("AP can organize an LCU in AP-controlled Basra as a supplied restricted-area port", () => {
+	let game = setupGame(2026052303, "Historical", { no_supply_warnings: true })
+	let basra = findSpace("Basra")
+	let fao = findSpace("Fao")
+
+	clearBoard(game)
+	game.control[basra] = AP
+	game.control[fao] = AP
+	placeBritishDivisionPairForReducedCorps(game, basra)
+
+	expect(Engine.map.is_rail_connected_to_supply(game, basra, AP)).toBe(false)
+	expect(Engine.map.is_ap_controlled_port_or_beachhead(game, basra)).toBe(true)
+	expect(Engine.map.count_lcu_in_area(game, "mesopotamia", AP)).toBe(0)
+	expect(Engine.game_utils.can_combine_in_space(game, basra, AP)).toBe(true)
+})
+
+test("AP cannot use the Basra port exception before controlling Fao", () => {
+	let game = setupGame(2026052304, "Historical", { no_supply_warnings: true })
+	let basra = findSpace("Basra")
+	let fao = findSpace("Fao")
+
+	clearBoard(game)
+	game.control[basra] = AP
+	game.control[fao] = CP
+	placeBritishDivisionPairForReducedCorps(game, basra)
+
+	expect(Engine.map.is_rail_connected_to_supply(game, basra, AP)).toBe(false)
+	expect(Engine.map.is_ap_controlled_port_or_beachhead(game, basra)).toBe(false)
+	expect(Engine.game_utils.can_combine_in_space(game, basra, AP)).toBe(false)
 })
