@@ -68,7 +68,7 @@ module.exports = function (Engine) {
 		get_supply_sources_from_data,
 		get_beachhead_spaces
 	} = Engine.map
-	const { can_enter_region, can_stack_end_in_space } = Engine.map
+	const { can_enter_area, can_stack_end_in_space } = Engine.map
 
 	function space_log_name(s) {
 		if (!data.spaces[s]) return space_name(s)
@@ -268,7 +268,7 @@ module.exports = function (Engine) {
 	function can_full_strength_attacker_force_defender_retreat(game, p, target_space) {
 		if (!is_full_strength_attack_combat_unit(game, p)) return false
 		if (get_piece_mf(p) === 0) return false
-		if (!can_enter_region(game, p, target_space)) return false
+		if (!can_enter_area(game, p, target_space)) return false
 		return can_stack_end_in_space(game, target_space, [p])
 	}
 
@@ -1686,6 +1686,29 @@ module.exports = function (Engine) {
 		return `S:${space}`
 	}
 
+	function is_attack_support_piece(p) {
+		return is_hq(p) || is_heavy_arty(p)
+	}
+
+	function get_attack_support_block_reason(game, pieces) {
+		if (!Array.isArray(pieces) || pieces.length === 0) return null
+		for (let p of pieces) {
+			if (!is_attack_support_piece(p)) continue
+			let origin = get_attack_origin_key(game, p)
+			let has_combat_companion = pieces.some(
+				(q) =>
+					q !== p &&
+					is_combat_unit(q) &&
+					get_attack_origin_key(game, q) === origin &&
+					get_piece_effective_faction(game, q) === get_piece_effective_faction(game, p)
+			)
+			if (!has_combat_companion) {
+				return "HQ/Heavy Artillery must attack with a friendly Combat Unit from the same stack"
+			}
+		}
+		return null
+	}
+
 	function is_invalid_multinational_attack(game, attackers) {
 		let all_groups = new Set()
 		let pieces_by_origin = {}
@@ -1800,6 +1823,7 @@ module.exports = function (Engine) {
 	}
 
 	function get_legal_attackable_spaces(game, pieces, faction, get_season_fn, is_rail_connected_to_supply_fn) {
+		if (get_attack_support_block_reason(game, pieces)) return []
 		let targets = get_attackable_spaces(game, pieces, faction, get_season_fn, is_rail_connected_to_supply_fn)
 		if (targets.length === 0) return targets
 		if (Array.isArray(game.attacked_spaces) && game.attacked_spaces.length > 0) {
@@ -2216,6 +2240,13 @@ module.exports = function (Engine) {
 	}
 
 	function start_attack_sequence(game, log_fn) {
+		let support_reason = get_attack_support_block_reason(game, game.attack?.pieces)
+		if (support_reason) {
+			if (log_fn) log_fn(`Cannot attack: ${support_reason}.`)
+			if (game.attack) game.attack.space = -1
+			return false
+		}
+
 		register_balkan_attack_target(game)
 
 		// Rule 19.2.1: Attack on neutral Greek unit triggers Greek entry
@@ -2998,7 +3029,7 @@ module.exports = function (Engine) {
 				if (local_avoided.includes(next)) continue
 				if (Engine.map.is_potential_beachhead_space(next) && !Engine.map.is_beachhead_space(game, next))
 					continue
-				if (!can_enter_region(game, piece, next, { retreat: true })) continue
+				if (!can_enter_area(game, piece, next, { retreat: true })) continue
 
 				if (steps_left === 1) {
 					if (!ignore_stacking && !can_stack_end_in_space(game, next, [piece])) continue
@@ -3066,7 +3097,7 @@ module.exports = function (Engine) {
 			// may not Advance After Combat across an edge they could not move across.
 			if (Engine.map.has_map_connection(from_space, target_space)) return []
 		}
-		if (!can_enter_region(game, piece, target_space)) return []
+		if (!can_enter_area(game, piece, target_space)) return []
 		// Rule 17.2.2: Irregular units cannot advance out of their supply area.
 		if (!Engine.map.is_space_in_irregular_supply_area(piece, target_space)) return []
 		if (!is_region(game, target_space) && contains_enemy_pieces(game, target_space, faction)) return []
@@ -3388,7 +3419,7 @@ module.exports = function (Engine) {
 					// Rule 12.7.6b: Cannot retreat to space with enemy pieces or unbesieged enemy Fort
 					if (contains_enemy_pieces(game, next, faction)) continue
 					if (has_undestroyed_fort(game, next, other_faction(faction))) continue
-					if (!can_enter_region(game, p, next)) continue
+					if (!can_enter_area(game, p, next)) continue
 					if (retreated_dist === distance - 1 && !can_stack_end_in_space(game, next, [p])) continue
 
 					// Rule 12.7.6f: Cannot retreat back into the original defending space (for 2nd space)
@@ -3551,6 +3582,11 @@ module.exports = function (Engine) {
 		}
 
 		let attackers = game.attack.pieces
+		let support_reason = get_attack_support_block_reason(game, attackers)
+		if (support_reason) {
+			log(`Cannot attack: ${support_reason}.`)
+			return { cancelled: true, cancelling_cards: [], attackers, defenders: [] }
+		}
 		let target_space = game.attack.space
 		let target_terrain = get_combat_target_terrain(game, target_space, attackers)
 		// Mark attackers as having attacked in this action round
@@ -4647,6 +4683,7 @@ module.exports = function (Engine) {
 		get_legal_attackable_spaces,
 		can_activate_piece_in_space_to_attack,
 		can_choose_attack_with_piece,
+		get_attack_support_block_reason,
 		register_balkan_attack_target,
 		get_loss_options,
 		is_variable_loss_piece,

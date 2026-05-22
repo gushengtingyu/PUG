@@ -35,7 +35,7 @@ exports.register = function (states, Engine, context) {
 		goto_end_operations,
 		goto_end_action,
 		get_cc_retained,
-		can_enter_region,
+		can_enter_area,
 		can_stack_end_in_space,
 		eliminate_piece,
 		bulls_eye_record_advanced_piece,
@@ -1619,7 +1619,7 @@ exports.register = function (states, Engine, context) {
 				let from = game.pieces[p]
 				let neighbors = Engine.map.get_piece_connected_spaces_for_rule(game, from, p)
 				if (!neighbors.includes(conf.space)) continue
-				if (!can_enter_region(game, p, conf.space)) continue
+				if (!can_enter_area(game, p, conf.space)) continue
 				if (!can_stack_end_in_space(game, conf.space, [p])) continue
 				res.piece(p)
 			}
@@ -1860,7 +1860,10 @@ exports.register = function (states, Engine, context) {
 		delete game.confused_orders_used
 		delete game.battle_resolution_applied
 		delete game.enver_mo_choice
-		combat.start_attack_sequence(game, log)
+		if (combat.start_attack_sequence(game, log) === false) {
+			game.state = "attack"
+			return
+		}
 		if (game.attack) {
 			delete game.attack.cc_log_header
 			delete game.attack.cc_log_sides
@@ -2784,7 +2787,7 @@ exports.register = function (states, Engine, context) {
 		let valid = []
 		for (let s of candidates) {
 			if (exclude_space !== undefined && s === exclude_space) continue
-			if (!can_enter_region(game, p, s)) continue
+			if (!can_enter_area(game, p, s)) continue
 			let is_retreat_transit = is_catastrophic_attack_retreat_transit_space(cat, s)
 			if (!can_catastrophic_attack_enter_beachhead(s)) continue
 			if (!is_retreat_transit && Engine.map.contains_enemy_pieces(game, s, CP)) continue

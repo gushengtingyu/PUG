@@ -1448,7 +1448,7 @@ module.exports = function (Engine) {
 		return !(target_distance < source_distance)
 	}
 
-	function can_enter_region(game, p, s, options = {}) {
+	function can_enter_area(game, p, s, options = {}) {
 		const { events } = Engine
 
 		if (is_island_base(game, s) && data.pieces[p].faction === CP) return false
@@ -1473,6 +1473,16 @@ module.exports = function (Engine) {
 		let restricted_area = get_restricted_area(s)
 		let space_info = data.spaces[s]
 		let piece_info = data.pieces[p]
+
+		// Rule 22.0: PE/RU Persian Cossacks special case.
+		if (piece_info && piece_info.name === "PE/RU Persian Cossacks") {
+			if (!is_greater_persia(s) && !is_central_asia(s) && !is_afghanistan(s)) return false
+		}
+
+		// Rule 17.2.4: Persian units (SPers Rifles, Police North) special cases.
+		if (piece_info && (piece_info.name === "BR/PE SPers Rifles" || piece_info.name === "RU/PE Police North")) {
+			if (!is_greater_persia(s)) return false
+		}
 
 		if (is_bulgarian_turkey_entry_blocked(game, p, s, options)) return false
 
@@ -2030,7 +2040,7 @@ module.exports = function (Engine) {
 		) {
 			return "滩头未建立"
 		}
-		if (!can_enter_region(game, p, target)) return "区域限制或LCU数量限制"
+		if (!can_enter_area(game, p, target)) return "区域限制或LCU数量限制"
 		if (
 			data.spaces[target].terrain === "desert" &&
 			!is_in_supply(game, game.move.initial, data.pieces[p].faction, p)
@@ -2135,7 +2145,7 @@ module.exports = function (Engine) {
 			if (has_greek_units_in_space(game, target)) return false
 		}
 
-		if (!can_enter_region(game, p, target)) return false
+		if (!can_enter_area(game, p, target)) return false
 		if (data.spaces[target].terrain === "desert") {
 			if (!is_in_supply(game, game.move.initial, data.pieces[p].faction, p)) return false
 		}
@@ -2734,7 +2744,7 @@ module.exports = function (Engine) {
 		if (!is_sr_end_space_allowed(game, p, s, faction)) return false
 		let status = get_supply_status(game, s, faction, p, true)
 		if (!is_supply_status_in_supply(status)) return false
-		if (!can_enter_region(game, p, s)) return false
+		if (!can_enter_area(game, p, s)) return false
 		if (!can_stack_end_in_space(game, s, [p], ignore_hq_heavy_artillery_support(options))) return false
 		if (data.spaces[s].terrain === DESERT) {
 			if (!can_trace_reserve_sr_desert_supply(game, p, s)) return false
@@ -2940,7 +2950,7 @@ module.exports = function (Engine) {
 			!is_ap_british_empire_sea_sr_region_exception(game, data.pieces[p], dest, faction)
 		)
 			return false
-		if (!can_enter_region(game, p, dest)) return false
+		if (!can_enter_area(game, p, dest)) return false
 		return can_stack_end_in_space(game, dest, [p], IGNORE_HQ_HEAVY_ARTILLERY_SUPPORT)
 	}
 
@@ -3207,7 +3217,7 @@ module.exports = function (Engine) {
 			!is_ap_british_empire_sea_sr_region_exception(game, info, s, faction)
 		)
 			return false
-		if (!can_enter_region(game, p, s)) return false
+		if (!can_enter_area(game, p, s)) return false
 		if (!can_stack_end_in_space(game, s, [p], ignore_hq_heavy_artillery_support(options))) return false
 
 		let rail_only = info.piece_class === "LCU"
@@ -5945,7 +5955,7 @@ module.exports = function (Engine) {
 		get_enemy_fort_entry_extra_cost,
 		set_debug_log,
 		get_lcu_limit_for,
-		can_enter_region,
+		can_enter_area,
 		is_unlimited_stack_space,
 		get_stack_counted_pieces,
 		get_stack_count,

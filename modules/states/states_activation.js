@@ -299,14 +299,40 @@ exports.register = function (states, Engine, context) {
 		return faction === AP && game.mo_ap === "british_no_attack" && !game.br_attack_penalty_paid
 	}
 
+	function is_attack_support_piece(p) {
+		return is_hq(p) || Engine.game_utils.is_heavy_arty(p)
+	}
+
+	function has_attack_support_companion_in_activation(p, s, faction) {
+		return get_pieces_in_space(game, s).some(
+			(q) =>
+				q !== p &&
+				!set_has(game.moved, q) &&
+				Engine.game_utils.is_combat_unit(q) &&
+				can_piece_attack_in_activation(q, s, faction)
+		)
+	}
+
 	function can_piece_attack_in_activation(p, s, faction) {
 		if (!can_piece_participate_in_activation(p, faction)) return false
+		let is_support = is_attack_support_piece(p)
+		if (is_support && !has_attack_support_companion_in_activation(p, s, faction)) return false
 		if (Engine.map.is_limited_supply_status(get_piece_activation_supply_status(p, faction))) return false
 		if (Engine.neutral.is_greek_piece(p) && !Engine.neutral.can_attack_piece_for_faction(game, p, faction)) return false
 		// MO_BRITISH_NO_ATTACK: BR units cannot attack unless penalty has been paid
 		if (is_british_no_attack_unpaid_for(faction)) {
 			let nations = Engine.game_utils.get_piece_nations_for_rule(game, p, "activation")
 			if (nations.some((n) => n === "br")) return false
+		}
+		if (is_support) {
+			return Engine.combat.can_activate_piece_in_space_to_attack(
+				game,
+				p,
+				s,
+				faction,
+				() => Engine.game_utils.get_season(game),
+				is_rail_connected_to_supply
+			)
 		}
 		return can_activate_piece_in_space_to_attack(p, s)
 	}
@@ -1600,7 +1626,7 @@ exports.register = function (states, Engine, context) {
 			let selected = get_selected_combine_scus()
 			if (!can_combine_in_activation_space()) return
 			if (!set_has(get_valid_lcus_for_selected_scus(selected), lcu_id)) return
-			if (!Engine.map.can_enter_region(game, lcu_id, game.where)) return
+			if (!Engine.map.can_enter_area(game, lcu_id, game.where)) return
 			let options = get_manual_combination_for_lcu(lcu_id, selected)
 			if (!options) {
 				return
@@ -1812,7 +1838,7 @@ exports.register = function (states, Engine, context) {
 			`[调试] get_valid_lcus_for_selected_scus: faction=${faction}, reserve lcus: ${lcus.map((id) => data.pieces[id].name)}`
 		)
 		return lcus.filter((lcu) => {
-			if (!Engine.map.can_enter_region(game, lcu, game.where)) return false
+			if (!Engine.map.can_enter_area(game, lcu, game.where)) return false
 			let res = get_manual_combination_for_lcu(lcu, selected_scus)
 			log_activation_debug(`[调试] check lcu ${data.pieces[lcu].name}: valid=${!!res}`)
 			return !!res

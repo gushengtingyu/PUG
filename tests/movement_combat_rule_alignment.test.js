@@ -48,9 +48,9 @@ test("Bulgarian units may not voluntarily enter Turkey from Bulgaria", () => {
 		faction: CP
 	}
 
-	expect(Engine.map.can_enter_region(game, buDiv, adrianople)).toBe(false)
+	expect(Engine.map.can_enter_area(game, buDiv, adrianople)).toBe(false)
 	expect(Engine.map.can_piece_move_to(game, buDiv, adrianople, CP)).toBe(false)
-	expect(Engine.map.can_enter_region(game, buDiv, adrianople, { retreat: true })).toBe(true)
+	expect(Engine.map.can_enter_area(game, buDiv, adrianople, { retreat: true })).toBe(true)
 })
 
 test("LCUs attacking out of desert must use a supplied rail edge", () => {

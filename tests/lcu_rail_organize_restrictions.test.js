@@ -63,7 +63,7 @@ test("LCUs cannot enter or organize in desert spaces without an actual rail line
 	expect(Engine.map.get_supply_status(game, kuwait, CP, findPiece("TU DIV #1"))).toBe("FULL")
 	expect(Engine.map.is_rail_connected_to_supply(game, kuwait, CP)).toBe(false)
 	expect(Engine.game_utils.can_combine_in_space(game, kuwait, CP)).toBe(false)
-	expect(Engine.map.can_enter_region(game, tuCorps, kuwait)).toBe(false)
+	expect(Engine.map.can_enter_area(game, tuCorps, kuwait)).toBe(false)
 })
 
 test("ANZ Desert Corps can move across unfinished Sinai railroad as a normal connection", () => {
@@ -207,7 +207,7 @@ test("Rail-connected desert restricted spaces still allow legal LCU organization
 
 	expect(Engine.map.is_rail_connected_to_supply(game, tabuk, CP)).toBe(true)
 	expect(Engine.game_utils.can_combine_in_space(game, tabuk, CP)).toBe(true)
-	expect(Engine.map.can_enter_region(game, tuCorps, tabuk)).toBe(true)
+	expect(Engine.map.can_enter_area(game, tuCorps, tabuk)).toBe(true)
 })
 
 test("Turkish LCUs still cannot organize in swamp spaces", () => {

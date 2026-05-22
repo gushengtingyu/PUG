@@ -5189,7 +5189,7 @@ function get_eliminated_box_group(piece, order) {
 	if (order.includes(nation)) {
 		return nation
 	}
-	return OTHER
+	return get_box_fallback_group(order)
 }
 
 function apply_box_piece_interaction_state(el, state, piece_id, interactive = true) {
@@ -5359,6 +5359,9 @@ function update_eliminated_box(space_id, piece_ids) {
 			apply_box_piece_interaction_state(element, state, piece_id, !is_removed_box)
 			set_piece_image(element, piece.image_full)
 			const group = get_eliminated_box_group(piece, order)
+			if (!space.stacks[group]) {
+				space.stacks[group] = { lcus: [], scus: [] }
+			}
 			const bucket = piece.piece_class === "LCU" ? space.stacks[group].lcus : space.stacks[group].scus
 			unshift_stack(bucket, element)
 		},

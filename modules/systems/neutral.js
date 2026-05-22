@@ -841,7 +841,7 @@ module.exports = function (Engine) {
 		// Rule 19.6.3 (bullet 2): The first time RU units enter Arabistan, +1 VP penalty.
 		// This is the only explicit sphere-entry VP penalty in the rulebook; the mirror
 		// direction (BR/FR/IN/IT/ANZ into Russian sphere) is handled by bullet 1's hard
-		// prohibition in can_enter_region and requires no VP penalty.
+		// prohibition in can_enter_area and requires no VP penalty.
 		if (!game.events["russian_british_sphere_penalty"]) {
 			let has_russian_entry = entered_pieces.some((p) =>
 				Engine.game_utils.piece_counts_as_nation_for_rule(game, p, "ru")

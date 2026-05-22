@@ -132,7 +132,7 @@ const {
 const {
 	get_piece_mf,
 	get_lcu_limit_for,
-	can_enter_region,
+	can_enter_area,
 	can_stack_end_in_space,
 	can_piece_move_to,
 	can_stack_move_to,
@@ -1392,6 +1392,43 @@ function can_activate_piece_in_space_to_attack(p, s) {
 	)
 }
 
+function can_select_piece_in_space_for_attack(p, s, faction = active_faction()) {
+	if (is_hq(p) || Engine.game_utils.is_heavy_arty(p)) {
+		return combat.can_activate_piece_in_space_to_attack(
+			game,
+			p,
+			s,
+			faction,
+			() => get_season(game),
+			is_rail_connected_to_supply
+		)
+	}
+	return can_activate_piece_in_space_to_attack(p, s)
+}
+
+function has_attack_support_companion(p, s, faction, candidate_pieces = null) {
+	if (!is_hq(p) && !Engine.game_utils.is_heavy_arty(p)) return true
+	const is_companion = (q) => {
+		if (q === p) return false
+		if (game.pieces[q] !== s) return false
+		if (is_not_on_map(game, q)) return false
+		if (set_has(game.attacked, q)) return false
+		if (Array.isArray(game.retreated) && set_has(game.retreated, q)) return false
+		if (Engine.game_utils.get_piece_effective_faction(game, q) !== faction) return false
+		return Engine.game_utils.is_combat_unit(q)
+	}
+	if (Array.isArray(candidate_pieces)) {
+		for (let q of candidate_pieces) {
+			if (is_companion(q)) return true
+		}
+	} else {
+		for (let q = 0; q < game.pieces.length; q++) {
+			if (is_companion(q)) return true
+		}
+	}
+	return false
+}
+
 function reset_balkan_attack_targets() {
 	combat.reset_balkan_attack_targets(game)
 }
@@ -2303,7 +2340,11 @@ function refresh_attack_eligibility() {
 				is_active_piece = false
 			}
 			if (is_active_piece && (is_lcu(p) || is_scu(p))) {
-				if (has_attack_targets(p, faction, enemy, enemy_space_flag) && can_activate_piece_in_space_to_attack(p, s)) {
+				if (
+					has_attack_targets(p, faction, enemy, enemy_space_flag) &&
+					can_select_piece_in_space_for_attack(p, s, faction) &&
+					has_attack_support_companion(p, s, faction)
+				) {
 					set_add(game.eligible_attackers, p)
 				}
 			}
@@ -2328,7 +2369,8 @@ function refresh_attack_eligibility() {
 				}
 				if (!is_active_piece || (!is_lcu(p) && !is_scu(p))) continue
 				if (!has_attack_targets(p, faction, enemy, enemy_space_flag)) continue
-				if (!can_activate_piece_in_space_to_attack(p, space)) continue
+				if (!can_select_piece_in_space_for_attack(p, space, faction)) continue
+				if (!has_attack_support_companion(p, space, faction, stack.pieces)) continue
 				set_add(game.eligible_attackers, p)
 				stack_has_eligible = true
 			}
@@ -2681,7 +2723,7 @@ exports.get_sr_cost = function (p, from = null, to = null, faction = null) {
 }
 exports.is_in_supply = is_in_supply
 exports.is_rail_connected_to_supply = is_rail_connected_to_supply
-exports.can_enter_region = can_enter_region
+exports.can_enter_area = can_enter_area
 exports.can_stack_end_in_space = can_stack_end_in_space
 exports.set_add = set_add
 exports.set_has = set_has
@@ -2826,7 +2868,7 @@ combat_funcs = combat_states.register(states, Engine, {
 	goto_end_action: () => action_funcs.goto_end_action(),
 	get_cc_retained,
 	check_supply,
-	can_enter_region,
+	can_enter_area,
 	can_stack_end_in_space,
 	eliminate_piece,
 	bulls_eye_record_advanced_piece,
