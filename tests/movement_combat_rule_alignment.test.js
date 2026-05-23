@@ -201,6 +201,34 @@ test("Retreat may enter an enemy-occupied Region", () => {
 	expect(Engine.combat.get_valid_retreat_spaces(game, brCordon, [], 1)).toContain(meshed)
 })
 
+test("Afghan Uprising units may attack adjacent India after Afghan Alliance", () => {
+	let game = setupGame(2026052301, "Historical", { no_supply_warnings: true })
+	let afghanistan = findSpace("Afghanistan")
+	let india = findSpace("INDIA")
+	let afghan = findPiece(CP, "Afghan Uprising #1")
+	let defender = findPiece(AP, "BR DIV #1")
+
+	resetForRuleProbe(game, CP)
+	game.events.afghan_alliance = true
+	game.pieces[afghan] = afghanistan
+	game.pieces[defender] = india
+	game.control[afghanistan] = CP
+	game.control[india] = AP
+
+	expect(Engine.map.get_piece_connected_spaces_for_rule(game, afghanistan, afghan, "attack")).toContain(india)
+	expect(
+		Engine.combat.can_activate_piece_in_space_to_attack(
+			game,
+			afghan,
+			afghanistan,
+			CP,
+			() => Engine.game_utils.get_season(game),
+			(s, faction) => Engine.map.is_rail_connected_to_supply(game, s, faction)
+		)
+	).toBe(true)
+	expect(getAttackTargets(game, [afghan], CP)).toContain(india)
+})
+
 test("Region combat asks defender to choose one legal defense stack", () => {
 	let game = setupGame(2026051205)
 	let shiraz = findSpace("Shiraz")

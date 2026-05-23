@@ -1156,8 +1156,9 @@ module.exports = function (Engine) {
 			}
 		}
 
-		// Rule 17.2.2: Irregular units cannot leave their supply area.
-		if (p !== undefined && p >= 0 && data.pieces[p] && is_irregular(p)) {
+		// Rule 17.2.2: Irregular units cannot move/advance out of their supply area.
+		// Attacks may target adjacent spaces outside that area.
+		if (mode !== "attack" && p !== undefined && p >= 0 && data.pieces[p] && is_irregular(p)) {
 			conns = conns.filter((next) => is_space_in_irregular_supply_area(p, next))
 		}
 		return conns
