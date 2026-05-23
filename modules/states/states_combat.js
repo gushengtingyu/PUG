@@ -1665,9 +1665,15 @@ exports.register = function (states, Engine, context) {
 			if (defenders.length === 0) finish_jafar_pasha_retreat()
 		},
 		reroll() {
+			let choice = game.cc_jafar_pasha
+			let reroll_request = {
+				faction: choice?.faction || game.active,
+				side: choice?.side
+			}
+			let return_state = choice?.return_state || "post_roll_cc_defender"
 			finalize_jafar_pasha_choice()
-			game.cc_jafar_pasha_reroll = true
-			resolve_battle_sequence()
+			combat.reroll_jafar_pasha_combat_die(game, reroll_request, log)
+			resume_combat_card_flow(return_state, false)
 		}
 	}
 

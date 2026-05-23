@@ -3911,13 +3911,6 @@ module.exports = function (Engine) {
 		// Rolls
 		let att_roll = roll_die(6, game)
 		let def_roll = roll_die(6, game)
-		if (game.cc_jafar_pasha_reroll) {
-			let new_roll = roll_die(6, game)
-			log_detail(log, `贾法尔帕夏：防守方重掷，${def_roll} -> ${new_roll}`)
-			def_roll = new_roll
-			mark_effected(CC_CP_JAFAR_PASHA)
-			delete game.cc_jafar_pasha_reroll
-		}
 
 		// 4. Flank Attack
 		// PUG 12.3: If attacking from 2 or more spaces, and at least one LCU is involved.
@@ -4354,6 +4347,10 @@ module.exports = function (Engine) {
 			def_roll,
 			att_final_roll,
 			def_final_roll,
+			att_cf,
+			def_cf,
+			att_table_type,
+			def_table_type,
 			att_shifts,
 			def_shifts,
 			att_drm,
@@ -4375,6 +4372,150 @@ module.exports = function (Engine) {
 			used_hqs,
 			used_arty
 		}
+	}
+
+	function get_jafar_pasha_reroll_side(game, request) {
+		let side = request && typeof request === "object" ? request.side : null
+		let faction = request && typeof request === "object" ? request.faction : request
+		if (side === "attacker" || side === "defender") return side
+		if (faction === game.attack?.attacker) return "attacker"
+		if (faction === game.attack?.defender) return "defender"
+		return null
+	}
+
+	function recompute_jafar_pasha_reroll_outcome(game, result, log) {
+		let target_space = game.attack.space
+		let defender_faction = game.attack.defender || other_faction(game.attack.attacker || game.active)
+		let suffered_by_attacker = result.attacker_losses
+		let suffered_by_defender = result.defender_losses
+
+		if (suffered_by_defender > suffered_by_attacker) {
+			log(`*${suffered_by_defender}:${suffered_by_attacker} 进攻方获胜`)
+		} else if (suffered_by_attacker > suffered_by_defender) {
+			log(`*${suffered_by_defender}:${suffered_by_attacker} 防守方获胜`)
+		} else {
+			log(`*${suffered_by_defender}:${suffered_by_attacker} 平局`)
+		}
+
+		result.retreat_needed = false
+		result.retreating_faction = null
+		result.retreating_units = []
+		result.retreat_can_cancel = false
+
+		if (suffered_by_defender > suffered_by_attacker && !is_region(game, target_space)) {
+			result.retreat_needed = true
+			result.retreating_faction = defender_faction
+			let loss_diff = suffered_by_defender - suffered_by_attacker
+			result.retreat_distance = loss_diff >= 2 ? 2 : 1
+			result.retreating_units = result.defenders || get_combat_defenders(game, target_space, defender_faction)
+		}
+
+		if (combat_card_played(game, "defender", CC_CP_WATER_SHORTAGE)) {
+			let area = Engine.map.get_area(target_space)
+			if (area === "mesopotamia" || area === "syria_palestine" || area === "sinai") {
+				result.no_advance = true
+				cancel_cp_retreat_result(game, result)
+			}
+		}
+
+		if (result.retreat_needed) {
+			result.retreat_can_cancel = can_cancel_defender_retreat(
+				game,
+				target_space,
+				result.retreating_faction,
+				result.retreating_units
+			)
+		}
+
+		if (game.turkish_retreat) {
+			result.turkish_retreat = true
+			result.advance_with_reduced = true
+			let cp_defenders = get_combat_defenders(game, target_space, CP)
+			if (result.retreat_needed && result.retreating_faction === CP) {
+				result.retreat_distance = 1
+				result.retreating_units = cp_defenders
+				result.turkish_retreat_units = cp_defenders
+				result.turkish_retreat_optional_units = []
+				result.turkish_retreat_defender_retreats = false
+			} else {
+				let mandatory = cp_defenders.filter(
+					(p) =>
+						(data.pieces[p].nation === "tu" || data.pieces[p].nation === "tua") &&
+						data.pieces[p].piece_class === "SCU"
+				)
+				result.turkish_retreat_units = mandatory
+				result.turkish_retreat_optional_units = cp_defenders.filter((p) => !mandatory.includes(p))
+				result.turkish_retreat_defender_retreats = true
+			}
+			result.retreat_can_cancel = false
+		}
+
+		result.catastrophic_attack = false
+		if (
+			game.attack?.defender === CP &&
+			combat_card_played(game, "defender", CC_CP_CATASTROPHIC_ATTACK) &&
+			get_catastrophic_attack_stack_options(game).length > 0 &&
+			suffered_by_attacker > suffered_by_defender
+		) {
+			result.catastrophic_attack = true
+			result.turkish_retreat = false
+			result.turkish_retreat_units = []
+			result.turkish_retreat_optional_units = []
+			result.turkish_retreat_defender_retreats = false
+			result.advance_with_reduced = true
+		}
+	}
+
+	function reroll_jafar_pasha_combat_die(game, request, log_fn) {
+		if (!game.attack || !game.battle_result) return false
+		let result = game.battle_result
+		let side = get_jafar_pasha_reroll_side(game, request)
+		if (side !== "attacker" && side !== "defender") return false
+
+		const log = (msg) => {
+			if (log_fn) log_fn(msg)
+		}
+
+		let roll_key = side === "attacker" ? "att_roll" : "def_roll"
+		let final_key = side === "attacker" ? "att_final_roll" : "def_final_roll"
+		let drm_key = side === "attacker" ? "att_drm" : "def_drm"
+		let cf_key = side === "attacker" ? "att_cf" : "def_cf"
+		let table_key = side === "attacker" ? "att_table_type" : "def_table_type"
+		let shifts_key = side === "attacker" ? "att_shifts" : "def_shifts"
+		let loss_mod_key = side === "attacker" ? "att_loss_mod" : "def_loss_mod"
+		let old_roll = result[roll_key]
+		let new_roll = roll_die(6, game)
+		let drm = result[drm_key] || 0
+		let final_roll = Math.max(1, Math.min(6, new_roll + drm))
+		let cf = result[cf_key]
+		if (cf === undefined) {
+			let pieces = side === "attacker" ? result.attackers || [] : result.defenders || []
+			cf = pieces.reduce((sum, p) => sum + get_piece_cf(game, p), 0)
+		}
+		let table_type = result[table_key] || "scu"
+		let losses = get_fire_result(table_type, cf, result[shifts_key] || 0, final_roll)
+		losses += result[loss_mod_key] || 0
+		if (losses < 0) losses = 0
+		if (side === "attacker" && result.turkish_retreat && losses > 0) losses -= 1
+
+		result[roll_key] = new_roll
+		result[final_key] = final_roll
+		if (side === "attacker") {
+			result.att_fire_result = losses
+			result.defender_losses = losses
+			game.attack.defender_losses = losses
+		} else {
+			result.def_fire_result = losses
+			result.attacker_losses = losses
+			game.attack.attacker_losses = losses
+		}
+
+		let label = side === "attacker" ? "进攻方" : "防守方"
+		let new_roll_log = drm === 0 ? `${new_roll}` : `${new_roll}${drm > 0 ? "+" : ""}${drm}=${final_roll}`
+		log_detail(log, `贾法尔帕夏：${label}重掷，${old_roll} -> ${new_roll_log}`)
+		mark_combat_card_effected(game, CC_CP_JAFAR_PASHA)
+		recompute_jafar_pasha_reroll_outcome(game, result, log)
+		return true
 	}
 
 	function resolve_second_fire(game, log_fn) {
@@ -4658,6 +4799,7 @@ module.exports = function (Engine) {
 		find_fire_column,
 		check_can_flank,
 		resolve_battle,
+		reroll_jafar_pasha_combat_die,
 		resolve_second_fire,
 		refresh_post_battle_defender_retreat,
 		retreat_units,

@@ -767,6 +767,8 @@ module.exports = function (Engine) {
 				ctx.game.cc_jafar_pasha = {
 					card: ctx.card,
 					faction: ctx.faction,
+					side: ctx.is_attacker ? "attacker" : "defender",
+					return_state: ctx.return_state,
 					after_use,
 					post_roll: ctx.return_state === "post_roll_cc_defender",
 					mode: ctx.return_state === "post_roll_cc_defender" ? "reroll" : "retreat"
