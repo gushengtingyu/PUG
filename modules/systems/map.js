@@ -973,7 +973,7 @@ module.exports = function (Engine) {
 
 	function is_space_in_tribal_range(p, s) {
 		if (p === undefined || p < 0 || !data.pieces[p]) return true
-		if (!is_tribe(p) && !(data.pieces[p].name && data.pieces[p].name.startsWith("CAsia Uprising"))) return true
+		if (!is_tribe(p)) return true
 
 		let tribe_type = get_tribe_type(p)
 		if (!tribe_type) return true
