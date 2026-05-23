@@ -115,7 +115,7 @@ describe("崩溃规则", () => {
 		})
 	})
 
-	test("塞尔维亚崩溃的 AH 选择提示展示可移除 AH 师，且不展示 AH 军级单位", () => {
+	test("塞尔维亚崩溃的 AH 选择提示只展示 Bulgaria 入场 AH 师，且不展示 AH 军级单位", () => {
 		const game = createGame()
 		const log = makeLogger(game)
 
@@ -135,11 +135,49 @@ describe("崩溃规则", () => {
 			rules: createStateRules(game)
 		})
 
-		expect(getPiecesAction(res)).toContain(findPiece(CP, "AH DIV #1"))
+		expect(getPiecesAction(res)).not.toContain(findPiece(CP, "AH DIV #1"))
 		expect(getPiecesAction(res)).toContain(findPiece(CP, "AH DIV #4"))
 		expect(getPiecesAction(res)).toContain(findPiece(CP, "AH DIV #5"))
 		expect(getPiecesAction(res)).not.toContain(findPiece(CP, "AH DIV #6"))
 		expect(getPiecesAction(res)).not.toContain(findPiece(CP, "AH VIII Corps"))
+	})
+
+	test("塞尔维亚崩溃不会把 Romania 事件带入的 AH 单位列入移除选择", () => {
+		const game = createGame()
+		const rules = createStateRules(game)
+
+		Engine.neutral.trigger_bulgaria_entry(game)
+		Engine.neutral.trigger_romania_entry(game)
+		Engine.collapse.accept_voluntary_collapse(game, "serbia", rules.log)
+
+		const romaniaAhUnits = ["AH VI R Corps", "AH DIV #1", "AH DIV #2", "AH DIV #3", "Combined BU/AH Div"].map((name) =>
+			findPiece(CP, name)
+		)
+		const ahDiv4 = findPiece(CP, "AH DIV #4")
+		const ahDiv5 = findPiece(CP, "AH DIV #5")
+		const res = Engine.create_result(game)
+
+		eventStates.event_serbian_collapse_choice.prompt({
+			game,
+			res,
+			rules
+		})
+
+		for (const p of romaniaAhUnits) {
+			expect(getPiecesAction(res)).not.toContain(p)
+			expect(isRemoved(game, p)).toBe(false)
+		}
+		expect(getPiecesAction(res)).toEqual(expect.arrayContaining([ahDiv4, ahDiv5]))
+
+		eventStates.event_serbian_collapse_choice.piece({ game, rules, arg: ahDiv4 })
+		eventStates.event_serbian_collapse_choice.piece({ game, rules, arg: ahDiv5 })
+		eventStates.event_serbian_collapse_choice.confirm({ game, rules })
+
+		for (const p of romaniaAhUnits) {
+			expect(isRemoved(game, p)).toBe(false)
+		}
+		expect(isRemoved(game, ahDiv4)).toBe(true)
+		expect(isRemoved(game, ahDiv5)).toBe(true)
 	})
 
 	test("塞尔维亚崩溃不会把保加利亚单位永久消除，但仍会移除保加利亚入场的 GE/AH 单位", () => {

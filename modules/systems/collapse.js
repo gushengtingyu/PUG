@@ -124,7 +124,7 @@ module.exports = function (Engine) {
 		"GE DIV #1",
 		"GE DIV #2"
 	])
-	const SERBIAN_COLLAPSE_AH_DIVISION_NAMES = Object.freeze(
+	const ALL_AH_DIVISION_NAMES = Object.freeze(
 		data.pieces
 			.filter(
 				(piece) =>
@@ -132,13 +132,15 @@ module.exports = function (Engine) {
 			)
 			.map((piece) => piece.name)
 	)
+	const SERBIAN_COLLAPSE_AH_DIVISION_NAMES = BULGARIA_ENTRY_PLAN.cp.ah_divisions
 	const ROMANIAN_COLLAPSE_AH_ENTRY_UNIT_NAMES = new Set(["AH VI R Corps", ...ROMANIA_ENTRY_PLAN.cp.ah_units])
 	const ROMANIAN_COLLAPSE_AH_DIVISION_NAMES = Object.freeze([
 		"Combined BU/AH Div",
-		...SERBIAN_COLLAPSE_AH_DIVISION_NAMES
+		...ALL_AH_DIVISION_NAMES
 	])
 	// 两个崩溃事件的“可选保留/移除”名单并不相同：
-	// 塞尔维亚崩溃在罗马尼亚未崩溃时可从 AH 师中选择 2 个移除；罗马尼亚崩溃在塞尔维亚未崩溃时可从 AH 师中选择 3 个移除。
+	// 塞尔维亚崩溃在罗马尼亚未崩溃时只从 Bulgaria 入场的 AH 师中选择 2 个移除；
+	// 罗马尼亚崩溃在塞尔维亚未崩溃时可从 AH 师中选择 3 个移除。
 	const COLLAPSE_OPTIONAL_REMOVAL_PLAN = Object.freeze({
 		serbia: SERBIAN_COLLAPSE_AH_DIVISION_NAMES,
 		romania: ROMANIAN_COLLAPSE_AH_DIVISION_NAMES
