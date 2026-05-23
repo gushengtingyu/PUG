@@ -128,6 +128,32 @@ test("ANZ Desert Corps still counts toward restricted-area LCU limits", () => {
 	expect(Engine.map.check_rule_violations(game).some((v) => v.rule.includes("LCU Limit Exceeded"))).toBe(true)
 })
 
+test("Greater Persia shares one restricted-area LCU limit", () => {
+	let game = setupGame(2026052305)
+	let tabriz = findSpace("Tabriz")
+	let ahwaz = findSpace("Ahwaz")
+	let meshed = findSpace("Meshed")
+	let shuster = findSpace("Shuster")
+	let russianCorps = findApPiece("RU I Caucasian")
+	let secondRussianCorps = findApPiece("RU IV Caucasian")
+
+	clearBoard(game)
+	game.war_commitment_ap = COMMITMENT_MOBILIZATION
+	game.pieces[russianCorps] = tabriz
+
+	expect(Engine.map.get_restricted_area(tabriz)).toBe("persia")
+	expect(Engine.map.get_restricted_area(ahwaz)).toBe("persia")
+	expect(Engine.map.get_restricted_area(meshed)).toBe("persia")
+	expect(Engine.map.count_lcu_in_area(game, "persia", AP)).toBe(1)
+	expect(Engine.map.can_enter_area(game, secondRussianCorps, shuster)).toBe(false)
+
+	game.pieces[secondRussianCorps] = shuster
+	expect(Engine.map.count_lcu_in_area(game, "persia", AP)).toBe(2)
+	expect(Engine.map.check_rule_violations(game).some((v) => v.rule.includes("LCU Limit Exceeded in persia"))).toBe(
+		true
+	)
+})
+
 test("ANZ Desert Corps does not create a desert rail violation by itself", () => {
 	let game = setupGame(2026042107)
 	let kuwait = findSpace("Kuwait")

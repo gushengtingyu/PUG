@@ -723,8 +723,6 @@ module.exports = function (Engine) {
 		"mesopotamia",
 		"persia",
 		"syria_palestine",
-		"azerbaijan",
-		"arabistan",
 		"afghanistan",
 		"central_asia"
 	])
@@ -736,8 +734,8 @@ module.exports = function (Engine) {
 		if (area === "sinai") return "syria_palestine"
 		if (region === "afghanistan") return "afghanistan"
 		if (region === "central asia" || region === "central_asia") return "central_asia"
+		if (is_greater_persia(s)) return "persia"
 		if (RESTRICTED_AREAS.has(area)) return area
-		if (is_persia(s)) return "persia"
 		return null
 	}
 
