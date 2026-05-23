@@ -87,6 +87,40 @@ test("Catastrophic Attack is not playable unless the AP attackers lost the comba
 	expect(rules.view(game, CP_ROLE).actions.play_cc || []).not.toContain(CATASTROPHIC_ATTACK)
 })
 
+test("Catastrophic Attack is not playable when CP was the attacker", () => {
+	const { game } = createPostRollCatastrophicAttackGame()
+	game.attack.attacker = CP
+	game.attack.defender = AP
+
+	expect(rules.view(game, CP_ROLE).actions.play_cc || []).not.toContain(CATASTROPHIC_ATTACK)
+})
+
+test("Catastrophic Attack is not playable against an AP attack from a beachhead", () => {
+	const { game } = createPostRollCatastrophicAttackGame()
+	const attacker = game.attack.pieces[0]
+	const beachhead = findSpace("Besika Bay")
+
+	game.pieces[attacker] = beachhead
+	game.control[beachhead] = AP
+	game.beachheads = [beachhead]
+	game.attack.origin_by_piece = { [attacker]: beachhead }
+
+	expect(rules.view(game, CP_ROLE).actions.play_cc || []).not.toContain(CATASTROPHIC_ATTACK)
+})
+
+test("Catastrophic Attack is not playable against an AP attack from a Region", () => {
+	const { game } = createPostRollCatastrophicAttackGame()
+	const attacker = game.attack.pieces[0]
+	const region = findSpace("Shiraz")
+
+	game.pieces[attacker] = region
+	game.control[region] = AP
+	game.attack.origin_by_piece = { [attacker]: region }
+
+	expect(Engine.map.is_region(game, region)).toBe(true)
+	expect(rules.view(game, CP_ROLE).actions.play_cc || []).not.toContain(CATASTROPHIC_ATTACK)
+})
+
 test("Catastrophic Attack advance cannot stop in the retreating AP stack space", () => {
 	const game = setupGame(260522, "Historical", { no_supply_warnings: true })
 	const retreatSpace = findSpace("Museyib")

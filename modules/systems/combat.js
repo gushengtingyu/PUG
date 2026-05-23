@@ -418,6 +418,8 @@ module.exports = function (Engine) {
 		for (let p of game.attack.pieces) {
 			let origin = get_attack_piece_origin(game, p)
 			if (!(origin > 0)) continue
+			if (Engine.map.is_beachhead_space(game, origin)) continue
+			if (is_region(game, origin)) continue
 			if (!stacks.has(origin)) {
 				stacks.set(origin, { origin, participants: [], survivors: [] })
 			}
