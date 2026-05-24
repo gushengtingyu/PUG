@@ -911,6 +911,40 @@ header.Central_Powers {
 	padding: 20px;
 }
 
+.track_summary {
+	display: grid;
+	grid-template-columns: repeat(5, minmax(0, 1fr));
+	gap: 8px;
+	padding: 10px;
+	border: 1px solid #34495e;
+	border-radius: 4px;
+	background: rgba(0, 0, 0, 0.35);
+}
+
+.track_summary_item {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	min-width: 0;
+}
+
+.track_summary_label {
+	font-size: 10px;
+	font-weight: 800;
+	letter-spacing: 0;
+	text-transform: uppercase;
+	color: rgba(236, 240, 241, 0.55);
+}
+
+.track_summary_value {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 13px;
+	font-weight: 800;
+	color: #ecf0f1;
+}
+
 .track_rounds {
 	display: flex;
 	flex-direction: column;
@@ -997,6 +1031,21 @@ header.Central_Powers {
 
 .track_slot.current .track_slot_label {
 	color: #f1c40f;
+}
+
+.track_slot_type {
+	position: absolute;
+	right: 5px;
+	bottom: 5px;
+	z-index: 6;
+	padding: 2px 5px;
+	border-radius: 3px;
+	background: rgba(0, 0, 0, 0.72);
+	color: #ecf0f1;
+	font-size: 11px;
+	font-weight: 900;
+	line-height: 1;
+	pointer-events: none;
 }
 
 .track_card_thumb {
@@ -1119,6 +1168,13 @@ header.Central_Powers {
 		padding: 12px;
 		min-width: 0;
 	}
+	.track_summary {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 6px;
+	}
+	.track_summary_value {
+		font-size: 12px;
+	}
 	.track_rounds {
 		gap: 12px;
 	}
@@ -1140,6 +1196,12 @@ header.Central_Powers {
 	}
 	.track_slot_label {
 		font-size: 10px;
+	}
+	.track_slot_type {
+		right: 2px;
+		bottom: 2px;
+		padding: 1px 2px;
+		font-size: 8px;
 	}
 	.track_stats {
 		grid-template-columns: 1fr;

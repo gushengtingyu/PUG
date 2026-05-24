@@ -875,6 +875,7 @@ function get_control_defaults_view() {
 }
 
 exports.view = function (state, current) {
+	const snapshot_log_length = Number.isInteger(state?.log) ? state.log : null
 	game = normalize_game(state)
 	update_supply_if_missing()
 	const rollback_entries = game.rollback || []
@@ -930,6 +931,7 @@ exports.view = function (state, current) {
 		const jerusalem_by_christmas_target = Number(jerusalem_by_christmas?.target_space)
 		return {
 			active: game.active,
+			state: game.state,
 			log: game.log,
 			prompt: null,
 			actions: null,
@@ -1173,6 +1175,10 @@ exports.view = function (state, current) {
 
 	view = create_view()
 	res.apply(view)
+	if (snapshot_log_length !== null) {
+		game.log = snapshot_log_length
+		view.log = snapshot_log_length
+	}
 	return view
 }
 

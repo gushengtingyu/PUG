@@ -973,6 +973,242 @@ function show_score_summary() {
 /**
  * 显示游戏进程追踪对话框（回合、行动轮、卡牌信息等）。
  */
+function get_track_turn() {
+	return Math.max(1, Number(view?.turn) || 1)
+}
+
+function get_track_round() {
+	return Math.max(0, Number(view?.action_round) || 0)
+}
+
+function get_track_faction(value) {
+	if (value === "Allied Powers" || value === AP) return AP
+	if (value === "Central Powers" || value === CP) return CP
+	return null
+}
+
+function get_track_faction_label(value) {
+	const faction = get_track_faction(value)
+	if (faction === AP) return "AP"
+	if (faction === CP) return "CP"
+	return "-"
+}
+
+function get_track_action(faction, round) {
+	const actions = view?.[faction]?.actions
+	return Array.isArray(actions) ? actions[round] || null : null
+}
+
+function get_current_track_action() {
+	const faction = get_track_faction(view?.active)
+	const round = get_track_round()
+	return faction && round > 0 ? get_track_action(faction, round) : null
+}
+
+function track_action_label(type) {
+	switch (type) {
+	case "ops":
+		return "OPS"
+	case "one_op":
+		return "1 OP"
+	case "sr":
+		return "SR"
+	case "rps":
+		return "RP"
+	case "event":
+		return "EVENT"
+	default:
+		return type ? String(type).toUpperCase() : "-"
+	}
+}
+
+function format_track_action(action) {
+	if (!action) return "-"
+	let label = track_action_label(action.type)
+	if (action.card) label += ` c${action.card}`
+	return label
+}
+
+function format_track_phase(state) {
+	state = String(state || "")
+	if (!state) return "-"
+	if (state === "game_over") return "Game Over"
+	if (state.includes("rollback")) return "Rollback"
+	if (state.includes("mandated_offensive") || state.includes("mo_")) return "MO"
+	if (state.includes("play_card") || state.includes("card_action")) return "Card"
+	if (state.includes("sr")) return "SR"
+	if (state.includes("replacement") || state.includes("rps")) return "RP"
+	if (
+		state.includes("combat") ||
+		state.includes("attack") ||
+		state.includes("retreat") ||
+		state.includes("advance") ||
+		state.includes("loss")
+	)
+		return "Combat"
+	if (state.includes("activate") || state.includes("move")) return "OPS"
+	if (state.includes("event")) return "Event"
+	if (state.includes("turn") || state.includes("war_status") || state.includes("attrition")) return "Turn"
+	return state.replace(/_/g, " ")
+}
+
+function get_track_log_cursor() {
+	if (Number.isInteger(view?.log)) return view.log
+	if (Array.isArray(view?.log)) return view.log.length
+	if (typeof game_log !== "undefined" && Array.isArray(game_log)) return game_log.length
+	return "-"
+}
+
+function create_track_summary() {
+	const summary = document.createElement("div")
+	summary.className = "track_summary"
+
+	const addItem = (label, value) => {
+		const item = document.createElement("div")
+		item.className = "track_summary_item"
+		const labelElt = document.createElement("span")
+		labelElt.className = "track_summary_label"
+		labelElt.textContent = label
+		const valueElt = document.createElement("span")
+		valueElt.className = "track_summary_value"
+		valueElt.textContent = value
+		item.appendChild(labelElt)
+		item.appendChild(valueElt)
+		summary.appendChild(item)
+	}
+
+	addItem("Active", get_track_faction_label(view?.active))
+	addItem("AR", get_track_round() || "-")
+	addItem("Phase", format_track_phase(view?.state))
+	addItem("Action", format_track_action(get_current_track_action()))
+	addItem("Log", get_track_log_cursor())
+
+	return summary
+}
+
+function format_track_slot_title(faction, round, action) {
+	const factionLabel = faction === AP ? "AP" : "CP"
+	if (!action) return `${factionLabel} AR${round}`
+	let text = `${factionLabel} AR${round}: ${track_action_label(action.type)}`
+	if (action.card) {
+		const card = cards[action.card]
+		text += ` c${action.card}`
+		if (card?.name) text += ` - ${card.name}`
+	}
+	return text
+}
+
+const track_snap_by_turn = new Map()
+let track_snap_pending = null
+let track_snap_probe = null
+
+function parse_replay_prompt() {
+	const text = typeof view?.prompt === "string" ? view.prompt : ""
+	const match = text.match(/Replay\s+(\d+)\s*\/\s*(\d+)/)
+	if (!match) return null
+	return {
+		snap: Number(match[1]),
+		count: Number(match[2])
+	}
+}
+
+function note_track_snapshot() {
+	const replay = parse_replay_prompt()
+	if (!replay) return null
+	if (Number.isInteger(view?.turn) && view.turn > 0 && !track_snap_by_turn.has(view.turn)) {
+		track_snap_by_turn.set(view.turn, replay.snap)
+	}
+	return replay
+}
+
+function resolve_track_snap_probe() {
+	if (!track_snap_probe) return
+	const replay = note_track_snapshot()
+	if (!replay || replay.snap !== track_snap_probe.snap) return
+	const probe = track_snap_probe
+	track_snap_probe = null
+	probe.resolve({
+		snap: replay.snap,
+		count: replay.count,
+		turn: Number(view?.turn) || 0
+	})
+}
+
+function request_track_snap(snap) {
+	if (!Number.isInteger(snap) || snap < 1 || typeof window.request_snap !== "function") {
+		return Promise.resolve(null)
+	}
+	return new Promise((resolve) => {
+		track_snap_probe = { snap, resolve }
+		window.request_snap(snap, () => {
+			if (track_snap_probe?.snap === snap) track_snap_probe = null
+			resolve(null)
+		})
+	})
+}
+
+async function ensure_track_snap_count() {
+	const replay = note_track_snapshot()
+	if (replay?.count) return replay.count
+	if (typeof window.on_snap_prev !== "function") return 0
+	return new Promise((resolve) => {
+		track_snap_pending = {
+			mode: "count",
+			resolve
+		}
+		window.on_snap_prev()
+	})
+}
+
+async function find_track_snap_for_turn(turn) {
+	if (track_snap_by_turn.has(turn)) return track_snap_by_turn.get(turn)
+	const count = await ensure_track_snap_count()
+	if (!count) return 0
+
+	let low = 1
+	let high = count
+	let found = 0
+	while (low <= high) {
+		const mid = Math.floor((low + high) / 2)
+		const snap = await request_track_snap(mid)
+		if (!snap) return 0
+		if (snap.turn >= turn) {
+			found = mid
+			high = mid - 1
+		} else {
+			low = mid + 1
+		}
+	}
+
+	if (found > 0) {
+		const snap = await request_track_snap(found)
+		if (snap && snap.turn === turn) {
+			track_snap_by_turn.set(turn, found)
+			return found
+		}
+	}
+	return 0
+}
+
+function update_track_snap_pending() {
+	resolve_track_snap_probe()
+	if (!track_snap_pending) return
+	const replay = note_track_snapshot()
+	if (!replay?.count) return
+	const pending = track_snap_pending
+	track_snap_pending = null
+	if (pending.mode === "count") pending.resolve(replay.count)
+}
+
+async function goto_track_turn(turn) {
+	turn = Number(turn)
+	if (!Number.isInteger(turn) || turn < 1) return
+	window.track_view_turn = turn
+	const snap = await find_track_snap_for_turn(turn)
+	if (snap > 0) await request_track_snap(snap)
+	show_track_dialog()
+}
+
 function show_track_dialog() {
 	const dialog_elt = document.getElementById("track_dialog")
 	if (!dialog_elt) {
@@ -989,14 +1225,16 @@ function show_track_dialog() {
 		const turnNum = document.createElement("div")
 		turnNum.className = "track_turn_num clickable"
 		// 使用局部状态跟踪“查看”的回合，默认为当前回合
-		if (!window.track_view_turn) {
-			window.track_view_turn = view.turn || 1
-		}
+		window.track_view_turn = get_track_turn()
 		turnNum.textContent = String(window.track_view_turn).padStart(2, "0")
 
+			// 如果菜单已存在，则关闭它
+
+					// 重新渲染对话框主体以反映所选回合的数据
+
+			// 点击其他地方关闭菜单
 		turnNum.onclick = (e) => {
 			e.stopPropagation()
-			// 如果菜单已存在，则关闭它
 			const existingMenu = turnNum.querySelector(".track_turn_menu")
 			if (existingMenu) {
 				existingMenu.remove()
@@ -1011,17 +1249,14 @@ function show_track_dialog() {
 				item.classList.toggle("selected", i === window.track_view_turn)
 				item.onclick = (ev) => {
 					ev.stopPropagation()
-					window.track_view_turn = i
 					turnNum.textContent = String(i).padStart(2, "0")
 					menu.remove()
-					// 重新渲染对话框主体以反映所选回合的数据
-					show_track_dialog()
+					goto_track_turn(i)
 				}
 				menu.appendChild(item)
 			}
 			turnNum.appendChild(menu)
 
-			// 点击其他地方关闭菜单
 			const closeMenu = (event) => {
 				if (!turnNum.contains(event.target)) {
 					menu.remove()
@@ -1040,6 +1275,7 @@ function show_track_dialog() {
 	show_dialog("track_dialog", (body) => {
 		const container = document.createElement("div")
 		container.className = "track_container"
+		container.appendChild(create_track_summary())
 
 		// Rounds
 		const rounds = document.createElement("div")
@@ -1088,6 +1324,7 @@ function show_track_dialog() {
 				// 卡牌缩略图
 				const action = faction_actions[roundNum]
 				const card_id = action?.card
+				slot.title = format_track_slot_title(faction, roundNum, action)
 
 				if (card_id) {
 					const card = cards[card_id]
@@ -1104,6 +1341,12 @@ function show_track_dialog() {
 						slot.appendChild(thumb)
 						slot.classList.add("has_card")
 					}
+				}
+				if (action) {
+					const actionType = document.createElement("div")
+					actionType.className = "track_slot_type"
+					actionType.textContent = track_action_label(action.type)
+					slot.appendChild(actionType)
 				}
 
 				row.appendChild(slot)
@@ -1201,6 +1444,16 @@ function show_track_dialog() {
 
 		body.appendChild(container)
 	})
+}
+
+function update_track_dialog_if_open() {
+	update_track_snap_pending()
+	const dialog = document.getElementById("track_dialog")
+	if (!dialog || dialog.hidden) return
+	const lastMouse = window.last_mouse_event
+	window.last_mouse_event = null
+	show_track_dialog()
+	window.last_mouse_event = lastMouse
 }
 
 let card_dir = "cards.CN"
@@ -3236,6 +3489,7 @@ function on_update() {
 		update_supply_warning_indicator()
 		update_toolbar_state()
 		update_side_panel()
+		update_track_dialog_if_open()
 		return
 	}
 	const started_at = now_ms()
@@ -3256,6 +3510,7 @@ function on_update() {
 	step("update_supply_warning_indicator", update_supply_warning_indicator)
 	step("update_toolbar_state", update_toolbar_state)
 	step("update_side_panel", update_side_panel)
+	step("update_track_dialog_if_open", update_track_dialog_if_open)
 	log_interaction_perf("on_update.done", {
 		total_ms: Math.round((now_ms() - started_at) * 100) / 100,
 		spans
