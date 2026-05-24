@@ -54,6 +54,64 @@ function createBattleGame() {
 	return { game, ruDiv3, tuDiv8, bayburt }
 }
 
+test("Save Tiflis returns Enver Goes East to its queued second attack", () => {
+	let game = rules.setup(2026052401, "Historical", { seed: 42, no_supply_warnings: true })
+	let oltu = findSpaceByName("Oltu")
+	let bayburt = findSpaceByName("Bayburt")
+	let ruDiv3 = findPieceByName("RU DIV #3")
+	let tuDiv8 = findPieceByName("TU DIV #8")
+
+	for (let p = 0; p < game.pieces.length; p++) game.pieces[p] = 0
+	game.pieces[ruDiv3] = oltu
+	game.pieces[tuDiv8] = bayburt
+	game.control[oltu] = rules.AP
+	game.control[bayburt] = rules.CP
+	game.active = rules.AP
+	game.state = "save_tiflis_retreat"
+	game.events = { save_tiflis: game.turn }
+	game.hand_cp = []
+	game.cc_retained = { ap: [], cp: [] }
+	game.cc_retained_after_use = { ap: {}, cp: {} }
+	game.combat_cards = { attacker: [], defender: [Engine.combat.CC_CP_SAVE_TIFLIS] }
+	game.combat_cards_effected = [Engine.combat.CC_CP_SAVE_TIFLIS]
+	game.event_next_state = "event_enver_goes_east_resolve_next_attack"
+	game.save_tiflis_resolved = true
+	game.save_tiflis_pieces = []
+	game.save_tiflis_exempt_spaces = []
+	game.selected_piece = null
+	game.attack = {
+		space: oltu,
+		pieces: [tuDiv8],
+		attacker: rules.CP,
+		defender: rules.AP,
+		keep_context: true,
+		origin_by_piece: { [tuDiv8]: bayburt },
+		initial_attackers: [tuDiv8],
+		initial_defenders: [ruDiv3]
+	}
+	game.battle_result = {
+		attacker_losses: 0,
+		defender_losses: 0,
+		retreat_needed: false,
+		retreating_faction: null,
+		retreating_units: [],
+		retreat_can_cancel: false,
+		retreat_distance: 1,
+		no_advance: true,
+		attackers: [tuDiv8],
+		defenders: [ruDiv3],
+		advance_with_reduced: false
+	}
+
+	game = rules.action(game, AP_ROLE, "done")
+
+	expect(game.state).toBe("event_enver_goes_east_resolve_next_attack")
+	expect(game.active).toBe(rules.AP)
+	expect(game.event_next_state).toBeUndefined()
+	expect(game.attack).toBeNull()
+	expect(game.events.save_tiflis).toBeUndefined()
+})
+
 function createMaudeRetreatCancelGame(targetName, originName = "Baghdad") {
 	let game = rules.setup(104, "Historical", { seed: 42, no_supply_warnings: true })
 	let origin = findSpaceByName(originName)

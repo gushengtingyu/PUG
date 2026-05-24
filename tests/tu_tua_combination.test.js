@@ -107,3 +107,45 @@ test("Turkish Reinforcements 81 combination stays limited to event LCUs after cl
 	expect(game.state).toBe("combine_lcu_dispose_reserve")
 	expect(game.combine_ctx.lcu_id).toBe(eventLcu)
 })
+
+test("Turkish Reinforcements 81 places the two event SCUs after the reserve corps", () => {
+	let game = setupGame(2026052404, "Historical", { no_supply_warnings: true })
+	let role = rules.roles[1]
+	let corpsReserve = findSpace("CP Corps Assets")
+	let scuReserve = findSpace("CP Reserve")
+	let units = [
+		"TU XIV Corps",
+		"TU XV Corps",
+		"TU XVI Corps",
+		"TU XVII Corps",
+		"TU-A XVIII Corps",
+		"TU DIV #18",
+		"TU-A DIV #15"
+	]
+
+	game.active = CP
+	game.state = "play_card"
+	game.hand_cp = [81]
+
+	expect(rules.view(game, role).actions.play_event).toContain(81)
+	game = rules.action(game, role, "play_event", 81)
+
+	expect(game.state).toBe("event_place_reinforcements")
+	expect(game.event_ctx.data.reinf_to_place).toEqual(units)
+	expect(Engine.data.pieces[findPiece("TU DIV #18")].piece_class).toBe("SCU")
+	expect(Engine.data.pieces[findPiece("TU-A DIV #15")].piece_class).toBe("SCU")
+
+	for (let unit of units) {
+		let target = unit.includes("Corps") ? corpsReserve : scuReserve
+		expect(game.event_ctx.data.reinf_to_place[0]).toBe(unit)
+		expect(rules.view(game, role).actions.space).toContain(target)
+		game = rules.action(game, role, "space", target)
+	}
+
+	expect(game.state).toBe("event_turkish_reinf_81_combine")
+	for (let unit of units) {
+		let p = findPiece(unit)
+		expect(Engine.game_utils.is_reinforcement(game, p)).toBe(false)
+		expect(game.pieces[p]).toBe(unit.includes("Corps") ? corpsReserve : scuReserve)
+	}
+})

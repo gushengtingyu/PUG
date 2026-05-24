@@ -1025,7 +1025,7 @@ exports.register = function (states, Engine, context) {
 		game.retreat_choice_cc_done = true
 		delete game.retreat_choice_resume_state
 		delete game.retreat_choice_prev_active
-		combat.end_battle_sequence(game, log)
+		end_battle_sequence()
 	}
 
 	function resume_window_combat_card_state(return_state) {
@@ -2871,7 +2871,7 @@ exports.register = function (states, Engine, context) {
 	function continue_after_post_retreat_cancel() {
 		game.retreat_phase_done = true
 		clear_retreat_runtime_state()
-		combat.end_battle_sequence(game, log)
+		end_battle_sequence()
 	}
 
 	function enter_turkish_retreat_state() {
@@ -3159,7 +3159,7 @@ exports.register = function (states, Engine, context) {
 			game.active = game.attack?.attacker || AP
 			game.retreat_phase_done = true
 			clear_retreat_runtime_state({ preserve_advance_context: true })
-			combat.end_battle_sequence(game, log)
+			end_battle_sequence()
 		} else if (game.turkish_retreat_pending) {
 			game.turkish_retreat_attacker_retreated = true
 			enter_turkish_retreat_state()
@@ -3325,7 +3325,7 @@ exports.register = function (states, Engine, context) {
 			// Restore active faction to attacker (CP)
 			game.active = game.attack.attacker
 
-			combat.end_battle_sequence(game, log)
+			end_battle_sequence()
 		}
 	}
 
