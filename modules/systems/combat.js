@@ -2891,21 +2891,10 @@ module.exports = function (Engine) {
 		}
 
 		if (result.retreat_needed && defenders_in_space.length > 0 && !game.retreat_phase_done) {
-			let retreating = result.retreating_units.filter((p) => !is_not_on_map(game, p) && !is_eliminated(game, p))
-
-			// Rule 12.7.5: HQs and Heavy Artillery are eliminated instead of retreating
-			let actual_retreating = []
-			for (let p of retreating) {
-				if (is_hq(p) || is_heavy_arty(p)) {
-					log_fn(`Rule 12.7.5: ${piece_log_name(game, p)} is eliminated instead of retreating.`)
-					eliminate_piece(game, p, log_fn, true)
-				} else {
-					actual_retreating.push(p)
-				}
-			}
+			let actual_retreating = result.retreating_units.filter((p) => !is_not_on_map(game, p) && !is_eliminated(game, p))
 			game.retreat_pieces = actual_retreating
 
-			// If all retreating units were eliminated during loss application or due to Rule 12.7.5, no retreat needed.
+			// If all retreating units were eliminated during loss application, no retreat needed.
 			if (game.retreat_pieces.length === 0) {
 				result.retreat_needed = false
 			} else {

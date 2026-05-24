@@ -425,6 +425,66 @@ test("post-battle retreat refresh ignores full-strength HQ when attacking combat
 	expect(game.battle_result.retreat_can_cancel).toBe(false)
 })
 
+test("full-strength Yudenitch is reduced but not permanently eliminated when its stack retreats", () => {
+	let game = rules.setup(107, "Historical", { seed: 42, no_supply_warnings: true })
+	let oltu = findSpaceByName("Oltu")
+	let bayburt = findSpaceByName("Bayburt")
+	let tuDiv8 = findPieceByName("TU DIV #8")
+	let ruDiv3 = findPieceByName("RU DIV #3")
+	let yudenitch = findPieceByName("RU Yudenitch HQ")
+	let logs = []
+
+	for (let p = 0; p < game.pieces.length; p++) game.pieces[p] = 0
+	game.pieces[tuDiv8] = bayburt
+	game.pieces[ruDiv3] = oltu
+	game.pieces[yudenitch] = oltu
+	game.control[bayburt] = rules.CP
+	game.control[oltu] = rules.AP
+	game.active = rules.CP
+	game.reduced = [ruDiv3]
+	game.retreated = []
+	game.events = {}
+	game.cc_retained = { ap: [], cp: [] }
+	game.cc_retained_after_use = { ap: {}, cp: {} }
+	game.action_state = {}
+	game.post_roll_cc_done = true
+	game.post_battle_cc_done = true
+	game.attack = {
+		space: oltu,
+		pieces: [tuDiv8],
+		attacker: rules.CP,
+		defender: rules.AP,
+		origin_by_piece: { [tuDiv8]: bayburt },
+		initial_attackers: [tuDiv8],
+		initial_defenders: [ruDiv3, yudenitch]
+	}
+	game.battle_result = {
+		attacker_losses: 0,
+		defender_losses: 2,
+		retreat_needed: true,
+		retreating_faction: rules.AP,
+		retreating_units: [ruDiv3, yudenitch],
+		retreat_can_cancel: false,
+		retreat_distance: 1,
+		no_advance: false,
+		attackers: [tuDiv8],
+		defenders: [ruDiv3, yudenitch],
+		advance_with_reduced: false,
+		used_hqs: { attacker: [], defender: [yudenitch] },
+		used_arty: { attacker: [], defender: [] }
+	}
+
+	Engine.combat.end_battle_sequence(game, (msg) => logs.push(msg))
+
+	expect(logs.some((msg) => typeof msg === "string" && msg.includes("Losing HQ") && msg.includes("loses 1 step"))).toBe(
+		true
+	)
+	expect(logs.some((msg) => typeof msg === "string" && msg.includes("eliminated instead of retreating"))).toBe(false)
+	expect(Engine.game_utils.is_piece_reduced(game, yudenitch)).toBe(true)
+	expect(Engine.game_utils.is_permanently_eliminated(game, yudenitch)).toBe(false)
+	expect(game.retreat_pieces).toEqual(expect.arrayContaining([ruDiv3, yudenitch]))
+})
+
 test("Maude prevents a defender-owned trench from cancelling retreat in a non-VP clear space", () => {
 	let { game, defender1, defender2 } = createMaudeRetreatCancelGame("Ctesiphon")
 
