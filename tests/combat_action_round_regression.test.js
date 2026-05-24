@@ -485,6 +485,81 @@ test("full-strength Yudenitch is reduced but not permanently eliminated when its
 	expect(game.retreat_pieces).toEqual(expect.arrayContaining([ruDiv3, yudenitch]))
 })
 
+test("retreat movement exposes an undo action to the retreating player", () => {
+	let game = rules.setup(108, "Historical", { seed: 42, no_supply_warnings: true })
+	let oltu = findSpaceByName("Oltu")
+	let sarikamis = findSpaceByName("Sarikamis")
+	let ruDiv3 = findPieceByName("RU DIV #3")
+	let ruDiv4 = findPieceByName("RU DIV #4")
+
+	for (let p = 0; p < game.pieces.length; p++) game.pieces[p] = 0
+	game.pieces[ruDiv3] = oltu
+	game.pieces[ruDiv4] = oltu
+	game.control[oltu] = rules.AP
+	game.control[sarikamis] = rules.AP
+	game.active = rules.AP
+	game.state = "retreat"
+	game.attack = { space: oltu, attacker: rules.CP, defender: rules.AP }
+	game.retreat_pieces = [ruDiv3, ruDiv4]
+	game.selected_piece = ruDiv3
+	game.retreat_distance = 1
+	game.retreat_steps_left = { [ruDiv3]: 1, [ruDiv4]: 1 }
+	game.retreated = []
+	game.undo = []
+
+	expect(rules.view(game, AP_ROLE).actions.undo).toBe(0)
+
+	game = rules.action(game, AP_ROLE, "space", sarikamis)
+
+	expect(game.state).toBe("retreat")
+	expect(game.pieces[ruDiv3]).toBe(sarikamis)
+	expect(rules.view(game, AP_ROLE).actions.undo).toBe(1)
+
+	game = rules.action(game, AP_ROLE, "undo")
+
+	expect(game.state).toBe("retreat")
+	expect(game.pieces[ruDiv3]).toBe(oltu)
+	expect(game.selected_piece).toBe(ruDiv3)
+})
+
+test("advance movement exposes an undo action to the advancing player", () => {
+	let game = rules.setup(109, "Historical", { seed: 42, no_supply_warnings: true })
+	let oltu = findSpaceByName("Oltu")
+	let bayburt = findSpaceByName("Bayburt")
+	let tuDiv8 = findPieceByName("TU DIV #8")
+	let tuDiv9 = findPieceByName("TU DIV #9")
+
+	for (let p = 0; p < game.pieces.length; p++) game.pieces[p] = 0
+	game.pieces[tuDiv8] = bayburt
+	game.pieces[tuDiv9] = bayburt
+	game.control[bayburt] = rules.CP
+	game.control[oltu] = rules.AP
+	game.active = rules.CP
+	game.state = "advance"
+	game.attack = { space: oltu, attacker: rules.CP, defender: rules.AP }
+	game.battle_result = { retreat_distance: 1 }
+	game.advance_space = oltu
+	game.advance_pieces = [tuDiv8, tuDiv9]
+	game.advance_count = 0
+	game.advance_limit = 3
+	game.retreated = []
+	game.undo = []
+
+	expect(rules.view(game, CP_ROLE).actions.undo).toBe(0)
+
+	game = rules.action(game, CP_ROLE, "piece", tuDiv8)
+
+	expect(game.state).toBe("advance")
+	expect(game.pieces[tuDiv8]).toBe(oltu)
+	expect(rules.view(game, CP_ROLE).actions.undo).toBe(1)
+
+	game = rules.action(game, CP_ROLE, "undo")
+
+	expect(game.state).toBe("advance")
+	expect(game.pieces[tuDiv8]).toBe(bayburt)
+	expect(game.advance_pieces).toEqual([tuDiv8, tuDiv9])
+})
+
 test("Maude prevents a defender-owned trench from cancelling retreat in a non-VP clear space", () => {
 	let { game, defender1, defender2 } = createMaudeRetreatCancelGame("Ctesiphon")
 

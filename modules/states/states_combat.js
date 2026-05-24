@@ -3361,6 +3361,7 @@ exports.register = function (states, Engine, context) {
 			}
 		},
 		proceed_retreat() {
+			push_undo()
 			game.state = "retreat"
 		}
 	}
@@ -3600,6 +3601,7 @@ exports.register = function (states, Engine, context) {
 		space(s) {
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
+				push_undo()
 				let from = game.pieces[p]
 				ensure_attack_log_section("retreat_log_started", "撤退：")
 				log(`>> ${format_piece_log(p)} → s${s}`)
@@ -3629,6 +3631,7 @@ exports.register = function (states, Engine, context) {
 		eliminate_retreating() {
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
+				push_undo()
 				ensure_attack_log_section("retreat_log_started", "撤退：")
 				log(`>> ${format_piece_log(p, true)} 无法撤退并被消灭`)
 				eliminate_piece_for_failed_retreat(p)
@@ -3716,6 +3719,7 @@ exports.register = function (states, Engine, context) {
 			sync_turkish_retreat_state()
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
+				push_undo()
 				let from = game.pieces[p]
 				ensure_attack_log_section("retreat_log_started", "撤退：")
 				log(`>> ${format_piece_log(p)} → s${s}`)
@@ -3739,6 +3743,7 @@ exports.register = function (states, Engine, context) {
 			sync_turkish_retreat_state()
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
+				push_undo()
 				ensure_attack_log_section("retreat_log_started", "撤退：")
 				log(`>> ${format_piece_log(p, true)} 无法撤退并被消灭`)
 				eliminate_piece_for_failed_retreat(p)
@@ -3755,6 +3760,7 @@ exports.register = function (states, Engine, context) {
 		},
 		skip_turkish_retreat() {
 			sync_turkish_retreat_state()
+			push_undo()
 			game.turkish_retreat_optional = []
 			finish_turkish_retreat()
 		}
@@ -3930,12 +3936,14 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 
+			if (!set_has(game.advance_pieces || [], p)) return
+			push_undo()
 			let from_space = game.pieces[p]
 			ensure_attack_log_section("advance_log_started", "挺近：")
 			log(`>> ${format_piece_log(p)} → s${game.advance_space}`)
 			if (!advance_piece_into_space(p, from_space, game.advance_space)) {
 				set_delete(game.advance_pieces, p)
-				this.end_advance()
+				this.end_advance({ skip_undo: true })
 				return
 			}
 
@@ -4014,6 +4022,7 @@ exports.register = function (states, Engine, context) {
 			if (p === null || p === undefined) return
 			let valid = get_follow_advance_spaces(p)
 			if (!set_has(valid, s)) return
+			push_undo()
 			ensure_attack_log_section("advance_log_started", "挺近：")
 			log(`>> ${format_piece_log(p)} → s${s}`)
 			let from_space = game.pieces[p]
@@ -4031,7 +4040,8 @@ exports.register = function (states, Engine, context) {
 				game.selected_piece = null
 			}
 		},
-		end_advance() {
+		end_advance(options = {}) {
+			if (!options.skip_undo) push_undo()
 			delete game.advance_follow_mode
 			delete game.advance_follow_pieces
 			delete game.retreat_distance
