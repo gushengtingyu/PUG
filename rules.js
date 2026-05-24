@@ -545,6 +545,15 @@ function game_over_prompt() {
 	return game.victory || "Game over."
 }
 
+function goto_game_over(result, victory) {
+	log_br()
+	log(victory)
+	game.state = "game_over"
+	game.active = "None"
+	game.result = faction_name(result)
+	game.victory = victory
+}
+
 states.game_over = {
 	inactive(res) {
 		res.prompt(game_over_prompt())
@@ -726,11 +735,13 @@ exports.action = function (state, current, action, arg) {
 
 exports.resign = function (state, current) {
 	game = normalize_game(state)
+	update_supply_if_missing()
 	if (game.state !== "game_over") {
+		log_br()
 		log(`${current} resigned.`)
 		game.state = "game_over"
 		game.active = "None"
-		game.result = other_faction(short_faction(current))
+		game.result = faction_name(other_faction(short_faction(current)))
 		game.victory = current + " resigned."
 	}
 	return game
@@ -1368,7 +1379,8 @@ function update_war_status(faction, amount) {
 		if (roll <= 2) turns = 3
 		else if (roll <= 4) turns = 4
 		else turns = 5
-		game.armistice_turn = Math.min(20, game.turn + turns)
+		let final_turn = game.scenario_max_turn || 17
+		game.armistice_turn = Math.min(final_turn, game.turn + turns)
 		log(`Combined War Status reached 40. Armistice scheduled for Turn ${game.armistice_turn} (Roll: ${roll})`)
 	}
 }
@@ -2915,6 +2927,7 @@ turn_funcs = turn_states.register(states, Engine, {
 	log,
 	log_h2,
 	log_h3_faction,
+	goto_game_over,
 	get_pieces_in_space,
 	find_space,
 	other_faction,

@@ -24,6 +24,10 @@ function getTurnFuncs(game) {
 		check_supply: Engine.map.check_supply,
 		eliminate_piece: (p, permanent = false) => Engine.game_utils.eliminate_piece(game, p, () => {}, permanent),
 		roll_die: () => 1,
+		get_season: () => "Summer",
+		COMMITMENT_MOBILIZATION: Engine.constants.COMMITMENT_MOBILIZATION,
+		COMMITMENT_LIMITED: Engine.constants.COMMITMENT_LIMITED,
+		COMMITMENT_TOTAL: Engine.constants.COMMITMENT_TOTAL,
 		MO_NONE: Engine.mo.MO_NONE,
 		PHASE_SEQUENCE: {},
 		AP,
@@ -43,7 +47,7 @@ test("missed MO penalties record their turn for the view", () => {
 	game.missed_mo_ap = []
 	game.missed_mo_cp = []
 
-	turn.start_attrition_phase()
+	turn.start_war_status_phase()
 
 	expect(game.missed_mo_ap).toEqual([4])
 	expect(game.missed_mo_cp).toEqual([4])
@@ -69,7 +73,7 @@ test("british no attack violation (penalty unpaid) records missed_mo_ap", () => 
 	game.missed_mo_cp = []
 	game.vp = 10
 
-	turn.start_attrition_phase()
+	turn.start_war_status_phase()
 
 	expect(game.vp).toBe(11)
 	expect(game.br_attack_penalty_paid).toBe(true)
@@ -94,7 +98,7 @@ test("british no attack violation (penalty already paid) still records missed_mo
 	game.missed_mo_cp = []
 	game.vp = 10
 
-	turn.start_attrition_phase()
+	turn.start_war_status_phase()
 
 	expect(game.vp).toBe(10)
 	expect(game.br_attack_penalty_paid).toBe(true)

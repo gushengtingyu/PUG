@@ -23,13 +23,14 @@ exports.register = function (states, Engine, context) {
 		is_eliminated,
 		is_not_on_map,
 		get_reserve_box,
-		faction_name,
 		log_h1,
 		space_name,
 		piece_name,
 		MO_NONE,
 		PHASE_SEQUENCE,
 		push_state,
+		goto_game_over,
+		faction_name,
 		has_jihad_prereq,
 		get_connected_spaces,
 		is_controlled_by,
@@ -59,21 +60,27 @@ exports.register = function (states, Engine, context) {
 	} = context
 
 	function final_victory_from_vp(vp) {
-		if (vp >= 14) return { result: CP, victory: "CP Decisive Victory" }
-		if (vp >= 10) return { result: CP, victory: "CP Marginal Victory" }
-		if (vp >= 7) return { result: AP, victory: "AP Marginal Victory" }
-		return { result: AP, victory: "AP Decisive Victory" }
+		if (vp >= 14) return { result: CP, victory: "CP Marginal Victory" }
+		if (vp >= 10) return { result: CP, victory: "CP Victory of Endurance" }
+		if (vp >= 7) return { result: AP, victory: "AP Victory of Endurance" }
+		return { result: AP, victory: "AP Marginal Victory" }
+	}
+
+	function is_tu_tua_piece(p) {
+		let info = data.pieces[p]
+		return !!(info && (info.nation === "tu" || info.nation === "tua"))
 	}
 
 	function calculate_protocol_victory_adjustments() {
 		let adjustments = 0
 
-		let oilfields = new Set(["ploesti", "baku", "mosul", "kirkuk", "ahwaz", "bahrain"])
+		let oilfields = new Set(["ploesti", "baku", "mosul", "ahwaz"])
 		for (let s = 1; s < data.spaces.length; s++) {
 			let name = data.spaces[s].name
-			if (name && oilfields.has(name.toLowerCase())) {
-				if (is_controlled_by(game, s, CP)) adjustments += 1
-				else if (is_controlled_by(game, s, AP)) adjustments -= 1
+			let key = name && name.toLowerCase()
+			if (key && oilfields.has(key)) {
+				if (is_controlled_by(game, s, AP)) adjustments -= 1
+				else if (is_controlled_by(game, s, CP) || key === "ploesti") adjustments += 1
 			}
 		}
 
@@ -83,7 +90,7 @@ exports.register = function (states, Engine, context) {
 			spaces.push(suez)
 			let has_turkish = spaces.some((space) => {
 				let pieces = get_pieces_in_space(game, space)
-				return pieces.some((p) => data.pieces[p].nation === "tu")
+				return pieces.some(is_tu_tua_piece)
 			})
 			if (has_turkish) adjustments += 1
 		}
@@ -92,7 +99,7 @@ exports.register = function (states, Engine, context) {
 		for (let s = 1; s < data.spaces.length; s++) {
 			if (data.spaces[s].region === "india") {
 				let pieces = get_pieces_in_space(game, s)
-				if (pieces.some((p) => data.pieces[p].nation === "tu")) {
+				if (pieces.some(is_tu_tua_piece)) {
 					has_turkish_in_india = true
 					break
 				}
@@ -120,16 +127,10 @@ exports.register = function (states, Engine, context) {
 
 		let constantinople = find_space("CONSTANTINOPLE")
 		if (constantinople < 0) constantinople = find_space("Constantinople")
-		let bosphorus = find_space("The Bosphorus Forts")
 		let has_ap_in_constantinople = false
-		for (let s of [constantinople, bosphorus]) {
-			if (s >= 0) {
-				let pieces = get_pieces_in_space(game, s)
-				if (pieces.some((p) => data.pieces[p].faction === AP)) {
-					has_ap_in_constantinople = true
-					break
-				}
-			}
+		if (constantinople >= 0) {
+			let pieces = get_pieces_in_space(game, constantinople)
+			has_ap_in_constantinople = pieces.some((p) => data.pieces[p].faction === AP)
 		}
 		if (has_ap_in_constantinople) adjustments -= 1
 
@@ -192,20 +193,6 @@ exports.register = function (states, Engine, context) {
 
 	function finish_attrition_phase() {
 		delete game.attrition_jihad_pending_finish
-
-		if (game.vp >= 20) {
-			game.state = "game_over"
-			game.result = CP
-			game.victory = "CP Automatic Victory (VP 20+)"
-			return
-		}
-		if (game.vp <= 0) {
-			game.state = "game_over"
-			game.result = AP
-			game.victory = "AP Automatic Victory (VP 0)"
-			return
-		}
-
 		next_phase("attrition_phase")
 	}
 
@@ -221,26 +208,6 @@ exports.register = function (states, Engine, context) {
 
 		// Rule 5.1.2: If the affected area is emptied of enemy troops, the VP penalty for failure no longer applies.
 		Engine.mo.update_mo_fulfillment_status(game)
-
-		if (game.mo_ap !== MO_NONE && !game.mo_ap_fulfilled) {
-			game.vp += 1
-			record_missed_mo(AP)
-			log("AP failed Mandated Offensive: VP +1")
-		}
-		if (game.british_mandate_violated) {
-			if (!game.br_attack_penalty_paid) {
-				game.vp += 1
-				game.br_attack_penalty_paid = true
-				log("AP violated British No Attack Mandate: VP +1")
-			}
-			record_missed_mo(AP)
-		}
-
-		if (game.mo_cp !== MO_NONE && !game.mo_cp_fulfilled) {
-			game.vp -= 1
-			record_missed_mo(CP)
-			log("CP failed Mandated Offensive: VP -1")
-		}
 
 		let galicia = find_space("Galicia")
 		let enver_falkenhayn_active = !!game.events["enver_falkenhayn_summit_active"]
@@ -342,30 +309,22 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function check_victory_conditions() {
-		if (game.protocol_victory) {
-			let adjusted_vp = game.vp + calculate_protocol_victory_adjustments()
-			let outcome = final_victory_from_vp(adjusted_vp)
-			game.state = "game_over"
-			game.result = outcome.result
-			game.victory = "Protocol Victory - " + outcome.victory
-			return true
-		}
 		if (Number.isFinite(game.cp_auto_victory_marker) && game.vp >= game.cp_auto_victory_marker) {
-			game.state = "game_over"
-			game.result = CP
-			game.victory = `CP Automatic Victory (Marker ${game.cp_auto_victory_marker})`
+			goto_game_over(CP, `同盟国自动胜利 (标记 ${game.cp_auto_victory_marker})`)
 			return true
 		}
 		if (game.vp >= 20) {
-			game.state = "game_over"
-			game.result = CP
-			game.victory = "CP Automatic Victory (VP 20+)"
+			goto_game_over(CP, "同盟国自动胜利 (VP 20+)")
 			return true
 		}
 		if (game.vp <= 0) {
-			game.state = "game_over"
-			game.result = AP
-			game.victory = "AP Automatic Victory (VP 0)"
+			goto_game_over(AP, "协约国自动胜利 (VP 0)")
+			return true
+		}
+		if (game.protocol_victory) {
+			let adjusted_vp = game.vp + calculate_protocol_victory_adjustments()
+			let outcome = final_victory_from_vp(adjusted_vp)
+			goto_game_over(outcome.result, " 协议胜利 - " + outcome.victory)
 			return true
 		}
 		return false
@@ -478,9 +437,7 @@ exports.register = function (states, Engine, context) {
 			log(`游戏结束，回合上限 ${max_turn} 到达。`)
 			let adjusted_vp = game.vp + calculate_protocol_victory_adjustments()
 			let final = final_victory_from_vp(adjusted_vp)
-			game.state = "game_over"
-			game.result = final.result
-			game.victory = `End of Turn ${max_turn} - ` + final.victory
+			goto_game_over(final.result, `游戏结束，回合 ${max_turn} - ` + final.victory)
 			return
 		}
 
@@ -538,30 +495,6 @@ exports.register = function (states, Engine, context) {
 				}
 			}
 			game.delayed_reinforcements = remaining
-		}
-
-		if (
-			game.events["jerusalem_by_christmas"] &&
-			typeof game.events["jerusalem_by_christmas"] === "object" &&
-			game.events["jerusalem_by_christmas"].turn !== undefined &&
-			game.events["jerusalem_by_christmas"].turn <= game.turn
-		) {
-			let event = game.events["jerusalem_by_christmas"]
-			let target = event.target_space
-			let occupied = false
-			if (target > 0) {
-				let pieces = get_pieces_in_space(game, target)
-				occupied = pieces_count_as_any_nation_for_rule(game, pieces, ["br", "in", "anz"])
-			}
-			if (occupied) {
-				game.vp -= 1
-				log(`圣诞节前收复圣城结算：${space_name(target)} 被英国/印度/澳新部队占据，VP -1。`)
-			} else {
-				game.vp += 1
-				let target_name = target > 0 ? space_name(target) : "目标地块"
-				log(`圣诞节前收复圣城结算：${target_name} 未被英国/印度/澳新部队占据，VP +1。`)
-			}
-			delete game.events["jerusalem_by_christmas"]
 		}
 
 		// Rule: Churchill Prevails recurring RU RP
@@ -765,7 +698,51 @@ exports.register = function (states, Engine, context) {
 			}
 		}
 
+		if (game.mo_ap !== MO_NONE && !game.mo_ap_fulfilled) {
+			game.vp += 1
+			record_missed_mo(AP)
+			log("AP failed Mandated Offensive: VP +1")
+		}
+		if (game.british_mandate_violated) {
+			if (!game.br_attack_penalty_paid) {
+				game.vp += 1
+				game.br_attack_penalty_paid = true
+				log("AP violated British No Attack Mandate: VP +1")
+			}
+			record_missed_mo(AP)
+		}
+		if (game.mo_cp !== MO_NONE && !game.mo_cp_fulfilled) {
+			game.vp -= 1
+			record_missed_mo(CP)
+			log("CP failed Mandated Offensive: VP -1")
+		}
+
+		if (
+			game.events["jerusalem_by_christmas"] &&
+			typeof game.events["jerusalem_by_christmas"] === "object" &&
+			game.events["jerusalem_by_christmas"].turn !== undefined &&
+			game.events["jerusalem_by_christmas"].turn <= game.turn
+		) {
+			let event = game.events["jerusalem_by_christmas"]
+			let target = event.target_space
+			let occupied = false
+			if (target > 0) {
+				let pieces = get_pieces_in_space(game, target)
+				occupied = pieces_count_as_any_nation_for_rule(game, pieces, ["br", "in", "anz"])
+			}
+			if (occupied) {
+				game.vp -= 1
+				log(`圣诞节前收复圣城结算：${space_name(target)} 被英国/印度/澳新部队占据，VP -1。`)
+			} else {
+				game.vp += 1
+				let target_name = target > 0 ? space_name(target) : "目标地块"
+				log(`圣诞节前收复圣城结算：${target_name} 未被英国/印度/澳新部队占据，VP +1。`)
+			}
+			delete game.events["jerusalem_by_christmas"]
+		}
+
 		if (game.turn === 1) {
+			if (check_victory_conditions()) return
 			log("第一回合：跳过战争状态阶段")
 			next_phase("war_status_phase")
 			return
@@ -783,19 +760,16 @@ exports.register = function (states, Engine, context) {
 			log(`停战回合 ${game.armistice_turn} 到达，游戏结束。`)
 			let adjusted_vp = game.vp + calculate_protocol_victory_adjustments()
 			let final = final_victory_from_vp(adjusted_vp)
-			game.state = "game_over"
-			game.result = final.result
-			game.victory = "Armistice - " + final.victory
+			goto_game_over(final.result, "停战 - " + final.victory)
 			return
 		}
 
-		if (game.turn >= 17) {
-			log("1918年秋季，未达成自动胜利，停战生效。")
+		let scenario_max_turn = game.scenario_max_turn || 17
+		if (game.turn >= scenario_max_turn) {
+			log(`回合 ${scenario_max_turn} 结束，未达成自动胜利，停战生效。`)
 			let adjusted_vp = game.vp + calculate_protocol_victory_adjustments()
 			let final = final_victory_from_vp(adjusted_vp)
-			game.state = "game_over"
-			game.result = final.result
-			game.victory = "Armistice - " + final.victory
+			goto_game_over(final.result, "停战 - " + final.victory)
 			return
 		}
 
