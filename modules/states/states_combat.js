@@ -176,6 +176,11 @@ exports.register = function (states, Engine, context) {
 		if (rebuild_space > 0) game.attack.reserves_to_front_rebuild_space_by_piece[p] = rebuild_space
 	}
 
+	function reduce_piece_from_severe_weather(p) {
+		mark_reserves_to_front_damage(p)
+		reduce_piece(p)
+	}
+
 	function can_select_all_attackers() {
 		if (game.eligible_attackers.length === 0) return false
 		let attacking_from_siege = game.eligible_attackers.some((p) => Engine.map.is_besieged(game, game.pieces[p]))
@@ -719,7 +724,7 @@ exports.register = function (states, Engine, context) {
 
 	function apply_severe_weather_before_cc() {
 		if (!game.attack || game.attack.severe_weather_checked) return
-		combat.apply_severe_weather(game, log, get_season(game), reduce_piece)
+		combat.apply_severe_weather(game, log, get_season(game), reduce_piece_from_severe_weather)
 		game.attack.severe_weather_checked = true
 	}
 

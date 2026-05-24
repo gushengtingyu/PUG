@@ -286,6 +286,7 @@ module.exports = function (Engine) {
 		if (name === "RU/PE Police North") return ["ru"]
 		if (name === "Combined BU/AH Div") return ["bu", "ah"]
 		if (name === "German 11th Army") return ["ge", "bu"]
+		if (name === "GR National Defense") return ["br", "gr"]
 		if (name === "RU/SB Yugo Infantry") {
 			if (
 				purpose !== "mo" &&

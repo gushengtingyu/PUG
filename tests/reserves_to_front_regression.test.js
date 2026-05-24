@@ -83,6 +83,45 @@ test("Reserves to the Front can refill a unit reduced by the current battle", ()
 	expect(Engine.combat_cards.get_reserves_to_front_piece_cost(game, turkish)).toBe(0)
 })
 
+test("Reserves to the Front can refill a Turkish elite reduced by severe weather", () => {
+	const game = setupGame(260512, "Historical", { no_supply_warnings: true })
+	const origin = findSpace("Samarra")
+	const target = findSpace("Baghdad")
+	const turkishElite = findPieceByName("TU Elite DIV #1")
+
+	clearBoard(game)
+	game.turn = 4
+	game.action_round = 1
+	game.active = CP
+	game.state = "pre_weather_cc_attacker"
+	game.events = {}
+	game.reduced = []
+	game.pieces[turkishElite] = origin
+	game.attack = {
+		space: target,
+		pieces: [turkishElite],
+		attacker: CP,
+		defender: AP,
+		initial_attackers: [turkishElite],
+		initial_defenders: [],
+		reserves_to_front_initial_reduced_pieces: []
+	}
+
+	rules.action(game, CP_ROLE, "done")
+
+	expect(Engine.game_utils.is_piece_reduced(game, turkishElite)).toBe(true)
+	expect(game.attack.reserves_to_front_damaged_pieces).toContain(turkishElite)
+	expect(Engine.combat_cards.get_reserves_to_front_piece_pool(game)).toContain(turkishElite)
+
+	game.state = "event_reserves_to_front"
+	game.reserves_to_front_pieces = Engine.combat_cards.get_reserves_to_front_piece_pool(game)
+
+	rules.action(game, CP_ROLE, "piece", turkishElite)
+
+	expect(Engine.game_utils.is_piece_reduced(game, turkishElite)).toBe(false)
+	expect(game.reserves_to_front_spent).toBe(0.5)
+})
+
 test("Reserves to the Front rebuilds an eliminated Turkish attacker in its attack origin", () => {
 	const game = setupGame(260509, "Historical", { no_supply_warnings: true })
 	const origin = findSpace("Bayburt")

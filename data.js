@@ -20619,23 +20619,6 @@ var data = {
 		"image_reduced": "BRXXICR.png"
 	},
 	{
-		"id": 47,
-		"faction": "ap",
-		"nation": "br",
-		"name": "BR/GR Corps Ntl Def",
-		"cf": 1,
-		"lf": 1,
-		"mf": 3,
-		"rcf": 0,
-		"rlf": 1,
-		"rmf": 3,
-		"type": "regular",
-		"badge": "yellow",
-		"piece_class": "SCU",
-		"image_full": "BRGRCND.png",
-		"image_reduced": "BRGRCNDR.png"
-	},
-	{
 		"id": 48,
 		"faction": "ap",
 		"nation": "br",
