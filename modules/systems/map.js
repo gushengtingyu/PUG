@@ -3529,6 +3529,19 @@ module.exports = function (Engine) {
 		return has_ap_unit && has_cp_unit
 	}
 
+	function is_contested_region_with_context(game, s, faction, context) {
+		return !!(
+			is_region(game, s) &&
+			context &&
+			context.friendly[faction][s] === 1 &&
+			context.enemy[faction][s] === 1
+		)
+	}
+
+	function is_enemy_controlled_contested_region_with_context(game, s, faction, context) {
+		return is_contested_region_with_context(game, s, faction, context) && !is_controlled_by(game, s, faction)
+	}
+
 	function can_use_ap_contested_region_port_for_full_supply(info) {
 		if (!info) return false
 		if (["br", "fr", "it", "in", "anz", "sb", "gr", "ar"].includes(info.nation)) return true
@@ -3614,8 +3627,15 @@ module.exports = function (Engine) {
 			let neighbors = get_connected_spaces(game, current, nation, faction, p, "supply")
 
 			for (let next of neighbors) {
-				// Blocked by enemy regular units (unless besieged)
-				if (context.enemy_regular[faction][next] === 1 && !is_besieged_with_context(game, next, context))
+				let contested_region = is_contested_region_with_context(game, next, faction, context)
+
+				// Blocked by enemy regular units (unless besieged). Contested Regions are allowed:
+				// the SR/path layer separately controls whether enemy-controlled contested Regions may be passed through.
+				if (
+					context.enemy_regular[faction][next] === 1 &&
+					!is_besieged_with_context(game, next, context) &&
+					!contested_region
+				)
 					continue
 
 				// Neutral spaces block supply unless they are Greece for AP
@@ -4549,11 +4569,21 @@ module.exports = function (Engine) {
 					is_catastrophic_attack_supply_exception_transit(game, next, faction, context)
 				)
 
-				// Blocked by enemy regular units (unless besieged)
+				let contested_region = is_contested_region_with_context(game, next, faction, context)
+				let enemy_controlled_contested_region = is_enemy_controlled_contested_region_with_context(
+					game,
+					next,
+					faction,
+					context
+				)
+
+				// Blocked by enemy regular units (unless besieged). Contested Regions are allowed:
+				// friendly-controlled ones may be traced through, enemy-controlled ones may supply units inside.
 				if (
 					context.enemy_regular[faction][next] === 1 &&
 					!is_besieged_with_context(game, next, context) &&
-					!enemy_transit_allowed
+					!enemy_transit_allowed &&
+					!contested_region
 				)
 					continue
 
@@ -4598,6 +4628,7 @@ module.exports = function (Engine) {
 					if (visited_clean.has(next)) continue
 					visited_clean.add(next)
 				}
+				if (enemy_controlled_contested_region && !enemy_transit_allowed) continue
 				queue.push({ s: next, disrupted: next_disrupted })
 			}
 		}

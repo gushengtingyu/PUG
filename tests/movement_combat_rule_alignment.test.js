@@ -229,6 +229,23 @@ test("Afghan Uprising units may attack adjacent India after Afghan Alliance", ()
 	expect(getAttackTargets(game, [afghan], CP)).toContain(india)
 })
 
+test("Central Asian Uprising does not trigger tribe range end-move blocking", () => {
+	let game = setupGame(2026052306, "Historical", { no_supply_warnings: true })
+	let centralAsia = findSpace("Central Asia")
+	let casiaUprising = findPiece(CP, "CAsia Uprising")
+	let camelCorps = findPiece(CP, "TU-A Camel Corps")
+
+	resetForRuleProbe(game, CP)
+	game.pieces[casiaUprising] = centralAsia
+	game.pieces[camelCorps] = centralAsia
+	game.control[centralAsia] = CP
+
+	expect(Engine.game_utils.is_irregular(casiaUprising)).toBe(true)
+	expect(Engine.game_utils.is_tribe(casiaUprising)).toBe(false)
+	expect(Engine.map.is_space_in_tribal_range(casiaUprising, centralAsia)).toBe(true)
+	expect(Engine.map.get_move_end_space_block_reason(game, centralAsia, CP)).toBe(null)
+})
+
 test("Region combat asks defender to choose one legal defense stack", () => {
 	let game = setupGame(2026051205)
 	let shiraz = findSpace("Shiraz")

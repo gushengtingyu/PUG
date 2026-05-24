@@ -259,19 +259,19 @@ const Engine = {
 		// Rule 10.1.4 / 10.2 / 10.1.1 PLAY NOTE:
 		// Only regular Combat Units can gain region control.
 		// Irregulars, HQs, and Heavy Artillery have only Partial Control and cannot take a region.
-		// However, per Rule 10.1.5, any non-tribe unit (including irregulars) makes the region
-		// contested, preventing the enemy from taking control until ALL enemy units leave.
+		// However, per Rule 10.1.5, any enemy unit makes the region contested,
+		// preventing control from changing until ALL enemy units leave.
 		Engine.sync_region_disruption(game, s)
 		let has_ap_regular = false  // AP regular combat unit present (can gain control)
 		let has_cp_regular = false  // CP regular combat unit present (can gain control)
-		let ap_present = false      // any AP non-tribe unit (blocks enemy control)
-		let cp_present = false      // any CP non-tribe unit (blocks enemy control)
+		let ap_present = false      // any AP unit (blocks enemy control)
+		let cp_present = false      // any CP unit (blocks enemy control)
 
 		for (let p of Engine.map.get_pieces_in_space(game, s)) {
-			if (Engine.game_utils.is_tribe(p)) continue
 			let faction = Engine.game_utils.get_piece_effective_faction(game, p)
 			let can_gain_control =
 				!Engine.game_utils.is_irregular(p) &&
+				!Engine.game_utils.is_tribe(p) &&
 				!Engine.game_utils.is_hq(p) &&
 				!Engine.game_utils.is_heavy_arty(p)
 			if (faction === constants.AP) {
