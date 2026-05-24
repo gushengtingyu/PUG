@@ -1,4 +1,5 @@
 const data = require("../data.js")
+const rules = require("../rules.js")
 const Engine = require("../modules/engine.js")
 const turnStates = require("../modules/states/states_turn.js")
 
@@ -154,6 +155,100 @@ test("Russian Revolution Stage 4 removes RU units, keeps the exceptions, and pla
 	expect(game.soviet_uprising_markers.sort((a, b) => a - b)).toEqual(sovietSpaces.sort((a, b) => a - b))
 	expect(Engine.map.is_disrupted_by_enemy(game, findSpace("Baku"), AP)).toBe(true)
 	expect(Engine.map.is_disrupted_by_enemy(game, findSpace("Baku"), CP)).toBe(true)
+})
+
+test("Russian Revolution Stage 4 uses player choices for cavalry, Georgia, Transcaucasia, and GE IX replacement", () => {
+	let game = setupGame(2026052401, "Historical", { no_supply_warnings: true })
+	clearBoard(game)
+	game.events = {
+		parvus_to_berlin: 5,
+		russian_revolution: 3,
+		romania: true,
+		russian_revolution_stage_1_applied: true,
+		russian_revolution_stage_2_applied: true,
+		russian_revolution_stage_3_applied: true
+	}
+	game.reduced = []
+	game.soviet_uprising_markers = []
+	game.turn = 12
+	game.state = "revolution_phase"
+	game.active = CP
+	game.revolution_step = 3
+
+	let tiflis = findSpace("TIFLIS")
+	let batum = findSpace("Batum")
+	let erevan = findSpace("Erevan")
+	let kars = findSpace("Kars")
+	let oltu = findSpace("Oltu")
+	let sarikamis = findSpace("Sarikamis")
+	let galicia = findSpace("Galicia")
+	let cavalry1 = findApPiece("RU Cavalry #1")
+	let cavalry2 = findApPiece("RU Cavalry #2")
+	let caucasian = findApPiece("RU I Caucasian")
+	let yugo = findApPiece("RU/SB Yugo Infantry")
+	let geoProtect = findCpPiece("GE GeoProtect")
+	let geIX = findCpPiece("GE IX Army")
+	let geDiv2 = findCpPiece("GE DIV #2")
+	let geDiv3 = findCpPiece("GE DIV #3")
+	let arm1 = findCpPiece("Arm Transcas #1")
+	let arm2 = findCpPiece("Arm Transcas #2")
+	let arm3 = findCpPiece("Arm Transcas #3")
+	let geo1 = findCpPiece("Geo Transcaucasian #1")
+	let geo2 = findCpPiece("Geo Transcaucasian #2")
+
+	game.pieces[cavalry1] = tiflis
+	game.pieces[cavalry2] = erevan
+	game.pieces[caucasian] = sarikamis
+	game.pieces[yugo] = Engine.game_utils.get_scu_reserve_box(AP)
+	game.pieces[geoProtect] = REINFORCEMENTS
+	game.pieces[geIX] = galicia
+	game.pieces[geDiv2] = Engine.game_utils.get_scu_reserve_box(CP)
+	game.pieces[geDiv3] = Engine.game_utils.get_scu_reserve_box(CP)
+	for (let p of [arm1, arm2, arm3, geo1, geo2]) game.pieces[p] = REINFORCEMENTS
+	Engine.set_control(game, tiflis, CP)
+	for (let s of [batum, erevan, kars, oltu, sarikamis]) Engine.set_control(game, s, AP)
+
+	let vp = game.vp
+	rules.view(game, "Central Powers")
+
+	expect(game.events.russian_revolution).toBe(4)
+	expect(game.state).toBe("russian_revolution_stage_4_choose_cavalry")
+	expect(game.active).toBe(AP)
+	expect(Engine.game_utils.is_permanently_eliminated(game, caucasian)).toBe(false)
+
+	game = rules.action(game, "Allied Powers", "piece", cavalry2)
+	expect(game.russian_revolution_survivor_cavalry).toBe(cavalry2)
+	expect(Engine.game_utils.is_permanently_eliminated(game, cavalry1)).toBe(true)
+	expect(Engine.game_utils.is_permanently_eliminated(game, cavalry2)).toBe(false)
+	expect(game.state).toBe("russian_revolution_stage_4_georgian_protectorate")
+
+	game = rules.action(game, "Allied Powers", "space", tiflis)
+	expect(game.pieces[geoProtect]).toBe(tiflis)
+	expect(game.vp).toBe(vp - 1)
+	expect(game.state).toBe("russian_revolution_stage_4_place_transcaucasian")
+
+	for (let [piece, space] of [
+		[geo2, kars],
+		[arm3, erevan],
+		[arm1, oltu],
+		[geo1, sarikamis],
+		[arm2, batum]
+	]) {
+		game = rules.action(game, "Allied Powers", "piece", piece)
+		expect(game.russian_revolution_stage_4_transcas_selected).toBe(piece)
+		game = rules.action(game, "Allied Powers", "space", space)
+		expect(game.pieces[piece]).toBe(space)
+	}
+
+	expect(game.state).toBe("russian_revolution_stage_4_ge_ix_replacement")
+	expect(game.active).toBe(CP)
+
+	game = rules.action(game, "Central Powers", "piece", geDiv3)
+	expect(game.events.russian_revolution_stage_4_applied).toBe(true)
+	expect(game.pieces[geDiv3]).toBe(galicia)
+	expect(game.pieces[geDiv2]).toBe(Engine.game_utils.get_scu_reserve_box(CP))
+	expect(Engine.game_utils.is_permanently_eliminated(game, geIX)).toBe(true)
+	expect(Engine.game_utils.is_permanently_eliminated(game, yugo)).toBe(false)
 })
 
 test("Stage 4 blocks new RU reinforcements and RU reinforcement events", () => {

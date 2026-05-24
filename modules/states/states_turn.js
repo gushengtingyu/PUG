@@ -345,8 +345,261 @@ exports.register = function (states, Engine, context) {
 		continue_revolution_phase()
 	}
 
+	function prompt_followup_state(res) {
+		if (states[game.state] && typeof states[game.state].prompt === "function") {
+			states[game.state].prompt(res)
+		}
+	}
+
+	function finish_russian_revolution_stage_4_sequence(from_action) {
+		Engine.events.finish_russian_revolution_stage_4(game)
+		game.active = CP
+		if (from_action) {
+			game.state = "revolution_phase"
+			game.revolution_step = 4
+			continue_revolution_phase()
+		}
+		return false
+	}
+
+	function advance_russian_revolution_stage_4_sequence(from_action = false) {
+		if (!game.events) game.events = {}
+		if (game.events["russian_revolution_stage_4_applied"]) return finish_russian_revolution_stage_4_sequence(from_action)
+
+		while (true) {
+			if (!game.events["russian_revolution_stage_4_cavalry_chosen"]) {
+				let choices = Engine.events.get_russian_revolution_cavalry_choices(game)
+				if (choices.length > 1) {
+					game.active = AP
+					game.state = "russian_revolution_stage_4_choose_cavalry"
+					return true
+				}
+				Engine.events.select_russian_revolution_cavalry_survivor(game, choices.length === 1 ? choices[0] : -1)
+				continue
+			}
+
+			if (!game.events["russian_revolution_stage_4_ru_units_removed"]) {
+				Engine.events.remove_russian_revolution_stage_4_ru_units(game, { log })
+				continue
+			}
+
+			if (!game.events["russian_revolution_stage_4_geoprotect_done"]) {
+				let p = Engine.events.get_georgian_protectorate_piece(game)
+				let spaces = Engine.events.get_georgian_protectorate_placement_spaces(game)
+				if (p >= 0 && spaces.length > 0) {
+					game.active = AP
+					game.state = "russian_revolution_stage_4_georgian_protectorate"
+					return true
+				}
+				Engine.events.skip_georgian_protectorate(game, { log })
+				continue
+			}
+
+			if (!game.events["russian_revolution_stage_4_transcas_done"]) {
+				let remaining = Engine.events.get_unplaced_transcaucasian_federation_pieces(game)
+				if (remaining.length === 0) {
+					Engine.events.finish_transcaucasian_federation_placement(game)
+					continue
+				}
+
+				let any_legal = false
+				for (let p of remaining) {
+					if (Engine.events.get_transcaucasian_placement_spaces(game, p).length > 0) {
+						any_legal = true
+						break
+					}
+				}
+				if (!any_legal) {
+					for (let p of remaining) Engine.events.skip_transcaucasian_federation_piece(game, p, { log })
+					Engine.events.finish_transcaucasian_federation_placement(game)
+					continue
+				}
+
+				let selected = game.russian_revolution_stage_4_transcas_selected
+				if (
+					Number.isInteger(selected) &&
+					remaining.includes(selected) &&
+					Engine.events.get_transcaucasian_placement_spaces(game, selected).length === 0
+				) {
+					Engine.events.skip_transcaucasian_federation_piece(game, selected, { log })
+					delete game.russian_revolution_stage_4_transcas_selected
+					continue
+				}
+
+				game.active = AP
+				game.state = "russian_revolution_stage_4_place_transcaucasian"
+				return true
+			}
+
+			if (!game.events["russian_revolution_stage_4_soviet_done"]) {
+				Engine.events.place_soviet_uprising_markers(game, { log })
+				continue
+			}
+
+			if (!game.events["russian_revolution_stage_4_ge_ix_prepared"]) {
+				Engine.events.prepare_ge_ix_army_replacement(game, { log })
+				continue
+			}
+
+			if (!game.events["russian_revolution_stage_4_ge_ix_done"]) {
+				let replacements = Engine.events.get_ge_ix_replacement_pieces(game)
+				let space = Engine.events.get_ge_ix_replacement_space(game)
+				if (space > 0 && replacements.length > 0) {
+					game.active = CP
+					game.state = "russian_revolution_stage_4_ge_ix_replacement"
+					return true
+				}
+				Engine.events.skip_ge_ix_army_replacement(game, { log })
+				continue
+			}
+
+			return finish_russian_revolution_stage_4_sequence(from_action)
+		}
+	}
+
+	function begin_russian_revolution_stage_4_sequence() {
+		if (!Engine.events.begin_russian_revolution_stage_4_interactive(game)) return false
+		return advance_russian_revolution_stage_4_sequence(false)
+	}
+
+	states.russian_revolution_stage_4_choose_cavalry = {
+		inactive: "Russian Revolution Stage 4: AP selects the surviving RU cavalry division.",
+		prompt(res) {
+			let choices = Engine.events.get_russian_revolution_cavalry_choices(game)
+			if (choices.length <= 1) {
+				advance_russian_revolution_stage_4_sequence(true)
+				prompt_followup_state(res)
+				return
+			}
+			res.prompt("Russian Revolution Stage 4: AP selects one RU cavalry division to remain in the game.")
+			for (let p of choices) res.piece(p)
+		},
+		piece(p) {
+			p = Number(p)
+			if (!Engine.events.get_russian_revolution_cavalry_choices(game).includes(p)) return
+			push_undo()
+			if (Engine.events.select_russian_revolution_cavalry_survivor(game, p)) {
+				advance_russian_revolution_stage_4_sequence(true)
+			}
+		}
+	}
+
+	states.russian_revolution_stage_4_georgian_protectorate = {
+		inactive: "Russian Revolution Stage 4: AP places the Georgian Protectorate.",
+		prompt(res) {
+			let p = Engine.events.get_georgian_protectorate_piece(game)
+			let spaces = Engine.events.get_georgian_protectorate_placement_spaces(game)
+			if (p < 0 || spaces.length === 0) {
+				Engine.events.skip_georgian_protectorate(game, { log })
+				advance_russian_revolution_stage_4_sequence(true)
+				prompt_followup_state(res)
+				return
+			}
+			res.who(p)
+			res.prompt("Russian Revolution Stage 4: AP may place GE Georgian Protectorate in empty Batum or Tiflis.")
+			for (let s of spaces) res.space(s)
+			res.action("skip")
+		},
+		space(s) {
+			s = Number(s)
+			if (!Engine.events.get_georgian_protectorate_placement_spaces(game).includes(s)) return
+			push_undo()
+			if (Engine.events.place_georgian_protectorate(game, s, { log })) {
+				advance_russian_revolution_stage_4_sequence(true)
+			}
+		},
+		skip() {
+			push_undo()
+			Engine.events.skip_georgian_protectorate(game, { log })
+			advance_russian_revolution_stage_4_sequence(true)
+		},
+		done() {
+			this.skip()
+		}
+	}
+
+	states.russian_revolution_stage_4_place_transcaucasian = {
+		inactive: "Russian Revolution Stage 4: AP places the Transcaucasian Federation units.",
+		prompt(res) {
+			let remaining = Engine.events.get_unplaced_transcaucasian_federation_pieces(game)
+			let placeable = remaining.filter((p) => Engine.events.get_transcaucasian_placement_spaces(game, p).length > 0)
+			if (placeable.length === 0) {
+				advance_russian_revolution_stage_4_sequence(true)
+				prompt_followup_state(res)
+				return
+			}
+
+			let selected = game.russian_revolution_stage_4_transcas_selected
+			if (!placeable.includes(selected)) selected = null
+
+			if (!selected) {
+				res.prompt("Russian Revolution Stage 4: AP selects a Transcaucasian Federation unit to place.")
+				for (let p of placeable) res.piece(p)
+				return
+			}
+
+			res.who(selected)
+			res.prompt(`Russian Revolution Stage 4: place ${piece_name(selected)} in an AP-controlled Russia/Caucasia space.`)
+			for (let p of placeable) res.piece(p)
+			for (let s of Engine.events.get_transcaucasian_placement_spaces(game, selected)) res.space(s)
+		},
+		piece(p) {
+			p = Number(p)
+			let remaining = Engine.events.get_unplaced_transcaucasian_federation_pieces(game)
+			if (!remaining.includes(p)) return
+			if (Engine.events.get_transcaucasian_placement_spaces(game, p).length === 0) return
+			if (game.russian_revolution_stage_4_transcas_selected === p) delete game.russian_revolution_stage_4_transcas_selected
+			else game.russian_revolution_stage_4_transcas_selected = p
+		},
+		space(s) {
+			s = Number(s)
+			let p = game.russian_revolution_stage_4_transcas_selected
+			if (!Number.isInteger(p)) return
+			if (!Engine.events.get_transcaucasian_placement_spaces(game, p).includes(s)) return
+			push_undo()
+			if (Engine.events.place_transcaucasian_federation_piece(game, p, s, { log })) {
+				delete game.russian_revolution_stage_4_transcas_selected
+				advance_russian_revolution_stage_4_sequence(true)
+			}
+		}
+	}
+
+	states.russian_revolution_stage_4_ge_ix_replacement = {
+		inactive: "Russian Revolution Stage 4: CP chooses the GE IX Army replacement.",
+		prompt(res) {
+			let replacements = Engine.events.get_ge_ix_replacement_pieces(game)
+			let space = Engine.events.get_ge_ix_replacement_space(game)
+			if (space <= 0 || replacements.length === 0) {
+				Engine.events.skip_ge_ix_army_replacement(game, { log })
+				advance_russian_revolution_stage_4_sequence(true)
+				prompt_followup_state(res)
+				return
+			}
+			res.where(space)
+			res.prompt("Russian Revolution Stage 4: CP may replace GE IX Army with one GE infantry SCU from Reserve.")
+			for (let p of replacements) res.piece(p)
+			res.action("skip")
+		},
+		piece(p) {
+			p = Number(p)
+			if (!Engine.events.get_ge_ix_replacement_pieces(game).includes(p)) return
+			push_undo()
+			if (Engine.events.replace_ge_ix_army_with_scu(game, p, { log })) {
+				advance_russian_revolution_stage_4_sequence(true)
+			}
+		},
+		skip() {
+			push_undo()
+			Engine.events.skip_ge_ix_army_replacement(game, { log })
+			advance_russian_revolution_stage_4_sequence(true)
+		},
+		done() {
+			this.skip()
+		}
+	}
+
 	function check_russian_revolution_step() {
-		if (!game.events["parvus_to_berlin"]) return
+		if (!game.events["parvus_to_berlin"]) return false
 
 		if (typeof Engine.events.sync_russian_revolution_markers === "function") {
 			Engine.events.sync_russian_revolution_markers(game)
@@ -366,19 +619,27 @@ exports.register = function (states, Engine, context) {
 					Engine.events.apply_russian_revolution_stage_effects(game, 1, { log })
 				}
 				log("俄国革命开始：第1阶段。")
-				return
+				return false
 			}
-			return
+			return false
 		}
-		if (blocked) return
+		if (blocked) return false
 		if (game.events["russian_revolution"] < 4) {
 			game.events["russian_revolution"] += 1
 			game.ru_revolution = game.events["russian_revolution"]
-			if (typeof Engine.events.apply_russian_revolution_stage_effects === "function") {
+			let paused = false
+			if (
+				game.events["russian_revolution"] === 4 &&
+				typeof Engine.events.begin_russian_revolution_stage_4_interactive === "function"
+			) {
+				paused = begin_russian_revolution_stage_4_sequence()
+			} else if (typeof Engine.events.apply_russian_revolution_stage_effects === "function") {
 				Engine.events.apply_russian_revolution_stage_effects(game, game.events["russian_revolution"], { log })
 			}
 			log(`俄国革命推进至阶段 ${game.events["russian_revolution"]}。`)
+			return paused
 		}
+		return false
 	}
 
 	function continue_revolution_phase() {
@@ -423,8 +684,8 @@ exports.register = function (states, Engine, context) {
 		}
 
 		if (game.revolution_step === 3) {
-			check_russian_revolution_step()
 			game.revolution_step = 4
+			if (check_russian_revolution_step()) return
 		}
 
 		delete game.revolution_step

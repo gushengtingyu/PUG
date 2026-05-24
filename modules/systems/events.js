@@ -365,6 +365,16 @@ module.exports = function (Engine) {
 		return !!(info && (info.name || "").match(/^(Arm Transcas|Geo Transcaucasian)/))
 	}
 
+	const RUSSIAN_REVOLUTION_TRANSCAS_NAMES = [
+		"Arm Transcas #1",
+		"Arm Transcas #2",
+		"Arm Transcas #3",
+		"Geo Transcaucasian #1",
+		"Geo Transcaucasian #2"
+	]
+
+	const RUSSIAN_REVOLUTION_GE_REPLACEMENT_NAMES = ["GE DIV #1", "GE DIV #2", "GE DIV #3", "GE DIV #4"]
+
 	function is_available_revolution_cavalry_choice(game, p) {
 		if (!is_russian_revolution_cavalry_candidate(p)) return false
 		if (Engine.game_utils.is_permanently_eliminated(game, p)) return false
@@ -375,19 +385,39 @@ module.exports = function (Engine) {
 
 	function choose_default_revolution_cavalry_survivor(game) {
 		if (Number.isInteger(game.russian_revolution_survivor_cavalry)) return game.russian_revolution_survivor_cavalry
+		let candidates = get_russian_revolution_cavalry_choices(game)
+		if (candidates.length === 0) return -1
+		game.russian_revolution_survivor_cavalry = candidates[0]
+		return candidates[0]
+	}
+
+	function get_russian_revolution_cavalry_choices(game) {
 		let candidates = []
 		for (let p = 1; p < data.pieces.length; p++) {
 			if (is_available_revolution_cavalry_choice(game, p)) candidates.push(p)
 		}
-		if (candidates.length === 0) return -1
 		candidates.sort((a, b) => {
 			let a_on_map = game.pieces[a] > 0 && data.spaces[game.pieces[a]] && !Engine.game_utils.is_not_on_map(game, a)
 			let b_on_map = game.pieces[b] > 0 && data.spaces[game.pieces[b]] && !Engine.game_utils.is_not_on_map(game, b)
 			if (a_on_map !== b_on_map) return a_on_map ? -1 : 1
 			return a - b
 		})
-		game.russian_revolution_survivor_cavalry = candidates[0]
-		return candidates[0]
+		return candidates
+	}
+
+	function select_russian_revolution_cavalry_survivor(game, p) {
+		if (!game.events) game.events = {}
+		if (p === -1 || p === null || p === undefined) {
+			game.russian_revolution_survivor_cavalry = -1
+			game.events["russian_revolution_stage_4_cavalry_chosen"] = true
+			return true
+		}
+		p = Number(p)
+		if (!Number.isInteger(p)) return false
+		if (!is_available_revolution_cavalry_choice(game, p) && game.russian_revolution_survivor_cavalry !== p) return false
+		game.russian_revolution_survivor_cavalry = p
+		game.events["russian_revolution_stage_4_cavalry_chosen"] = true
+		return true
 	}
 
 	function is_piece_available_for_revolution_stage_effect(game, p) {
@@ -438,87 +468,13 @@ module.exports = function (Engine) {
 		log(game, `Russian Revolution Stage 3: RU units may conduct only one attack on Turn ${game.russian_revolution_limited_attack_turn}.`, ctx)
 	}
 
-	function place_georgian_protectorate(game, ctx) {
-		let p = find_piece(CP, "GE GeoProtect")
-		if (p < 0 || !is_reinforcement(game, p)) return
-		let options = [find_space("Batum"), find_space("TIFLIS")].filter((s) => {
-			if (!(s > 0 && data.spaces[s])) return false
-			return get_pieces_in_space(game, s).length === 0
-		})
-		if (options.length === 0) return
-		options.sort((a, b) => {
-			let a_ap = is_controlled_by(game, a, AP)
-			let b_ap = is_controlled_by(game, b, AP)
-			if (a_ap !== b_ap) return a_ap ? -1 : 1
-			return a - b
-		})
-		let s = options[0]
-		if (is_controlled_by(game, s, CP)) {
-			game.vp -= 1
-			log(game, `Russian Revolution Stage 4: Georgian Protectorate placed in CP-controlled ${space_log_name(s)}; VP -1.`, ctx)
-		} else {
-			log(game, `Russian Revolution Stage 4: Georgian Protectorate placed in ${space_log_name(s)}.`, ctx)
-		}
-		game.pieces[p] = s
-	}
-
-	function get_transcaucasian_placement_spaces(game) {
-		let spaces = []
-		for (let s = 1; s < data.spaces.length; s++) {
-			if (!data.spaces[s]) continue
-			if (!is_controlled_by(game, s, AP)) continue
-			if (!(Engine.map.is_russia(s) || Engine.map.is_caucasus(s))) continue
-			if (Engine.game_utils.get_capacity(game, s) > 0) spaces.push(s)
-		}
-		return spaces
-	}
-
-	function place_transcaucasian_federation(game, ctx) {
-		let units = ["Arm Transcas #1", "Arm Transcas #2", "Arm Transcas #3", "Geo Transcaucasian #1", "Geo Transcaucasian #2"]
-		for (let name of units) {
-			let p = find_piece(CP, name)
-			if (p < 0 || !is_reinforcement(game, p)) continue
-			let spaces = get_transcaucasian_placement_spaces(game)
-			if (spaces.length === 0) {
-				log(game, `Russian Revolution Stage 4: no legal AP-controlled Russia/Caucasia space for ${name}.`, ctx)
-				continue
-			}
-			let s = spaces[0]
-			game.pieces[p] = s
-			log(game, `Russian Revolution Stage 4: ${name} placed in ${space_log_name(s)}.`, ctx)
-		}
-	}
-
-	function place_soviet_uprising_markers(game, ctx) {
-		let spaces = ["Baku", "Central Asia", "Enzeli"].map(find_space).filter((s) => s > 0)
-		game.soviet_uprising_markers = spaces
-		log(game, "Russian Revolution Stage 4: Soviet Uprising markers placed.", ctx)
-	}
-
-	function eliminate_ge_ix_army(game, ctx) {
-		let ge_ix = find_piece(CP, "GE IX Army")
-		if (ge_ix < 0 || !is_piece_available_for_revolution_stage_effect(game, ge_ix)) return
-		let space = game.pieces[ge_ix]
-		Engine.game_utils.eliminate_piece(game, ge_ix, (msg) => log(game, msg, ctx), true)
-		let reserve = get_scu_reserve_box(CP)
-		let replacement = -1
-		for (let name of ["GE DIV #1", "GE DIV #2", "GE DIV #3", "GE DIV #4"]) {
-			let p = find_piece(CP, name)
-			if (p >= 0 && game.pieces[p] === reserve) {
-				replacement = p
-				break
-			}
-		}
-		if (replacement >= 0 && space > 0 && data.spaces[space]) {
-			game.pieces[replacement] = space
-			log(game, `Russian Revolution Stage 4: GE IX Army replaced by ${data.pieces[replacement].name}.`, ctx)
-		}
-	}
-
-	function apply_russian_revolution_stage_4(game, ctx) {
-		if (game.events["russian_revolution_stage_4_applied"]) return
-		game.events["russian_revolution_stage_4_applied"] = true
-		let kept_cavalry = choose_default_revolution_cavalry_survivor(game)
+	function remove_russian_revolution_stage_4_ru_units(game, ctx) {
+		if (!game.events) game.events = {}
+		if (game.events["russian_revolution_stage_4_ru_units_removed"]) return
+		game.events["russian_revolution_stage_4_ru_units_removed"] = true
+		let kept_cavalry = Number.isInteger(game.russian_revolution_survivor_cavalry)
+			? game.russian_revolution_survivor_cavalry
+			: choose_default_revolution_cavalry_survivor(game)
 		for (let p = 1; p < data.pieces.length; p++) {
 			let info = data.pieces[p]
 			if (!info || !is_russian_revolution_subject_piece(p)) continue
@@ -528,11 +484,226 @@ module.exports = function (Engine) {
 		}
 		if (kept_cavalry >= 0) {
 			log(game, `Russian Revolution Stage 4: ${data.pieces[kept_cavalry].name} remains and is treated as BR except for MO.`, ctx)
+		} else {
+			log(game, "Russian Revolution Stage 4: no RU cavalry division remains to keep.", ctx)
 		}
-		place_georgian_protectorate(game, ctx)
-		place_transcaucasian_federation(game, ctx)
+	}
+
+	function get_georgian_protectorate_piece(game) {
+		let p = find_piece(CP, "GE GeoProtect")
+		if (p < 0 || !is_reinforcement(game, p)) return -1
+		return p
+	}
+
+	function get_georgian_protectorate_placement_spaces(game) {
+		if (get_georgian_protectorate_piece(game) < 0) return []
+		return [find_space("Batum"), find_space("TIFLIS")].filter((s) => {
+			if (!(s > 0 && data.spaces[s])) return false
+			return get_pieces_in_space(game, s).length === 0
+		})
+	}
+
+	function sort_georgian_protectorate_default_spaces(game, spaces) {
+		return spaces.slice().sort((a, b) => {
+			let a_ap = is_controlled_by(game, a, AP)
+			let b_ap = is_controlled_by(game, b, AP)
+			if (a_ap !== b_ap) return a_ap ? -1 : 1
+			return a - b
+		})
+	}
+
+	function place_georgian_protectorate(game, s, ctx) {
+		let p = get_georgian_protectorate_piece(game)
+		if (p < 0) return false
+		let options = get_georgian_protectorate_placement_spaces(game)
+		if (!options.includes(s)) return false
+		if (!game.events) game.events = {}
+		game.events["russian_revolution_stage_4_geoprotect_done"] = true
+		if (is_controlled_by(game, s, CP)) {
+			game.vp -= 1
+			log(game, `Russian Revolution Stage 4: Georgian Protectorate placed in CP-controlled ${space_log_name(s)}; VP -1.`, ctx)
+		} else {
+			log(game, `Russian Revolution Stage 4: Georgian Protectorate placed in ${space_log_name(s)}.`, ctx)
+		}
+		game.pieces[p] = s
+		return true
+	}
+
+	function place_default_georgian_protectorate(game, ctx) {
+		let options = sort_georgian_protectorate_default_spaces(game, get_georgian_protectorate_placement_spaces(game))
+		if (options.length === 0) return
+		place_georgian_protectorate(game, options[0], ctx)
+	}
+
+	function skip_georgian_protectorate(game, ctx) {
+		if (!game.events) game.events = {}
+		if (game.events["russian_revolution_stage_4_geoprotect_done"]) return
+		game.events["russian_revolution_stage_4_geoprotect_done"] = true
+		if (get_georgian_protectorate_piece(game) >= 0) {
+			log(game, "Russian Revolution Stage 4: Georgian Protectorate was not placed.", ctx)
+		}
+	}
+
+	function can_place_transcaucasian_federation_piece(game, p, s) {
+		if (!data.pieces[p] || !is_transcaucasian_federation_piece(p)) return false
+		if (!(s > 0 && data.spaces[s])) return false
+		if (!is_controlled_by(game, s, AP)) return false
+		if (!(Engine.map.is_russia(s) || Engine.map.is_caucasus(s))) return false
+		return Engine.map.can_place_piece_in_space(game, s, p)
+	}
+
+	function get_transcaucasian_placement_spaces(game, p) {
+		let spaces = []
+		for (let s = 1; s < data.spaces.length; s++) {
+			if (can_place_transcaucasian_federation_piece(game, p, s)) spaces.push(s)
+		}
+		return spaces
+	}
+
+	function get_unplaced_transcaucasian_federation_pieces(game) {
+		let skipped = new Set(game.russian_revolution_stage_4_transcas_skipped || [])
+		let pieces = []
+		for (let name of RUSSIAN_REVOLUTION_TRANSCAS_NAMES) {
+			let p = find_piece(CP, name)
+			if (p >= 0 && is_reinforcement(game, p) && !skipped.has(p)) pieces.push(p)
+		}
+		return pieces
+	}
+
+	function skip_transcaucasian_federation_piece(game, p, ctx) {
+		if (!Array.isArray(game.russian_revolution_stage_4_transcas_skipped)) {
+			game.russian_revolution_stage_4_transcas_skipped = []
+		}
+		set_add(game.russian_revolution_stage_4_transcas_skipped, p)
+		let name = data.pieces[p] ? data.pieces[p].name : `p${p}`
+		log(game, `Russian Revolution Stage 4: no legal AP-controlled Russia/Caucasia space for ${name}.`, ctx)
+	}
+
+	function place_transcaucasian_federation_piece(game, p, s, ctx) {
+		if (!can_place_transcaucasian_federation_piece(game, p, s)) return false
+		if (!is_reinforcement(game, p)) return false
+		game.pieces[p] = s
+		log(game, `Russian Revolution Stage 4: ${data.pieces[p].name} placed in ${space_log_name(s)}.`, ctx)
+		return true
+	}
+
+	function finish_transcaucasian_federation_placement(game) {
+		if (!game.events) game.events = {}
+		game.events["russian_revolution_stage_4_transcas_done"] = true
+		delete game.russian_revolution_stage_4_transcas_selected
+		delete game.russian_revolution_stage_4_transcas_skipped
+	}
+
+	function place_default_transcaucasian_federation(game, ctx) {
+		while (true) {
+			let units = get_unplaced_transcaucasian_federation_pieces(game)
+			if (units.length === 0) break
+			let p = units[0]
+			let spaces = get_transcaucasian_placement_spaces(game, p)
+			if (spaces.length === 0) {
+				skip_transcaucasian_federation_piece(game, p, ctx)
+				continue
+			}
+			place_transcaucasian_federation_piece(game, p, spaces[0], ctx)
+		}
+		finish_transcaucasian_federation_placement(game)
+	}
+
+	function place_soviet_uprising_markers(game, ctx) {
+		if (!game.events) game.events = {}
+		if (game.events["russian_revolution_stage_4_soviet_done"]) return
+		game.events["russian_revolution_stage_4_soviet_done"] = true
+		let spaces = ["Baku", "Central Asia", "Enzeli"].map(find_space).filter((s) => s > 0)
+		game.soviet_uprising_markers = spaces
+		log(game, "Russian Revolution Stage 4: Soviet Uprising markers placed.", ctx)
+	}
+
+	function prepare_ge_ix_army_replacement(game, ctx) {
+		if (!game.events) game.events = {}
+		if (game.events["russian_revolution_stage_4_ge_ix_prepared"]) return
+		game.events["russian_revolution_stage_4_ge_ix_prepared"] = true
+		let ge_ix = find_piece(CP, "GE IX Army")
+		if (ge_ix < 0 || !is_piece_available_for_revolution_stage_effect(game, ge_ix)) {
+			game.events["russian_revolution_stage_4_ge_ix_done"] = true
+			return
+		}
+		let space = game.pieces[ge_ix]
+		game.russian_revolution_stage_4_ge_ix_space = space
+		Engine.game_utils.eliminate_piece(game, ge_ix, (msg) => log(game, msg, ctx), true)
+	}
+
+	function get_ge_ix_replacement_space(game) {
+		let s = game.russian_revolution_stage_4_ge_ix_space
+		return s > 0 && data.spaces[s] ? s : -1
+	}
+
+	function get_ge_ix_replacement_pieces(game) {
+		let reserve = get_scu_reserve_box(CP)
+		let pieces = []
+		for (let name of RUSSIAN_REVOLUTION_GE_REPLACEMENT_NAMES) {
+			let p = find_piece(CP, name)
+			if (p >= 0 && game.pieces[p] === reserve) pieces.push(p)
+		}
+		return pieces
+	}
+
+	function replace_ge_ix_army_with_scu(game, p, ctx) {
+		if (!get_ge_ix_replacement_pieces(game).includes(p)) return false
+		let space = get_ge_ix_replacement_space(game)
+		if (!(space > 0)) return false
+		if (!game.events) game.events = {}
+		game.events["russian_revolution_stage_4_ge_ix_done"] = true
+		game.pieces[p] = space
+		log(game, `Russian Revolution Stage 4: GE IX Army replaced by ${data.pieces[p].name}.`, ctx)
+		delete game.russian_revolution_stage_4_ge_ix_space
+		return true
+	}
+
+	function skip_ge_ix_army_replacement(game, ctx) {
+		if (!game.events) game.events = {}
+		if (game.events["russian_revolution_stage_4_ge_ix_done"]) return
+		game.events["russian_revolution_stage_4_ge_ix_done"] = true
+		if (get_ge_ix_replacement_space(game) > 0 && get_ge_ix_replacement_pieces(game).length > 0) {
+			log(game, "Russian Revolution Stage 4: GE IX Army was not replaced.", ctx)
+		}
+		delete game.russian_revolution_stage_4_ge_ix_space
+	}
+
+	function apply_russian_revolution_stage_4(game, ctx) {
+		if (game.events["russian_revolution_stage_4_applied"]) return
+		let kept_cavalry = choose_default_revolution_cavalry_survivor(game)
+		select_russian_revolution_cavalry_survivor(game, kept_cavalry)
+		remove_russian_revolution_stage_4_ru_units(game, ctx)
+		place_default_georgian_protectorate(game, ctx)
+		if (!game.events["russian_revolution_stage_4_geoprotect_done"]) skip_georgian_protectorate(game, ctx)
+		place_default_transcaucasian_federation(game, ctx)
 		place_soviet_uprising_markers(game, ctx)
-		eliminate_ge_ix_army(game, ctx)
+		prepare_ge_ix_army_replacement(game, ctx)
+		let replacements = get_ge_ix_replacement_pieces(game)
+		if (replacements.length > 0 && get_ge_ix_replacement_space(game) > 0) {
+			replace_ge_ix_army_with_scu(game, replacements[0], ctx)
+		} else {
+			skip_ge_ix_army_replacement(game, ctx)
+		}
+		game.events["russian_revolution_stage_4_applied"] = true
+		delete game.russian_revolution_stage_4_transcas_selected
+		delete game.russian_revolution_stage_4_transcas_skipped
+		delete game.russian_revolution_stage_4_ge_ix_space
+	}
+
+	function begin_russian_revolution_stage_4_interactive(game) {
+		if (!game.events) game.events = {}
+		if (game.events["russian_revolution_stage_4_applied"]) return false
+		game.events["russian_revolution_stage_4_started"] = true
+		return true
+	}
+
+	function finish_russian_revolution_stage_4(game) {
+		if (!game.events) game.events = {}
+		game.events["russian_revolution_stage_4_applied"] = true
+		delete game.russian_revolution_stage_4_transcas_selected
+		delete game.russian_revolution_stage_4_transcas_skipped
+		delete game.russian_revolution_stage_4_ge_ix_space
 	}
 
 	function apply_russian_revolution_stage_effects(game, stage, ctx) {
@@ -3828,11 +3999,31 @@ module.exports = function (Engine) {
 	exports.get_warm_water_port_options = get_warm_water_port_options
 	exports.is_warm_water_port_option = is_warm_water_port_option
 	exports.apply_russian_revolution_stage_effects = apply_russian_revolution_stage_effects
+	exports.begin_russian_revolution_stage_4_interactive = begin_russian_revolution_stage_4_interactive
+	exports.finish_russian_revolution_stage_4 = finish_russian_revolution_stage_4
 	exports.can_record_russian_rp = can_record_russian_rp
 	exports.is_russian_revolution_subject_piece = is_russian_revolution_subject_piece
 	exports.is_russian_revolution_survivor_piece = is_russian_revolution_survivor_piece
 	exports.is_russian_revolution_survivor_cavalry = is_russian_revolution_survivor_cavalry
 	exports.is_transcaucasian_federation_piece = is_transcaucasian_federation_piece
+	exports.get_russian_revolution_cavalry_choices = get_russian_revolution_cavalry_choices
+	exports.select_russian_revolution_cavalry_survivor = select_russian_revolution_cavalry_survivor
+	exports.remove_russian_revolution_stage_4_ru_units = remove_russian_revolution_stage_4_ru_units
+	exports.get_georgian_protectorate_piece = get_georgian_protectorate_piece
+	exports.get_georgian_protectorate_placement_spaces = get_georgian_protectorate_placement_spaces
+	exports.place_georgian_protectorate = place_georgian_protectorate
+	exports.skip_georgian_protectorate = skip_georgian_protectorate
+	exports.get_unplaced_transcaucasian_federation_pieces = get_unplaced_transcaucasian_federation_pieces
+	exports.get_transcaucasian_placement_spaces = get_transcaucasian_placement_spaces
+	exports.place_transcaucasian_federation_piece = place_transcaucasian_federation_piece
+	exports.skip_transcaucasian_federation_piece = skip_transcaucasian_federation_piece
+	exports.finish_transcaucasian_federation_placement = finish_transcaucasian_federation_placement
+	exports.place_soviet_uprising_markers = place_soviet_uprising_markers
+	exports.prepare_ge_ix_army_replacement = prepare_ge_ix_army_replacement
+	exports.get_ge_ix_replacement_space = get_ge_ix_replacement_space
+	exports.get_ge_ix_replacement_pieces = get_ge_ix_replacement_pieces
+	exports.replace_ge_ix_army_with_scu = replace_ge_ix_army_with_scu
+	exports.skip_ge_ix_army_replacement = skip_ge_ix_army_replacement
 	exports.has_russian_combat_activation_penalty = has_russian_combat_activation_penalty
 	exports.is_russian_revolution_ru_attack_blocked = is_russian_revolution_ru_attack_blocked
 	exports.register_russian_revolution_ru_attack = register_russian_revolution_ru_attack

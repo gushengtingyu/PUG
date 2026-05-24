@@ -2844,6 +2844,9 @@ module.exports = function (Engine) {
 			if (game.attack && game.attack.attacker === CP) {
 				if (!game.reserves_to_front_effected_pieces) game.reserves_to_front_effected_pieces = []
 				rules.set_add(game.reserves_to_front_effected_pieces, p)
+				if (!Array.isArray(game.attacked)) game.attacked = []
+				rules.set_add(game.attacked, p)
+				delete game.attack_eligibility_cache
 			}
 
 			if (is_elim_or_removed_exception) {

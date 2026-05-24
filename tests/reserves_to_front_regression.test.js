@@ -130,6 +130,67 @@ test("Reserves to the Front rebuilds an eliminated Turkish attacker in its attac
 	expect(Engine.game_utils.is_piece_reduced(game, turkish)).toBe(true)
 })
 
+test("Reserves to the Front rebuilt attackers stay marked as already attacked", () => {
+	const game = setupGame(260511, "Historical", { no_supply_warnings: true })
+	const origin = findSpace("Bayburt")
+	const target = findSpace("Oltu")
+	const otherTarget = findSpace("Erzurum")
+	const turkish = findPieceByName("TU DIV #8")
+	const defender = findPieceByName("RU DIV #3")
+	const otherDefender = findPieceByName("RU DIV #4")
+
+	clearBoard(game)
+	game.pieces[turkish] = origin
+	game.pieces[defender] = target
+	game.pieces[otherDefender] = otherTarget
+	game.control[origin] = CP
+	game.control[target] = AP
+	game.control[otherTarget] = AP
+	game.active = CP
+	game.state = "event_reserves_to_front"
+	game.events = {}
+	game.reduced = []
+	game.attacked = [turkish]
+	game.attacked_spaces = [target]
+	game.activated = { attack: [origin], move: [] }
+	game.region_activations = { attack: {}, move: {} }
+	game.rp_cp.tu = 2
+	game.attack = {
+		space: target,
+		pieces: [turkish],
+		origin_by_piece: { [turkish]: origin },
+		attacker: CP,
+		defender: AP,
+		initial_attackers: [turkish],
+		initial_defenders: [defender],
+		reserves_to_front_damaged_pieces: [turkish],
+		reserves_to_front_initial_reduced_pieces: []
+	}
+	game.battle_result = {
+		attackers: [turkish],
+		defenders: [defender],
+		attacker_losses: 1,
+		defender_losses: 0,
+		turkish_retreat: false,
+		retreating_units: []
+	}
+	Engine.game_utils.eliminate_piece(game, turkish, () => {}, false)
+	expect(game.attacked).not.toContain(turkish)
+
+	game.reserves_to_front_pieces = Engine.combat_cards.get_reserves_to_front_piece_pool(game)
+	rules.action(game, CP_ROLE, "piece", turkish)
+
+	expect(game.pieces[turkish]).toBe(origin)
+	expect(game.attacked).toContain(turkish)
+
+	game.attack = null
+	game.state = "attack"
+	let view = rules.view(game, CP_ROLE)
+
+	expect(game.eligible_attackers).not.toContain(turkish)
+	expect(view.actions.piece || []).not.toContain(turkish)
+})
+
 test("Reserves to the Front keeps an eliminated attacking LCU at its original space after SCU replacement", () => {
 	const game = setupGame(260510, "Historical", { no_supply_warnings: true })
 	const origin = findSpace("Constantinople")
