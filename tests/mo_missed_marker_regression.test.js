@@ -54,6 +54,56 @@ test("missed MO penalties record their turn for the view", () => {
 	expect(view.missed_mo_cp).toEqual([4])
 })
 
+test("british no attack violation (penalty unpaid) records missed_mo_ap", () => {
+	let game = setupGame(2026052401, "Historical", { no_supply_warnings: true })
+	let turn = getTurnFuncs(game)
+
+	game.turn = 5
+	game.mo_ap = Engine.mo.MO_BRITISH_NO_ATTACK
+	game.mo_ap_fulfilled = true
+	game.mo_cp = Engine.mo.MO_NONE
+	game.mo_cp_fulfilled = true
+	game.british_mandate_violated = true
+	game.br_attack_penalty_paid = false
+	game.missed_mo_ap = []
+	game.missed_mo_cp = []
+	game.vp = 10
+
+	turn.start_attrition_phase()
+
+	expect(game.vp).toBe(11)
+	expect(game.br_attack_penalty_paid).toBe(true)
+	expect(game.missed_mo_ap).toEqual([5])
+
+	let view = rules.view(game, AP_ROLE)
+	expect(view.missed_mo_ap).toEqual([5])
+})
+
+test("british no attack violation (penalty already paid) still records missed_mo_ap", () => {
+	let game = setupGame(2026052402, "Historical", { no_supply_warnings: true })
+	let turn = getTurnFuncs(game)
+
+	game.turn = 6
+	game.mo_ap = Engine.mo.MO_BRITISH_NO_ATTACK
+	game.mo_ap_fulfilled = true
+	game.mo_cp = Engine.mo.MO_NONE
+	game.mo_cp_fulfilled = true
+	game.british_mandate_violated = true
+	game.br_attack_penalty_paid = true
+	game.missed_mo_ap = []
+	game.missed_mo_cp = []
+	game.vp = 10
+
+	turn.start_attrition_phase()
+
+	expect(game.vp).toBe(10)
+	expect(game.br_attack_penalty_paid).toBe(true)
+	expect(game.missed_mo_ap).toEqual([6])
+
+	let view = rules.view(game, AP_ROLE)
+	expect(view.missed_mo_ap).toEqual([6])
+})
+
 test("missed MO turn-track markers use turn-number stack indexes", () => {
 	let playSource = fs.readFileSync("play.js", "utf8")
 	let imagesSource = fs.readFileSync("images.css", "utf8")

@@ -340,12 +340,15 @@ module.exports = function (Engine) {
 	}
 	function get_piece_cf(game, p) {
 		if (p < 0) return 0
-		if (is_hq(p)) {
-			if (set_has(game.reduced, p)) return data.pieces[p].rlf || 0
-			return data.pieces[p].lf || 0
-		}
+		if (is_hq(p)) return 0
 		if (set_has(game.reduced, p)) return data.pieces[p].rcf || 0
 		return data.pieces[p].cf || 0
+	}
+
+	function get_hq_drm(game, p) {
+		if (!is_hq(p)) return 0
+		if (set_has(game.reduced, p)) return data.pieces[p].rlf || 0
+		return data.pieces[p].lf || 0
 	}
 
 	// Board-state/dynamic faction used for enemy/friendly checks on the map.
@@ -1379,6 +1382,7 @@ module.exports = function (Engine) {
 		pieces_count_as_any_nation_for_rule,
 		can_piece_be_activated,
 		get_piece_cf,
+		get_hq_drm,
 		get_season,
 		get_year,
 		is_turn_event,

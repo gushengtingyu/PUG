@@ -227,10 +227,13 @@ exports.register = function (states, Engine, context) {
 			record_missed_mo(AP)
 			log("AP failed Mandated Offensive: VP +1")
 		}
-		if (game.british_mandate_violated && !game.br_attack_penalty_paid) {
-			game.vp += 1
-			game.br_attack_penalty_paid = true
-			log("AP violated British No Attack Mandate: VP +1")
+		if (game.british_mandate_violated) {
+			if (!game.br_attack_penalty_paid) {
+				game.vp += 1
+				game.br_attack_penalty_paid = true
+				log("AP violated British No Attack Mandate: VP +1")
+			}
+			record_missed_mo(AP)
 		}
 
 		if (game.mo_cp !== MO_NONE && !game.mo_cp_fulfilled) {

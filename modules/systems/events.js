@@ -3247,7 +3247,7 @@ module.exports = function (Engine) {
 					"TU XVII Corps",
 					"TU-A XVIII Corps",
 					"TU DIV #18",
-					"TU-A DIV #11"
+					"TU-A DIV #15"
 				]
 				event.reinf_to_place = units
 				event.reinf_placement = {
@@ -3257,7 +3257,7 @@ module.exports = function (Engine) {
 					"TU XVII Corps": "reserve",
 					"TU-A XVIII Corps": "reserve",
 					"TU DIV #18": "either",
-					"TU-A DIV #11": "either"
+					"TU-A DIV #15": "either"
 				}
 
 				event.reinf_logic = {
@@ -3267,7 +3267,7 @@ module.exports = function (Engine) {
 					"TU XVII Corps": "is_tu",
 					"TU-A XVIII Corps": "is_tua",
 					"TU DIV #18": "is_tu",
-					"TU-A DIV #11": "is_tua"
+					"TU-A DIV #15": "is_tua"
 				}
 				game.state = "event_place_reinforcements"
 				event.reinf_next_state = "event_turkish_reinf_81_combine"

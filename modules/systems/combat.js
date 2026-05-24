@@ -15,6 +15,7 @@ module.exports = function (Engine) {
 		piece_name,
 		space_name,
 		get_piece_cf,
+		get_hq_drm,
 		is_turn_event,
 		get_piece_faction,
 		get_piece_nation,
@@ -3866,7 +3867,7 @@ module.exports = function (Engine) {
 				// Check if any other attacker matches
 				let match = attackers.some((other) => p !== other && data.pieces[other] && hq_matches(p, other))
 				if (match) {
-					let bonus = get_piece_cf(game, p)
+					let bonus = get_hq_drm(game, p)
 					att_drm += bonus
 					used_hqs.attacker.push(p)
 					log_detail(log, `进攻方指挥部 ${piece_log_name(game, p)} 提供 +${bonus} DRM`)
@@ -3880,7 +3881,7 @@ module.exports = function (Engine) {
 				// Check if any other defender matches
 				let match = defenders.some((other) => p !== other && data.pieces[other] && hq_matches(p, other))
 				if (match) {
-					let bonus = get_piece_cf(game, p)
+					let bonus = get_hq_drm(game, p)
 					def_drm += bonus
 					used_hqs.defender.push(p)
 					log_detail(log, `防守方指挥部 ${piece_log_name(game, p)} 提供 +${bonus} DRM`)
