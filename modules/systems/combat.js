@@ -2127,8 +2127,7 @@ module.exports = function (Engine) {
 	function fmt_attack_odds(game) {
 		if (!game.attack || game.attack.space < 0 || !game.attack.pieces || game.attack.pieces.length === 0) return ""
 		let attackers = game.attack.pieces
-		let active_f = game.active
-		let defender_faction = other_faction(active_f)
+		let { defender: defender_faction } = infer_attack_factions(game)
 		let defenders = get_combat_defenders(game, game.attack.space, defender_faction)
 		let has_fort = has_undestroyed_fort(game, game.attack.space, defender_faction)
 		if (defenders.length === 0 && !has_fort) return ""
@@ -2186,8 +2185,7 @@ module.exports = function (Engine) {
 	function fmt_attack_odds_with_max(game) {
 		if (!game.attack || game.attack.space < 0 || !game.attack.pieces || game.attack.pieces.length === 0) return ""
 		let attackers = game.attack.pieces
-		let active_f = game.active
-		let defender_faction = other_faction(active_f)
+		let { defender: defender_faction } = infer_attack_factions(game)
 		let target_space = game.attack.space
 
 		let attack_factors = attackers.reduce((sum, p) => sum + get_piece_cf(game, p), 0)

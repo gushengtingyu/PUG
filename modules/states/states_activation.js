@@ -2221,7 +2221,6 @@ exports.register = function (states, Engine, context) {
 				!!data.spaces[target]?.region && Engine.map.contains_enemy_pieces(game, target, moving_faction)
 			let will_control_target =
 				!has_undestroyed_fort(game, target, other_faction(moving_faction)) &&
-				!is_gallipoli(target) &&
 				!is_controlled_by(game, target, moving_faction) &&
 				pieces_moving.some((p) => data.pieces[p].type === "regular") &&
 				!enemy_holds_contested_region
@@ -2232,7 +2231,7 @@ exports.register = function (states, Engine, context) {
 				Engine.sync_jihad_city_state(game, target)
 			}
 
-			if (!has_undestroyed_fort(game, target, other_faction(moving_faction)) && !is_gallipoli(target)) {
+			if (!has_undestroyed_fort(game, target, other_faction(moving_faction))) {
 				if (!is_controlled_by(game, target, moving_faction)) {
 					if (pieces_moving.some((p) => data.pieces[p].type === "regular") && !enemy_holds_contested_region) {
 						set_control(game, target, moving_faction)

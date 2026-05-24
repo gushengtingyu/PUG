@@ -1956,7 +1956,6 @@ module.exports = function (Engine) {
 		if (!pieces.some((p) => data.pieces[p] && is_regular(p))) return false
 		if (is_controlled_by(game, target, faction)) return false
 		if (has_undestroyed_fort(game, target, other_faction(faction))) return false
-		if (is_gallipoli(target)) return false
 		if (data.spaces[target]?.region && contains_enemy_pieces(game, target, faction)) return false
 		return true
 	}
