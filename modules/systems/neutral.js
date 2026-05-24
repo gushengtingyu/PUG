@@ -974,6 +974,10 @@ module.exports = function (Engine) {
 		return 0
 	}
 
+	function get_russian_vp_value(game, s) {
+		return get_effective_vp_value(game, s)
+	}
+
 	function qualifies_for_ru_vp_capture(game, s) {
 		if (!has_ru_capture_piece_in_space(game, s)) return false
 		let ru_sources = Engine.map.get_ru_supply_sources(game, false)
@@ -1021,9 +1025,10 @@ module.exports = function (Engine) {
 		if (active) {
 			if (!had) {
 				game.armenian_uprising_ru_vp_markers.push(s)
-				game.russian_vp = (Number(game.russian_vp) || 0) + 1
+				let ru_vp_value = get_russian_vp_value(game, s)
+				game.russian_vp = (Number(game.russian_vp) || 0) + ru_vp_value
 				if (!options.silent) {
-					Engine.log(game, `亚美尼亚起义占领VP点，俄国VP +1（当前：${game.russian_vp}）。`)
+					Engine.log(game, `亚美尼亚起义占领VP点，俄国VP +${ru_vp_value}（当前：${game.russian_vp}）。`)
 				}
 			}
 			add_ru_control_marker(game, s)
@@ -1032,9 +1037,10 @@ module.exports = function (Engine) {
 		if (!had) return
 		game.armenian_uprising_ru_vp_markers = game.armenian_uprising_ru_vp_markers.filter((x) => x !== s)
 		remove_ru_control_marker(game, s)
-		game.russian_vp = (Number(game.russian_vp) || 0) - 1
+		let ru_vp_value = get_russian_vp_value(game, s)
+		game.russian_vp = (Number(game.russian_vp) || 0) - ru_vp_value
 		if (!options.silent) {
-			Engine.log(game, `亚美尼亚起义不再控制VP点，俄国VP -1（当前：${game.russian_vp}）。`)
+			Engine.log(game, `亚美尼亚起义不再控制VP点，俄国VP -${ru_vp_value}（当前：${game.russian_vp}）。`)
 		}
 	}
 
@@ -1082,10 +1088,11 @@ module.exports = function (Engine) {
 		if (!Array.isArray(game.ru_control_markers)) game.ru_control_markers = []
 		if (!is_attrition_ru_vp_capture(game, s)) return false
 		if (game.ru_control_markers.includes(s)) return false
-		game.russian_vp = (Number(game.russian_vp) || 0) + 1
+		let ru_vp_value = get_russian_vp_value(game, s)
+		game.russian_vp = (Number(game.russian_vp) || 0) + ru_vp_value
 		add_ru_control_marker(game, s)
 		if (!options.silent) {
-			Engine.log(game, `Attrition converts ${space_log_name(s)} as a Russian VP; Russian VP +1 (current: ${game.russian_vp}).`)
+			Engine.log(game, `Attrition converts ${space_log_name(s)} as a Russian VP; Russian VP +${ru_vp_value} (current: ${game.russian_vp}).`)
 		}
 		return true
 	}
@@ -1119,16 +1126,18 @@ module.exports = function (Engine) {
 		if (!game.ru_control_markers) game.ru_control_markers = []
 		if (faction === AP) {
 			if (qualifies_for_ru_vp_capture(game, s)) {
-				game.russian_vp += 1
+				let ru_vp_value = get_russian_vp_value(game, s)
+				game.russian_vp = (Number(game.russian_vp) || 0) + ru_vp_value
 				add_ru_control_marker(game, s)
-				Engine.log(game, `俄国部队占领VP点，俄国VP +1 (当前: ${game.russian_vp})`)
+				Engine.log(game, `俄国部队占领VP点，俄国VP +${ru_vp_value} (当前: ${game.russian_vp})`)
 			}
 		} else if (faction === CP) {
 			let is_ru_vp = Engine.map.is_russian_vp_space(game, s)
 			let was_ru_controlled = remove_ru_control_marker(game, s)
 			if (is_ru_vp || was_ru_controlled) {
-				game.russian_vp -= 1
-				Engine.log(game, `同盟国占领俄国VP点，俄国VP -1 (当前: ${game.russian_vp})`)
+				let ru_vp_value = get_russian_vp_value(game, s)
+				game.russian_vp = (Number(game.russian_vp) || 0) - ru_vp_value
+				Engine.log(game, `同盟国占领俄国VP点，俄国VP -${ru_vp_value} (当前: ${game.russian_vp})`)
 			}
 		}
 	}
