@@ -1059,9 +1059,7 @@ exports.register = function (states, Engine, context) {
 				if (has_window_cc_options("post_roll_cc_defender", CP, false)) {
 					game.state = "post_roll_cc_defender"
 				} else {
-					game.post_roll_cc_done = true
-					game.active = game.attack?.attacker || AP
-					end_battle_sequence()
+					continue_after_post_roll_cc()
 				}
 				return true
 			case "post_battle_cc_cp":
@@ -1092,6 +1090,34 @@ exports.register = function (states, Engine, context) {
 			default:
 				return false
 		}
+	}
+
+	function get_unabsorbed_post_roll_loss_state() {
+		if (!game.attack) return null
+		let defender_needed = (game.attack.defender_losses || 0) - (game.attack.defender_losses_absorbed || 0)
+		if (defender_needed > 0) {
+			game.active = game.attack.defender || other_faction(game.attack.attacker || game.active)
+			return combat.get_defender_losses_state(game)
+		}
+
+		let attacker_needed = (game.attack.attacker_losses || 0) - (game.attack.attacker_losses_absorbed || 0)
+		if (attacker_needed > 0) {
+			game.active = game.attack.attacker || AP
+			return "apply_attacker_losses"
+		}
+
+		return null
+	}
+
+	function continue_after_post_roll_cc() {
+		game.post_roll_cc_done = true
+		let loss_state = get_unabsorbed_post_roll_loss_state()
+		if (loss_state) {
+			game.state = loss_state
+			return
+		}
+		game.active = game.attack?.attacker || AP
+		end_battle_sequence()
 	}
 
 	function register_combat_card_state(name, config) {
@@ -2119,9 +2145,7 @@ exports.register = function (states, Engine, context) {
 		if (game.cc_jafar_pasha_post_battle) resolve_jafar_pasha_post_battle()
 
 		if (game.state === "post_roll_cc_defender" && !has_window_cc_options("post_roll_cc_defender", CP, false)) {
-			game.post_roll_cc_done = true
-			game.active = game.attack?.attacker || AP
-			end_battle_sequence()
+			continue_after_post_roll_cc()
 			return
 		}
 
@@ -2189,11 +2213,7 @@ exports.register = function (states, Engine, context) {
 		prompt: "防守方：掷骰后战斗卡",
 		is_attacker: false,
 		get_options: () => collect_window_cc_options(game, "post_roll_cc_defender", CP, false),
-		done() {
-			game.post_roll_cc_done = true
-			game.active = game.attack?.attacker || AP
-			end_battle_sequence()
-		}
+		done: continue_after_post_roll_cc
 	})
 
 	register_combat_card_state("post_battle_cc_cp", {
