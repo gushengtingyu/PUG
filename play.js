@@ -6416,6 +6416,17 @@ function escape_text(text) {
 	return text
 }
 
+function get_czars_armories_prompt_status(text) {
+	if (typeof view === "undefined" || !view || text !== view.prompt) {
+		return ""
+	}
+	const remaining = Number(view.czars_armories_rp?.remaining || 0)
+	if (!Number.isFinite(remaining) || remaining <= 0) {
+		return ""
+	}
+	return ` <span class="czars_armories_prompt">Czar's Armories 即时 TU RP：${Math.floor(remaining)}</span>`
+}
+
 /**
  * 处理提示文本，将换行符替换为 HTML 换行符。
  * @param {string} text - 原始文本。
@@ -6425,7 +6436,8 @@ function on_prompt(text) {
 	if (text === null || text === undefined) {
 		return ""
 	}
-	return escape_text(String(text)).replace(/\n/g, "<br>")
+	const raw_text = String(text)
+	return escape_text(raw_text).replace(/\n/g, "<br>") + get_czars_armories_prompt_status(raw_text)
 }
 
 function get_space_tip_element(s) {

@@ -821,6 +821,7 @@ module.exports = function (Engine) {
 					spent: 0,
 					return_state: ctx.return_state
 				}
+				ctx.log(`${ctx.card_name()}：同盟国获得 4 点即时土耳其补员点数。`)
 				ctx.mark_effected()
 				game.state = "event_czars_armories"
 				return "stop"

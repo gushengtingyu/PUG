@@ -189,6 +189,12 @@ exports.register = function (states, Engine, context) {
 		return !!(info.rp_a || info.rp_br || info.rp_ru || info.rp_ge || info.rp_tu || info.rp_in)
 	}
 
+	const INFORMATION_REVEAL_EVENT_CARDS = new Set([18, 58, 70])
+
+	function is_information_reveal_event(card) {
+		return INFORMATION_REVEAL_EVENT_CARDS.has(Number(card))
+	}
+
 	function can_play_event_cached(card) {
 		let revision = Number(game.cache_revision) || 0
 		if (!game.event_playability_cache || game.event_playability_cache.revision !== revision) {
@@ -211,7 +217,7 @@ exports.register = function (states, Engine, context) {
 		let info = data.cards[card]
 		if (!can_play_event_cached(card)) {
 			log(`${card_name(card)} 不能作为事件打出`)
-			return
+			return false
 		}
 		let t0 = DEBUG_ACTION_TRACE ? action_now() : 0
 		let entry = get_event_entry(card)
@@ -253,6 +259,11 @@ exports.register = function (states, Engine, context) {
 				elapsed_ms: action_now() - t0
 			})
 		}
+		return true
+	}
+
+	function clear_undo_after_information_reveal_event(card) {
+		if (is_information_reveal_event(card)) clear_undo()
 	}
 
 	function get_ap_beachheads() {
@@ -391,7 +402,7 @@ exports.register = function (states, Engine, context) {
 			push_undo()
 			game.card = c
 			game.last_card = c
-			perform_event_action(c, "play_card.play_event")
+			if (perform_event_action(c, "play_card.play_event")) clear_undo_after_information_reveal_event(c)
 		},
 		remove_beachhead(beachhead) {
 			push_undo()
@@ -503,7 +514,7 @@ exports.register = function (states, Engine, context) {
 		},
 		play_event(c) {
 			if (c === undefined) c = game.card
-			perform_event_action(c, "card_action.play_event")
+			if (perform_event_action(c, "card_action.play_event")) clear_undo_after_information_reveal_event(c)
 		},
 		cancel() {
 			game.card = null

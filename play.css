@@ -9,6 +9,10 @@ header {
 #prompt {
 	color: black;
 }
+#prompt .czars_armories_prompt {
+	margin-left: 12px;
+	font-weight: bold;
+}
 #turn_info {
 	background-color: thistle;
 }

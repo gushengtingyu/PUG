@@ -298,6 +298,15 @@ module.exports = function (Engine) {
 		return !!(data.pieces[p] && data.pieces[p].name === "ANZ Desert Corps")
 	}
 
+	function is_turkish_or_bulgarian_lcu_for_swamp_rule(game, p) {
+		if (!is_lcu(p)) return false
+		let nations = get_piece_nations_for_rule(game, p)
+		return (
+			nations.length > 0 &&
+			nations.every((nation) => nation === "tu" || nation === "tua" || nation === "bu")
+		)
+	}
+
 	// --- Naval Access Logic ---
 	function get_movement_cost(game, p, to) {
 		let from = game.pieces[p]
@@ -1534,8 +1543,6 @@ module.exports = function (Engine) {
 			}
 		}
 
-		if (!region && !restricted_area) return true
-
 		if (is_prohibited_to_non_indian_units(s)) {
 			if (!piece_counts_as_nation_for_rule(game, p, "in")) return false
 		}
@@ -1566,15 +1573,12 @@ module.exports = function (Engine) {
 				}
 			}
 
-			if (data.spaces[s].terrain === "swamp") {
-				let nations = get_piece_nations_for_rule(game, p)
-				if (
-					nations.length > 0 &&
-					nations.every((nation) => nation === "tu" || nation === "tua" || nation === "bu")
-				)
-					return false
-			}
+			if (data.spaces[s].terrain === "swamp" && is_turkish_or_bulgarian_lcu_for_swamp_rule(game, p)) return false
+		}
 
+		if (!region && !restricted_area) return true
+
+		if (is_lcu(p)) {
 			if (restricted_area) {
 				// Rule 9.8.3: Restricted Area LCU Limit.
 				let faction = data.pieces[p].faction
@@ -4598,6 +4602,12 @@ module.exports = function (Engine) {
 				let has_friendly_pieces = context.friendly[faction][next] === 1
 				let has_partial_control = has_partial_control_with_context(context, next)
 				let is_disrupted_by_enemy = context.disrupted[faction][next] === 1
+				let is_cp_neutral_afghanistan_source =
+					source_flag[next] === 1 &&
+					faction === CP &&
+					data.spaces[next] &&
+					data.spaces[next].name === "Afghanistan" &&
+					!(game.events && game.events["afghan_alliance"])
 
 				// Rule 14.1.3: Friendly besieged Fort blocks supply trace.
 				if (is_friendly && is_besieged_enemy && get_fort_owner(game, next) === faction) continue
@@ -4609,13 +4619,18 @@ module.exports = function (Engine) {
 					!is_besieged_enemy &&
 					!has_friendly_pieces &&
 					!has_partial_control &&
-					!enemy_transit_allowed
+					!enemy_transit_allowed &&
+					!is_cp_neutral_afghanistan_source
 				)
 					continue
 
 				let next_disrupted = current_disrupted || is_disrupted_by_enemy
 				if (source_flag[next] === 1) {
 					if (is_ap_contested_cp_region_port(game, next, faction, context)) continue
+					if (is_cp_neutral_afghanistan_source) {
+						if (!next_disrupted) return "FULL"
+						best_status = "DISRUPTED"
+					}
 					if (!next_disrupted) return "FULL"
 					best_status = "DISRUPTED"
 				}
@@ -5595,11 +5610,7 @@ module.exports = function (Engine) {
 					}
 					// Rule 197: Turkish/Bulgarian LCU cannot enter swamp
 					if (data.spaces[s].terrain === "swamp") {
-						let nations = get_piece_nations_for_rule(game, p)
-						if (
-							nations.length > 0 &&
-							nations.every((nation) => nation === "tu" || nation === "tua" || nation === "bu")
-						) {
+						if (is_turkish_or_bulgarian_lcu_for_swamp_rule(game, p)) {
 							violations.push({ space: s, rule: "Rule 197: Turkish/Bulgarian LCU cannot enter swamp" })
 						}
 					}

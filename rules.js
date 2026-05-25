@@ -951,6 +951,15 @@ exports.view = function (state, current) {
 				tu: game.rp_cp?.tu || 0,
 				cpa: game.rp_cp?.a || 0
 			},
+			czars_armories_rp:
+				game.czars_armories_rp && typeof game.czars_armories_rp === "object"
+					? {
+							bonus: Number(game.czars_armories_rp.bonus || 0),
+							spent: Number(game.czars_armories_rp.spent || 0),
+							remaining:
+								Number(game.czars_armories_rp.bonus || 0) - Number(game.czars_armories_rp.spent || 0)
+						}
+					: undefined,
 			russian_vp: game.russian_vp,
 			jihad: game.jihad,
 			max_tu_rp: game.events && game.events["royal_navy_blockade"] ? game.tu_rp_limit : undefined,
