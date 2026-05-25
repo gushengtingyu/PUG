@@ -618,6 +618,31 @@ test("advance movement exposes an undo action to the advancing player", () => {
 	expect(game.advance_pieces).toEqual([tuDiv8, tuDiv9])
 })
 
+test("ending advance tolerates a null action argument", () => {
+	let game = rules.setup(109, "Historical", { seed: 42, no_supply_warnings: true })
+	let oltu = findSpaceByName("Oltu")
+	let bayburt = findSpaceByName("Bayburt")
+	let tuDiv8 = findPieceByName("TU DIV #8")
+
+	for (let p = 0; p < game.pieces.length; p++) game.pieces[p] = 0
+	game.pieces[tuDiv8] = bayburt
+	game.control[bayburt] = rules.CP
+	game.control[oltu] = rules.AP
+	game.active = rules.CP
+	game.state = "advance"
+	game.attack = { space: oltu, attacker: rules.CP, defender: rules.AP }
+	game.battle_result = { retreat_distance: 1 }
+	game.advance_space = oltu
+	game.advance_pieces = [tuDiv8]
+	game.advance_count = 0
+	game.advance_limit = 3
+	game.retreated = []
+	game.undo = []
+
+	expect(() => rules.action(game, CP_ROLE, "end_advance", null)).not.toThrow()
+	expect(game.undo).toHaveLength(1)
+})
+
 test("Maude prevents a defender-owned trench from cancelling retreat in a non-VP clear space", () => {
 	let { game, defender1, defender2 } = createMaudeRetreatCancelGame("Ctesiphon")
 

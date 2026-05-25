@@ -4041,6 +4041,7 @@ exports.register = function (states, Engine, context) {
 			}
 		},
 		end_advance(options = {}) {
+			options ||= {}
 			if (!options.skip_undo) push_undo()
 			delete game.advance_follow_mode
 			delete game.advance_follow_pieces
