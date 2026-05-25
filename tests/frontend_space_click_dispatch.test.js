@@ -68,6 +68,23 @@ test("cancelled combat card disposition actions have frontend buttons", () => {
 	expect(actions).toContain("remove_cc")
 })
 
+test("frontend keeps actionable permanently eliminated pieces clickable", () => {
+	const source = fs.readFileSync(path.join(__dirname, "..", "play.js"), "utf8")
+
+	expect(source).toContain(
+		"const is_permanently_eliminated_box = is_permanently_eliminated_box_space_id(space_id)"
+	)
+	expect(source).toContain(
+		"const is_clickable_pe_piece = is_permanently_eliminated_box && has_clickable_piece_action(state, piece_id)"
+	)
+	expect(source).toContain(
+		"apply_box_piece_interaction_state(element, state, piece_id, !is_permanently_eliminated_box || is_clickable_pe_piece)"
+	)
+	expect(source).toContain("if (!is_permanently_eliminated_box || has_clickable_piece_action_in_stack(state, lcu_stack))")
+	expect(source).toContain("if (!is_permanently_eliminated_box || has_clickable_piece_action_in_stack(state, scu_stack))")
+	expect(source).toContain("if (is_permanently_eliminated_box_space_id(ui_loc) && !piece_click)")
+})
+
 test("map-space clicks ignore card and rollback actions with matching numeric ids", () => {
 	const { get_space_click_intent } = loadSpaceClickHelpers({
 		actions: {

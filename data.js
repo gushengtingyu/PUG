@@ -21371,7 +21371,7 @@ var data = {
 		"region_limit": "B",
 		"type": "regular",
 		"badge": "infantry",
-		"piece_class": "SCU",
+		"piece_class": "LCU",
 		"image_full": "RO3A.png",
 		"image_reduced": "RO3AR.png"
 	},

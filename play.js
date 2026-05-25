@@ -5482,6 +5482,14 @@ function apply_box_piece_interaction_state(el, state, piece_id, interactive = tr
 	el.style.pointerEvents = interactive ? "" : "none"
 }
 
+function has_clickable_piece_action(state, piece_id) {
+	return is_action_piece_highlighted(state, piece_id)
+}
+
+function has_clickable_piece_action_in_stack(state, stack) {
+	return stack.some((el) => typeof el.piece === "number" && has_clickable_piece_action(state, el.piece))
+}
+
 function render_grouped_box_space(space_id, piece_ids, options) {
 	if (!(space_id > 0) || !spaces[space_id] || !spaces[space_id].element) {
 		return
@@ -5631,11 +5639,12 @@ function update_eliminated_box(space_id, piece_ids) {
 			}
 		},
 		place_piece: ({ space_id, space, state, order, piece_id, piece, element }) => {
-			const is_removed_box = is_permanently_eliminated_box_space_id(space_id)
+			const is_permanently_eliminated_box = is_permanently_eliminated_box_space_id(space_id)
+			const is_clickable_pe_piece = is_permanently_eliminated_box && has_clickable_piece_action(state, piece_id)
 			element.my_stack = null
 			element.classList.remove("offmap")
 			element.classList.remove("reduced")
-			apply_box_piece_interaction_state(element, state, piece_id, !is_removed_box)
+			apply_box_piece_interaction_state(element, state, piece_id, !is_permanently_eliminated_box || is_clickable_pe_piece)
 			set_piece_image(element, piece.image_full)
 			const group = get_eliminated_box_group(piece, order)
 			if (!space.stacks[group]) {
@@ -5658,7 +5667,7 @@ function update_eliminated_box(space_id, piece_ids) {
 				space
 			),
 		layout_group: ({ space_id, space, group, center }) => {
-			const is_removed_box = is_permanently_eliminated_box_space_id(space_id)
+			const is_permanently_eliminated_box = is_permanently_eliminated_box_space_id(space_id)
 			const side = get_eliminated_box_side(space_id)
 			// Eliminated 允许更细的 box_*_lcu / box_*_scu 锚点。
 			// 若未提供分类锚点，则回退到该国家组中心点上下分行的旧布局逻辑。
@@ -5673,7 +5682,7 @@ function update_eliminated_box(space_id, piece_ids) {
 				lcu_stack.side = side
 				lcu_stack.is_reinforcement = true
 				lcu_stack.name = `eliminated:${space.name}:${group}:lcu`
-				if (!is_removed_box) {
+				if (!is_permanently_eliminated_box || has_clickable_piece_action_in_stack(state, lcu_stack)) {
 					bind_stack_interaction(lcu_stack)
 				}
 				layout_stack(lcu_stack, x, y)
@@ -5685,7 +5694,7 @@ function update_eliminated_box(space_id, piece_ids) {
 				scu_stack.side = side
 				scu_stack.is_reinforcement = true
 				scu_stack.name = `eliminated:${space.name}:${group}:scu`
-				if (!is_removed_box) {
+				if (!is_permanently_eliminated_box || has_clickable_piece_action_in_stack(state, scu_stack)) {
 					bind_stack_interaction(scu_stack)
 				}
 				layout_stack(scu_stack, x, y)
@@ -5901,13 +5910,13 @@ function on_click_piece(e, p) {
 		e.stopPropagation()
 		const raw_loc = get_piece_location(p)
 		const ui_loc = get_ui_piece_location(piece, raw_loc)
-		if (is_permanently_eliminated_box_space_id(ui_loc)) {
+		const piece_click = get_piece_click_dispatch(p)
+		if (is_permanently_eliminated_box_space_id(ui_loc) && !piece_click) {
 			end_interaction_perf(perf_id, "click_piece.removed_box")
 			return
 		}
 		const is_reserve_box_loc = is_reserve_box_space_id(ui_loc)
 		const has_space_intent = has_direct_space_intent(ui_loc)
-		const piece_click = get_piece_click_dispatch(p)
 
 		if (stack && !is_focused && !is_small_stack(stack)) {
 			if (is_reserve_box_loc) {

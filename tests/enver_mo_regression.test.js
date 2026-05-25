@@ -160,6 +160,26 @@ test("view exposes Enver sub-MO state for marker rendering", () => {
 	expect(view.mo_cp_2_fulfilled).toBe(true)
 })
 
+test("Enver MO result log keeps the CP roll as the first line", () => {
+	const game = setupGame(2026052501, "Historical", { no_supply_warnings: true })
+	game.turn = 2
+	game.mo_ap = Engine.mo.MO_RUSSIA
+	game.mo_ap_die = 1
+	game.mo_ap_drm = 0
+	game.mo_cp = Engine.mo.MO_ENVER
+	game.mo_cp_die = 6
+	game.mo_cp_drm = 0
+	game.mo_cp_1 = Engine.mo.MO_RUSSIA
+	game.mo_cp_2 = Engine.mo.MO_RUSSIA
+	game.mo_cp_die_2 = 1
+	game.mo_cp_drm_2 = 0
+
+	const logs = []
+	Engine.mo.log_mo_results(game, (msg) => logs.push(msg))
+
+	expect(logs).toEqual(["AP：W1 -> 俄国", "CP：B6 -> 恩维尔\n（#1俄国）\n（#2 B1 -> 俄国）"])
+})
+
 test("front-end Enver marker logic keeps MEnver separate from the ordinary CP MO marker", () => {
 	const getKeys = loadCpMoMarkerHelper()
 	const playSource = fs.readFileSync(path.join(__dirname, "..", "play.js"), "utf8")

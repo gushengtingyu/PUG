@@ -3253,7 +3253,7 @@ module.exports = function (Engine) {
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "turkish_reinf_73")
 				game.active = CP
-				let units = ["TU-A DIV #13", "TU-A DIV #14", "TU-A DIV #15", "TU-A DIV #16"]
+				let units = ["TU-A DIV #11", "TU-A DIV #12", "TU-A DIV #13", "TU-A DIV #14"]
 				event.reinf_to_place = units
 				event.reinf_placement = "either"
 				let reduced = !!game.events["arab_revolt"]
@@ -3827,18 +3827,18 @@ module.exports = function (Engine) {
 			handler: function (game, ctx) {
 				let event = start_event_data(game, ctx, "turkish_reinf_106")
 				game.active = CP
-				let units = ["TU-A Left Wing Gp", "TU-A DIV #17", "TU XX Corps", "TU XXII Corps"]
+				let units = ["TU-A Left Wing Gp", "TU-A DIV #20", "TU XX Corps", "TU XXII Corps"]
 				event.reinf_to_place = units
 				event.reinf_placement = {
 					"TU-A Left Wing Gp": "either",
-					"TU-A DIV #17": "either",
+					"TU-A DIV #20": "either",
 					"TU XX Corps": "reserve",
 					"TU XXII Corps": "reserve"
 				}
 
 				event.reinf_logic = {
 					"TU-A Left Wing Gp": "is_tua",
-					"TU-A DIV #17": "is_tua",
+					"TU-A DIV #20": "is_tua",
 					"TU XX Corps": "is_tu",
 					"TU XXII Corps": "is_tu"
 				}

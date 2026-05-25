@@ -137,9 +137,10 @@ module.exports = function (Engine) {
 
 	function format_cp_mo_result(game) {
 		if (game && game.mo_cp === MO_ENVER) {
-			let s1 = mo_name(game.mo_cp_1)
-			let s2 = format_mo_log(game.mo_cp_2, game.mo_cp_die_2, game.mo_cp_drm_2, CP)
-			return `恩维尔（#1 ${s1}，#2 ${s2}）`
+			const enver = format_mo_log(game.mo_cp, game.mo_cp_die, game.mo_cp_drm, CP)
+			const first = mo_name(game.mo_cp_1)
+			const second = format_mo_log(game.mo_cp_2, game.mo_cp_die_2, game.mo_cp_drm_2, CP)
+			return `${enver}\n（#1${first}）\n（#2 ${second}）`
 		}
 		return format_mo_log(game && game.mo_cp, game && game.mo_cp_die, game && game.mo_cp_drm, CP)
 	}

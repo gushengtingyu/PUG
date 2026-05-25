@@ -122,6 +122,62 @@ test("Reserves to the Front can refill a Turkish elite reduced by severe weather
 	expect(game.reserves_to_front_spent).toBe(0.5)
 })
 
+test("Reserves to the Front exposes a dot unit killed into PE as selectable", () => {
+	const game = setupGame(260513, "Historical", { no_supply_warnings: true })
+	const origin = findSpace("Oltu")
+	const target = findSpace("Bayburt")
+	const attacker = findPieceByName("RU DIV #3")
+	const stanke = findPieceByName("TU Stanke Bey")
+
+	clearBoard(game)
+	game.pieces[attacker] = origin
+	game.pieces[stanke] = target
+	game.control[origin] = AP
+	game.control[target] = CP
+	game.active = CP
+	game.state = "apply_defender_losses"
+	game.events = {}
+	game.reduced = [stanke]
+	game.rp_cp.tu = 2
+	game.attack = {
+		space: target,
+		pieces: [attacker],
+		attacker: AP,
+		defender: CP,
+		initial_attackers: [attacker],
+		initial_defenders: [stanke],
+		reserves_to_front_initial_reduced_pieces: [stanke],
+		attacker_losses: 0,
+		attacker_losses_absorbed: 0,
+		defender_losses: 1,
+		defender_losses_absorbed: 0
+	}
+	game.battle_result = {
+		attackers: [attacker],
+		defenders: [stanke],
+		attacker_losses: 0,
+		defender_losses: 1,
+		turkish_retreat: false,
+		retreating_units: []
+	}
+
+	rules.action(game, CP_ROLE, "piece", stanke)
+
+	expect(Engine.game_utils.is_permanently_eliminated(game, stanke)).toBe(true)
+	expect(game.attack.reserves_to_front_damaged_pieces).toContain(stanke)
+
+	game.state = "event_reserves_to_front"
+	game.reserves_to_front_pieces = Engine.combat_cards.get_reserves_to_front_piece_pool(game)
+	let view = rules.view(game, CP_ROLE)
+
+	expect(view.actions.piece || []).toContain(stanke)
+
+	rules.action(game, CP_ROLE, "piece", stanke)
+
+	expect(game.pieces[stanke]).toBe(target)
+	expect(Engine.game_utils.is_piece_reduced(game, stanke)).toBe(true)
+})
+
 test("Reserves to the Front rebuilds an eliminated Turkish attacker in its attack origin", () => {
 	const game = setupGame(260509, "Historical", { no_supply_warnings: true })
 	const origin = findSpace("Bayburt")
