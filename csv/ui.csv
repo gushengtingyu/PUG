@@ -153,3 +153,5 @@ id,key,x,y,w,h
 2212,box_ap_eliminated_ro_lcu,1699,2740,44,44
 2213,box_ap_eliminated_ro_scu,1780,2740,44,44
 2214,box_ap_eliminated_other,1855,2740,44,44
+2215,INDIA_control,4250,1170,75,75
+2216,CENTRAL_ASIA_control,4248,432,75,75

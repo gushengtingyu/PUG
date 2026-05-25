@@ -2161,6 +2161,10 @@ function destroy_missed_mo_marker(faction, turn) {
 }
 
 const CONTROL_MARKER_TYPES = new Set(["ap_control", "cp_control", "ru_control"])
+const CONTROL_MARKER_LAYOUT_KEYS = {
+	"Central Asia": "CENTRAL_ASIA_control",
+	INDIA: "INDIA_control"
+}
 
 function get_control_marker_info(type) {
 	if (type === "ap_control") return marker_info.control.ap
@@ -2177,7 +2181,27 @@ function sync_control_marker(s, type, stack_parts) {
 		return
 	}
 	const marker = build_marker(list, (m) => m.type === type, { type: type, space: s }, info)
+	if (position_control_marker_at_custom_layout(s, marker)) {
+		return
+	}
 	stack_parts.bottom_markers.push(marker)
+}
+
+function get_control_marker_layout_key(s) {
+	const name = spaces[s] && spaces[s].name
+	return CONTROL_MARKER_LAYOUT_KEYS[name] || null
+}
+
+function position_control_marker_at_custom_layout(s, marker) {
+	const key = get_control_marker_layout_key(s)
+	const rec = key && layout ? layout[key] : null
+	if (!rec) {
+		return false
+	}
+	marker.my_stack = null
+	marker.dataset.space = String(s)
+	position_marker_at_layout(marker, rec)
+	return true
 }
 
 /**

@@ -17809,6 +17809,26 @@ var data = {
 		"connections": [],
 		"rail_connections": [],
 		"connection_types": {}
+	},
+	{
+		"id": 1300,
+		"name": "INDIA_control",
+		"x": 4250,
+		"y": 1170,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
+	},
+	{
+		"id": 1301,
+		"name": "CENTRAL_ASIA_control",
+		"x": 4248,
+		"y": 432,
+		"type": "ui",
+		"connections": [],
+		"rail_connections": [],
+		"connection_types": {}
 	}
 ],
 	edges: [
@@ -27847,6 +27867,22 @@ var data = {
 		"y": 2740,
 		"w": 44,
 		"h": 44
+	},
+	{
+		"id": 2215,
+		"key": "INDIA_control",
+		"x": 4250,
+		"y": 1170,
+		"w": 75,
+		"h": 75
+	},
+	{
+		"id": 2216,
+		"key": "CENTRAL_ASIA_control",
+		"x": 4248,
+		"y": 432,
+		"w": 75,
+		"h": 75
 	}
 ]
 }
@@ -28510,7 +28546,9 @@ data.space_name = {
 	"box_ap_eliminated_fr_scu": 1296,
 	"box_ap_eliminated_ro_lcu": 1297,
 	"box_ap_eliminated_ro_scu": 1298,
-	"box_ap_eliminated_other": 1299
+	"box_ap_eliminated_other": 1299,
+	"INDIA_control": 1300,
+	"CENTRAL_ASIA_control": 1301
 }
 
 if (typeof module === 'object') {

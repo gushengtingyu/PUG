@@ -68,6 +68,15 @@ test("play.js renders AP, CP, and RU control markers through one exclusive slot"
 	expect(playSource).not.toContain('"russian_control"')
 })
 
+test("play.js uses UI-only anchors for Central Asia and India control markers", () => {
+	let playSource = fs.readFileSync(path.join(__dirname, "..", "play.js"), "utf8")
+
+	expect(playSource).toContain('"Central Asia": "CENTRAL_ASIA_control"')
+	expect(playSource).toContain('INDIA: "INDIA_control"')
+	expect(playSource).toContain("function position_control_marker_at_custom_layout(s, marker)")
+	expect(playSource).toContain("if (position_control_marker_at_custom_layout(s, marker))")
+})
+
 test("play.js does not render partial control as a full AP/CP control marker", () => {
 	let playSource = fs.readFileSync(path.join(__dirname, "..", "play.js"), "utf8")
 
