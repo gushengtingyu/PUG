@@ -104,6 +104,31 @@ test("CP movement may enter AP-occupied Eastern Persia from TEHERAN after Persia
 	expect(Engine.map.is_controlled_by(game, meshed, AP)).toBe(true)
 })
 
+test("BR Persian Cordon cannot enter Neutral Persia or Azerbaijan before the Russian Revolution", () => {
+	let game = setupGame(2026052501, "Historical", { no_supply_warnings: true })
+	let brCordon = findPiece(AP, "BR Persian Cordon #1")
+	let meshed = findSpace("Meshed")
+	let hamadan = findSpace("Hamadan")
+	let tabriz = findSpace("Tabriz")
+	let ahwaz = findSpace("Ahwaz")
+
+	game.events.secret_treaty = true
+
+	expect(Engine.map.is_persian_region(meshed)).toBe(true)
+	expect(Engine.map.is_neutral_persia_space(hamadan)).toBe(true)
+	expect(Engine.map.is_azerbaijan(tabriz)).toBe(true)
+	expect(Engine.map.is_arabistan(ahwaz)).toBe(true)
+
+	expect(Engine.map.can_enter_area(game, brCordon, meshed)).toBe(true)
+	expect(Engine.map.can_enter_area(game, brCordon, ahwaz)).toBe(true)
+	expect(Engine.map.can_enter_area(game, brCordon, hamadan)).toBe(false)
+	expect(Engine.map.can_enter_area(game, brCordon, tabriz)).toBe(false)
+
+	game.events.russian_revolution = 1
+	expect(Engine.map.can_enter_area(game, brCordon, hamadan)).toBe(true)
+	expect(Engine.map.can_enter_area(game, brCordon, tabriz)).toBe(true)
+})
+
 test("SR may leave an enemy-controlled contested Region after contested-region supply projection", () => {
 	let game = setupGame(2026052403, "Historical", { no_supply_warnings: true })
 	clearBoard(game)

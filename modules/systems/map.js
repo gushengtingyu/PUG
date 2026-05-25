@@ -1546,10 +1546,10 @@ module.exports = function (Engine) {
 		}
 
 		// Rule 19.6.3 (bullet 1): BR/FR/IN/IT/ANZ units may not enter Neutral Persia or Azerbaijan
-		// prior to the Russian Revolution. Persian Cordon (region_limit "P") is exempt.
+		// prior to the Russian Revolution. The Persian Regions are separate BR-controlled spaces.
 		if (is_azerbaijan(s) || is_neutral_persia_space(s)) {
 			let revolution_started = !!(game.events && game.events["russian_revolution"] >= 1)
-			if (!revolution_started && piece_info && piece_info.region_limit !== "P") {
+			if (!revolution_started && piece_info) {
 				let nation = piece_info.nation
 				if (nation === "br" || nation === "fr" || nation === "in" || nation === "it" || nation === "anz") {
 					return false
