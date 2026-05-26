@@ -3270,14 +3270,14 @@ exports.register = function (states, Engine, context) {
 				if (valid.length === 0) {
 					if (exempt) {
 						res.prompt(`${piece_name(piece)} 免于撤退。`)
-						res.action("done")
+						res.action("decline_retreat")
 					} else {
 						res.prompt(`无法让 ${piece_name(piece)} 向第比利斯方向撤退。`)
 						res.action("cannot_retreat")
 					}
 				} else {
 					for (let s of valid) res.space(s)
-					if (can_decline) res.action("done")
+					if (can_decline) res.action("decline_retreat")
 				}
 				res.piece(piece)
 			}
@@ -3327,8 +3327,9 @@ exports.register = function (states, Engine, context) {
 		decline_retreat() {
 			let p = game.selected_piece
 			if (p !== null && p !== undefined) {
+				if (!is_save_tiflis_exempt_space(game.pieces[p])) return
 				push_undo()
-				log(`${piece_name(p)} declines to retreat towards Tiflis.`)
+				log(`${piece_name(p)} is exempt from Save Tiflis retreat.`)
 				set_delete(game.save_tiflis_pieces, p)
 				game.selected_piece = null
 			}

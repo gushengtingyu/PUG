@@ -4939,6 +4939,7 @@ const UI_ACTIONS = [
 	["move", "移动"],
 	["move_unit", "移动单位"],
 	["cannot_retreat", "无法撤退"],
+	["decline_retreat", "豁免撤退"],
 	["re-activate", "重新激活"],
 	["combine", "组合"],
 	["entrench", "掘壕"],
