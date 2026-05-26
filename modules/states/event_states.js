@@ -3289,7 +3289,7 @@ module.exports = function (Engine) {
 				res.action("done")
 				return
 			}
-			res.prompt("土耳其增援：你可以立即对此次增援的单位进行 LCU 组合。")
+			res.prompt("土耳其增援：你可以立即对此次增援的单位进行 LCU 组合，请选择地点进行 LCU 组合。")
 
 			// 找出此次增援新加入的 LCU ID
 			let new_lcu_names = ["TU XIV Corps", "TU XV Corps", "TU XVI Corps", "TU XVII Corps", "TU-A XVIII Corps"]
@@ -3304,16 +3304,18 @@ module.exports = function (Engine) {
 				}
 			}
 
-			if (possible_spaces.length > 0) {
-				for (let s of possible_spaces) {
-					res.action("combine", s)
-				}
+			for (let s of possible_spaces) {
+				res.space(s)
 			}
 
 			res.action("done")
 		},
+		space(ctx) {
+			this.combine(ctx)
+		},
 		combine(ctx) {
 			let { game, rules, arg: s } = ctx
+			if (!s) return
 			rules.push_undo()
 			game.where = s
 			game.move_from_event = true
