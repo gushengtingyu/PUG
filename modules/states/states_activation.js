@@ -757,6 +757,12 @@ exports.register = function (states, Engine, context) {
 				return true
 			}
 			if (has_undestroyed_fort(game, n, enemy)) return true
+			if (
+				Engine.neutral &&
+				typeof Engine.neutral.should_trigger_greece_entry_on_attack === "function" &&
+				Engine.neutral.should_trigger_greece_entry_on_attack(game, n, faction)
+			)
+				return true
 		}
 		return false
 	}

@@ -155,14 +155,14 @@ module.exports = function (Engine) {
 		if (is_greek_piece(p)) return false
 		if (is_athens_space(target)) return true
 		if (faction === AP) {
-			if (!has_greek_units_in_space(game, target)) return false
+			if (!has_neutral_greek_blocking_units_in_space(game, target)) return false
 			let mf = map.get_piece_mf(p)
 			let remaining = mf - total_cost
 			return remaining <= 0
 		}
 		if (faction === CP) {
 			if (data.spaces[target].nation === "gr") {
-				if (has_greek_units_in_space(game, target)) return true
+				if (has_neutral_greek_blocking_units_in_space(game, target)) return true
 			}
 		}
 		return false
@@ -173,11 +173,11 @@ module.exports = function (Engine) {
 		if (is_greek_piece(p)) return true
 		if (is_athens_space(target)) return false
 		if (faction === AP) {
-			if (has_greek_units_in_space(game, target)) return false
+			if (has_neutral_greek_blocking_units_in_space(game, target)) return false
 		}
 		if (faction === CP) {
 			if (data.spaces[target].nation === "gr") {
-				if (has_greek_units_in_space(game, target)) return false
+				if (has_neutral_greek_blocking_units_in_space(game, target)) return false
 			}
 		}
 		return true
@@ -206,6 +206,11 @@ module.exports = function (Engine) {
 	function has_greek_units_in_space(game, s) {
 		const { map } = Engine
 		return map.get_pieces_in_space(game, s).some((p) => is_greek_piece(p))
+	}
+
+	function has_neutral_greek_blocking_units_in_space(game, s) {
+		const { map } = Engine
+		return map.get_pieces_in_space(game, s).some((p) => is_greek_piece(p) && !is_greek_cnd(p))
 	}
 
 	function can_move_piece_for_faction(game, p, faction) {
@@ -283,7 +288,7 @@ module.exports = function (Engine) {
 		let nation = space.nation
 		if (nation === "gr") {
 			if (is_athens_space(s) && is_greece_neutral(game)) return false
-			return !(piece.faction === CP && is_greece_neutral(game) && has_greek_units_in_space(game, s))
+			return !(piece.faction === CP && is_greece_neutral(game) && has_neutral_greek_blocking_units_in_space(game, s))
 		}
 		if (!is_supported_neutral_nation(nation)) return undefined
 		return has_nation_entered(game, nation)
@@ -1161,6 +1166,7 @@ module.exports = function (Engine) {
 		is_nation_controlled_by_faction,
 		has_nation_entered,
 		has_greek_units_in_space,
+		has_neutral_greek_blocking_units_in_space,
 		can_move_piece_for_faction,
 		can_attack_piece_for_faction,
 		get_piece_effective_faction_override,

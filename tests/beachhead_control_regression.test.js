@@ -748,3 +748,56 @@ test("AP sea SR away from the last sole beachhead supply unit adds Jihad", () =>
 	expect(game.jihad).toBe(1)
 	expect(game.state).toBe("jihad_placement")
 })
+
+test("AP units in Lamia can activate to attack neutral Athens and flip Greece to CP", () => {
+	let game = setupGame(2026052602, "Historical", { no_supply_warnings: true })
+	clearBoard(game)
+
+	let salonika = findSpace("Salonika")
+	let larissa = findSpace("Larissa")
+	let lamia = findSpace("Lamia")
+	let athens = findSpace("ATHENS")
+	let attacker = findPiece(AP, "BR DIV #4")
+	let cnd = findPiece(AP, "GR National Defense")
+	let greekDefender = findPiece(AP, "GR DIV #1")
+
+	game.active = AP
+	game.state = "activate_spaces"
+	game.ops = 5
+	game.activated = { move: [], attack: [], attack_egypt: [] }
+	game.region_activations = { move: {}, attack: {} }
+	game.activation_cost = { move: 0, attack: 0 }
+	game.moved = []
+	game.attacked = []
+	game.attacked_spaces = []
+	game.retreated = []
+	game.balkan_attack_targets = { ap: -1, ap_mo: -1, cp: -1 }
+	game.pieces[attacker] = lamia
+	game.pieces[cnd] = salonika
+	game.pieces[greekDefender] = athens
+	Engine.set_control(game, salonika, AP)
+	Engine.set_control(game, larissa, AP)
+	game.events.salonika_is_port = true
+	delete game.events.greece
+	delete game.attack
+	delete game.attack_eligibility_cache
+
+	let activationView = rules.view(game, AP_ROLE)
+	expect(activationView.actions.activate_attack || []).toContain(lamia)
+
+	game = rules.action(game, AP_ROLE, "activate_attack", lamia)
+	game = rules.action(game, AP_ROLE, "done")
+
+	expect(game.state).toBe("attack")
+	expect(rules.view(game, AP_ROLE).actions.piece || []).toContain(attacker)
+
+	game = rules.action(game, AP_ROLE, "piece", attacker)
+	expect(rules.view(game, AP_ROLE).actions.space || []).toContain(athens)
+
+	game = rules.action(game, AP_ROLE, "space", athens)
+	game = rules.action(game, AP_ROLE, "confirm")
+
+	expect(Engine.neutral.get_greece_faction(game)).toBe(CP)
+	expect(game.attack.defender).toBe(CP)
+	expect(game.attack.initial_defenders || []).toContain(greekDefender)
+})

@@ -52,6 +52,34 @@ test("British Empire reinforcements may use AP-controlled Salonika", () => {
 	expect(legalSpaceNames(game)).toContain("Salonika")
 })
 
+test("Salonika invasion reinforcements may enter AP-controlled Salonika with only CND present", () => {
+	let game = setupGame(2026052601, "Historical", { no_supply_warnings: true })
+	clearBoard(game)
+
+	let salonika = findSpace("Salonika")
+	let cnd = findPiece(AP, "GR National Defense")
+
+	game.pieces[cnd] = salonika
+	Engine.set_control(game, salonika, AP)
+	game.events.salonika_is_port = true
+	delete game.events.greece
+	game.active = AP
+	game.state = "event_place_reinforcements"
+	game.event_ctx = {
+		key: "salonika_invasion",
+		data: {
+			reinf_to_place: ["BR XVI Corps"],
+			reinf_logic: "is_ap_invasion_rein",
+			reinf_prompt_prefix: "Salonika Invasion"
+		}
+	}
+
+	let spaces = legalSpaceNames(game)
+
+	expect(spaces).toContain("Salonika")
+	expect(spaces).not.toContain("Florina")
+})
+
 test("British Empire reinforcements do not treat neutral Salonika port status as control", () => {
 	let game = setupGame(2026052102, "Historical", { no_supply_warnings: true })
 	game.events.salonika_is_port = true

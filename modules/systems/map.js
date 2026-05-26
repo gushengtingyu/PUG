@@ -62,7 +62,7 @@ module.exports = function (Engine) {
 		is_athens_space,
 		violates_neutral_greece_movement_restriction,
 		is_greek_piece,
-		has_greek_units_in_space,
+		has_neutral_greek_blocking_units_in_space,
 		can_move_piece_for_faction
 	} = Engine.neutral
 
@@ -1520,7 +1520,7 @@ module.exports = function (Engine) {
 					if (
 						data.pieces[p].faction === CP &&
 						Engine.neutral.is_greece_neutral(game) &&
-						Engine.neutral.has_greek_units_in_space(game, s)
+						Engine.neutral.has_neutral_greek_blocking_units_in_space(game, s)
 					)
 						return false
 				} else {
@@ -2144,7 +2144,7 @@ module.exports = function (Engine) {
 
 		// Rule 19.2.3: CP units may not enter neutral Greece space with Greek units.
 		if (faction === CP && is_greece_neutral(game) && data.spaces[target].nation === "gr") {
-			if (has_greek_units_in_space(game, target)) return false
+			if (has_neutral_greek_blocking_units_in_space(game, target)) return false
 		}
 
 		if (!can_enter_area(game, p, target)) return false
@@ -3211,7 +3211,7 @@ module.exports = function (Engine) {
 		if (!is_sr_end_space_allowed(game, p, s, faction) && !sea_sr_destination) return false
 
 		// Rule 19.2.3: AP units may not end a move in a space with Greek units while neutral.
-		if (faction === AP && is_greece_neutral(game) && has_greek_units_in_space(game, s)) return false
+		if (faction === AP && is_greece_neutral(game) && has_neutral_greek_blocking_units_in_space(game, s)) return false
 
 		let dest_status = get_supply_status(game, s, faction, p, true)
 		if (

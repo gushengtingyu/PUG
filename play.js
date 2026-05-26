@@ -5667,7 +5667,7 @@ function update_eliminated_box(space_id, piece_ids) {
 				order,
 				space
 			),
-		layout_group: ({ space_id, space, group, center }) => {
+		layout_group: ({ space_id, space, state, group, center }) => {
 			const is_permanently_eliminated_box = is_permanently_eliminated_box_space_id(space_id)
 			const side = get_eliminated_box_side(space_id)
 			// Eliminated 允许更细的 box_*_lcu / box_*_scu 锚点。
