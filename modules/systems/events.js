@@ -570,6 +570,23 @@ module.exports = function (Engine) {
 		return pieces
 	}
 
+	function get_next_transcaucasian_federation_piece_to_place(game, ctx) {
+		while (true) {
+			let pieces = get_unplaced_transcaucasian_federation_pieces(game)
+			if (pieces.length === 0) return -1
+			let p = pieces[0]
+			if (get_transcaucasian_placement_spaces(game, p).length > 0) return p
+			skip_transcaucasian_federation_piece(game, p, ctx)
+		}
+	}
+
+	function get_current_transcaucasian_federation_piece_to_place(game) {
+		for (let p of get_unplaced_transcaucasian_federation_pieces(game)) {
+			if (get_transcaucasian_placement_spaces(game, p).length > 0) return p
+		}
+		return -1
+	}
+
 	function skip_transcaucasian_federation_piece(game, p, ctx) {
 		if (!Array.isArray(game.russian_revolution_stage_4_transcas_skipped)) {
 			game.russian_revolution_stage_4_transcas_skipped = []
@@ -4014,6 +4031,8 @@ module.exports = function (Engine) {
 	exports.place_georgian_protectorate = place_georgian_protectorate
 	exports.skip_georgian_protectorate = skip_georgian_protectorate
 	exports.get_unplaced_transcaucasian_federation_pieces = get_unplaced_transcaucasian_federation_pieces
+	exports.get_next_transcaucasian_federation_piece_to_place = get_next_transcaucasian_federation_piece_to_place
+	exports.get_current_transcaucasian_federation_piece_to_place = get_current_transcaucasian_federation_piece_to_place
 	exports.get_transcaucasian_placement_spaces = get_transcaucasian_placement_spaces
 	exports.place_transcaucasian_federation_piece = place_transcaucasian_federation_piece
 	exports.skip_transcaucasian_federation_piece = skip_transcaucasian_federation_piece

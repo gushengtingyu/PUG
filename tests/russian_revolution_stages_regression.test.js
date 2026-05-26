@@ -228,14 +228,16 @@ test("Russian Revolution Stage 4 uses player choices for cavalry, Georgia, Trans
 	expect(game.state).toBe("russian_revolution_stage_4_place_transcaucasian")
 
 	for (let [piece, space] of [
-		[geo2, kars],
-		[arm3, erevan],
-		[arm1, oltu],
+		[arm1, kars],
+		[arm2, erevan],
+		[arm3, oltu],
 		[geo1, sarikamis],
-		[arm2, batum]
+		[geo2, batum]
 	]) {
-		game = rules.action(game, "Allied Powers", "piece", piece)
-		expect(game.russian_revolution_stage_4_transcas_selected).toBe(piece)
+		let view = rules.view(game, "Allied Powers")
+		expect(view.who).toBe(piece)
+		expect(view.actions.piece || []).toEqual([])
+		expect(view.actions.space || []).toContain(space)
 		game = rules.action(game, "Allied Powers", "space", space)
 		expect(game.pieces[piece]).toBe(space)
 	}

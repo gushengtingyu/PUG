@@ -396,33 +396,9 @@ exports.register = function (states, Engine, context) {
 			}
 
 			if (!game.events["russian_revolution_stage_4_transcas_done"]) {
-				let remaining = Engine.events.get_unplaced_transcaucasian_federation_pieces(game)
-				if (remaining.length === 0) {
+				let next = Engine.events.get_next_transcaucasian_federation_piece_to_place(game, { log })
+				if (next < 0) {
 					Engine.events.finish_transcaucasian_federation_placement(game)
-					continue
-				}
-
-				let any_legal = false
-				for (let p of remaining) {
-					if (Engine.events.get_transcaucasian_placement_spaces(game, p).length > 0) {
-						any_legal = true
-						break
-					}
-				}
-				if (!any_legal) {
-					for (let p of remaining) Engine.events.skip_transcaucasian_federation_piece(game, p, { log })
-					Engine.events.finish_transcaucasian_federation_placement(game)
-					continue
-				}
-
-				let selected = game.russian_revolution_stage_4_transcas_selected
-				if (
-					Number.isInteger(selected) &&
-					remaining.includes(selected) &&
-					Engine.events.get_transcaucasian_placement_spaces(game, selected).length === 0
-				) {
-					Engine.events.skip_transcaucasian_federation_piece(game, selected, { log })
-					delete game.russian_revolution_stage_4_transcas_selected
 					continue
 				}
 
@@ -463,7 +439,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	states.russian_revolution_stage_4_choose_cavalry = {
-		inactive: "Russian Revolution Stage 4: AP selects the surviving RU cavalry division.",
+		inactive: "俄国革命阶段4：AP 选择保留的 RU Cavalry 师。",
 		prompt(res) {
 			let choices = Engine.events.get_russian_revolution_cavalry_choices(game)
 			if (choices.length <= 1) {
@@ -471,7 +447,7 @@ exports.register = function (states, Engine, context) {
 				prompt_followup_state(res)
 				return
 			}
-			res.prompt("Russian Revolution Stage 4: AP selects one RU cavalry division to remain in the game.")
+			res.prompt("俄国革命阶段4：AP 选择一个 RU Cavalry 师留在游戏中。")
 			for (let p of choices) res.piece(p)
 		},
 		piece(p) {
@@ -485,7 +461,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	states.russian_revolution_stage_4_georgian_protectorate = {
-		inactive: "Russian Revolution Stage 4: AP places the Georgian Protectorate.",
+		inactive: "俄国革命阶段4：AP 放置 GE Georgian Protectorate。",
 		prompt(res) {
 			let p = Engine.events.get_georgian_protectorate_piece(game)
 			let spaces = Engine.events.get_georgian_protectorate_placement_spaces(game)
@@ -496,7 +472,7 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 			res.who(p)
-			res.prompt("Russian Revolution Stage 4: AP may place GE Georgian Protectorate in empty Batum or Tiflis.")
+			res.prompt(`俄国革命阶段4：AP 可将 ${Engine.game_utils.piece_name(p)} 放置在空置的 Batum 或 TIFLIS。`)
 			for (let s of spaces) res.space(s)
 			res.action("skip")
 		},
@@ -519,53 +495,32 @@ exports.register = function (states, Engine, context) {
 	}
 
 	states.russian_revolution_stage_4_place_transcaucasian = {
-		inactive: "Russian Revolution Stage 4: AP places the Transcaucasian Federation units.",
+		inactive: "俄国革命阶段4：AP 放置 Transcaucasian Federation 单位。",
 		prompt(res) {
-			let remaining = Engine.events.get_unplaced_transcaucasian_federation_pieces(game)
-			let placeable = remaining.filter((p) => Engine.events.get_transcaucasian_placement_spaces(game, p).length > 0)
-			if (placeable.length === 0) {
+			let p = Engine.events.get_current_transcaucasian_federation_piece_to_place(game)
+			if (p < 0) {
 				advance_russian_revolution_stage_4_sequence(true)
 				prompt_followup_state(res)
 				return
 			}
-
-			let selected = game.russian_revolution_stage_4_transcas_selected
-			if (!placeable.includes(selected)) selected = null
-
-			if (!selected) {
-				res.prompt("Russian Revolution Stage 4: AP selects a Transcaucasian Federation unit to place.")
-				for (let p of placeable) res.piece(p)
-				return
-			}
-
-			res.who(selected)
-			res.prompt(`Russian Revolution Stage 4: place ${piece_name(selected)} in an AP-controlled Russia/Caucasia space.`)
-			for (let p of placeable) res.piece(p)
-			for (let s of Engine.events.get_transcaucasian_placement_spaces(game, selected)) res.space(s)
-		},
-		piece(p) {
-			p = Number(p)
-			let remaining = Engine.events.get_unplaced_transcaucasian_federation_pieces(game)
-			if (!remaining.includes(p)) return
-			if (Engine.events.get_transcaucasian_placement_spaces(game, p).length === 0) return
-			if (game.russian_revolution_stage_4_transcas_selected === p) delete game.russian_revolution_stage_4_transcas_selected
-			else game.russian_revolution_stage_4_transcas_selected = p
+			res.who(p)
+			res.prompt(`俄国革命阶段4：将 ${Engine.game_utils.piece_name(p)} 放置在 AP 控制的俄国或高加索地区。`)
+			for (let s of Engine.events.get_transcaucasian_placement_spaces(game, p)) res.space(s)
 		},
 		space(s) {
 			s = Number(s)
-			let p = game.russian_revolution_stage_4_transcas_selected
-			if (!Number.isInteger(p)) return
+			let p = Engine.events.get_next_transcaucasian_federation_piece_to_place(game, { log })
+			if (p < 0) return
 			if (!Engine.events.get_transcaucasian_placement_spaces(game, p).includes(s)) return
 			push_undo()
 			if (Engine.events.place_transcaucasian_federation_piece(game, p, s, { log })) {
-				delete game.russian_revolution_stage_4_transcas_selected
 				advance_russian_revolution_stage_4_sequence(true)
 			}
 		}
 	}
 
 	states.russian_revolution_stage_4_ge_ix_replacement = {
-		inactive: "Russian Revolution Stage 4: CP chooses the GE IX Army replacement.",
+		inactive: "俄国革命阶段4：CP 选择 GE IX Army 的替换单位。",
 		prompt(res) {
 			let replacements = Engine.events.get_ge_ix_replacement_pieces(game)
 			let space = Engine.events.get_ge_ix_replacement_space(game)
@@ -576,7 +531,7 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 			res.where(space)
-			res.prompt("Russian Revolution Stage 4: CP may replace GE IX Army with one GE infantry SCU from Reserve.")
+			res.prompt("俄国革命阶段4：CP 可用预备军中的一个 GE infantry SCU 替换 GE IX Army。")
 			for (let p of replacements) res.piece(p)
 			res.action("skip")
 		},
