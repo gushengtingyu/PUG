@@ -3000,6 +3000,8 @@ module.exports = function (Engine) {
 				update_jihad_level(game, 1)
 				game.events["liberate_suez"] = game.turn
 				game.events["liberate_suez_active"] = true
+				if (!game.ui_tokens) game.ui_tokens = {}
+				game.ui_tokens["Egypt Uprising"] = "MEGRBA.PNG"
 
 				// 规则补充：至少2OP必须用于在埃及地区对协约国的战斗，这些战斗获得+1drm修正。
 				game.liberate_suez_op_required = true

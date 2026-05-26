@@ -129,7 +129,7 @@ module.exports = function (Engine) {
 		game.ui_tokens["Afghan_Alliance"] = "MNAFGAL.PNG"
 		game.ui_tokens["Indian_Mutiny"] = "MNINMUT.png"
 		game.ui_tokens["GE RPs TO TU"] = "MGESPTU.png"
-		game.ui_tokens["Egypt Uprising"] = "MEGRBA.PNG"
+		game.ui_tokens["Egypt Uprising"] = "MNEGYREB.png"
 		game.ui_tokens["RU Amphib Assault Allowed"] = "MRUAMPH.PNG"
 
 		// Central Powers
@@ -340,6 +340,7 @@ module.exports = function (Engine) {
 		game.jihad += 1
 		if (game.ui_tokens) {
 			game.ui_tokens["Persian_Neutrality"] = "MPENV.png"
+			game.ui_tokens["Egypt Uprising"] = "MEGRBA.PNG"
 			game.ui_tokens["Indian_Mutiny"] = "MINMUTA.png"
 		}
 
