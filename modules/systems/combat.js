@@ -2241,6 +2241,7 @@ module.exports = function (Engine) {
 	}
 
 	function start_attack_sequence(game, log_fn) {
+		delete game.cc_jafar_pasha_retreat
 		let support_reason = get_attack_support_block_reason(game, game.attack?.pieces)
 		if (support_reason) {
 			if (log_fn) log_fn(`Cannot attack: ${support_reason}.`)

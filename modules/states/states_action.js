@@ -196,14 +196,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function can_play_event_cached(card) {
-		let revision = Number(game.cache_revision) || 0
-		if (!game.event_playability_cache || game.event_playability_cache.revision !== revision) {
-			game.event_playability_cache = { revision, by_card: {} }
-		}
-		if (!(card in game.event_playability_cache.by_card)) {
-			game.event_playability_cache.by_card[card] = can_play_event(game, card)
-		}
-		return game.event_playability_cache.by_card[card]
+		return can_play_event(game, card)
 	}
 
 	function append_card_actions(res, card, info, allow_sr, allow_rp) {
@@ -215,7 +208,7 @@ exports.register = function (states, Engine, context) {
 
 	function perform_event_action(card, trace_phase) {
 		let info = data.cards[card]
-		if (!can_play_event_cached(card)) {
+		if (!can_play_event(game, card)) {
 			log(`${card_name(card)} 不能作为事件打出`)
 			return false
 		}

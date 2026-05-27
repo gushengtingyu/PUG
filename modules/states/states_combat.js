@@ -3051,6 +3051,7 @@ exports.register = function (states, Engine, context) {
 		delete game.reserves_to_front_effected_pieces
 		clear_retreat_runtime_state()
 		delete game.jafar_pasha_retreat
+		delete game.cc_jafar_pasha_retreat
 		delete game.jafar_pasha_advance_after_cancel
 		delete game.advance_pieces
 		delete game.advance_space
@@ -3096,6 +3097,7 @@ exports.register = function (states, Engine, context) {
 	function continue_after_jafar_pasha_cancelled_battle() {
 		let resume = game.jafar_pasha_advance_after_cancel
 		delete game.jafar_pasha_advance_after_cancel
+		if (game.cc_jafar_pasha_post_battle) resolve_jafar_pasha_post_battle()
 		if (!resume || !(resume.advance_space > 0)) {
 			goto_attack()
 			return
