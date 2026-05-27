@@ -51,7 +51,6 @@ module.exports = function (Engine) {
 			placements: BULGARIA_ENTRY_CP_PLACEMENTS,
 			third_army_name: "BU 3 Army",
 			third_army_default_space: "Rustchuk",
-			third_army_choice_spaces: Object.freeze(["Rustchuk", "Plevna"]),
 			ah_divisions: Object.freeze(["AH DIV #4", "AH DIV #5"])
 		}),
 		ap: Object.freeze({
@@ -211,7 +210,6 @@ module.exports = function (Engine) {
 			...BULGARIA_ENTRY_CP_PLACEMENTS.map((entry) => entry.space),
 			...BULGARIA_ENTRY_AP_PLACEMENTS.map((entry) => entry.space),
 			BULGARIA_ENTRY_PLAN.cp.third_army_default_space,
-			...BULGARIA_ENTRY_PLAN.cp.third_army_choice_spaces,
 			...ROMANIA_ENTRY_PLAN.ap.immediate.map((entry) => entry.space),
 			...ROMANIA_ENTRY_PLAN.ap.delayed.map((entry) => entry.space),
 			...ROMANIA_ENTRY_PLAN.cp.immediate.flatMap((entry) =>

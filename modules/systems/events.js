@@ -3558,16 +3558,11 @@ module.exports = function (Engine) {
 			handler: function (game, ctx) {
 				Engine.neutral.trigger_bulgaria_entry(game)
 				Engine.neutral.place_bulgaria_third_army(game)
-				if (game.events["romania"]) {
-					game.active = CP
-					game.state = "event_bulgaria_place_3rd_army"
-				} else {
-					if (typeof Engine.map.check_supply === "function") {
-						Engine.map.check_supply(game)
-					}
-					if (ctx && typeof ctx.goto_end_event === "function") ctx.goto_end_event()
-					else game.state = "end_event"
+				if (typeof Engine.map.check_supply === "function") {
+					Engine.map.check_supply(game)
 				}
+				if (ctx && typeof ctx.goto_end_event === "function") ctx.goto_end_event()
+				else game.state = "end_event"
 			},
 			defer_end: true
 		},

@@ -94,12 +94,11 @@ test("Bull's Eye 清理不会误动 Bulgaria 展示板上的中立预摆单位",
 	expect(game.pieces[sbArmy]).toBe(findSpace("BELGRADE"))
 })
 
-test("Bulgaria event can place BU 3 Army in Rustchuk after Romania has entered", () => {
+test("Bulgaria event places BU 3 Army in Rustchuk after Romania has entered", () => {
 	let game = setupGame(2026042419, "Historical")
 	let bulgariaCard = 88
 	let bu3Army = findPiece(CP, "BU 3 Army")
 	let rustchuk = findSpace("Rustchuk")
-	let plevna = findSpace("Plevna")
 
 	game.active = CP
 	game.state = "play_card"
@@ -107,16 +106,9 @@ test("Bulgaria event can place BU 3 Army in Rustchuk after Romania has entered",
 	Engine.neutral.trigger_romania_entry(game)
 
 	game = rules.action(game, rules.roles[1], "play_event", bulgariaCard)
-	expect(game.state).toBe("event_bulgaria_place_3rd_army")
 	expect(game.pieces[bu3Army]).toBe(rustchuk)
-
-	let view = rules.view(game, rules.roles[1])
-	expect(view.actions.space || []).toContain(rustchuk)
-	expect(view.actions.space || []).toContain(plevna)
-
-	game = rules.action(game, rules.roles[1], "space", plevna)
-
-	expect(game.pieces[bu3Army]).toBe(plevna)
 	expect(Engine.game_utils.is_piece_reduced(game, bu3Army)).toBe(true)
 	expect(game.state).toBe("confirm_event")
+	expect(Engine.neutral.place_bulgaria_third_army(game, "Plevna")).toBe(false)
+	expect(game.pieces[bu3Army]).toBe(rustchuk)
 })

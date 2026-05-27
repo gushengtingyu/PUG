@@ -3895,25 +3895,6 @@ module.exports = function (Engine) {
 		}
 	}
 
-	states.event_bulgaria_place_3rd_army = {
-		prompt(ctx) {
-			ctx.res.prompt("请选择放置保加利亚第3集团军的地点（路斯契克或普列文那）")
-			let ruse = Engine.game_utils.find_space("Rustchuk")
-			let pleven = Engine.game_utils.find_space("Plevna")
-			if (ruse >= 0) ctx.res.space(ruse)
-			if (pleven >= 0) ctx.res.space(pleven)
-		},
-		space(ctx) {
-			let name = data.spaces[ctx.arg].name
-			Engine.neutral.place_bulgaria_third_army(ctx.game, name)
-			if (typeof Engine.map.check_supply === "function") {
-				Engine.map.check_supply(ctx.game)
-			}
-			ctx.game.active = CP
-			ctx.rules.goto_end_event()
-		}
-	}
-
 	states.event_romania_place_combined_bu_ah = {
 		prompt(ctx) {
 			let { game, res } = ctx

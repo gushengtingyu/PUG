@@ -542,17 +542,15 @@ module.exports = function (Engine) {
 				: null
 		let cp_plan = plan && plan.cp ? plan.cp : {}
 		let unit_name = cp_plan.third_army_name || "BU 3 Army"
-		let target_space = space || cp_plan.third_army_default_space || "Rustchuk"
+		let default_space = cp_plan.third_army_default_space || "Rustchuk"
+		let target_space = space || default_space
+		if (target_space !== default_space) return false
 		let p = game_utils.find_piece(CP, unit_name)
 		let space_id = get_entry_space_id(CP, target_space)
 		if (p < 0 || space_id < 0) return false
 
-		let choice_space_names = Array.isArray(cp_plan.third_army_choice_spaces)
-			? cp_plan.third_army_choice_spaces
-			: [cp_plan.third_army_default_space || "Rustchuk"]
-		let choice_space_ids = choice_space_names.map((name) => get_entry_space_id(CP, name)).filter((s) => s >= 0)
 		let current_space = game.pieces[p]
-		let can_reposition_existing = choice_space_ids.includes(current_space)
+		let can_reposition_existing = current_space === space_id
 
 		if (!game_utils.is_not_on_map(game, p) && !can_reposition_existing) return false
 		if (!Array.isArray(game.reduced)) game.reduced = []
