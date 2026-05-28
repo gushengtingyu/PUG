@@ -32,6 +32,15 @@ function rebuildSpaceNames(game, piece) {
 	return Engine.map.get_valid_rebuild_spaces(game, piece, AP).map((s) => Engine.data.spaces[s].name)
 }
 
+function startSerbsReturnAtFirstDivision(game) {
+	Engine.events.get_event_by_id(24).handler(game, {})
+	let apCorps = Engine.game_utils.get_lcu_reserve_box(AP)
+	for (let i = 0; i < 3; i++) {
+		game = rules.action(game, AP_ROLE, "space", apCorps)
+	}
+	return game
+}
+
 test("collapsed Serbian SCUs can be rebuilt only into reserve before The Serbs Return", () => {
 	let game = setupReplacementState()
 	let sbDiv = findPiece(AP, "SB DIV #1")
@@ -114,4 +123,41 @@ test("The Serbs Return reopens SB SCU map rebuilds but not eliminated SB LCUs", 
 
 	expect(rebuildSpaceNames(game, sbDiv)).toEqual(expect.arrayContaining(["BELGRADE", "Nis", "Salonika", "Lemnos"]))
 	expect(rebuildSpaceNames(game, sbArmy)).toEqual([])
+})
+
+test("The Serbs Return can place an SB SCU that was already in reserve", () => {
+	let game = setupReplacementState()
+	let sbDiv = findPiece(AP, "SB DIV #1")
+	let apReserve = Engine.game_utils.get_scu_reserve_box(AP)
+	let lemnos = findSpace("Lemnos")
+
+	game.pieces[sbDiv] = apReserve
+	game.reduced = [sbDiv]
+
+	game = startSerbsReturnAtFirstDivision(game)
+
+	expect(game.event_ctx.data.reinf_to_place[0]).toBe("SB DIV #1")
+	expect(rules.view(game, AP_ROLE).actions.space || []).toContain(lemnos)
+
+	game = rules.action(game, AP_ROLE, "space", lemnos)
+
+	expect(game.pieces[sbDiv]).toBe(lemnos)
+	expect(game.reduced).not.toContain(sbDiv)
+})
+
+test("The Serbs Return can place an eliminated SB SCU", () => {
+	let game = setupReplacementState()
+	let sbDiv = findPiece(AP, "SB DIV #1")
+	let salonika = findSpace("Salonika")
+
+	game.pieces[sbDiv] = Engine.game_utils.get_eliminated_box(AP)
+
+	game = startSerbsReturnAtFirstDivision(game)
+
+	expect(game.event_ctx.data.reinf_to_place[0]).toBe("SB DIV #1")
+	expect(rules.view(game, AP_ROLE).actions.space || []).toContain(salonika)
+
+	game = rules.action(game, AP_ROLE, "space", salonika)
+
+	expect(game.pieces[sbDiv]).toBe(salonika)
 })

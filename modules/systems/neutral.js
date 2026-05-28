@@ -489,11 +489,29 @@ module.exports = function (Engine) {
 		Engine.set_control(game, ATHENS, faction)
 	}
 
+	function align_greek_trench_owners_on_entry(game, faction) {
+		let enemy = faction === AP ? CP : AP
+		for (let s = 1; s < data.spaces.length; s++) {
+			if (!data.spaces[s] || data.spaces[s].nation !== "gr") continue
+			if (game_utils.has_trench(game, s) <= 0) continue
+
+			let has_enemy_occupier = Engine.map.get_pieces_in_space(game, s).some((p) => {
+				let info = data.pieces[p]
+				if (!info || info.nation === "gr") return false
+				let piece_faction = game_utils.get_piece_effective_faction(game, p)
+				if (piece_faction !== AP && piece_faction !== CP) piece_faction = info.faction
+				return piece_faction === enemy
+			})
+			if (!has_enemy_occupier) game_utils.set_trench_owner(game, s, faction)
+		}
+	}
+
 	function trigger_greece_entry(game, target, entering_faction, reason, log_fn) {
 		if (!is_greece_neutral(game)) return false
 		if (game && game.event_ctx && game.event_ctx.key === "rupel") return false
 		apply_greek_entry_athens_control(game, entering_faction)
 		set_greece_faction(game, entering_faction)
+		align_greek_trench_owners_on_entry(game, entering_faction)
 		game.entry_gr = true
 		if (typeof log_fn === "function") {
 			log_fn(

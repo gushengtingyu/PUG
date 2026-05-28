@@ -1713,6 +1713,17 @@ module.exports = function (Engine) {
 		return yildirim
 	}
 
+	function is_yildirim_piece(p) {
+		let info = data.pieces[p]
+		return !!(info && info.symbol === "Y" && info.nation === "ge")
+	}
+
+	function get_activation_piece_count(pieces) {
+		let count = get_stack_count(pieces)
+		if (count === 0 && pieces.some(is_yildirim_piece)) return 1
+		return count
+	}
+
 	function get_stack_composition_reason(game, pieces) {
 		if (has_br_ru_mix(game, pieces)) return "英俄混编"
 		if (get_stack_hq_count(pieces) > 1) return "HQ超限"
@@ -5853,8 +5864,8 @@ module.exports = function (Engine) {
 			}
 		}
 
-		let move_active_count = get_stack_count(move_pieces)
-		let attack_active_count = get_stack_count(attack_pieces)
+		let move_active_count = get_activation_piece_count(move_pieces)
+		let attack_active_count = get_activation_piece_count(attack_pieces)
 		let move_group_count = get_minimum_activation_group_count(game, move_pieces)
 		let attack_group_count = get_minimum_activation_group_count(game, attack_pieces)
 
@@ -5897,7 +5908,7 @@ module.exports = function (Engine) {
 		}
 		// attack_with_br: only provided when MO active, penalty not paid, and BR units present
 		if (mo_br_no_attack && has_br_in_stack) {
-			let with_br_count = get_stack_count(attack_pieces_with_br)
+			let with_br_count = get_activation_piece_count(attack_pieces_with_br)
 			let with_br_group = get_minimum_activation_group_count(game, attack_pieces_with_br)
 			costs.attack_with_br = compute_activation_mode_cost(
 				game,

@@ -3794,7 +3794,11 @@ module.exports = function (Engine) {
 			let faction = helper ? helper.faction : game.active || AP
 			consume_reinforcement_placement(source, unit_name)
 
-			rules.reinforce(game, unit_name, faction, s)
+			rules.reinforce(game, unit_name, faction, s, {
+				allow_from_reserve: !!(source && source.reinf_allow_from_reserve),
+				allow_from_eliminated: !!(source && source.reinf_allow_from_eliminated),
+				restore_full_strength: !!(source && source.reinf_restore_full_strength)
+			})
 
 			if (units.length === 0) {
 				let next_state = source && source.reinf_next_state
@@ -3805,6 +3809,9 @@ module.exports = function (Engine) {
 				if (source) delete source.reinf_next_state
 				if (source) delete source.reinf_allow_adjacent_overflow
 				if (source) delete source.reinf_check_supply_on_complete
+				if (source) delete source.reinf_allow_from_reserve
+				if (source) delete source.reinf_allow_from_eliminated
+				if (source) delete source.reinf_restore_full_strength
 				if (event) delete event.reinf_logic
 				if (should_check_supply && typeof Engine.map.check_supply === "function") {
 					Engine.map.check_supply(game)

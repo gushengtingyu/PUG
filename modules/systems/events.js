@@ -20,6 +20,7 @@ module.exports = function (Engine) {
 		is_scu,
 		is_lcu,
 		is_eliminated,
+		is_in_reserve,
 		is_removed_only,
 		is_piece_reduced,
 		get_piece_effective_faction,
@@ -1556,7 +1557,7 @@ module.exports = function (Engine) {
 	 * @param {null} space 地块 ID 或名称
 	 * @returns {boolean}
 	 */
-	function reinforce(game, name, faction, space = null) {
+	function reinforce(game, name, faction, space = null, options = {}) {
 		let p = find_piece(faction, name)
 		if (p < 0) return false
 		let revolution_level = get_russian_revolution_level(game)
@@ -1574,7 +1575,9 @@ module.exports = function (Engine) {
 			game.pieces[p] === RESERVE ||
 			game.pieces[p] === 0 ||
 			game.pieces[p] === REMOVED ||
-			is_removed_only(game, p)
+			is_removed_only(game, p) ||
+			(options.allow_from_reserve && is_in_reserve(game, p)) ||
+			(options.allow_from_eliminated && is_eliminated(game, p))
 		) {
 			if (space === null) {
 				space = get_reserve_box_for_piece(p)
@@ -1589,6 +1592,9 @@ module.exports = function (Engine) {
 			}
 
 			game.pieces[p] = space
+			if (options.restore_full_strength) {
+				Engine.utils.set_delete(game.reduced, p)
+			}
 			if (
 				revolution_level >= 2 &&
 				revolution_level <= 3 &&
@@ -2154,7 +2160,12 @@ module.exports = function (Engine) {
 					"SB DIV #5",
 					"SB DIV #6",
 					"SB Cavalry"
-				]
+				].filter((unit_name) => {
+					let p = find_piece(AP, unit_name)
+					if (p < 0) return false
+					if (Engine.game_utils.is_permanently_eliminated(game, p)) return false
+					return Engine.game_utils.is_not_on_map(game, p)
+				})
 				event.reinf_to_place = units
 				event.reinf_placement = {
 					"SB 1 Army": "reserve",
@@ -2169,6 +2180,9 @@ module.exports = function (Engine) {
 					"SB Cavalry": "either"
 				}
 				event.reinf_logic = "is_serb_return_rein"
+				event.reinf_allow_from_reserve = true
+				event.reinf_allow_from_eliminated = true
+				event.reinf_restore_full_strength = true
 				game.state = "event_place_reinforcements"
 			},
 			defer_end: true

@@ -62,3 +62,28 @@ test("AH+GE without Falkenhayn nearby should cost 2 OP", () => {
 	expect(costs.move).toBe(2)
 	expect(costs.attack).toBe(2)
 })
+
+test("a lone Yildrim division still costs 1 OP to activate", () => {
+	let game = setupCpActivation(2026052801)
+	let constantinople = findSpace("Constantinople")
+
+	clearBoard(game)
+	game.pieces[findPiece("GE Yildrim #1")] = constantinople
+
+	let costs = Engine.map.get_activation_cost_pair(game, constantinople)
+	expect(costs.move).toBe(1)
+	expect(costs.attack).toBe(1)
+})
+
+test("Yildrim division does not increase activation cost for another nationality", () => {
+	let game = setupCpActivation(2026052802)
+	let constantinople = findSpace("Constantinople")
+
+	clearBoard(game)
+	game.pieces[findPiece("GE Yildrim #1")] = constantinople
+	game.pieces[findPiece("TU DIV #1")] = constantinople
+
+	let costs = Engine.map.get_activation_cost_pair(game, constantinople)
+	expect(costs.move).toBe(1)
+	expect(costs.attack).toBe(1)
+})

@@ -23,6 +23,21 @@ test("Greek entry through the neutral module scores empty Athens once", () => {
 	expect(apGame.neutral_vp_first_captor[athens]).toBe(AP)
 })
 
+test("Greek entry preserves the Doiran level 2 trench intact", () => {
+	let cpGame = setupGame(2026052803, "Historical")
+	let apGame = setupGame(2026052804, "Historical")
+	let doiran = findSpace("Doiran")
+
+	Engine.neutral.trigger_greece_entry(cpGame, null, CP, "test")
+	Engine.neutral.trigger_greece_entry(apGame, null, AP, "test")
+
+	expect(Engine.game_utils.has_trench(cpGame, doiran)).toBe(2)
+	expect(Engine.game_utils.get_trench_owner(cpGame, doiran)).toBe(CP)
+
+	expect(Engine.game_utils.has_trench(apGame, doiran)).toBe(2)
+	expect(Engine.game_utils.get_trench_owner(apGame, doiran)).toBe(AP)
+})
+
 test("Greece and Constantine events use Athens control for VP instead of double counting", () => {
 	let greeceGame = setupGame(2026051803, "Historical")
 	let constantineGame = setupGame(2026051804, "Historical")
