@@ -256,7 +256,8 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function clear_undo_after_information_reveal_event(card) {
-		if (is_information_reveal_event(card)) clear_undo()
+		if (!is_information_reveal_event(card)) return
+		if (game.undo && game.undo.length > 0) game.undo.pop()
 	}
 
 	function get_ap_beachheads() {

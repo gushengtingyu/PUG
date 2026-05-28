@@ -2327,7 +2327,24 @@ module.exports = function (Engine) {
 		)
 	}
 
-	function get_german_subs_sr_surcharge(game, from, to, faction = null) {
+	function is_piece_exempt_from_submarine_penalty_in_space(game, p, s, faction) {
+		if (!(p >= 0) || !(s > 0 && data.spaces[s])) return false
+		if (faction !== AP) return false
+		if (get_piece_effective_faction(game, p) !== AP) return false
+		return !!(
+			Engine.neutral &&
+			typeof Engine.neutral.has_home_supply_privilege === "function" &&
+			Engine.neutral.has_home_supply_privilege(game, p, s, faction)
+		)
+	}
+
+	function is_submarine_penalty_relevant_to_pieces(game, s, faction, pieces, space_penalized) {
+		if (!space_penalized) return false
+		if (!Array.isArray(pieces) || pieces.length === 0) return true
+		return pieces.some((p) => !is_piece_exempt_from_submarine_penalty_in_space(game, p, s, faction))
+	}
+
+	function get_german_subs_sr_surcharge(game, from, to, faction = null, p = -1) {
 		if (!(game && game.events && game.events["german_subs"])) return 0
 		if (faction === null || faction === undefined) faction = AP
 		if (faction !== AP) return 0
@@ -2335,10 +2352,18 @@ module.exports = function (Engine) {
 		let supply_context = create_supply_context(game)
 		let penalized_from = is_german_subs_penalized_space(game, from, faction, supply_context, source_cache)
 		let penalized_to = is_german_subs_penalized_space(game, to, faction, supply_context, source_cache)
+		if (p >= 0) {
+			if (penalized_from && is_piece_exempt_from_submarine_penalty_in_space(game, p, from, faction)) {
+				penalized_from = false
+			}
+			if (penalized_to && is_piece_exempt_from_submarine_penalty_in_space(game, p, to, faction)) {
+				penalized_to = false
+			}
+		}
 		return penalized_from || penalized_to ? 1 : 0
 	}
 
-	function get_unrestricted_submarine_warfare_sr_surcharge(game, from, to, faction = null) {
+	function get_unrestricted_submarine_warfare_sr_surcharge(game, from, to, faction = null, p = -1) {
 		if (!(game && game.events && game.events["unrestricted_submarine_warfare"])) return 0
 		if (faction === null || faction === undefined) faction = AP
 		if (faction !== AP) return 0
@@ -2358,6 +2383,14 @@ module.exports = function (Engine) {
 			supply_context,
 			source_cache
 		)
+		if (p >= 0) {
+			if (penalized_from && is_piece_exempt_from_submarine_penalty_in_space(game, p, from, faction)) {
+				penalized_from = false
+			}
+			if (penalized_to && is_piece_exempt_from_submarine_penalty_in_space(game, p, to, faction)) {
+				penalized_to = false
+			}
+		}
 		return penalized_from || penalized_to ? 1 : 0
 	}
 
@@ -2377,8 +2410,8 @@ module.exports = function (Engine) {
 			return (
 				get_base_sr_cost(p) +
 				get_disrupted_supply_sr_surcharge(game, p, from, faction) +
-				get_german_subs_sr_surcharge(game, from, to, faction) +
-				get_unrestricted_submarine_warfare_sr_surcharge(game, from, to, faction)
+				get_german_subs_sr_surcharge(game, from, to, faction, p) +
+				get_unrestricted_submarine_warfare_sr_surcharge(game, from, to, faction, p)
 			)
 		}
 		return get_base_sr_cost(game_or_piece)
@@ -5886,14 +5919,25 @@ module.exports = function (Engine) {
 			}
 		}
 		if (faction === AP) {
-			let submarine_surcharge = 0
-			if (is_german_subs_penalized_space(game, s, AP)) submarine_surcharge += 1
-			if (is_unrestricted_submarine_warfare_penalized_space(game, s, AP)) submarine_surcharge += 1
-			if (submarine_surcharge > 0) {
-				if (costs.move > 0) costs.move += submarine_surcharge
-				if (costs.attack > 0) costs.attack += submarine_surcharge
-				if (costs.attack_with_br !== undefined && costs.attack_with_br > 0)
-					costs.attack_with_br += submarine_surcharge
+			let german_subs_penalized = is_german_subs_penalized_space(game, s, AP)
+			let unrestricted_subs_penalized = is_unrestricted_submarine_warfare_penalized_space(game, s, AP)
+			let get_submarine_surcharge = (mode_pieces) => {
+				let surcharge = 0
+				if (is_submarine_penalty_relevant_to_pieces(game, s, AP, mode_pieces, german_subs_penalized)) {
+					surcharge += 1
+				}
+				if (is_submarine_penalty_relevant_to_pieces(game, s, AP, mode_pieces, unrestricted_subs_penalized)) {
+					surcharge += 1
+				}
+				return surcharge
+			}
+			let move_submarine_surcharge = get_submarine_surcharge(move_pieces)
+			let attack_submarine_surcharge = get_submarine_surcharge(attack_pieces)
+			if (costs.move > 0 && move_submarine_surcharge > 0) costs.move += move_submarine_surcharge
+			if (costs.attack > 0 && attack_submarine_surcharge > 0) costs.attack += attack_submarine_surcharge
+			if (costs.attack_with_br !== undefined && costs.attack_with_br > 0) {
+				let attack_with_br_submarine_surcharge = get_submarine_surcharge(attack_pieces_with_br)
+				if (attack_with_br_submarine_surcharge > 0) costs.attack_with_br += attack_with_br_submarine_surcharge
 			}
 		}
 		return costs

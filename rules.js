@@ -2305,6 +2305,10 @@ function has_attack_targets(p, faction, enemy, enemy_space_flag = null) {
 	if (combat.get_black_sea_amphibious_targets(game, p, faction).length > 0) return true
 	if (combat.can_piece_attack_current_fort(game, p, faction)) return true
 	let s = game.pieces[p]
+	if (Engine.map.is_region(game, s)) {
+		let has_enemy_in_region = enemy_space_flag ? enemy_space_flag[s] === 1 : contains_enemy_pieces(game, s, faction)
+		if (has_enemy_in_region) return true
+	}
 	let adj = get_piece_connected_spaces_for_rule(game, s, p, "attack")
 	for (let t of adj) {
 		let has_enemy = enemy_space_flag ? enemy_space_flag[t] === 1 : contains_enemy_pieces(game, t, faction)
