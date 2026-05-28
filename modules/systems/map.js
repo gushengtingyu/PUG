@@ -1839,10 +1839,14 @@ module.exports = function (Engine) {
 
 		let total = get_unique_pieces([...pieces, ...existing])
 		if (total.some((p) => data.pieces[p].name === "GE GeoProtect") && total.length > 1) return false
+
+		if (is_unlimited_stack_space(game, target)) {
+			if (!options.ignore_hq_heavy_artillery_support && get_hq_heavy_artillery_support_reason(total)) return false
+			return true
+		}
+
 		if (get_stack_composition_reason(game, total)) return false
 		if (!options.ignore_hq_heavy_artillery_support && get_hq_heavy_artillery_support_reason(total)) return false
-
-		if (is_unlimited_stack_space(game, target)) return true
 
 		let count = get_stack_count(total)
 		return options.ignore_stacking || count <= 3
