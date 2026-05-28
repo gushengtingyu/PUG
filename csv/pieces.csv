@@ -147,7 +147,7 @@ id,faction,nation,name,cf,lf,mf,rcf,rlf,rmf,symbol,region_limit,type,badge,piece
 147,ap,ru,RU VII Caucasian,2,2,4,1,2,4,,,regular,yellow,LCU,RUVIICaucC.png,RUVIICaucCR.png
 148,ap,ru,RU Yudenitch HQ,0,1,4,0,0,4,,,hq,,SCU,RUYudHQ.png,RUYudHQR.png
 149,ap,ru,RU/PE Police North,1,1,3,0,1,3,triangle,,irregular,infantry,SCU,RUPEPN.png,RUPEPNR.png
-150,ap,ru,RU/SB Yugo Infantry,2,2,4,1,2,4,B,,regular,yellow,SCU,RUSBDiv.png,RUSBDivR.png
+150,ap,ru,RU/SB Yugo Infantry,2,2,4,1,2,4,,B,regular,yellow,SCU,RUSBDiv.png,RUSBDivR.png
 151,ap,sb,SB 1 Army,2,2,3,1,2,3,,B,regular,infantry,LCU,SB1A.png,SB1AR.png
 152,ap,sb,SB 2 Army,2,2,3,1,2,3,,B,regular,infantry,LCU,SB2A.png,SB2AR.png
 153,ap,sb,SB 3 Army,2,2,3,1,2,3,,B,regular,infantry,LCU,SB3A.png,SB3AR.png

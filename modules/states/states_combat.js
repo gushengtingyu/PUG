@@ -3983,12 +3983,14 @@ exports.register = function (states, Engine, context) {
 				game.advance_count = (game.advance_count || 0) + 1
 			}
 
+			let stop_for_terrain = is_advance_stop_terrain(game, game.advance_space)
+			let stop_for_water_crossing = combat.is_water_crossing_attack_edge(game, from_space, game.advance_space, [p])
 			let can_follow = false
-			if ((game.retreat_distance || 1) > 1 && !is_advance_stop_terrain(game, game.advance_space)) {
+			if ((game.retreat_distance || 1) > 1 && !stop_for_terrain && !stop_for_water_crossing) {
 				can_follow = get_follow_advance_spaces(p).length > 0
 			}
 
-			if (is_advance_stop_terrain(game, game.advance_space)) {
+			if (stop_for_terrain || stop_for_water_crossing) {
 				if (!game.advanced_stopped) game.advanced_stopped = []
 				set_add(game.advanced_stopped, p)
 			}

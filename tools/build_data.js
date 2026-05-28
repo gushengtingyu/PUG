@@ -289,13 +289,16 @@ edgesRaw.forEach((e) => {
 	}
 
 	if (crossing_type) {
-		conn_crossings[a][b] = crossing_type
-		// Apply directional logic to crossings map?
-		// map.js get_crossing_type(a,b) returns this value.
-		// If unidirectional, should we set it for both?
-		// Yes, the crossing type property describes the edge itself.
-		// Directionality is handled by adjacency lists below.
-		conn_crossings[b][a] = crossing_type
+		// Store only the attack direction that crosses water; movement adjacency
+		// remains bidirectional below.
+		if (crossing_type === "bidirectional") {
+			conn_crossings[a][b] = crossing_type
+			conn_crossings[b][a] = crossing_type
+		} else if (crossing_type === "a_to_b") {
+			conn_crossings[a][b] = crossing_type
+		} else if (crossing_type === "b_to_a") {
+			conn_crossings[b][a] = crossing_type
+		}
 	}
 
 	// Determine if it's a restricted edge

@@ -78,6 +78,69 @@ test("LCUs attacking out of desert must use a supplied rail edge", () => {
 	expect(targets).not.toContain(tikrit)
 })
 
+test("Kut to The Hai does not apply the reverse-direction river crossing penalty", () => {
+	let game = setupGame(2026052802, "Historical", { no_supply_warnings: true })
+	let kut = findSpace("Kut")
+	let theHai = findSpace("The Hai")
+	let tuCorps = findPiece(CP, "TU I Corps")
+	let inDiv = findPiece(AP, "IN DIV #1")
+
+	resetForRuleProbe(game, CP)
+	game.pieces[tuCorps] = kut
+	game.pieces[inDiv] = theHai
+	Engine.set_control(game, kut, CP)
+	Engine.set_control(game, theHai, AP)
+	game.attack = {
+		pieces: [tuCorps],
+		space: theHai,
+		attacker: CP,
+		defender: AP
+	}
+
+	expect(Engine.map.get_crossing_type(kut, theHai)).toBe(null)
+	expect(Engine.map.get_crossing_type(theHai, kut)).toBe("b_to_a")
+	expect(Engine.combat.is_river_defense(game)).toBe(false)
+	expect(Engine.combat.fmt_attack_odds(game)).toBe("2 (LCU) vs 0 (SCU)")
+})
+
+test("advance after combat must stop after crossing a water edge", () => {
+	let game = setupGame(2026052803, "Historical", { no_supply_warnings: true })
+	let kut = findSpace("Kut")
+	let sannaiyat = findSpace("Sannaiyat")
+	let amara = findSpace("Amara")
+	let tuDiv = findPiece(CP, "TU DIV #1")
+
+	resetForRuleProbe(game, CP)
+	game.pieces[tuDiv] = kut
+	Engine.set_control(game, kut, CP)
+	Engine.set_control(game, sannaiyat, AP)
+	Engine.set_control(game, amara, AP)
+	game.state = "advance"
+	game.attack = {
+		pieces: [tuDiv],
+		space: sannaiyat,
+		attacker: CP,
+		defender: AP
+	}
+	game.battle_result = { retreat_distance: 2 }
+	game.retreat_distance = 2
+	game.retreat_first_spaces = [amara]
+	game.advance_space = sannaiyat
+	game.advance_pieces = [tuDiv]
+	game.advance_count = 0
+	game.advance_limit = 3
+	game.retreated = []
+	game.undo = []
+
+	expect(Engine.combat.is_water_crossing_attack_edge(game, kut, sannaiyat, [tuDiv])).toBe(true)
+	game = rules.action(game, CP_ROLE, "piece", tuDiv)
+
+	expect(game.pieces[tuDiv]).toBe(sannaiyat)
+	expect(game.advance_follow_mode).toBeUndefined()
+	expect(game.advance_follow_pieces || []).not.toContain(tuDiv)
+	expect(game.advanced_stopped).toContain(tuDiv)
+})
+
 test("incomplete Berlin-Baghdad railroad is a normal attack connection before the event", () => {
 	let game = setupGame(2026052101)
 	let eregli = findSpace("Eregli")

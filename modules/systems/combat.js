@@ -1372,17 +1372,22 @@ module.exports = function (Engine) {
 		return data.spaces[target_space]?.terrain
 	}
 
+	function is_water_crossing_attack_edge(game, from, target, attackers = null) {
+		if (!(from > 0 && target > 0) || !data.spaces[from] || !data.spaces[target]) return false
+		if (is_cp_attacking_beachhead(game, target, attackers)) return false
+		let type = get_connection_type(from, target)
+		return type === "river" || type === "strait" || !!get_crossing_type(from, target)
+	}
+
+	function are_all_attackers_crossing_water(game, attackers, target_space) {
+		if (!Array.isArray(attackers) || attackers.length === 0) return false
+		return attackers.every((p) => is_water_crossing_attack_edge(game, game.pieces[p], target_space, attackers))
+	}
+
 	function is_river_defense(game) {
 		if (!game.attack || !game.attack.pieces || game.attack.pieces.length === 0) return false
 		let target = game.attack.space
-		if (is_cp_attacking_beachhead(game, target, game.attack.pieces)) return false
-		for (let p of game.attack.pieces) {
-			let from = game.pieces[p]
-			let type = get_connection_type(from, target)
-			let crossing = get_crossing_type(from, target)
-			if (type !== "strait" && !crossing) return false
-		}
-		return true
+		return are_all_attackers_crossing_water(game, game.attack.pieces, target)
 	}
 
 	function can_declare_turkish_retreat(game) {
@@ -2152,18 +2157,7 @@ module.exports = function (Engine) {
 		let attacker_from_desert = attackers.some((p) => data.spaces[game.pieces[p]]?.terrain === "desert")
 		if (target_is_desert || attacker_from_desert) attacker_shifts--
 
-		let all_crossing = !is_cp_attacking_beachhead(game, game.attack.space, attackers)
-		if (all_crossing) {
-			for (let p of attackers) {
-				let from = game.pieces[p]
-				let type = get_connection_type(from, game.attack.space)
-				let crossing = get_crossing_type(from, game.attack.space)
-				if (type !== "river" && type !== "strait" && !crossing) {
-					all_crossing = false
-					break
-				}
-			}
-		}
+		let all_crossing = are_all_attackers_crossing_water(game, attackers, game.attack.space)
 		if (all_crossing) attacker_shifts--
 
 		let trench_level = get_defender_trench_level(game, game.attack.space, defender_faction, defenders)
@@ -2199,18 +2193,7 @@ module.exports = function (Engine) {
 		let attacker_from_desert = attackers.some((p) => data.spaces[game.pieces[p]]?.terrain === "desert")
 		if (target_is_desert || attacker_from_desert) attacker_shifts--
 
-		let all_crossing = !is_cp_attacking_beachhead(game, target_space, attackers)
-		if (all_crossing) {
-			for (let p of attackers) {
-				let from = game.pieces[p]
-				let type = get_connection_type(from, target_space)
-				let crossing = get_crossing_type(from, target_space)
-				if (type !== "river" && type !== "strait" && !crossing) {
-					all_crossing = false
-					break
-				}
-			}
-		}
+		let all_crossing = are_all_attackers_crossing_water(game, attackers, target_space)
 		if (all_crossing) attacker_shifts--
 
 		let attacker_col = find_fire_column(attacker_table, attack_factors, attacker_shifts)
@@ -3597,9 +3580,7 @@ module.exports = function (Engine) {
 			let to = target_space
 
 			// Check connection type
-			let type = get_connection_type(from, to)
 			let strait_num = get_connection_strait(from, to)
-			let crossing_type = get_crossing_type(from, to)
 
 			if (!is_cp_attacking_beachhead(game, target_space, attackers)) {
 				if (strait_num !== undefined && strait_num !== null && strait_num !== 0) {
@@ -3611,7 +3592,7 @@ module.exports = function (Engine) {
 							`Strait Control Violation! ${faction.toUpperCase()} does not control required straits for Strait #${strait_num}.`
 						)
 					}
-				} else if (type !== "strait" && type !== "river" && !crossing_type) {
+				} else if (!is_water_crossing_attack_edge(game, from, to, attackers)) {
 					all_crossing_strait = false
 				}
 			}
@@ -4773,6 +4754,7 @@ module.exports = function (Engine) {
 		get_region_defender_candidates,
 		get_region_defense_stack_block_reason,
 		get_combat_defenders,
+		is_water_crossing_attack_edge,
 		get_turkish_retreat_space,
 		is_turkish_retreat_active,
 		finish_turkish_retreat,

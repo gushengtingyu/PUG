@@ -564,9 +564,6 @@ var data = {
 			"41": "",
 			"296": "rail"
 		},
-		"crossings": {
-			"296": "b_to_a"
-		},
 		"connection_nations": {
 			"296": [
 				"cp"
@@ -656,7 +653,6 @@ var data = {
 			"31": ""
 		},
 		"crossings": {
-			"14": "a_to_b",
 			"24": "bidirectional",
 			"25": "bidirectional",
 			"31": "bidirectional"
@@ -960,8 +956,7 @@ var data = {
 			"31": "rail"
 		},
 		"crossings": {
-			"18": "bidirectional",
-			"31": "b_to_a"
+			"18": "bidirectional"
 		}
 	},
 	{
@@ -2866,9 +2861,6 @@ var data = {
 			"92": "",
 			"113": "strait",
 			"117": ""
-		},
-		"crossings": {
-			"113": "a_to_b"
 		}
 	},
 	{
@@ -3788,9 +3780,6 @@ var data = {
 			"126": "strait",
 			"128": "rail",
 			"143": "rail"
-		},
-		"crossings": {
-			"126": "a_to_b"
 		}
 	},
 	{
@@ -4128,9 +4117,6 @@ var data = {
 		"connection_types": {
 			"131": "",
 			"136": "strait"
-		},
-		"crossings": {
-			"136": "a_to_b"
 		}
 	},
 	{
@@ -4159,9 +4145,6 @@ var data = {
 			"140": "rail",
 			"157": "rail",
 			"166": "strait"
-		},
-		"crossings": {
-			"166": "a_to_b"
 		},
 		"connection_flags": {
 			"139": [
@@ -4994,9 +4977,6 @@ var data = {
 			"197": "strait",
 			"199": "",
 			"204": ""
-		},
-		"crossings": {
-			"197": "b_to_a"
 		}
 	},
 	{
@@ -5169,9 +5149,6 @@ var data = {
 			"189": "",
 			"205": "",
 			"206": ""
-		},
-		"crossings": {
-			"206": "b_to_a"
 		}
 	},
 	{
@@ -5197,9 +5174,6 @@ var data = {
 			"192": "strait",
 			"193": "rail",
 			"213": ""
-		},
-		"crossings": {
-			"192": "a_to_b"
 		}
 	},
 	{
@@ -5248,9 +5222,7 @@ var data = {
 			"214": ""
 		},
 		"crossings": {
-			"190": "bidirectional",
-			"194": "b_to_a",
-			"214": "b_to_a"
+			"190": "bidirectional"
 		}
 	},
 	{
@@ -5400,9 +5372,6 @@ var data = {
 			"199": "",
 			"210": "strait",
 			"218": ""
-		},
-		"crossings": {
-			"210": "b_to_a"
 		}
 	},
 	{
@@ -5448,8 +5417,7 @@ var data = {
 			"222": ""
 		},
 		"crossings": {
-			"195": "b_to_a",
-			"222": "a_to_b"
+			"195": "b_to_a"
 		}
 	},
 	{
@@ -5603,9 +5571,6 @@ var data = {
 			"208": "rail",
 			"209": "strait",
 			"228": ""
-		},
-		"crossings": {
-			"209": "a_to_b"
 		}
 	},
 	{
@@ -5943,9 +5908,6 @@ var data = {
 			"226": "",
 			"234": "",
 			"238": "strait"
-		},
-		"crossings": {
-			"238": "a_to_b"
 		}
 	},
 	{
@@ -6022,9 +5984,6 @@ var data = {
 			"224": "rail",
 			"237": "rail",
 			"241": "rail"
-		},
-		"crossings": {
-			"223": "a_to_b"
 		}
 	},
 	{
@@ -6143,9 +6102,6 @@ var data = {
 			"225": "",
 			"226": "",
 			"290": "strait"
-		},
-		"crossings": {
-			"290": "a_to_b"
 		}
 	},
 	{
@@ -6299,7 +6255,6 @@ var data = {
 			"248": 1
 		},
 		"crossings": {
-			"221": "a_to_b",
 			"248": "bidirectional"
 		},
 		"connection_flags": {
@@ -6497,9 +6452,6 @@ var data = {
 		"connection_types": {
 			"240": "",
 			"252": "strait"
-		},
-		"crossings": {
-			"252": "a_to_b"
 		}
 	},
 	{
@@ -6550,8 +6502,7 @@ var data = {
 			"239": 1
 		},
 		"crossings": {
-			"239": "bidirectional",
-			"247": "b_to_a"
+			"239": "bidirectional"
 		},
 		"connection_flags": {
 			"239": [
@@ -22401,7 +22352,7 @@ var data = {
 		"rcf": 1,
 		"rlf": 2,
 		"rmf": 4,
-		"symbol": "B",
+		"region_limit": "B",
 		"type": "regular",
 		"badge": "yellow",
 		"piece_class": "SCU",

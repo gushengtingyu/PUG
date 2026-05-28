@@ -234,6 +234,21 @@ test("Reserve SR capital restriction uses enemy control only and respects dual n
 	expect(Engine.map.can_sr_piece(game, combined, CP)).toBe(true)
 })
 
+test("Balkan-only RU/SB Yugo Infantry cannot SR to The Bosphorus Forts", () => {
+	let game = setupGame(2026052801, "Historical", { no_supply_warnings: true })
+	clearBoard(game)
+
+	let yugo = place(game, AP, "RU/SB Yugo Infantry", "CONSTANTINOPLE")
+	for (let name of ["CONSTANTINOPLE", "The Bosphorus Forts", "Odessa"]) control(game, name, AP)
+
+	let bosphorus = findSpace("The Bosphorus Forts")
+	expect(Engine.data.pieces[yugo].region_limit).toBe("B")
+	expect(Engine.map.is_anatolia(bosphorus)).toBe(true)
+	expect(Engine.map.can_enter_area(game, yugo, bosphorus)).toBe(false)
+	expect(Engine.map.can_sr_to_space(game, yugo, bosphorus, AP)).toBe(false)
+	expect(Engine.map.get_sr_destinations(game, yugo, AP)).not.toContain(bosphorus)
+})
+
 test("Balkan collapse SR destinations are filtered through normal SR path legality", () => {
 	let game = setupGame(2026050909, "Historical", { no_supply_warnings: true })
 	clearBoard(game)
