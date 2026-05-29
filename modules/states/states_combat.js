@@ -1582,6 +1582,30 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
+	function can_confused_orders_move_piece_to_space(p, target) {
+		if (!data.pieces[p]) return false
+		if (Engine.game_utils.get_piece_effective_faction(game, p) !== CP) return false
+		if (is_not_on_map(game, p)) return false
+		if (!can_stack_end_in_space(game, target, [p])) return false
+
+		let from = game.pieces[p]
+		let previous_move = game.move
+		game.move = { current: from, initial: from, pieces: [p], spaces_moved: 0 }
+		let can_move = Engine.map.can_piece_move_to(game, p, target, CP)
+		if (previous_move === undefined) delete game.move
+		else game.move = previous_move
+		return can_move
+	}
+
+	function get_confused_orders_move_candidates(conf = game.confused_orders) {
+		if (!conf || !(conf.space > 0)) return []
+		let candidates = []
+		for (let p = 0; p < data.pieces.length; p++) {
+			if (can_confused_orders_move_piece_to_space(p, conf.space)) candidates.push(p)
+		}
+		return candidates
+	}
+
 	states.confused_orders = {
 		prompt(res) {
 			let conf = game.confused_orders
@@ -1590,17 +1614,12 @@ exports.register = function (states, Engine, context) {
 				res.action("done")
 				return
 			}
-			let options = []
-			if (conf.can_cancel_retreat) options.push("cancel_retreat")
-			if (conf.can_cancel_advance) options.push("cancel_advance")
-			if (conf.can_cancel_retreat && conf.can_cancel_advance) options.push("cancel_both")
-			res.prompt("混乱指令：选择效果")
+			res.prompt("混乱指令：自动取消可用的撤退/挺进。")
 			if (game.attack && game.attack.space !== -1) {
 				res.where(game.attack.space)
 				res.who(game.attack.pieces)
 			}
-			if (!conf.moved) res.action("move_unit")
-			for (let o of options) res.action(o)
+			if (!conf.moved && get_confused_orders_move_candidates(conf).length > 0) res.action("move_unit")
 			res.action("done")
 		},
 		cancel_retreat() {
@@ -1618,10 +1637,10 @@ exports.register = function (states, Engine, context) {
 		},
 		done() {
 			if (game.confused_orders) {
-				if (game.confused_orders.cancel_retreat) {
+				if (game.confused_orders.can_cancel_retreat || game.confused_orders.cancel_retreat) {
 					combat.cancel_cp_retreat_result(game, game.battle_result)
 				}
-				if (game.confused_orders.cancel_advance) {
+				if (game.confused_orders.can_cancel_advance || game.confused_orders.cancel_advance) {
 					game.battle_result.no_advance = true
 				}
 			}
@@ -1643,17 +1662,7 @@ exports.register = function (states, Engine, context) {
 			}
 			res.prompt("混乱指令：选择单位移动到攻击区域")
 			res.action("done")
-			for (let p = 0; p < data.pieces.length; p++) {
-				if (!data.pieces[p]) continue
-				if (Engine.game_utils.get_piece_effective_faction(game, p) !== CP) continue
-				if (is_not_on_map(game, p)) continue
-				let from = game.pieces[p]
-				let neighbors = Engine.map.get_piece_connected_spaces_for_rule(game, from, p)
-				if (!neighbors.includes(conf.space)) continue
-				if (!can_enter_area(game, p, conf.space)) continue
-				if (!can_stack_end_in_space(game, conf.space, [p])) continue
-				res.piece(p)
-			}
+			for (let p of get_confused_orders_move_candidates(conf)) res.piece(p)
 		},
 		piece(p) {
 			push_undo()
