@@ -2854,10 +2854,6 @@ module.exports = function (Engine) {
 		let attacker_blocks_retreat = !attacker_has_full_strength_unit
 		if (attacker_blocks_retreat && !result.turkish_retreat) {
 			result.retreat_needed = false
-			if (log_fn && result.attacker_losses >= result.defender_losses && !result.no_full_strength_retreat_logged) {
-				result.no_full_strength_retreat_logged = true
-				log_fn("Attacker has no full-strength units able to advance, defenders do not retreat.")
-			}
 		}
 
 		if (can_offer_post_battle_cc) {
