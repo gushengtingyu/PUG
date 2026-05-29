@@ -211,8 +211,6 @@ module.exports = function (Engine) {
 		for (let s = 1; s < data.spaces.length; s++) {
 			let c = get_jihad_country_for_space(game, s)
 			if (c === country) {
-				// Rule 18.2.8: CP units in Egypt must be west of the Suez Canal
-				if (country === "Egypt" && map.is_suez_canal_space(s)) continue
 				let pieces = map.get_pieces_in_space(game, s)
 				for (let p of pieces) {
 					if (excluded && excluded.has(p)) continue

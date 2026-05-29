@@ -1894,6 +1894,17 @@ exports.register = function (states, Engine, context) {
 		}
 	}
 
+	function finish_pre_battle_cancelled_attack() {
+		let attacker = game.attack?.attacker
+		game.attack = null
+		clear_battle_runtime_state()
+		if (attacker !== undefined && attacker !== null) game.active = attacker
+		if (check_event_next_state()) return
+		refresh_attack_eligibility()
+		if (game.eligible_attackers.length > 0) set_next_state_after_interrupt("attack", game.active)
+		else goto_end_operations()
+	}
+
 	function start_attack_sequence() {
 		delete game.jafar_pasha_retreat
 		delete game.turkish_retreat_prev_active
@@ -1907,6 +1918,10 @@ exports.register = function (states, Engine, context) {
 		delete game.battle_resolution_applied
 		delete game.enver_mo_choice
 		if (combat.start_attack_sequence(game, log) === false) {
+			if (game.attack?.cancelled_before_battle) {
+				finish_pre_battle_cancelled_attack()
+				return
+			}
 			game.state = "attack"
 			return
 		}

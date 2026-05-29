@@ -258,6 +258,47 @@ module.exports = function (Engine) {
 		return get_default_region_defense_stack(game, target_space, faction, candidates)
 	}
 
+	function get_live_attackers(game) {
+		if (!game.attack || !Array.isArray(game.attack.pieces)) return []
+		let attacker = game.attack.attacker
+		if (attacker === undefined || attacker === null) attacker = infer_attack_factions(game).attacker
+		return game.attack.pieces.filter(
+			(p) =>
+				data.pieces[p] &&
+				!is_not_on_map(game, p) &&
+				!is_eliminated(game, p) &&
+				get_piece_effective_faction(game, p) === attacker
+		)
+	}
+
+	function get_pre_battle_cancel_reason(game) {
+		if (!game.attack) return "no attack is pending"
+		if (is_black_sea_amphibious_invasion(game)) return null
+		let target_space = game.attack.space
+		if (!(target_space > 0 && data.spaces[target_space])) return "no target space is selected"
+		let factions = infer_attack_factions(game)
+		if (get_live_attackers(game).length === 0) return "no attacking units remain"
+		let defenders = get_combat_defenders(game, target_space, factions.defender)
+		let neutral_greek_target = has_attackable_neutral_greek_defenders(game, target_space, factions.attacker)
+		if (
+			defenders.length === 0 &&
+			!neutral_greek_target &&
+			!has_undestroyed_fort(game, target_space, factions.defender)
+		) {
+			return "no defending units or fort remain"
+		}
+		return null
+	}
+
+	function cancel_battle_before_resolution(game, log_fn, reason) {
+		if (game.attack) {
+			game.attack.cancelled_before_battle = true
+			game.attack.pre_battle_cancel_reason = reason
+		}
+		if (log_fn) log_fn(`Battle cancelled: ${reason}.`)
+		return false
+	}
+
 	function is_advance_support_piece(p) {
 		return is_hq(p) || is_heavy_arty(p)
 	}
@@ -2230,11 +2271,6 @@ module.exports = function (Engine) {
 			return false
 		}
 
-		register_balkan_attack_target(game)
-
-		// Rule 19.2.1: Attack on neutral Greek unit triggers Greek entry
-		Engine.neutral.check_attack_trigger(game, game.attack.space, game.active)
-
 		// Normalize legacy event payloads that still use attacker_faction.
 		// The combat state machine uses attack.attacker/attack.defender as canonical fields.
 		if (game.attack) {
@@ -2252,6 +2288,16 @@ module.exports = function (Engine) {
 			game.attack.attacker = factions.attacker
 			game.attack.defender = factions.defender
 		}
+
+		let pre_battle_cancel_reason = get_pre_battle_cancel_reason(game)
+		if (pre_battle_cancel_reason) {
+			return cancel_battle_before_resolution(game, log_fn, pre_battle_cancel_reason)
+		}
+
+		register_balkan_attack_target(game)
+
+		// Rule 19.2.1: Attack on neutral Greek unit triggers Greek entry
+		Engine.neutral.check_attack_trigger(game, game.attack.space, game.active)
 
 		apply_georgian_protectorate_attack_consequences(game)
 
@@ -3549,7 +3595,27 @@ module.exports = function (Engine) {
 			if (log_fn) log_fn(msg)
 		}
 
-		let attackers = game.attack.pieces
+		let pre_battle_cancel_reason = get_pre_battle_cancel_reason(game)
+		if (pre_battle_cancel_reason) {
+			let attackers = get_live_attackers(game)
+			let defenders = []
+			if (game.attack && game.attack.space > 0) {
+				let factions = infer_attack_factions(game)
+				defenders = get_combat_defenders(game, game.attack.space, factions.defender)
+			}
+			log(`Battle cancelled: ${pre_battle_cancel_reason}.`)
+			return {
+				cancelled: true,
+				cancelling_cards: [],
+				pre_battle_cancel: true,
+				pre_battle_cancel_reason,
+				attackers,
+				defenders
+			}
+		}
+
+		let attackers = get_live_attackers(game)
+		game.attack.pieces = attackers.slice()
 		let support_reason = get_attack_support_block_reason(game, attackers)
 		if (support_reason) {
 			log(`Cannot attack: ${support_reason}.`)

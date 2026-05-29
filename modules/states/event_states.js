@@ -4542,10 +4542,6 @@ module.exports = function (Engine) {
 			if (game.sr_moved) set_delete(game.sr_moved, p)
 			if (game.oos) set_delete(game.oos, p)
 			if (game.entrenching) set_delete(game.entrenching, p)
-			if (game.activated) {
-				if (Array.isArray(game.activated.move)) set_delete(game.activated.move, p)
-				if (Array.isArray(game.activated.attack)) set_delete(game.activated.attack, p)
-			}
 			if (game.attack && Array.isArray(game.attack.pieces)) set_delete(game.attack.pieces, p)
 			if (game.move && Array.isArray(game.move.pieces)) set_delete(game.move.pieces, p)
 			set_delete(game.reduced, p)
