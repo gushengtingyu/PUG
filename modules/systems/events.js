@@ -1438,7 +1438,7 @@ module.exports = function (Engine) {
 		}
 
 		function can_place_adjacent_overflow_reinforcement(s) {
-			if (Engine.map.is_controlled_by(game, s, AP)) return false
+			if (!Engine.map.is_controlled_by(game, s, CP)) return false
 			if (Engine.map.is_besieged(game, s)) return false
 			return can_place_reinforcement_unit_in_space(s)
 		}
