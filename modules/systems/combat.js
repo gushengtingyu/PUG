@@ -1342,14 +1342,12 @@ module.exports = function (Engine) {
 		let trench = attacker_has_maude_trench_ignore(game, target_space)
 			? 0
 			: get_defender_trench_level(game, target_space, retreating_faction, retreating_units)
-		let has_fort = has_undestroyed_fort(game, target_space, retreating_faction)
 		let defensive_ground =
 			target_terrain === FOREST ||
 			target_terrain === "desert" ||
 			target_terrain === SWAMP ||
 			target_terrain === MOUNTAIN ||
-			trench > 0 ||
-			has_fort
+			trench > 0
 		if (!defensive_ground) return false
 		if (count_steps(game, retreating_units) <= 1) return false
 		if (is_turn_event(game, "war_weary_balkans")) {
