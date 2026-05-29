@@ -1173,13 +1173,15 @@ exports.register = function (states, Engine, context) {
 		let info = data.pieces[p]
 		let spaces = new Set()
 		if (!info) return spaces
+		let faction = Engine.map.get_piece_replacement_faction(game, p)
+		if (!faction) return spaces
 
 		if (is_eliminated(game, p)) {
-			for (let s of Engine.map.get_valid_rebuild_spaces(game, p, info.faction)) {
+			for (let s of Engine.map.get_valid_rebuild_spaces(game, p, faction)) {
 				spaces.add(s)
 			}
 			if (Engine.map.can_rebuild_in_reserve_box(p)) {
-				spaces.add(get_reserve_box(info.faction))
+				spaces.add(get_reserve_box(faction))
 			}
 		} else {
 			let s = game.pieces[p]
@@ -1191,7 +1193,7 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function is_piece_replaceable_in_rp_phase(p, faction = game.active) {
-		if (!data.pieces[p] || data.pieces[p].faction !== faction) return false
+		if (!data.pieces[p] || Engine.map.get_piece_replacement_faction(game, p) !== faction) return false
 		let cost = Engine.map.get_replacement_cost(game, p)
 		if (cost <= 0) return false
 		if (is_eliminated(game, p)) {
@@ -1436,7 +1438,7 @@ exports.register = function (states, Engine, context) {
 			p = Number(p)
 			if (!Number.isInteger(p)) return
 			let info = data.pieces[p]
-			if (!info || info.faction !== game.active) return
+			if (!info || Engine.map.get_piece_replacement_faction(game, p) !== game.active) return
 			if (!is_piece_replaceable_in_rp_phase(p)) return
 			let cost = Engine.map.get_replacement_cost(game, p)
 			push_undo()

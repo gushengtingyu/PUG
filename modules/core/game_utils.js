@@ -206,7 +206,7 @@ module.exports = function (Engine) {
 			let key = get_tribe_key_space(p)
 			return key >= 0 && s === key
 		}
-		let faction = info.faction
+		let faction = get_piece_status_box_faction(game, p)
 		if (info.piece_class === "LCU") return s === get_lcu_reserve_box(faction) || s === RESERVE
 		return s === get_scu_reserve_box(faction) || s === RESERVE
 	}
@@ -419,8 +419,9 @@ module.exports = function (Engine) {
 			if (!info) continue
 			if (info.nation !== nation) continue
 			if (!is_scu(p)) continue
-			if (get_piece_effective_faction(game, p) !== info.faction) continue
-			let reserve = get_reserve_box(info.faction)
+			let faction = get_piece_status_box_faction(game, p)
+			if (get_piece_effective_faction(game, p) !== faction) continue
+			let reserve = get_reserve_box(faction)
 			if (game.pieces[p] === reserve || game.pieces[p] === RESERVE) return true
 		}
 		return false
@@ -430,7 +431,7 @@ module.exports = function (Engine) {
 		let pieces = []
 		for (let p = 0; p < game.pieces.length; p++) {
 			if (
-				data.pieces[p].faction === faction &&
+				get_piece_status_box_faction(game, p) === faction &&
 				get_piece_effective_faction(game, p) === faction &&
 				is_in_reserve(game, p)
 			) {

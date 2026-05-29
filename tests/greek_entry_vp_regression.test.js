@@ -1,8 +1,10 @@
+const rules = require("../rules.js")
 const Engine = require("../modules/engine.js")
 
 const { setupGame, findSpace, findPiece, clearBoard } = require("./helpers.js")
 
 const { AP, CP } = Engine.constants
+const CP_ROLE = rules.roles[1]
 
 test("Greek entry through the neutral module scores empty Athens once", () => {
 	let cpGame = setupGame(2026051801, "Historical")
@@ -104,4 +106,75 @@ test("Greek units use CP casualty boxes after Constantine brings Greece into the
 	expect(Engine.game_utils.is_permanently_eliminated(game, greekPermanentlyEliminated)).toBe(true)
 	expect(Engine.game_utils.get_pieces_in_removed(game, CP)).toContain(greekPermanentlyEliminated)
 	expect(Engine.game_utils.get_pieces_in_removed(game, AP)).not.toContain(greekPermanentlyEliminated)
+})
+
+test("CP-allied Greek units can spend CP replacement points and rebuild in Greece", () => {
+	let game = setupGame(2026053001, "Historical")
+	let greekDiv = findPiece(AP, "GR DIV #1")
+	let athens = findSpace("ATHENS")
+
+	Engine.neutral.trigger_greece_entry(game, null, CP, "test")
+	clearBoard(game)
+	game.pieces[greekDiv] = Engine.game_utils.get_eliminated_box(CP)
+	game.reduced = []
+	game.rp_ap = { br: 0, ru: 0, in: 0, a: 0 }
+	game.rp_cp = { ge: 0.5, tu: 0, a: 0 }
+	game.active = CP
+	game.state = "rp_phase"
+
+	let cost = Engine.map.get_replacement_cost(game, greekDiv)
+	expect(cost).toBe(0.5)
+	expect(Engine.map.can_afford_replacement(game, greekDiv, cost)).toBe(true)
+
+	game.rp_cp = { ge: 0, tu: 0, a: 0.5 }
+	expect(rules.view(game, CP_ROLE).actions.piece || []).toContain(greekDiv)
+
+	game = rules.action(game, CP_ROLE, "piece", greekDiv)
+
+	expect(game.rp_cp.a).toBe(0)
+	expect(game.state).toBe("rp_rebuild_where")
+	expect(rules.view(game, CP_ROLE).actions.space || []).toContain(athens)
+
+	game = rules.action(game, CP_ROLE, "space", athens)
+
+	expect(game.pieces[greekDiv]).toBe(athens)
+	expect(game.reduced).toContain(greekDiv)
+})
+
+test("CP-allied Greek units can SR from the CP reserve box", () => {
+	let game = setupGame(2026053002, "Historical")
+	let greekDiv = findPiece(AP, "GR DIV #1")
+	let athens = findSpace("ATHENS")
+
+	Engine.neutral.trigger_greece_entry(game, null, CP, "test")
+	clearBoard(game)
+	game.pieces[greekDiv] = Engine.game_utils.get_reserve_box(CP)
+	game.active = CP
+	game.sr = 1
+	game.state = "sr_phase"
+
+	expect(Engine.game_utils.is_in_reserve(game, greekDiv)).toBe(true)
+	expect(Engine.game_utils.get_pieces_in_reserve(game, CP)).toContain(greekDiv)
+	expect(Engine.game_utils.has_scu_in_reserve(game, "gr")).toBe(true)
+	expect(Engine.map.can_use_reserve_sr_for_piece(game, greekDiv, CP)).toBe(true)
+	expect(Engine.map.get_sr_destinations(game, greekDiv, CP)).toContain(athens)
+	expect(rules.view(game, CP_ROLE).actions.piece || []).toContain(greekDiv)
+
+	game = rules.action(game, CP_ROLE, "piece", greekDiv)
+	expect(game.state).toBe("sr_move")
+	expect(rules.view(game, CP_ROLE).actions.space || []).toContain(athens)
+})
+
+test("CP-allied Greek units stack as CP units", () => {
+	let game = setupGame(2026053003, "Historical")
+	let greekDiv = findPiece(AP, "GR DIV #1")
+	let geDiv = findPiece(CP, "GE DIV #1")
+	let athens = findSpace("ATHENS")
+
+	Engine.neutral.trigger_greece_entry(game, null, CP, "test")
+	clearBoard(game)
+	game.pieces[geDiv] = athens
+
+	expect(Engine.map.can_stack_end_in_space(game, athens, [greekDiv])).toBe(true)
+	expect(Engine.map.get_stack_end_block_reason(game, athens, [greekDiv])).toBe(null)
 })

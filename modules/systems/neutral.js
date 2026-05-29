@@ -420,7 +420,7 @@ module.exports = function (Engine) {
 			case "bu":
 				// Rule 22.2.2
 				return space_id === SOFIA && cp_controlled
-			case "gr":
+			case "gr": {
 				// Rule 22.2.2, with the CND exception.
 				if (is_greek_cnd(p)) {
 					return (
@@ -429,7 +429,11 @@ module.exports = function (Engine) {
 					)
 				}
 				if (space.nation !== "gr" || besieged) return false
-				return map.get_pieces_in_space(game, space_id).length === 0 || ap_controlled
+				let greek_faction = game_utils.get_piece_effective_faction(game, p)
+				if (greek_faction !== AP && greek_faction !== CP) return false
+				let friendly_controlled = greek_faction === CP ? cp_controlled : ap_controlled
+				return map.get_pieces_in_space(game, space_id).length === 0 || friendly_controlled
+			}
 			case "sb": {
 				// Rule 19.4.4 before collapse and after The Serbs Return.
 				let serbia_collapsed =

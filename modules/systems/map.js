@@ -135,6 +135,11 @@ module.exports = function (Engine) {
 		return faction
 	}
 
+	function get_piece_replacement_faction(game, p) {
+		let faction = get_piece_effective_faction(game, p)
+		return faction === AP || faction === CP ? faction : null
+	}
+
 	function can_opposing_units_coexist_in_space(game, s) {
 		return !!(data.spaces[s] && data.spaces[s].region)
 	}
@@ -1799,7 +1804,9 @@ module.exports = function (Engine) {
 	function can_stack_end_in_space(game, target, pieces, options = {}) {
 		if (!pieces || pieces.length === 0) return false
 		if (pieces.some((p) => p < 0 || !data.pieces[p])) return false
-		if (!Engine.neutral.can_end_move_in_neutral_greece(game, pieces[0], target, data.pieces[pieces[0]].faction))
+		let faction = get_piece_effective_faction(game, pieces[0])
+		if (faction !== AP && faction !== CP) faction = data.pieces[pieces[0]].faction
+		if (!Engine.neutral.can_end_move_in_neutral_greece(game, pieces[0], target, faction))
 			return false
 
 		// Rule 17.1.4: Tribe Movement Range
@@ -1814,7 +1821,7 @@ module.exports = function (Engine) {
 
 		if (!can_move_stack_composition(game, pieces)) return false
 
-		let faction = get_piece_effective_faction(game, pieces[0])
+		faction = get_piece_effective_faction(game, pieces[0])
 		if (faction !== AP && faction !== CP) faction = data.pieces[pieces[0]].faction
 		for (let p of pieces) {
 			let piece_faction = get_piece_effective_faction(game, p)
@@ -1893,7 +1900,9 @@ module.exports = function (Engine) {
 
 	function get_stack_end_block_reason(game, target, pieces, options = {}) {
 		if (!pieces || pieces.length === 0) return "无移动单位"
-		if (!Engine.neutral.can_end_move_in_neutral_greece(game, pieces[0], target, data.pieces[pieces[0]].faction))
+		let faction = get_piece_effective_faction(game, pieces[0])
+		if (faction !== AP && faction !== CP) faction = data.pieces[pieces[0]].faction
+		if (!Engine.neutral.can_end_move_in_neutral_greece(game, pieces[0], target, faction))
 			return "中立希腊移动限制"
 
 		// Rule 9.2.3: Units may move through but not end their Movement in a space containing an Attack marker.
@@ -1912,9 +1921,10 @@ module.exports = function (Engine) {
 
 		if (!can_move_stack_composition(game, pieces)) return "堆叠组成限制"
 
-		let faction = data.pieces[pieces[0]].faction
 		for (let p of pieces) {
-			if (data.pieces[p].faction !== faction) return "混编阵营"
+			let piece_faction = get_piece_effective_faction(game, p)
+			if (piece_faction !== AP && piece_faction !== CP) piece_faction = data.pieces[p].faction
+			if (piece_faction !== faction) return "混编阵营"
 		}
 
 		let existing = get_stack_occupying_pieces(game, target, faction)
@@ -2605,12 +2615,13 @@ module.exports = function (Engine) {
 		return false
 	}
 
-	function get_sr_nation_faction(nation) {
+	function get_sr_nation_faction(game, nation) {
+		if (nation === "gr") return Engine.neutral.get_greece_faction(game) || AP
 		return ["tu", "tua", "ge", "ah", "bu"].includes(nation) ? CP : AP
 	}
 
 	function is_reserve_sr_capital_restricted(game, nation) {
-		let faction = get_sr_nation_faction(nation)
+		let faction = get_sr_nation_faction(game, nation)
 		let enemy = other_faction(faction)
 		let capital = find_capital(nation === "tua" ? "tu" : nation)
 		return capital >= 0 && is_controlled_by(game, capital, enemy)
@@ -2657,11 +2668,14 @@ module.exports = function (Engine) {
 		source_cache = null,
 		status_cache = null
 	) {
-		let target_faction = data.pieces[p].faction
+		let target_faction = get_piece_effective_faction(game, p)
+		if (target_faction !== AP && target_faction !== CP) target_faction = data.pieces[p].faction
 		for (let q of get_pieces_in_space(game, s)) {
 			let info = data.pieces[q]
 			if (!info) continue
-			if (info.faction !== target_faction) continue
+			let q_faction = get_piece_effective_faction(game, q)
+			if (q_faction !== AP && q_faction !== CP) q_faction = info.faction
+			if (q_faction !== target_faction) continue
 			if (!pieces_share_sr_nationality(game, p, q)) continue
 			let status = get_supply_status(
 				game,
@@ -2682,7 +2696,8 @@ module.exports = function (Engine) {
 
 	function can_trace_reserve_sr_desert_supply(game, p, start, supply_context = null, source_cache = null) {
 		if (!data.spaces[start] || data.spaces[start].terrain !== DESERT) return true
-		let faction = data.pieces[p].faction
+		let faction = get_piece_effective_faction(game, p)
+		if (faction !== AP && faction !== CP) faction = data.pieces[p].faction
 		let context = supply_context || create_supply_context(game)
 		let sources = get_full_supply_sources_for_unit(game, p, true, source_cache)
 		let source_flag = build_space_flag_from_sources(sources)
@@ -5345,7 +5360,8 @@ module.exports = function (Engine) {
 
 	function can_afford_replacement(game, p, cost) {
 		let info = data.pieces[p]
-		let faction = info.faction
+		let faction = get_piece_replacement_faction(game, p)
+		if (!faction) return false
 		let rps = faction === AP ? game.rp_ap : game.rp_cp
 		let nations = get_piece_nations_for_rule(game, p)
 
@@ -5367,7 +5383,8 @@ module.exports = function (Engine) {
 
 	function spend_replacement_points(game, p, cost, force = false) {
 		let info = data.pieces[p]
-		let faction = info.faction
+		let faction = get_piece_replacement_faction(game, p)
+		if (!faction) return
 		let rps = faction === AP ? game.rp_ap : game.rp_cp
 		let nations = get_piece_nations_for_rule(game, p)
 
@@ -6115,6 +6132,7 @@ module.exports = function (Engine) {
 		get_ap_supply_split_projection,
 		get_beachhead_spaces,
 		get_supply_status,
+		get_piece_replacement_faction,
 		get_replacement_cost,
 		can_afford_replacement,
 		spend_replacement_points,
