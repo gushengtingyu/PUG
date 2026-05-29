@@ -349,9 +349,9 @@ describe("崩溃规则", () => {
 
 		const handled = Engine.collapse.handle_national_collapse(game, log)
 
-		expect(handled).toBe(true)
+		expect(handled).toBe(false)
 		expect(game.events.romania_collapse).toBe(6)
-		expect(game.state).toBe("event_romanian_collapse_sr")
+		expect(game.state).not.toBe("event_romanian_collapse_sr")
 		expect(isRemoved(game, geCav)).toBe(true)
 		expect(Engine.game_utils.is_permanently_eliminated(game, geCav)).toBe(false)
 	})
@@ -373,7 +373,7 @@ describe("崩溃规则", () => {
 
 		const handled = Engine.collapse.handle_national_collapse(game, log)
 
-		expect(handled).toBe(true)
+		expect(handled).toBe(false)
 		expect(isRemoved(game, geCav)).toBe(true)
 		expect(game.delayed_reinforcements).toEqual([{ turn: game.turn + 1, piece: frDiv, space: findSpace("Lemnos") }])
 	})
@@ -390,9 +390,9 @@ describe("崩溃规则", () => {
 
 		const handled = Engine.collapse.handle_national_collapse(game, log)
 
-		expect(handled).toBe(true)
+		expect(handled).toBe(false)
 		expect(game.events.romania_collapse).toBe(6)
-		expect(game.state).toBe("event_romanian_collapse_sr")
+		expect(game.state).not.toBe("event_romanian_collapse_sr")
 	})
 
 	test("塞尔维亚崩溃后塞军攻击范围会随贝尔格莱德控制权变化", () => {

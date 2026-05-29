@@ -2505,6 +2505,7 @@ const UI_FRAME_STATE_FIELDS = [
 	{ key: "partial_cp_control_markers", diff: "space_set", build: () => to_id_set(view?.partial_cp_control_markers) },
 	{ key: "oos_spaces", diff: "space_set", build: () => to_id_set(view?.oos_spaces) },
 	{ key: "entrenching", diff: "piece_set", build: () => to_id_set(view?.entrenching) },
+	{ key: "pending_combine", diff: "piece_set", build: () => to_id_set(view?.pending_combine) },
 	{ key: "moved", diff: "piece_set", build: () => to_id_set(view?.moved) },
 	{ key: "attacked", diff: "piece_set", build: () => to_id_set(view?.attacked) },
 	{ key: "supply_warnings", diff: "space_set", build: () => to_id_set(view?.supply_warnings) },
@@ -3197,6 +3198,7 @@ function update_reinforcements() {
 			el.classList.remove("limited_supply")
 			el.classList.remove("disrupted_supply")
 			el.classList.remove("entrenching")
+			el.classList.remove("pending_combine")
 
 			const stk = ensure_slot_stack(slot, slot_stacks, stack_by_coord)
 			stk.push(el)
@@ -3214,6 +3216,7 @@ function update_reinforcements() {
 				el.classList.remove("limited_supply")
 				el.classList.remove("disrupted_supply")
 				el.classList.remove("entrenching")
+				el.classList.remove("pending_combine")
 			} else {
 				// Tribal units in reserve boxes might be here if they are remapped to a non-reinforcement slot
 				// They are handled by update_reserve_box, so we don't want to clear their classes here.
@@ -5154,6 +5157,7 @@ function render_space_piece(piece_id, state, stack_parts) {
 	el.classList.toggle("limited_supply", is_limited_supply)
 	el.classList.toggle("disrupted_supply", is_disrupted_supply)
 	el.classList.toggle("entrenching", has_id(state.entrenching, piece_id))
+	el.classList.toggle("pending_combine", has_id(state.pending_combine, piece_id))
 	el.classList.toggle("spent", has_id(state.moved, piece_id) || has_id(state.attacked, piece_id))
 	set_piece_image(el, is_reduced ? piece.image_reduced : piece.image_full)
 
@@ -5480,6 +5484,7 @@ function apply_box_piece_interaction_state(el, state, piece_id, interactive = tr
 	el.classList.remove("limited_supply")
 	el.classList.remove("disrupted_supply")
 	el.classList.remove("entrenching")
+	el.classList.remove("pending_combine")
 	el.style.pointerEvents = interactive ? "" : "none"
 }
 

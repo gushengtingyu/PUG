@@ -4228,11 +4228,6 @@ module.exports = function (Engine) {
 					status = "FULL"
 				}
 				if (status === "OOS") {
-					// Rule 15.4.6 Exception: Trench markers in an intact Fort space do not suffer attrition.
-					let has_fort = has_undestroyed_fort(game, s, faction)
-					if (!has_fort) {
-						Engine.game_utils.apply_trench_attrition(game, s)
-					}
 					// Rule 14.3.3: Space becomes enemy controlled during attrition phase
 					// We mark it here, and start_attrition_phase will handle the actual control change
 					set_add(game.oos_spaces, s)

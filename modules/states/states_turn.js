@@ -253,6 +253,8 @@ exports.register = function (states, Engine, context) {
 				// Rule 14.3.3: Does not apply to neutral spaces or intact friendly forts
 				let faction = Engine.map.get_space_controller(game, s)
 				if ((faction === AP || faction === CP) && !Engine.map.has_undestroyed_fort(game, s, faction)) {
+					// Rule 15.4.6: OOS trench attrition is resolved in the Attrition Phase.
+					Engine.game_utils.apply_trench_attrition(game, s)
 					let opponent = other_faction(faction)
 					log(`${space_name(s)} 因断补损耗转为敌方控制`)
 					set_control(game, s, opponent)

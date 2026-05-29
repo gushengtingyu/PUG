@@ -246,13 +246,40 @@ exports.register = function (states, Engine, context) {
 	function has_unmoved_allowed_move_pieces_in_space(s, allowed_pieces, faction) {
 		if (!Array.isArray(allowed_pieces) || allowed_pieces.length === 0) return false
 		return allowed_pieces.some(
-			(p) => game.pieces[p] === s && !set_has(game.moved, p) && can_piece_move_in_activation(p, faction)
+			(p) =>
+				game.pieces[p] === s &&
+				!set_has(game.moved, p) &&
+				!is_pending_combine_piece(p) &&
+				can_piece_move_in_activation(p, faction)
 		)
+	}
+
+	function get_pending_combine_entries(faction = active_faction()) {
+		if (!Array.isArray(game.pending_combine)) return []
+		return game.pending_combine.filter((entry) => {
+			if (!entry || !Array.isArray(entry.pieces) || entry.pieces.length === 0) return false
+			if (entry.faction && entry.faction !== faction) return false
+			return entry.pieces.some((p) => game.pieces[p] === entry.space)
+		})
+	}
+
+	function is_pending_combine_piece(p) {
+		if (!Array.isArray(game.pending_combine)) return false
+		return game.pending_combine.some((entry) => entry && Array.isArray(entry.pieces) && set_has(entry.pieces, p))
+	}
+
+	function get_non_pending_combine_scus_in_space(s) {
+		return get_pieces_in_space(game, s).filter((p) => is_scu(p) && !is_pending_combine_piece(p))
+	}
+
+	function can_space_combine_in_activation(s, faction = active_faction()) {
+		let allowed_scus = get_non_pending_combine_scus_in_space(s)
+		return Engine.game_utils.can_combine_in_space(game, s, faction, null, allowed_scus)
 	}
 
 	function has_move_activation_options_in_space(s, faction) {
 		if (has_unmoved_move_eligible_pieces_in_space(s, faction)) return true
-		if (Engine.game_utils.can_combine_in_space(game, s, faction)) return true
+		if (can_space_combine_in_activation(s, faction)) return true
 		if (can_space_remove_uprising_marker_in_activation(s, faction)) return true
 		return can_space_entrench_in_activation(s, faction)
 	}
@@ -260,6 +287,7 @@ exports.register = function (states, Engine, context) {
 	function can_piece_participate_in_activation(p, faction) {
 		if (p < 0 || !data.pieces[p]) return false
 		if (is_not_on_map(game, p)) return false
+		if (is_pending_combine_piece(p)) return false
 		if (Engine.game_utils.get_piece_effective_faction(game, p) !== faction) return false
 		if (get_piece_activation_supply_status(p, faction) === "OOS") return false
 		if (Engine.neutral.is_greek_piece(p)) {
@@ -383,6 +411,40 @@ exports.register = function (states, Engine, context) {
 		return true
 	}
 
+	function same_piece_set(a, b) {
+		if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false
+		return a.every((p) => set_has(b, p))
+	}
+
+	function mark_pending_combine(s, pieces, faction = active_faction()) {
+		if (!Array.isArray(pieces) || pieces.length < 2 || pieces.length > 3) return false
+		if (!can_selected_move_pieces_combine(pieces)) return false
+		if (!game.pending_combine) game.pending_combine = []
+		for (let p of pieces) {
+			if (is_pending_combine_piece(p)) return false
+		}
+		game.pending_combine.push({
+			space: s,
+			pieces: pieces.slice(),
+			faction
+		})
+		log(`>${piece_list(pieces)} 待组合`)
+		return true
+	}
+
+	function remove_pending_combine(space, pieces, faction = active_faction()) {
+		if (!Array.isArray(game.pending_combine)) return
+		let index = game.pending_combine.findIndex(
+			(entry) =>
+				entry &&
+				entry.space === space &&
+				(!entry.faction || entry.faction === faction) &&
+				same_piece_set(entry.pieces, pieces)
+		)
+		if (index >= 0) game.pending_combine.splice(index, 1)
+		if (game.pending_combine.length === 0) delete game.pending_combine
+	}
+
 	function resolve_pending_entrench_attempt(s, faction = active_faction()) {
 		let selected = get_pending_entrench_pieces_in_space(s, faction)
 		if (selected.length === 0) return false
@@ -422,7 +484,50 @@ exports.register = function (states, Engine, context) {
 		})
 	}
 
+	function skip_pending_combination(ctx = game.combine_ctx) {
+		if (!ctx || !ctx.pending_resolution) return false
+		for (let p of ctx.selected_scus || []) {
+			if (game.pieces[p] === ctx.pending_space) set_add(game.moved, p)
+		}
+		remove_pending_combine(ctx.pending_space, ctx.selected_scus || [], ctx.pending_resolution_faction)
+		clear_combine_ctx()
+		goto_entrench_rolls_or_attack(ctx.pending_resolution_faction)
+		return true
+	}
+
+	function begin_next_pending_combination(faction = active_faction()) {
+		let entries = get_pending_combine_entries(faction)
+		if (entries.length === 0) return false
+
+		let entry = entries[0]
+		let selected = entry.pieces.filter((p) => game.pieces[p] === entry.space)
+		if (selected.length < 2) {
+			remove_pending_combine(entry.space, entry.pieces, faction)
+			return begin_next_pending_combination(faction)
+		}
+
+		game.where = entry.space
+		game.combine_ctx = {
+			selected_scus: selected.slice(),
+			allowed_scus: selected.slice(),
+			pending_resolution: true,
+			pending_space: entry.space,
+			pending_resolution_faction: faction
+		}
+
+		let valid_lcus = get_valid_lcus_for_selected_scus(selected)
+		if (valid_lcus.length === 0) {
+			log(`待组合无可用 LCU：${piece_list(selected)} (${space_name(entry.space)})`)
+			skip_pending_combination(game.combine_ctx)
+			return true
+		}
+
+		set_next_state("combine_lcu_select_lcu")
+		return true
+	}
+
 	function goto_entrench_rolls_or_attack(faction = active_faction()) {
+		if (begin_next_pending_combination(faction)) return
 		if (get_pending_entrench_spaces(faction).length > 0) {
 			game.entrench_roll_faction = faction
 			set_next_state("entrench_roll")
@@ -731,7 +836,8 @@ exports.register = function (states, Engine, context) {
 	function can_selected_move_pieces_combine(selected_pieces) {
 		if (!Array.isArray(selected_pieces) || selected_pieces.length < 2 || selected_pieces.length > 3) return false
 		let space = game.move && game.move.initial > 0 ? game.move.initial : game.where
-		if (!Engine.game_utils.can_combine_in_space(game, space, active_faction())) return false
+		if (!can_space_combine_in_activation(space, active_faction())) return false
+		if (selected_pieces.some((p) => is_pending_combine_piece(p))) return false
 		let available = get_available_combine_scus()
 		if (!selected_pieces.every((p) => set_has(available, p))) return false
 		return get_valid_lcus_for_selected_scus(selected_pieces).length > 0
@@ -1238,6 +1344,25 @@ exports.register = function (states, Engine, context) {
 
 	// --- LCU COMBINATION AND BREAKDOWN ---
 
+	function begin_move_selection(s, pieces = [], options = {}) {
+		push_undo()
+		log_br()
+		log("Moved from " + space_name(s))
+		game.where = s
+		game.move = {
+			initial: s,
+			current: s,
+			spaces_moved: 0,
+			pieces: pieces.slice(),
+			touched_spaces: [s],
+			faction: active_faction()
+		}
+		if (Array.isArray(options.allowed_activation_pieces)) {
+			game.move.allowed_activation_pieces = options.allowed_activation_pieces.slice()
+		}
+		game.state = "choose_pieces_to_move"
+	}
+
 	states.choose_move_space = {
 		prompt(res) {
 			let can_entrench = false
@@ -1259,7 +1384,7 @@ exports.register = function (states, Engine, context) {
 						has_movable = true
 					}
 				}
-				let can_combine_here = Engine.game_utils.can_combine_in_space(game, s, active_faction())
+				let can_combine_here = can_space_combine_in_activation(s, active_faction())
 				let can_entrench_here = can_space_entrench_in_activation(s)
 				let can_remove_uprising_marker_here = can_space_remove_uprising_marker_in_activation(s)
 				if (has_movable || can_combine_here || can_entrench_here || can_remove_uprising_marker_here) {
@@ -1299,44 +1424,15 @@ exports.register = function (states, Engine, context) {
 		},
 		space(s) {
 			if (game.activated.move.includes(s)) {
-				let can_entrench_here = can_space_entrench_in_activation(s)
-				if (Engine.game_utils.can_combine_in_space(game, s, active_faction()) || can_entrench_here) {
-					game.where = s
-					game.state = "choose_move_action"
-					return
-				}
-				push_undo()
-				log_br()
-				log("Moved from " + space_name(s))
-				game.where = s
-				game.move = {
-					initial: s,
-					current: s,
-					spaces_moved: 0,
-					pieces: [],
-					touched_spaces: [s],
-					faction: active_faction()
-				}
-				game.state = "choose_pieces_to_move"
+				begin_move_selection(s)
 			}
 		},
 		piece(p) {
 			let region_activation = get_region_activation_stack_for_piece("move", p)
 			let s = region_activation ? region_activation.space : game.pieces[p]
-			push_undo()
-			log_br()
-			log("Moved from " + space_name(s))
-			game.where = s
-			game.move = {
-				initial: s,
-				current: s,
-				spaces_moved: 0,
-				pieces: [p],
-				touched_spaces: [s],
-				faction: active_faction(),
-				allowed_activation_pieces: region_activation ? region_activation.stack.pieces.slice() : null
-			}
-			game.state = "choose_pieces_to_move"
+			begin_move_selection(s, [p], {
+				allowed_activation_pieces: region_activation ? region_activation.stack.pieces : null
+			})
 		},
 		done() {
 			// 与 POG 一样，移动阶段整体结束时仍必须没有未解消的超堆叠。
@@ -1364,86 +1460,27 @@ exports.register = function (states, Engine, context) {
 	states.choose_move_action = {
 		prompt(res) {
 			let s = game.where
-			res.prompt(`${space_name(s)}: 选择操作`)
+			res.prompt(`${space_name(s)}: 继续移动`)
 			res.where(s)
-
-			let has_movable = get_pieces_in_space(game, s).some((p) => {
-				return can_piece_move_in_activation(p, active_faction()) && !set_has(game.moved, p)
-			})
-			let removal_units = get_uprising_marker_removal_units(s)
-			let has_removal_unit = removal_units.length > 0
-			for (let p of get_pieces_in_space(game, s)) {
-				if (
-					(can_piece_move_in_activation(p, active_faction()) && !set_has(game.moved, p)) ||
-					removal_units.includes(p)
-				) {
-					res.piece(p)
-				}
-			}
-
-			if (has_movable || has_removal_unit) {
-				res.action("move")
-			}
-			if (Engine.game_utils.can_combine_in_space(game, s, active_faction())) {
-				res.action("combine")
-			}
-			if (can_space_entrench_in_activation(s)) {
-				res.action("entrench")
-			}
+			res.action("move")
 			res.action("cancel")
 		},
 		move() {
 			let s = game.where
-			game.where = -1
-			game.state = "choose_move_space"
-			// Force the move action by bypassing the check in space(s)
-			push_undo()
-			game.where = s
-			game.move = {
-				initial: s,
-				current: s,
-				spaces_moved: 0,
-				pieces: [],
-				touched_spaces: [s],
-				faction: active_faction()
-			}
-			game.state = "choose_pieces_to_move"
+			if (s > 0) begin_move_selection(s)
 		},
 		piece(p) {
 			let s = game.where
 			if (game.pieces[p] !== s) return
 			if (!can_piece_move_in_activation(p, active_faction()) && !get_uprising_marker_removal_units(s).includes(p)) return
 			if (set_has(game.moved, p)) return
-			game.where = -1
-			game.state = "choose_move_space"
-			push_undo()
-			game.where = s
-			game.move = {
-				initial: s,
-				current: s,
-				spaces_moved: 0,
-				pieces: [p],
-				touched_spaces: [s],
-				faction: active_faction()
-			}
-			game.state = "choose_pieces_to_move"
+			begin_move_selection(s, [p])
 		},
 		combine() {
-			let s = game.where
-			if (!Engine.game_utils.can_combine_in_space(game, s, active_faction())) return
-			game.where = -1
-			game.state = "choose_move_space"
-			push_undo()
-			enter_combine_lcu_state(s)
+			this.move()
 		},
 		entrench() {
-			let s = game.where
-			if (!can_space_entrench_in_activation(s)) return
-			game.where = -1
-			game.state = "choose_move_space"
-			push_undo()
-			game.where = s
-			game.state = "entrench"
+			this.move()
 		},
 		cancel() {
 			game.where = -1
@@ -1486,7 +1523,8 @@ exports.register = function (states, Engine, context) {
 		},
 		cancel() {
 			delete game.entrench_pieces
-			game.state = "choose_move_action"
+			game.where = -1
+			game.state = "choose_move_space"
 		}
 	}
 
@@ -1621,12 +1659,17 @@ exports.register = function (states, Engine, context) {
 			res.who(selected)
 			res.space(get_lcu_reserve_box(active_faction()))
 
-			for (let lcu of get_valid_lcus_for_selected_scus(selected)) {
+			let valid_lcus = get_valid_lcus_for_selected_scus(selected)
+			for (let lcu of valid_lcus) {
 				res.piece(lcu)
 			}
 
-			res.action("back")
-			res.action("cancel")
+			if (game.combine_ctx && game.combine_ctx.pending_resolution) {
+				if (valid_lcus.length === 0) res.action("skip")
+			} else {
+				res.action("back")
+				res.action("cancel")
+			}
 		},
 		piece(lcu_id) {
 			let selected = get_selected_combine_scus()
@@ -1648,11 +1691,16 @@ exports.register = function (states, Engine, context) {
 			game.state = "combine_lcu_dispose_reserve"
 		},
 		back() {
+			if (game.combine_ctx && game.combine_ctx.pending_resolution) return
 			game.state = "combine_lcu"
 		},
 		cancel() {
+			if (skip_pending_combination()) return
 			clear_combine_ctx()
 			return_to_combine_entry()
+		},
+		skip() {
+			skip_pending_combination()
 		}
 	}
 
@@ -1668,7 +1716,7 @@ exports.register = function (states, Engine, context) {
 			res.space(get_scu_reserve_box(active_faction()))
 			res.who(ctx.pending_scus)
 			for (let p of ctx.pending_scus) res.piece(p)
-			res.action("cancel")
+			if (!ctx.pending_resolution) res.action("cancel")
 		},
 		piece(p) {
 			let ctx = game.combine_ctx
@@ -1680,6 +1728,7 @@ exports.register = function (states, Engine, context) {
 			else game.state = "combine_lcu_dispose_removed"
 		},
 		cancel() {
+			if (game.combine_ctx && game.combine_ctx.pending_resolution) return
 			clear_combine_ctx()
 			return_to_combine_entry()
 		}
@@ -1697,7 +1746,7 @@ exports.register = function (states, Engine, context) {
 			res.space(get_eliminated_box(active_faction()))
 			res.who(ctx.pending_scus)
 			for (let p of ctx.pending_scus) res.piece(p)
-			res.action("cancel")
+			if (!ctx.pending_resolution) res.action("cancel")
 		},
 		piece(p) {
 			let ctx = game.combine_ctx
@@ -1709,6 +1758,7 @@ exports.register = function (states, Engine, context) {
 			game.state = "combine_lcu_dispose_removed"
 		},
 		cancel() {
+			if (game.combine_ctx && game.combine_ctx.pending_resolution) return
 			clear_combine_ctx()
 			return_to_combine_entry()
 		}
@@ -1726,7 +1776,7 @@ exports.register = function (states, Engine, context) {
 			res.space(get_permanently_eliminated_box(active_faction()))
 			res.who(ctx.pending_scus)
 			for (let p of ctx.pending_scus) res.piece(p)
-			res.action("cancel")
+			if (!ctx.pending_resolution) res.action("cancel")
 		},
 		piece(p) {
 			let ctx = game.combine_ctx
@@ -1737,6 +1787,7 @@ exports.register = function (states, Engine, context) {
 			finalize_manual_combination()
 		},
 		cancel() {
+			if (game.combine_ctx && game.combine_ctx.pending_resolution) return
 			clear_combine_ctx()
 			return_to_combine_entry()
 		}
@@ -1769,6 +1820,10 @@ exports.register = function (states, Engine, context) {
 			}
 			if (game_utils.get_piece_effective_faction(game, p) !== active_faction()) {
 				log_activation_debug(`[调试] piece ${p} (${info.name}) faction mismatch`)
+				return false
+			}
+			if (is_pending_combine_piece(p) && !(game.combine_ctx && game.combine_ctx.allowed_scus)) {
+				log_activation_debug(`[调试] piece ${p} (${info.name}) already pending combination`)
 				return false
 			}
 			if (set_has(game.moved, p)) {
@@ -1855,13 +1910,6 @@ exports.register = function (states, Engine, context) {
 		delete game.combine_ctx
 	}
 
-	function enter_combine_lcu_state(space) {
-		clear_combine_ctx()
-		game.where = space
-		game.state = "combine_lcu"
-		log(`开始组合(${space_name(space)})`)
-	}
-
 	function return_to_combine_entry() {
 		if (game.event_next_state) {
 			let next_state = game.event_next_state
@@ -1894,6 +1942,13 @@ exports.register = function (states, Engine, context) {
 			game.event_ctx.data[ctx.event_flag_on_success.field] = true
 		}
 		set_add(game.moved, ctx.lcu_id)
+		if (ctx.pending_resolution) {
+			let faction = ctx.pending_resolution_faction || active_faction()
+			remove_pending_combine(ctx.pending_space, ctx.selected_scus || [], faction)
+			clear_combine_ctx()
+			goto_entrench_rolls_or_attack(faction)
+			return
+		}
 		clear_combine_ctx()
 		return_to_combine_entry()
 	}
@@ -2007,10 +2062,13 @@ exports.register = function (states, Engine, context) {
 			let selected = game.move.pieces.slice()
 			if (!can_selected_move_pieces_combine(selected)) return
 			push_undo()
-			delete game.move
-			game.where = s
-			game.combine_ctx = { selected_scus: selected.slice() }
-			game.state = "combine_lcu_select_lcu"
+			if (!mark_pending_combine(s, selected, get_current_move_faction())) return
+			game.move.pieces = []
+			if (has_move_activation_options_in_space(s, get_current_move_faction())) {
+				set_next_state("choose_pieces_to_move")
+			} else {
+				end_move_activation(s, get_current_move_faction())
+			}
 		},
 		remove_uprising_marker() {
 			if (!can_selected_move_pieces_remove_uprising_marker()) return
@@ -2022,8 +2080,8 @@ exports.register = function (states, Engine, context) {
 			finish_uprising_marker_removal(p, rule, s)
 		},
 		done() {
-			delete game.move
-			game.state = "choose_move_space"
+			push_undo()
+			end_move_activation(game.move.initial, get_current_move_faction())
 		}
 	}
 
@@ -2349,8 +2407,7 @@ exports.register = function (states, Engine, context) {
 		}
 		if (
 			!allowed_activation_pieces &&
-			(Engine.game_utils.can_combine_in_space(game, initial, move_faction) ||
-				can_space_entrench_in_activation(initial, move_faction))
+			(can_space_combine_in_activation(initial, move_faction) || can_space_entrench_in_activation(initial, move_faction))
 		) {
 			set_next_state("choose_move_space")
 			return
@@ -2362,6 +2419,7 @@ exports.register = function (states, Engine, context) {
 		if (game.activated && game.activated.move) {
 			set_delete(game.activated.move, s)
 		}
+		delete game.move
 		game.where = -1
 		if (game.event_next_state) {
 			let next_state = game.event_next_state

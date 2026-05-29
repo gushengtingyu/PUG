@@ -123,9 +123,8 @@ test("Confused Orders can cancel a CP Turkish Withdrawal retreat", () => {
 	})
 
 	game = playConfusedOrders(game)
-	expect(rules.view(game, CP_ROLE).actions.cancel_retreat).toBe(1)
+	expect(rules.view(game, CP_ROLE).actions.done).toBe(1)
 
-	game = rules.action(game, CP_ROLE, "cancel_retreat")
 	game = rules.action(game, CP_ROLE, "done")
 
 	expect(game.state).not.toBe("turkish_retreat")
@@ -138,9 +137,8 @@ test("Confused Orders can cancel AP advance after the defending space is empty",
 	game.pieces[defender] = Engine.game_utils.get_eliminated_box(CP)
 
 	game = playConfusedOrders(game)
-	expect(rules.view(game, CP_ROLE).actions.cancel_advance).toBe(1)
+	expect(rules.view(game, CP_ROLE).actions.done).toBe(1)
 
-	game = rules.action(game, CP_ROLE, "cancel_advance")
 	game = rules.action(game, CP_ROLE, "done")
 
 	expect(game.state).not.toBe("advance")

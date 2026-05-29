@@ -1429,11 +1429,13 @@ body.flat .marker {
 	box-shadow: 1px 1px 2px #000;
 }
 
-body.flat .piece.entrenching {
+body.flat .piece.entrenching,
+body.flat .piece.pending_combine {
 	box-shadow: 0 0 0 3px chocolate;
 }
 
-body.bevel .piece.entrenching {
+body.bevel .piece.entrenching,
+body.bevel .piece.pending_combine {
 	box-shadow:
 		0 0 0 1px #000,
 		0 0 0 4px chocolate !important;
