@@ -2957,6 +2957,7 @@ module.exports = function (Engine) {
 			let event_data = use_event(game, "german_military_advisers")
 			rules.push_undo()
 			rules.place_trench(game, s, CP)
+			rules.log(`德国军事顾问：在 ${rules.space_name(s)} 放置 1 级战壕。`)
 			event_data.trenches_to_place -= 1
 			if (event_data.trenches_to_place <= 0) {
 				rules.goto_end_event()
