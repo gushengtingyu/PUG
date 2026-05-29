@@ -4061,7 +4061,8 @@ module.exports = function (Engine) {
 		// 塞尔维亚与罗马尼亚崩溃的“可选移除名单”不同，这里从 collapse 子系统按国家动态取得。
 		let selectable_units = Engine.collapse.get_collapse_choice_unit_names(event_ctx.collapse_nation)
 
-		res.prompt(`${nation_name}崩溃：CP 玩家必须选择 ${count} 个奥匈单位移除 (${removed.length}/${count})`)
+		res.prompt(`${nation_name}崩溃：CP 玩家可以选择 ${count} 个奥匈单位移除以获得后续崩溃 SR (${removed.length}/${count})`)
+		res.action("skip")
 
 		if (removed.length >= count) {
 			res.action("confirm")
@@ -4099,6 +4100,16 @@ module.exports = function (Engine) {
 		game.active = CP
 	}
 
+	function handle_collapse_choice_skip(ctx) {
+		let { game, rules } = ctx
+		rules.push_undo()
+		delete game.event_ctx
+		delete game.sr_piece
+		if (!Engine.collapse.handle_national_collapse(game, rules.log)) {
+			rules.next_phase("war_status_phase")
+		}
+	}
+
 	states.event_serbian_collapse_choice = {
 		prompt(ctx) {
 			handle_collapse_choice_prompt(ctx, "塞尔维亚")
@@ -4111,6 +4122,9 @@ module.exports = function (Engine) {
 		},
 		confirm(ctx) {
 			handle_collapse_choice_confirm(ctx, "event_serbian_collapse_sr")
+		},
+		skip(ctx) {
+			handle_collapse_choice_skip(ctx)
 		}
 	}
 
@@ -4129,6 +4143,9 @@ module.exports = function (Engine) {
 		},
 		confirm(ctx) {
 			handle_collapse_choice_confirm(ctx, "event_romanian_collapse_sr")
+		},
+		skip(ctx) {
+			handle_collapse_choice_skip(ctx)
 		}
 	}
 
@@ -4205,7 +4222,11 @@ module.exports = function (Engine) {
 		accept(ctx) {
 			let { game, rules } = ctx
 			rules.push_undo()
-			Engine.collapse.accept_voluntary_collapse(game, "serbia", rules.log)
+			if (Engine.collapse.accept_voluntary_collapse(game, "serbia", rules.log) !== "interactive") {
+				if (!Engine.collapse.handle_national_collapse(game, rules.log)) {
+					rules.next_phase("war_status_phase")
+				}
+			}
 		},
 		decline(ctx) {
 			resolve_voluntary_collapse_decline(ctx, "serbia", "塞尔维亚")
@@ -4219,7 +4240,11 @@ module.exports = function (Engine) {
 		accept(ctx) {
 			let { game, rules } = ctx
 			rules.push_undo()
-			Engine.collapse.accept_voluntary_collapse(game, "romania", rules.log)
+			if (Engine.collapse.accept_voluntary_collapse(game, "romania", rules.log) !== "interactive") {
+				if (!Engine.collapse.handle_national_collapse(game, rules.log)) {
+					rules.next_phase("war_status_phase")
+				}
+			}
 		},
 		decline(ctx) {
 			resolve_voluntary_collapse_decline(ctx, "romania", "罗马尼亚")

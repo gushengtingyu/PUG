@@ -514,7 +514,7 @@ module.exports = function (Engine) {
 			}
 		}
 
-		let romania_uncollapsed = is_romania_uncollapsed(game)
+		let cp_collapse_sr_available = is_romania_uncollapsed(game)
 
 		for (let p = 0; p < data.pieces.length; p++) {
 			let info = data.pieces[p]
@@ -530,10 +530,15 @@ module.exports = function (Engine) {
 				// GE Alpenkorps 不是这 2 个 GE Inf SCU；只有罗马尼亚已参战且尚未崩溃时才额外保留。
 				is_exception =
 					SERBIAN_COLLAPSE_GE_EXCEPTION_NAMES.has(info.name) ||
-					(romania_uncollapsed && info.name === "GE Alpenkorps")
+					(cp_collapse_sr_available && info.name === "GE Alpenkorps")
 			}
-			// 19.4.6：在罗马尼亚尚未崩溃时，AH 师不立即自动移除，而是交给后续“选择移除 2 个 AH 师”步骤处理。
-			if (info.nation === "ah" && romania_uncollapsed && SERBIAN_COLLAPSE_AH_DIVISION_NAMES.includes(info.name)) {
+			// 19.4.6：只有罗马尼亚已参战且尚未崩溃时，AH 师不立即自动移除，
+			// 而是交给后续“选择移除 2 个 AH 师以换取崩溃 SR”步骤处理。
+			if (
+				info.nation === "ah" &&
+				cp_collapse_sr_available &&
+				SERBIAN_COLLAPSE_AH_DIVISION_NAMES.includes(info.name)
+			) {
 				is_exception = true
 			}
 
@@ -542,16 +547,14 @@ module.exports = function (Engine) {
 			}
 		}
 
-		game.active = CP
-		if (romania_uncollapsed) {
+		if (cp_collapse_sr_available) {
+			game.active = CP
 			game.state = "event_serbian_collapse_choice"
 			game.event_ctx = create_collapse_choice_ctx("serbia", 2)
-		} else {
-			game.state = "event_serbian_collapse_sr"
-			game.event_ctx = create_collapse_sr_ctx()
+			return "interactive"
 		}
 
-		return "interactive"
+		return "resolved"
 	}
 
 	function apply_romanian_collapse(game, log, options = {}) {
@@ -576,26 +579,24 @@ module.exports = function (Engine) {
 			remove_delayed_reinforcements_for_piece(game, ge_cav)
 		}
 
-		let choice_available = !!game.events["bulgaria"] && !has_serbia_collapsed(game)
-		// 19.5.6：若保加利亚已参战且塞尔维亚尚未崩溃，则 AH 师进入“选择 3 个移除”步骤；
+		let cp_collapse_sr_available = !!game.events["bulgaria"] && !has_serbia_collapsed(game)
+		// 19.5.6：若保加利亚已参战且塞尔维亚尚未崩溃，则 AH 师进入“选择 3 个移除以换取崩溃 SR”步骤；
 		// 非师级的 Romania 入场 AH 单位（例如 AH VI R Corps）仍会立即移除。
 		for (let p = 0; p < data.pieces.length; p++) {
 			let info = data.pieces[p]
 			if (!info || !ROMANIAN_COLLAPSE_AH_ENTRY_UNIT_NAMES.has(info.name)) continue
-			if (choice_available && ROMANIAN_COLLAPSE_AH_DIVISION_NAMES.includes(info.name)) continue
+			if (cp_collapse_sr_available && ROMANIAN_COLLAPSE_AH_DIVISION_NAMES.includes(info.name)) continue
 			remove_piece_from_game(game, p, log)
 		}
 
-		game.active = CP
-		if (choice_available) {
+		if (cp_collapse_sr_available) {
+			game.active = CP
 			game.state = "event_romanian_collapse_choice"
 			game.event_ctx = create_collapse_choice_ctx("romania", 3)
-		} else {
-			game.state = "event_romanian_collapse_sr"
-			game.event_ctx = create_collapse_sr_ctx()
+			return "interactive"
 		}
 
-		return "interactive"
+		return "resolved"
 	}
 
 	function maybe_offer_serbian_collapse(game) {
