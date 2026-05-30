@@ -625,7 +625,13 @@ function drag_element(container, handle) {
 	 */
 	function dragMouseDown(e) {
 		const evt = e || window.event
-		if (evt.target.classList.contains("dialog_x")) {
+		if (
+			evt.target &&
+			typeof evt.target.closest === "function" &&
+			evt.target.closest(
+				".dialog_x, .track_resize_handle, .track_turn_controls, .track_turn_menu, button, a, input, select, textarea, [role='button']"
+			)
+		) {
 			return
 		}
 		evt.preventDefault()
@@ -1098,9 +1104,221 @@ function format_track_slot_title(faction, round, action) {
 	return text
 }
 
+function get_track_player_name(faction) {
+	const roleId = faction === AP ? "role_Allied_Powers" : "role_Central_Powers"
+	const name = document.querySelector(`#${roleId} .role_user`)?.textContent || ""
+	const text = String(name).replace(/\s+/g, " ").trim()
+	return text && text !== "-" ? text : ""
+}
+
 const track_snap_by_turn = new Map()
 let track_snap_pending = null
 let track_snap_probe = null
+let track_turn_loading = false
+let track_turn_request_id = 0
+let track_latest_turn = 0
+
+function setup_track_dialog_resize(dialog) {
+	if (!dialog || dialog.dataset.resizeReady === "1") return
+	dialog.dataset.resizeReady = "1"
+	for (const corner of ["nw", "ne", "sw", "se"]) {
+		const handle = document.createElement("div")
+		handle.className = `track_resize_handle ${corner}`
+		handle.title = "缩放面板"
+		handle.addEventListener("mousedown", (event) => start_track_dialog_resize(event, dialog, corner))
+		dialog.appendChild(handle)
+	}
+}
+
+function start_track_dialog_resize(event, dialog, corner) {
+	if (window.matchMedia("(max-width: 800px)").matches) return
+	event.preventDefault()
+	event.stopPropagation()
+
+	const rect = dialog.getBoundingClientRect()
+	const startX = event.clientX
+	const startY = event.clientY
+	const minWidth = 720
+	const minHeight = 360
+	const margin = 8
+
+	function resize(moveEvent) {
+		moveEvent.preventDefault()
+		let left = rect.left
+		let top = rect.top
+		let width = rect.width
+		let height = rect.height
+		const dx = moveEvent.clientX - startX
+		const dy = moveEvent.clientY - startY
+
+		if (corner.includes("e")) width = rect.width + dx
+		if (corner.includes("s")) height = rect.height + dy
+		if (corner.includes("w")) {
+			width = rect.width - dx
+			left = rect.left + dx
+		}
+		if (corner.includes("n")) {
+			height = rect.height - dy
+			top = rect.top + dy
+		}
+
+		width = Math.min(Math.max(width, minWidth), window.innerWidth - margin * 2)
+		height = Math.min(Math.max(height, minHeight), window.innerHeight - margin * 2)
+		if (corner.includes("w")) left = rect.right - width
+		if (corner.includes("n")) top = rect.bottom - height
+
+		left = Math.min(Math.max(left, margin), window.innerWidth - width - margin)
+		top = Math.min(Math.max(top, margin), window.innerHeight - height - margin)
+
+		dialog.classList.add("track_resized")
+		dialog.style.position = "fixed"
+		dialog.style.left = `${left}px`
+		dialog.style.top = `${top}px`
+		dialog.style.width = `${width}px`
+		dialog.style.height = `${height}px`
+	}
+
+	function stop_resize() {
+		document.removeEventListener("mousemove", resize)
+		document.removeEventListener("mouseup", stop_resize)
+	}
+
+	document.addEventListener("mousemove", resize)
+	document.addEventListener("mouseup", stop_resize)
+}
+
+function clamp_track_turn(turn) {
+	turn = Number(turn)
+	if (!Number.isFinite(turn)) return get_track_turn()
+	return Math.max(1, Math.min(MAX_TURN_TRACK, Math.trunc(turn)))
+}
+
+function get_cached_track_max_turn() {
+	let maxTurn = 0
+	for (const turn of track_snap_by_turn.keys()) {
+		if (Number.isInteger(turn)) maxTurn = Math.max(maxTurn, turn)
+	}
+	return maxTurn
+}
+
+function get_track_available_min_turn() {
+	const minTurn = Number(view?.scenario_min_turn)
+	return Number.isInteger(minTurn) && minTurn > 0 ? Math.min(MAX_TURN_TRACK, minTurn) : 1
+}
+
+function get_track_available_max_turn() {
+	const turn = clamp_track_turn(get_track_turn())
+	const replay = parse_replay_prompt()
+	if (!replay || replay.snap === replay.count) {
+		track_latest_turn = Math.max(track_latest_turn, turn)
+	}
+	return Math.max(
+		get_track_available_min_turn(),
+		Math.min(MAX_TURN_TRACK, Math.max(track_latest_turn, turn, get_cached_track_max_turn()))
+	)
+}
+
+function is_track_turn_available(turn) {
+	turn = Number(turn)
+	return Number.isInteger(turn) && turn >= get_track_available_min_turn() && turn <= get_track_available_max_turn()
+}
+
+function get_track_display_turn() {
+	const pending_turn = Number(window.track_view_turn)
+	if (track_turn_loading && Number.isInteger(pending_turn)) return clamp_track_turn(pending_turn)
+	return clamp_track_turn(get_track_turn())
+}
+
+function set_track_turn_loading(loading) {
+	track_turn_loading = !!loading
+	const dialog = document.getElementById("track_dialog")
+	if (!dialog) return
+
+	dialog.classList.toggle("track_loading", track_turn_loading)
+	if (track_turn_loading) dialog.setAttribute("aria-busy", "true")
+	else dialog.removeAttribute("aria-busy")
+
+	const turnNum = dialog.querySelector(".track_turn_num")
+	if (turnNum) turnNum.textContent = String(get_track_display_turn()).padStart(2, "0")
+	if (turnNum) turnNum.disabled = track_turn_loading
+	for (const button of dialog.querySelectorAll(".track_turn_arrow")) {
+		const delta = Number(button.dataset.delta)
+		const targetTurn = get_track_display_turn() + delta
+		button.disabled = track_turn_loading || !is_track_turn_available(targetTurn)
+	}
+}
+
+function close_track_turn_menu(menu, closeHandlers) {
+	if (!menu) return
+	menu.remove()
+	document.removeEventListener("click", closeHandlers.click)
+	document.removeEventListener("keydown", closeHandlers.keydown)
+}
+
+function open_track_turn_menu(picker) {
+	const existingMenu = picker.querySelector(".track_turn_menu")
+	if (existingMenu) {
+		if (typeof existingMenu.closeTrackMenu === "function") existingMenu.closeTrackMenu()
+		else existingMenu.remove()
+		return
+	}
+
+	const menu = document.createElement("menu")
+	menu.className = "track_turn_menu"
+	menu.setAttribute("aria-label", "选择回合")
+
+	const closeHandlers = {
+		click: (event) => {
+			if (!picker.contains(event.target)) close_track_turn_menu(menu, closeHandlers)
+		},
+		keydown: (event) => {
+			if (event.key === "Escape") close_track_turn_menu(menu, closeHandlers)
+		}
+	}
+	menu.closeTrackMenu = () => close_track_turn_menu(menu, closeHandlers)
+
+	const selectedTurn = get_track_display_turn()
+	const minTurn = get_track_available_min_turn()
+	const maxTurn = get_track_available_max_turn()
+	for (let i = minTurn; i <= maxTurn; i += 1) {
+		const item = document.createElement("li")
+		item.textContent = String(i).padStart(2, "0")
+		item.tabIndex = 0
+		item.classList.toggle("selected", i === selectedTurn)
+		const selectTurn = (ev) => {
+			ev.stopPropagation()
+			close_track_turn_menu(menu, closeHandlers)
+			goto_track_turn(i)
+		}
+		item.onclick = selectTurn
+		item.onkeydown = (ev) => {
+			if (ev.key === "Enter" || ev.key === " ") selectTurn(ev)
+		}
+		menu.appendChild(item)
+	}
+
+	picker.appendChild(menu)
+	document.addEventListener("click", closeHandlers.click)
+	document.addEventListener("keydown", closeHandlers.keydown)
+}
+
+function create_track_turn_arrow(delta, displayTurn) {
+	const button = document.createElement("button")
+	button.type = "button"
+	button.className = "track_turn_arrow"
+	button.dataset.delta = String(delta)
+	button.textContent = delta < 0 ? "‹" : "›"
+	button.title = delta < 0 ? "上一回合" : "下一回合"
+	button.setAttribute("aria-label", button.title)
+
+	const targetTurn = displayTurn + delta
+	button.disabled = track_turn_loading || !is_track_turn_available(targetTurn)
+	button.onclick = (event) => {
+		event.stopPropagation()
+		goto_track_turn(targetTurn)
+	}
+	return button
+}
 
 function parse_replay_prompt() {
 	const text = typeof view?.prompt === "string" ? view.prompt : ""
@@ -1202,18 +1420,44 @@ function update_track_snap_pending() {
 
 async function goto_track_turn(turn) {
 	turn = Number(turn)
-	if (!Number.isInteger(turn) || turn < 1) return
+	if (!is_track_turn_available(turn)) {
+		window.track_view_turn = get_track_display_turn()
+		show_track_dialog({ preservePosition: true })
+		return
+	}
+	if (turn === get_track_turn() && !track_turn_loading) {
+		window.track_view_turn = turn
+		show_track_dialog({ preservePosition: true })
+		return
+	}
+
+	const requestId = ++track_turn_request_id
 	window.track_view_turn = turn
+	set_track_turn_loading(true)
 	const snap = await find_track_snap_for_turn(turn)
+	if (requestId !== track_turn_request_id) return
 	if (snap > 0) await request_track_snap(snap)
-	show_track_dialog()
+	if (requestId !== track_turn_request_id) return
+	set_track_turn_loading(false)
+	show_track_dialog({ preservePosition: true })
 }
 
-function show_track_dialog() {
+function show_track_dialog(options = {}) {
 	const dialog_elt = document.getElementById("track_dialog")
 	if (!dialog_elt) {
 		return
 	}
+
+	if (window.matchMedia("(max-width: 800px)").matches) {
+		dialog_elt.classList.remove("track_resized")
+		dialog_elt.style.width = ""
+		dialog_elt.style.height = ""
+	}
+
+	const wasHidden = dialog_elt.hidden
+	const displayTurn = get_track_display_turn()
+	window.track_view_turn = displayTurn
+	setup_track_dialog_resize(dialog_elt)
 
 	const header = dialog_elt.querySelector(".dialog_header")
 	if (header) {
@@ -1222,56 +1466,39 @@ function show_track_dialog() {
 		title.className = "track_title"
 		title.textContent = "TURN"
 
-		const turnNum = document.createElement("div")
+		const controls = document.createElement("div")
+		controls.className = "track_turn_controls"
+		controls.setAttribute("aria-label", "回合导航")
+
+		const picker = document.createElement("span")
+		picker.className = "track_turn_picker"
+
+		const turnNum = document.createElement("button")
+		turnNum.type = "button"
 		turnNum.className = "track_turn_num clickable"
-		// 使用局部状态跟踪“查看”的回合，默认为当前回合
-		window.track_view_turn = get_track_turn()
-		turnNum.textContent = String(window.track_view_turn).padStart(2, "0")
-
-			// 如果菜单已存在，则关闭它
-
-					// 重新渲染对话框主体以反映所选回合的数据
-
-			// 点击其他地方关闭菜单
+		turnNum.textContent = String(displayTurn).padStart(2, "0")
+		turnNum.title = "选择回合"
+		turnNum.setAttribute("aria-label", "选择回合")
+		turnNum.disabled = track_turn_loading
 		turnNum.onclick = (e) => {
 			e.stopPropagation()
-			const existingMenu = turnNum.querySelector(".track_turn_menu")
-			if (existingMenu) {
-				existingMenu.remove()
-				return
-			}
-
-			const menu = document.createElement("menu")
-			menu.className = "track_turn_menu"
-			for (let i = 1; i <= 17; i += 1) {
-				const item = document.createElement("li")
-				item.textContent = String(i).padStart(2, "0")
-				item.classList.toggle("selected", i === window.track_view_turn)
-				item.onclick = (ev) => {
-					ev.stopPropagation()
-					turnNum.textContent = String(i).padStart(2, "0")
-					menu.remove()
-					goto_track_turn(i)
-				}
-				menu.appendChild(item)
-			}
-			turnNum.appendChild(menu)
-
-			const closeMenu = (event) => {
-				if (!turnNum.contains(event.target)) {
-					menu.remove()
-					document.removeEventListener("click", closeMenu)
-				}
-			}
-			document.addEventListener("click", closeMenu)
+			open_track_turn_menu(picker)
 		}
-		header.appendChild(title)
-		header.appendChild(turnNum)
+		picker.appendChild(turnNum)
+		controls.appendChild(create_track_turn_arrow(-1, displayTurn))
+		controls.appendChild(picker)
+		controls.appendChild(create_track_turn_arrow(1, displayTurn))
 
-		// 使对话框可通过 TURN 标题拖拽
-		drag_element("#track_dialog", ".track_title")
+		header.appendChild(title)
+		header.appendChild(controls)
+
+		// 顶栏空白处可拖拽，回合按钮和菜单仍保持纯交互。
+		drag_element("#track_dialog", ".dialog_header")
 	}
 
+	const allowMousePosition = wasHidden && !options.preservePosition
+	const lastMouse = window.last_mouse_event
+	if (!allowMousePosition) window.last_mouse_event = null
 	show_dialog("track_dialog", (body) => {
 		const container = document.createElement("div")
 		container.className = "track_container"
@@ -1376,7 +1603,16 @@ function show_track_dialog() {
 
 			const fHeader = document.createElement("div")
 			fHeader.className = "track_faction_header"
-			fHeader.textContent = label
+			const fLabel = document.createElement("span")
+			fLabel.textContent = label
+			fHeader.appendChild(fLabel)
+			const playerName = get_track_player_name(faction)
+			if (playerName) {
+				const player = document.createElement("span")
+				player.className = "track_faction_player"
+				player.textContent = playerName
+				fHeader.appendChild(player)
+			}
 			fStats.appendChild(fHeader)
 
 			/**
@@ -1444,16 +1680,15 @@ function show_track_dialog() {
 
 		body.appendChild(container)
 	})
+	if (!allowMousePosition) window.last_mouse_event = lastMouse
+	set_track_turn_loading(track_turn_loading)
 }
 
 function update_track_dialog_if_open() {
 	update_track_snap_pending()
 	const dialog = document.getElementById("track_dialog")
 	if (!dialog || dialog.hidden) return
-	const lastMouse = window.last_mouse_event
-	window.last_mouse_event = null
-	show_track_dialog()
-	window.last_mouse_event = lastMouse
+	show_track_dialog({ preservePosition: true })
 }
 
 let card_dir = "cards.CN"
@@ -6797,8 +7032,8 @@ set_mouse_focus(window.localStorage[params.title_id + "/mouse_focus"] | 0)
 // Make all dialogs draggable
 document.querySelectorAll(".dialog").forEach((dialog) => {
 	if (dialog.id === "track_dialog") {
-		// Track dialog uses a special grabber
-		drag_element("#track_dialog", ".track_title")
+		// Track dialog keeps the header draggable while controls remain interactive.
+		drag_element("#track_dialog", ".dialog_header")
 	} else {
 		const header = dialog.querySelector(".dialog_header")
 		if (header) {

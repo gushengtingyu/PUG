@@ -117,6 +117,7 @@ module.exports = function (Engine) {
 	}
 
 	function setup_historical_scenario(game) {
+		game.scenario_min_turn = 1
 		game.scenario_max_turn = 17
 
 		game.ui_tokens = {}
@@ -362,6 +363,7 @@ module.exports = function (Engine) {
 		setup_historical_scenario(game)
 
 		game.turn = 2
+		game.scenario_min_turn = 2
 		game.scenario_max_turn = 17
 		game.initial_deck_commitment = COMMITMENT_LIMITED
 		game.vp = 10
@@ -407,6 +409,7 @@ module.exports = function (Engine) {
 		setup_limited_war_scenario(game)
 
 		game.turn = 5
+		game.scenario_min_turn = 5
 		game.scenario_max_turn = 17
 		game.initial_deck_commitment = COMMITMENT_TOTAL
 		game.vp = 9

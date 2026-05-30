@@ -936,6 +936,7 @@ exports.view = function (state, current) {
 			prompt: null,
 			actions: null,
 			turn: game.turn,
+			scenario_min_turn: game.scenario_min_turn || (game.scenario === TOTAL_WAR ? 5 : game.scenario === LIMITED_WAR ? 2 : 1),
 			vp: game.vp,
 			cp_auto_victory_marker: game.cp_auto_victory_marker,
 			blockade: !!(game.events && game.events["royal_navy_blockade"]),
