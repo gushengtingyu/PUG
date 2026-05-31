@@ -1000,7 +1000,7 @@ module.exports = function (Engine) {
 	}
 
 	function get_russian_vp_value(game, s) {
-		return get_effective_vp_value(game, s)
+		return get_effective_vp_value(game, s) > 0 ? 1 : 0
 	}
 
 	function qualifies_for_ru_vp_capture(game, s) {
