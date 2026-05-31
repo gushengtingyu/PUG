@@ -20,6 +20,7 @@ module.exports = function (Engine) {
 		get_piece_faction,
 		get_piece_nation,
 		is_regular,
+		is_irregular,
 		is_combat_unit,
 		is_hq,
 		is_heavy_arty,
@@ -1714,6 +1715,9 @@ module.exports = function (Engine) {
 	}
 
 	function get_multinational_attack_group(game, p) {
+		// Rules 17.1.8 and 17.2.1: tribes and irregulars have no nationality
+		// for coordinated attacks, so they may accompany any friendly nation.
+		if (is_tribe(p) || is_irregular(p)) return []
 		return get_piece_nation_groups_for_rule(game, p)
 	}
 
@@ -1790,6 +1794,7 @@ module.exports = function (Engine) {
 				for (let p of attackers) {
 					if (get_attack_origin_key(game, p) === origin) continue
 					let groups = get_multinational_attack_group(game, p)
+					if (!groups || groups.length === 0) continue
 					if (!groups.some((group) => group_ids.has(group) && (mask & (1 << group_ids.get(group))) !== 0)) {
 						valid = false
 						break
