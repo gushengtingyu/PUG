@@ -44,7 +44,8 @@ module.exports = function (Engine) {
 		Object.freeze({ name: "SB DIV #3", space: "Veles" }),
 		Object.freeze({ name: "SB DIV #4", space: "Veles" }),
 		Object.freeze({ name: "SB DIV #5", space: "AP Reserve" }),
-		Object.freeze({ name: "SB DIV #6", space: "AP Reserve" })
+		Object.freeze({ name: "SB DIV #6", space: "AP Reserve" }),
+		Object.freeze({ name: "SB DIV #7", space: "AP Reserve" })
 	])
 	const BULGARIA_ENTRY_PLAN = Object.freeze({
 		cp: Object.freeze({
@@ -61,14 +62,14 @@ module.exports = function (Engine) {
 		ap: Object.freeze({
 			immediate: Object.freeze([
 				Object.freeze({ name: "RO 1 Army", space: "Craiova" }),
-				Object.freeze({ name: "RO DIV #1", space: "Targu Jiu" }),
+				Object.freeze({ name: "RO DIV #1", space: "Craiova" }),
 				Object.freeze({ name: "RO DIV #2", space: "Targu Jiu" }),
 				Object.freeze({ name: "RO 2 Army", space: "Ploesti" }),
 				Object.freeze({ name: "RO DIV #3", space: "Ploesti" }),
 				Object.freeze({ name: "RO Cavalry", space: "Ploesti" }),
 				Object.freeze({ name: "RO 3 Army", space: "Turtukai", reduced: true }),
 				Object.freeze({ name: "RO DIV #4", space: "BUCHAREST" }),
-				Object.freeze({ name: "RO DIV #5", space: "BUCHAREST" }),
+				Object.freeze({ name: "RO DIV #5", space: "AP Reserve" }),
 				Object.freeze({ name: "RO DIV #6", space: "AP Reserve" }),
 				Object.freeze({ name: "RU Dobruja", space: "Constanta", reduced: true }),
 				Object.freeze({ name: "RU/SB Yugo Infantry", space: "AP Reserve" })
