@@ -186,7 +186,25 @@ exports.register = function (states, Engine, context) {
 	}
 
 	function can_use_rp_action(info) {
-		return !!(info.rp_a || info.rp_br || info.rp_ru || info.rp_ge || info.rp_tu || info.rp_in)
+		return !!(info.rp_a || info.rp_br || info.rp_ru || info.rp_ge || info.rp_tu || info.rp_in || info.rp_ah)
+	}
+
+	function format_rp_points(info) {
+		const fields = [
+			["rp_a", "A"],
+			["rp_br", "BR"],
+			["rp_ru", "RU"],
+			["rp_in", "IN"],
+			["rp_ah", "AH"],
+			["rp_ge", "GE"],
+			["rp_tu", "TU"]
+		]
+		let parts = []
+		for (let [key, label] of fields) {
+			let value = Number(info[key] || 0)
+			if (value > 0) parts.push(`${label} ${value}`)
+		}
+		return parts.length > 0 ? parts.join(", ") : null
 	}
 
 	const INFORMATION_REVEAL_EVENT_CARDS = new Set([18, 58, 70])
@@ -391,7 +409,7 @@ exports.register = function (states, Engine, context) {
 			game.card = c
 			game.last_card = c
 			let info = data.cards[c]
-			log_card_action(c, "补员")
+			log_card_action(c, "补员", format_rp_points(info))
 			record_action(ACTION_RPS, c)
 			discard_card(c)
 			add_rps(info)
@@ -505,7 +523,7 @@ exports.register = function (states, Engine, context) {
 				return
 			}
 			let info = data.cards[c]
-			log_card_action(c, "补员")
+			log_card_action(c, "补员", format_rp_points(info))
 			record_action(ACTION_RPS, c)
 			discard_card(c)
 			add_rps(info)

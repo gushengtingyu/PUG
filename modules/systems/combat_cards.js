@@ -355,7 +355,7 @@ module.exports = function (Engine) {
 		let terrain = data.spaces[s].terrain
 		let is_sinai = is_sinai_space(name)
 		let is_valid_area = area === "egypt" || area === "syria_palestine" || is_sinai
-		let is_valid_terrain = terrain === "clear" || terrain === "desert"
+		let is_valid_terrain = !terrain || terrain === "clear" || terrain === "desert"
 		let has_br = attacker_has_piece(game, (p) => data.pieces[p].nation === "br")
 		return is_valid_area && is_valid_terrain && has_br
 	}

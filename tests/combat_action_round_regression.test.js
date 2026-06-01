@@ -334,6 +334,80 @@ test("cavalry camel armored DRM log names armored defenders", () => {
 	expect(logs.join("\n")).not.toContain("骑兵/骆驼兵/装甲旅")
 })
 
+test("Tanks adds DRM but no longer adds an attacker column shift", () => {
+	let game = rules.setup(110, "Historical", { seed: 42, no_supply_warnings: true })
+	let gaza = findSpaceByName("Gaza")
+	let beersheba = findSpaceByName("Beersheba")
+	let brIXCorps = findPieceByName("BR IX Corps")
+	let tuDiv8 = findPieceByName("TU DIV #8")
+	let logs = []
+
+	for (let p = 0; p < game.pieces.length; p++) game.pieces[p] = 0
+	game.pieces[brIXCorps] = gaza
+	game.pieces[tuDiv8] = beersheba
+	game.control[gaza] = rules.AP
+	game.control[beersheba] = rules.CP
+	game.reduced = []
+	game.retreated = []
+	game.events = {}
+	game.attacked = []
+	game.active = rules.AP
+	game.attack = {
+		space: beersheba,
+		pieces: [brIXCorps],
+		attacker: rules.AP,
+		defender: rules.CP
+	}
+	game.combat_cards = { attacker: [Engine.combat.CC_AP_TANKS], defender: [] }
+	game.combat_cards_effected = []
+
+	Engine.combat.resolve_battle_sequence(game, { log: (msg) => logs.push(msg) })
+
+	expect(game.battle_result.att_drm).toBe(1)
+	expect(game.battle_result.att_shifts).toBe(-1)
+	expect(logs.join("\n")).not.toContain("+1 坦克")
+})
+
+test("Tanks treats spaces without a terrain field as clear spaces", () => {
+	let game = rules.setup(111, "Historical", { seed: 42, no_supply_warnings: true })
+	let jaffa = findSpaceByName("Jaffa")
+	let gaza = findSpaceByName("Gaza")
+	let brIXCorps = findPieceByName("BR IX Corps")
+	let tuDiv8 = findPieceByName("TU DIV #8")
+	let tanks = Engine.combat.CC_AP_TANKS
+
+	for (let p = 0; p < game.pieces.length; p++) game.pieces[p] = 0
+	game.pieces[brIXCorps] = gaza
+	game.pieces[tuDiv8] = jaffa
+	game.control[gaza] = rules.AP
+	game.control[jaffa] = rules.CP
+	game.reduced = []
+	game.retreated = []
+	game.events = {}
+	game.attacked = []
+	game.active = rules.AP
+	game.state = "play_cc_attacker"
+	game.attack = {
+		space: jaffa,
+		pieces: [brIXCorps],
+		attacker: rules.AP,
+		defender: rules.CP
+	}
+	game.combat_cards = { attacker: [], defender: [] }
+	game.hand_ap = [tanks]
+	game.cc_retained = { ap: [], cp: [] }
+	game.cc_retained_after_use = { ap: {}, cp: {} }
+	game.action_state = {}
+
+	expect(data.spaces[jaffa].terrain).toBeUndefined()
+	expect(rules.view(game, AP_ROLE).actions.play_cc).toContain(tanks)
+
+	game.attack.space = gaza
+
+	expect(data.spaces[gaza].terrain).toBe("mountain")
+	expect(rules.view(game, AP_ROLE).actions.play_cc || []).not.toContain(tanks)
+})
+
 test("German High Command cannot be reused in same action", () => {
 	let { game } = createBattleGame()
 	let germanHighCommand = findCardByEvent("GERMAN HIGH COMMAND CC")
@@ -660,6 +734,30 @@ test("Maude does not stop non-trench defensive terrain from cancelling retreat",
 
 	expect(game.state).toBe("retreat_cancel")
 	expect(game.battle_result.retreat_can_cancel).toBe(true)
+})
+
+test("Push to the Breaking Point can be played after the defender cancels retreat", () => {
+	let { game, defender1 } = createMaudeRetreatCancelGame("Bayburt", "Oltu")
+	let ptbp = findCardByEvent("PUSH TO THE BREAKING POINT CC")
+	let attacker = findPieceByName("BR IX Corps")
+
+	game.events.allenby = game.turn
+	game.hand_ap = [ptbp]
+
+	Engine.combat.end_battle_sequence(game, () => {})
+
+	expect(game.state).toBe("retreat_cancel")
+
+	game = rules.action(game, CP_ROLE, "piece", defender1)
+
+	expect(game.state).toBe("post_retreat_cc_ap")
+	expect(rules.view(game, AP_ROLE).actions.play_cc).toContain(ptbp)
+
+	game = rules.action(game, AP_ROLE, "play_cc", ptbp)
+	game = rules.action(game, AP_ROLE, "confirm")
+
+	expect(game.state).toBe("ptbp_extra_attack_prompt")
+	expect(game.ptbp_units).toContain(attacker)
 })
 
 test("HQ can accompany an eligible advancing combat unit but cannot anchor advance alone", () => {

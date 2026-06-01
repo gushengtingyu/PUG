@@ -2915,6 +2915,10 @@ exports.register = function (states, Engine, context) {
 
 	function continue_after_post_retreat_cancel() {
 		game.retreat_phase_done = true
+		if (enter_post_retreat_ap_cc_window(null)) {
+			clear_retreat_runtime_state()
+			return
+		}
 		clear_retreat_runtime_state()
 		end_battle_sequence()
 	}
@@ -3158,6 +3162,11 @@ exports.register = function (states, Engine, context) {
 		if (resume) {
 			enter_advance_state(resume)
 			clear_retreat_runtime_state()
+			return
+		}
+		if (combat.check_offer_ptbp_extra_attack(game)) {
+			game.active = AP
+			game.state = "ptbp_extra_attack_prompt"
 			return
 		}
 		goto_attack()

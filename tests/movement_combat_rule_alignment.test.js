@@ -309,6 +309,29 @@ test("Central Asian Uprising does not trigger tribe range end-move blocking", ()
 	expect(Engine.map.get_move_end_space_block_reason(game, centralAsia, CP)).toBe(null)
 })
 
+test("Tribes and Central Asian Uprising may not attack across the Caspian Sea", () => {
+	let game = setupGame(2026060101, "Historical", { no_supply_warnings: true })
+	let centralAsia = findSpace("Central Asia")
+	let baku = findSpace("Baku")
+	let enzeli = findSpace("Enzeli")
+	let casiaUprising = findPiece(CP, "CAsia Uprising")
+	let jangali = findPiece(CP, "Jangali")
+	let ruDiv1 = findPiece(AP, "RU DIV #1")
+
+	resetForRuleProbe(game, CP)
+	game.pieces[casiaUprising] = centralAsia
+	game.pieces[jangali] = enzeli
+	game.pieces[ruDiv1] = baku
+	game.control[centralAsia] = CP
+	game.control[enzeli] = CP
+	game.control[baku] = AP
+
+	expect(Engine.map.get_piece_connected_spaces_for_rule(game, centralAsia, casiaUprising, "attack")).not.toContain(baku)
+	expect(Engine.map.get_piece_connected_spaces_for_rule(game, enzeli, jangali, "attack")).not.toContain(baku)
+	expect(getAttackTargets(game, [casiaUprising], CP)).not.toContain(baku)
+	expect(getAttackTargets(game, [jangali], CP)).not.toContain(baku)
+})
+
 test("Region combat asks defender to choose one legal defense stack", () => {
 	let game = setupGame(2026051205)
 	let shiraz = findSpace("Shiraz")

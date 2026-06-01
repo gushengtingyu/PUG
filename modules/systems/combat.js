@@ -4134,17 +4134,6 @@ module.exports = function (Engine) {
 			}
 		}
 
-		// Card Shifts
-		if (game.combat_cards) {
-			if (game.combat_cards.attacker && game.combat_cards.attacker.includes(CC_AP_TANKS)) {
-				if (target_terrain === "clear" || target_terrain === "desert") {
-					att_shifts += 1
-					att_shift_factors.push("+1 坦克")
-					mark_effected(CC_AP_TANKS)
-				}
-			}
-		}
-
 		// PUG Rule: Trench shifts attacker 1 left, defender 1 right
 		let trench_level = get_defender_trench_level(game, target_space, defender_faction, defenders)
 

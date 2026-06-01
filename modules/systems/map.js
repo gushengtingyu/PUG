@@ -1299,7 +1299,9 @@ module.exports = function (Engine) {
 
 	function is_caspian_green_connection(a, b) {
 		if (!is_green_connection(a, b)) return false
-		return get_connection_flags(a, b).includes("caspian")
+		if (get_connection_flags(a, b).includes("caspian")) return true
+		let nations = data.spaces[a]?.connection_nations?.[b]
+		return Array.isArray(nations) && nations.includes("no_tribe")
 	}
 
 	function get_rail_connections(game, s, faction) {

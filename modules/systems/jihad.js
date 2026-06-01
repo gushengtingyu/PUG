@@ -304,14 +304,18 @@ module.exports = function (Engine) {
 				if (get_piece_nation(p) !== "in") continue
 				if (is_removed(game, p)) continue
 				if (is_eliminated(game, p)) {
+					helpers.log(`印度哗变：${format_piece_name(game, p)} 已在消灭格 -> 永久消灭`)
 					helpers.eliminate_piece(game, p, helpers.log, true)
 					continue
 				}
-				if (is_in_reserve(game, p) || !is_not_on_map(game, p)) {
+				let in_scu_reserve = game.pieces[p] === Engine.game_utils.get_scu_reserve_box(Engine.constants.AP)
+				if (in_scu_reserve || !is_not_on_map(game, p)) {
 					let kill_roll = helpers.roll_die()
 					if (kill_roll <= 2) {
-						helpers.log(`印度哗变：${format_piece_name(game, p)} 被消灭 (掷骰 ${kill_roll})`)
+						helpers.log(`印度哗变：${format_piece_name(game, p)} 掷骰 ${kill_roll} -> 永久消灭`)
 						helpers.eliminate_piece(game, p, helpers.log, true)
+					} else {
+						helpers.log(`印度哗变：${format_piece_name(game, p)} 掷骰 ${kill_roll} -> 无效果`)
 					}
 				}
 			}
