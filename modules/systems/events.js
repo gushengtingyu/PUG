@@ -1006,6 +1006,30 @@ module.exports = function (Engine) {
 		return false
 	}
 
+	function is_yildrim_supply_source_connected_to_galicia(game, source) {
+		let space = data.spaces[source]
+		if (!space || GALICIA < 0) return false
+		if (!YILDRIM_OTTOMAN_SUPPLY_SOURCES.includes(space.name)) return false
+		if (!is_controlled_by(game, source, CP) || !is_controlled_by(game, GALICIA, CP)) return false
+		if (is_besieged(game, source)) return false
+
+		let queue = [GALICIA]
+		let queue_head = 0
+		let visited = new Set([GALICIA])
+		while (queue_head < queue.length) {
+			let current = queue[queue_head++]
+			if (current === source) return true
+			for (let next of get_connected_spaces(game, current, undefined, CP, undefined, "supply")) {
+				if (visited.has(next)) continue
+				if (Engine.map.contains_enemy_pieces(game, next, CP) && !is_besieged(game, next)) continue
+				if (!is_controlled_by(game, next, CP)) continue
+				visited.add(next)
+				queue.push(next)
+			}
+		}
+		return false
+	}
+
 	Engine.reinf_helpers = {
 		is_br: {
 			faction: AP,
@@ -1239,20 +1263,11 @@ module.exports = function (Engine) {
 		},
 		is_yildrim_rein: {
 			faction: CP,
-			desc: "任何同盟国控制且与加利西亚(Galicia)铁路连通的土耳其补给源",
+			desc: "任何同盟国控制且可经同盟国控制地块连接至加利西亚(Galicia)的土耳其补给源",
 			check: function (game, s) {
 				let space = data.spaces[s]
-				if (!space || GALICIA < 0) return false
-				if (
-					YILDRIM_OTTOMAN_SUPPLY_SOURCES.includes(space.name) &&
-					Engine.map.is_controlled_by(game, s, CP)
-				) {
-					if (is_besieged(game, s)) return false
-					if (Engine.map.is_connected_by_rail(game, s, CP, [GALICIA], null, true)) {
-						return true
-					}
-				}
-				return false
+				if (!space) return false
+				return is_yildrim_supply_source_connected_to_galicia(game, s)
 			}
 		},
 		is_caucasian_army_reforms_rein: {
