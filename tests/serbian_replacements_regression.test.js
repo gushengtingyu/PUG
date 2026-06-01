@@ -41,37 +41,25 @@ function startSerbsReturnAtFirstDivision(game) {
 	return game
 }
 
-test("collapsed Serbian SCUs can be rebuilt only into reserve before The Serbs Return", () => {
+test("collapsed Serbian units cannot use replacements before The Serbs Return", () => {
 	let game = setupReplacementState()
 	let sbDiv = findPiece(AP, "SB DIV #1")
 	let sbArmy = findPiece(AP, "SB 1 Army")
-	let apReserve = Engine.game_utils.get_scu_reserve_box(AP)
 
 	game.pieces[sbDiv] = ELIMINATED
 	game.pieces[sbArmy] = ELIMINATED
 
 	expect(rebuildSpaceNames(game, sbDiv)).toEqual([])
 	expect(rebuildSpaceNames(game, sbArmy)).toEqual([])
-	expect(Engine.map.can_afford_replacement(game, sbDiv, 0.5)).toBe(true)
+	expect(Engine.map.can_afford_replacement(game, sbDiv, 0.5)).toBe(false)
 	expect(Engine.map.can_afford_replacement(game, sbArmy, 1)).toBe(false)
 
 	let view = rules.view(game, AP_ROLE)
-	expect(view.actions.piece || []).toContain(sbDiv)
+	expect(view.actions.piece || []).not.toContain(sbDiv)
 	expect(view.actions.piece || []).not.toContain(sbArmy)
-
-	game = rules.action(game, AP_ROLE, "piece", sbDiv)
-	view = rules.view(game, AP_ROLE)
-
-	expect(view.actions.space || []).toEqual([apReserve])
-
-	game = rules.action(game, AP_ROLE, "space", apReserve)
-
-	expect(game.pieces[sbDiv]).toBe(apReserve)
-	expect(game.reduced).toContain(sbDiv)
-	expect(game.rp_ap.a).toBe(1.5)
 })
 
-test("collapsed Serbian reduced SCUs on the map can still receive replacements before The Serbs Return", () => {
+test("collapsed Serbian reduced SCUs on the map cannot receive replacements before The Serbs Return", () => {
 	let game = setupReplacementState()
 	let sbDiv = findPiece(AP, "SB DIV #1")
 	let lemnos = findSpace("Lemnos")
@@ -80,17 +68,14 @@ test("collapsed Serbian reduced SCUs on the map can still receive replacements b
 	game.reduced = [sbDiv]
 	game.rp_ap = { a: 0.5, br: 0, ru: 0, in: 0 }
 
-	expect(Engine.map.can_afford_replacement(game, sbDiv, 0.5)).toBe(true)
-	expect(rules.view(game, AP_ROLE).actions.piece || []).toContain(sbDiv)
-
-	game = rules.action(game, AP_ROLE, "piece", sbDiv)
-
+	expect(Engine.map.can_afford_replacement(game, sbDiv, 0.5)).toBe(false)
+	expect(rules.view(game, AP_ROLE).actions.piece || []).not.toContain(sbDiv)
 	expect(game.pieces[sbDiv]).toBe(lemnos)
-	expect(game.reduced).not.toContain(sbDiv)
-	expect(game.rp_ap.a).toBe(0)
+	expect(game.reduced).toContain(sbDiv)
+	expect(game.rp_ap.a).toBe(0.5)
 })
 
-test("The Serbs Return reopens SB SCU map rebuilds but not eliminated SB LCUs", () => {
+test("The Serbs Return reopens SB SCU and LCU map rebuilds", () => {
 	let game = setupReplacementState()
 	let sbDiv = findPiece(AP, "SB DIV #1")
 	let sbArmy = findPiece(AP, "SB 1 Army")
@@ -104,12 +89,13 @@ test("The Serbs Return reopens SB SCU map rebuilds but not eliminated SB LCUs", 
 
 	expect(rebuildSpaceNames(game, sbDiv)).toEqual(expect.arrayContaining(["Salonika", "Lemnos"]))
 	expect(rebuildSpaceNames(game, sbDiv)).not.toEqual(expect.arrayContaining(["BELGRADE", "Nis"]))
-	expect(rebuildSpaceNames(game, sbArmy)).toEqual([])
-	expect(Engine.map.can_afford_replacement(game, sbArmy, 1)).toBe(false)
+	expect(rebuildSpaceNames(game, sbArmy)).toEqual(expect.arrayContaining(["Salonika", "Lemnos"]))
+	expect(rebuildSpaceNames(game, sbArmy)).not.toEqual(expect.arrayContaining(["BELGRADE", "Nis"]))
+	expect(Engine.map.can_afford_replacement(game, sbArmy, 1)).toBe(true)
 
 	let view = rules.view(game, AP_ROLE)
 	expect(view.actions.piece || []).toContain(sbDiv)
-	expect(view.actions.piece || []).not.toContain(sbArmy)
+	expect(view.actions.piece || []).toContain(sbArmy)
 
 	game = rules.action(game, AP_ROLE, "piece", sbDiv)
 	expect(rules.view(game, AP_ROLE).actions.space || []).toEqual(
@@ -122,7 +108,29 @@ test("The Serbs Return reopens SB SCU map rebuilds but not eliminated SB LCUs", 
 	Engine.set_control(game, nis, AP)
 
 	expect(rebuildSpaceNames(game, sbDiv)).toEqual(expect.arrayContaining(["BELGRADE", "Nis", "Salonika", "Lemnos"]))
-	expect(rebuildSpaceNames(game, sbArmy)).toEqual([])
+	expect(rebuildSpaceNames(game, sbArmy)).toEqual(expect.arrayContaining(["BELGRADE", "Nis", "Salonika", "Lemnos"]))
+})
+
+test("The Serbs Return allows a later eliminated SB LCU to be rebuilt during the RP phase", () => {
+	let game = setupReplacementState()
+	let sbArmy = findPiece(AP, "SB 1 Army")
+	let lemnos = findSpace("Lemnos")
+
+	game.events.the_serbs_return = game.turn
+	game.pieces[sbArmy] = ELIMINATED
+
+	expect(rules.view(game, AP_ROLE).actions.piece || []).toContain(sbArmy)
+
+	game = rules.action(game, AP_ROLE, "piece", sbArmy)
+
+	expect(game.state).toBe("rp_rebuild_where")
+	expect(game.rp_ap.a).toBe(1)
+	expect(rules.view(game, AP_ROLE).actions.space || []).toContain(lemnos)
+
+	game = rules.action(game, AP_ROLE, "space", lemnos)
+
+	expect(game.pieces[sbArmy]).toBe(lemnos)
+	expect(game.reduced).toContain(sbArmy)
 })
 
 test("The Serbs Return can place an SB SCU that was already in reserve", () => {

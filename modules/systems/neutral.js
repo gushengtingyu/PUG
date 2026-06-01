@@ -440,7 +440,6 @@ module.exports = function (Engine) {
 					Engine.collapse &&
 					typeof Engine.collapse.has_serbia_collapsed === "function" &&
 					Engine.collapse.has_serbia_collapsed(game)
-				if (serbia_collapsed && piece.piece_class === "LCU") return false
 				let serbs_return = !!(game.events && game.events["the_serbs_return"])
 				let belgrade_recaptured = BELGRADE >= 0 && map.is_controlled_by(game, BELGRADE, AP)
 				let can_use_port = !besieged && (space_id === LEMNOS || (space_id === SALONIKA && ap_controlled))

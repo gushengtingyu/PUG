@@ -4864,16 +4864,16 @@ module.exports = function (Engine) {
 	function spend_any_cp_rp(game, cost) {
 		// 消费 CP 任意一种 RP
 		let rps = game.rp_cp
+		if (rps.ge >= cost) {
+			rps.ge -= cost
+			return true
+		}
 		if (rps.a >= cost) {
 			rps.a -= cost
 			return true
 		}
 		if (rps.tu >= cost) {
 			rps.tu -= cost
-			return true
-		}
-		if (rps.ge >= cost) {
-			rps.ge -= cost
 			return true
 		}
 		return false
@@ -5344,8 +5344,7 @@ module.exports = function (Engine) {
 		}
 		if (nation === "sb" && has_serbia_collapsed(game)) {
 			let serbs_return = !!(game.events && game.events["the_serbs_return"])
-			if (!serbs_return) return info.piece_class === "SCU"
-			if (is_eliminated(game, p) && info.piece_class === "LCU") return false
+			if (!serbs_return) return false
 		}
 		if (game.events && game.events["arab_desertion"] && nation === "tua") {
 			return false

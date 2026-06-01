@@ -51,7 +51,6 @@ function setupCollapsedSerbia() {
 function run() {
 	let sbDiv = findPiece("SB DIV #1")
 	let sbArmy = findPiece("SB 1 Army")
-	let apReserve = Engine.game_utils.get_scu_reserve_box(AP)
 
 	let beforeReturn = setupCollapsedSerbia()
 	beforeReturn.pieces[sbDiv] = ELIMINATED
@@ -59,14 +58,12 @@ function run() {
 
 	assertSameMembers(rebuildNames(beforeReturn, sbDiv), [], "collapsed SB SCU has no map rebuilds before return")
 	assertSameMembers(rebuildNames(beforeReturn, sbArmy), [], "collapsed SB LCU has no map rebuilds before return")
-	assert.equal(Engine.map.can_afford_replacement(beforeReturn, sbDiv, 0.5), true)
+	assert.equal(Engine.map.can_afford_replacement(beforeReturn, sbDiv, 0.5), false)
 	assert.equal(Engine.map.can_afford_replacement(beforeReturn, sbArmy, 1), false)
 
 	let view = rules.view(beforeReturn, rules.roles[0])
-	assert.ok((view.actions.piece || []).includes(sbDiv), "collapsed SB SCU can be selected for reserve rebuild")
+	assert.ok(!(view.actions.piece || []).includes(sbDiv), "collapsed SB SCU cannot be selected before return")
 	assert.ok(!(view.actions.piece || []).includes(sbArmy), "collapsed SB LCU cannot be selected for rebuild")
-	beforeReturn = rules.action(beforeReturn, rules.roles[0], "piece", sbDiv)
-	assertSameMembers(rules.view(beforeReturn, rules.roles[0]).actions.space || [], [apReserve], "reserve only before return")
 
 	let afterReturn = setupCollapsedSerbia()
 	afterReturn.events.the_serbs_return = afterReturn.turn
@@ -74,7 +71,7 @@ function run() {
 	afterReturn.pieces[sbArmy] = ELIMINATED
 
 	assertSameMembers(rebuildNames(afterReturn, sbDiv), ["Salonika", "Lemnos"], "SB SCU returns through Aegean ports")
-	assertSameMembers(rebuildNames(afterReturn, sbArmy), [], "SB LCU remains unrebuildable after collapse")
+	assertSameMembers(rebuildNames(afterReturn, sbArmy), ["Salonika", "Lemnos"], "SB LCU returns through Aegean ports")
 
 	Engine.set_control(afterReturn, findSpace("BELGRADE"), AP)
 	Engine.set_control(afterReturn, findSpace("Nis"), AP)
@@ -83,14 +80,17 @@ function run() {
 		["BELGRADE", "Nis", "Salonika", "Lemnos"],
 		"recaptured Belgrade reopens Serbian cities for SB SCUs"
 	)
-	assertSameMembers(rebuildNames(afterReturn, sbArmy), [], "recaptured Belgrade still does not rebuild SB LCUs")
+	assertSameMembers(
+		rebuildNames(afterReturn, sbArmy),
+		["BELGRADE", "Nis", "Salonika", "Lemnos"],
+		"recaptured Belgrade reopens Serbian cities for SB LCUs"
+	)
 
 	let reducedOnMap = setupCollapsedSerbia()
 	reducedOnMap.pieces[sbDiv] = findSpace("Lemnos")
 	reducedOnMap.reduced = [sbDiv]
-	assert.equal(Engine.map.can_afford_replacement(reducedOnMap, sbDiv, 0.5), true)
-	reducedOnMap = rules.action(reducedOnMap, rules.roles[0], "piece", sbDiv)
-	assert.ok(!reducedOnMap.reduced.includes(sbDiv), "on-map collapsed SB SCU repairs normally")
+	assert.equal(Engine.map.can_afford_replacement(reducedOnMap, sbDiv, 0.5), false)
+	assert.ok(!(rules.view(reducedOnMap, rules.roles[0]).actions.piece || []).includes(sbDiv))
 
 	console.log("Serbian replacement simulation passed")
 }
