@@ -277,6 +277,11 @@ exports.register = function (states, Engine, context) {
 		return from_is_sea_port && to_is_sea_port
 	}
 
+	function format_sr_space(s) {
+		if (s === Engine.constants.RESERVE) return "预备格"
+		return space_name(s)
+	}
+
 	function with_temporarily_removed_beachhead(beachhead, fn) {
 		let original = Array.isArray(game.beachheads) ? game.beachheads.slice() : []
 		if (game.beachheads) Engine.utils.set_delete(game.beachheads, beachhead)
@@ -668,7 +673,7 @@ exports.register = function (states, Engine, context) {
 				if (!game.sr_moved) game.sr_moved = []
 				Engine.utils.set_add(game.sr_moved, p)
 				log(
-					`${piece_name(p)} Suez delayed SR: will arrive during the Replacement Phase of turn ${game.turn + 1}.`
+					`${piece_name(p)} Suez delayed SR: ${format_sr_space(from)} → ${format_sr_space(s)}; will arrive during the Replacement Phase of turn ${game.turn + 1}.`
 				)
 				game.sr_piece = null
 				set_action_state("sr_phase")
@@ -691,7 +696,9 @@ exports.register = function (states, Engine, context) {
 
 			if (!game.sr_moved) game.sr_moved = []
 			Engine.utils.set_add(game.sr_moved, p)
-			log(`${piece_name(p)} 战略调整至 ${space_name(s)}${total_cost !== 1 ? ` (Cost: ${total_cost})` : ''}`)
+			log(
+				`${piece_name(p)} 战略调整：${format_sr_space(from)} → ${format_sr_space(s)}${total_cost !== 1 ? ` (Cost: ${total_cost})` : ""}`
+			)
 			game.sr_piece = null
 
 			// Rule 13.4.2 / 18.1.2: +1 Jihad if AP sea-SRs away the last unit
