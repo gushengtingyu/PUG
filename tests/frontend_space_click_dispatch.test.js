@@ -14,7 +14,7 @@ function loadSpaceClickHelpers(view, overrides = {}) {
 
 	const context = {
 		view,
-		activation_action_menu: ["activate_move", "activate_attack", "deactivate"],
+		activation_action_menu: ["activate_move", "activate_attack", "activate_attack_with_br", "deactivate"],
 		is_reserve_box_space_id: () => false,
 		has_clickable_piece_intent_in_space: () => false,
 		...overrides
@@ -117,6 +117,18 @@ test("map-space clicks still prefer direct space and activation intents", () => 
 		},
 		activated: {}
 	})
+	expect(helpers.get_space_click_intent(5)).toEqual({ type: "show_activation_popup" })
+})
+
+test("map-space clicks show activation menu instead of directly paying British No Attack penalty", () => {
+	const helpers = loadSpaceClickHelpers({
+		actions: {
+			activate_move: [5],
+			activate_attack_with_br: [5]
+		},
+		activated: {}
+	})
+
 	expect(helpers.get_space_click_intent(5)).toEqual({ type: "show_activation_popup" })
 })
 
