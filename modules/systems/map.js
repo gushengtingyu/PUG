@@ -792,6 +792,7 @@ module.exports = function (Engine) {
 			return legal
 		}
 		if (game.control && (game.control[s] === AP || game.control[s] === CP || game.control[s] === "neutral")) {
+			if (!Engine.can_set_control(game, s, game.control[s])) return get_default_controller(game, s)
 			return game.control[s]
 		}
 		return get_default_controller(game, s)
@@ -1862,6 +1863,7 @@ module.exports = function (Engine) {
 	function get_move_end_space_block_reason(game, s, faction, options = {}) {
 		let friendly = get_pieces_in_space(game, s).filter((p) => get_piece_effective_faction(game, p) === faction)
 		if (friendly.length === 0) return null
+		if (!Engine.neutral.can_end_move_in_neutral_greece(game, friendly[0], s, faction)) return "中立希腊移动限制"
 
 		// Rule 9.2.3: Units may move through but not end their Movement in a space containing an Attack marker.
 		if (game.activated && Array.isArray(game.activated.attack) && game.activated.attack.includes(s)) {
@@ -1986,6 +1988,7 @@ module.exports = function (Engine) {
 		if (is_controlled_by(game, target, faction)) return false
 		if (has_undestroyed_fort(game, target, other_faction(faction))) return false
 		if (data.spaces[target]?.region && contains_enemy_pieces(game, target, faction)) return false
+		if (!Engine.can_set_control(game, target, faction)) return false
 		return true
 	}
 
@@ -2715,17 +2718,14 @@ module.exports = function (Engine) {
 
 				if (context.enemy_regular[faction][next] === 1 && !is_besieged_with_context(game, next, context))
 					continue
-				if (is_neutral_supply_blocked(game, next, faction) && !has_partial_control_with_context(context, next))
-					continue
+				if (is_supply_trace_blocked_by_neutrality(game, next, faction, context)) continue
 
 				let is_friendly = is_controlled_by(game, next, faction)
 				let is_besieged_enemy = is_besieged_with_context(game, next, context)
-				let has_friendly_pieces = context.friendly[faction][next] === 1
-				let has_partial_control = has_partial_control_with_context(context, next)
-				let is_disrupted_by_enemy = context.disrupted[faction][next] === 1
 
 				if (is_friendly && is_besieged_enemy && get_fort_owner(game, next) === faction) continue
-				if (!is_friendly && !is_besieged_enemy && !has_friendly_pieces && !has_partial_control) continue
+				if (!can_trace_supply_through_space(game, next, faction, context, { is_friendly, is_besieged_enemy }))
+					continue
 
 				let current_is_desert = data.spaces[current].terrain === DESERT
 				let next_is_desert = data.spaces[next].terrain === DESERT
@@ -3563,6 +3563,34 @@ module.exports = function (Engine) {
 		return !is_neutral_greece_supply_passable(game, s, faction)
 	}
 
+	function is_supply_trace_blocked_by_neutrality(game, s, faction, context) {
+		let neutral_greece_access = get_neutral_greece_supply_access(game, s, faction)
+		if (neutral_greece_access !== null) return neutral_greece_access === "blocked"
+		if (!is_neutral_supply_blocked(game, s, faction)) return false
+		return !has_partial_control_with_context(context, s)
+	}
+
+	function get_neutral_greece_supply_access(game, s, faction) {
+		if (!Engine.neutral || typeof Engine.neutral.get_neutral_greece_supply_access !== "function") return null
+		return Engine.neutral.get_neutral_greece_supply_access(game, s, faction)
+	}
+
+	function can_trace_supply_through_space(game, s, faction, context, options = {}) {
+		return !!(
+			options.is_friendly ||
+			options.is_besieged_enemy ||
+			context.friendly[faction][s] === 1 ||
+			has_partial_control_with_context(context, s) ||
+			options.enemy_transit_allowed ||
+			options.is_cp_neutral_afghanistan_source ||
+			is_neutral_greece_supply_passable(game, s, faction)
+		)
+	}
+
+	function can_expand_supply_trace_from_space(game, s, faction) {
+		return get_neutral_greece_supply_access(game, s, faction) !== "terminal"
+	}
+
 	function is_besieged(game, s) {
 		if (game.special_besieged && set_has(game.special_besieged, s)) return true
 		if (!data.spaces[s].fort) return false
@@ -3704,9 +3732,8 @@ module.exports = function (Engine) {
 				)
 					continue
 
-				// Neutral spaces block supply unless they are Greece for AP
-				if (is_neutral_supply_blocked(game, next, faction) && !has_partial_control_with_context(context, next))
-					continue
+				// Neutral spaces block supply except for the Rule 19.2.3 Greece privileges.
+				if (is_supply_trace_blocked_by_neutrality(game, next, faction, context)) continue
 
 				// Rule 14.1.3: Enemy Full Control blocks supply.
 				// Partial Control (irregular units/tribes) does not.
@@ -3716,8 +3743,6 @@ module.exports = function (Engine) {
 					is_friendly = true
 				}
 				let is_besieged_enemy = is_besieged_with_context(game, next, context)
-				let has_friendly_pieces = context.friendly[faction][next] === 1
-				let has_partial_control = has_partial_control_with_context(context, next)
 				let is_disrupted_by_enemy = context.disrupted[faction][next] === 1
 
 				// Rule 14.1.3: Friendly besieged Fort blocks supply trace.
@@ -3725,18 +3750,23 @@ module.exports = function (Engine) {
 
 				// Uprising markers disrupt supply but do not change control; only Full Control,
 				// actual Partial Control, friendly pieces, or a besieged enemy fort let the trace pass.
-				if (!is_friendly && !is_besieged_enemy && !has_friendly_pieces && !has_partial_control) continue
+				if (!can_trace_supply_through_space(game, next, faction, context, { is_friendly, is_besieged_enemy }))
+					continue
 
 				let next_disrupted = current_disrupted || is_disrupted_by_enemy
 
 				if (next_disrupted) {
 					if (full_supplied.has(next) || disrupted_supplied.has(next)) continue
 					disrupted_supplied.add(next)
-					queue.push({ s: next, disrupted: true })
+					if (can_expand_supply_trace_from_space(game, next, faction)) {
+						queue.push({ s: next, disrupted: true })
+					}
 				} else {
 					if (full_supplied.has(next)) continue
 					full_supplied.add(next)
-					queue.push({ s: next, disrupted: false })
+					if (can_expand_supply_trace_from_space(game, next, faction)) {
+						queue.push({ s: next, disrupted: false })
+					}
 					// If this was already marked as disrupted, it's now full
 					disrupted_supplied.delete(next)
 				}
@@ -4648,17 +4678,14 @@ module.exports = function (Engine) {
 				)
 					continue
 
-				// Neutral spaces block supply unless they are Greece for AP
-				if (is_neutral_supply_blocked(game, next, faction) && !has_partial_control_with_context(context, next))
-					continue
+				// Neutral spaces block supply except for the Rule 19.2.3 Greece privileges.
+				if (is_supply_trace_blocked_by_neutrality(game, next, faction, context)) continue
 
 				let is_friendly = is_controlled_by(game, next, faction)
 				if (is_ap_supply_beachhead(game, next, faction)) {
 					is_friendly = true
 				}
 				let is_besieged_enemy = is_besieged_with_context(game, next, context)
-				let has_friendly_pieces = context.friendly[faction][next] === 1
-				let has_partial_control = has_partial_control_with_context(context, next)
 				let is_disrupted_by_enemy = context.disrupted[faction][next] === 1
 				let is_cp_neutral_afghanistan_source =
 					source_flag[next] === 1 &&
@@ -4673,12 +4700,12 @@ module.exports = function (Engine) {
 				// Uprising markers disrupt supply but do not change control; only Full Control,
 				// actual Partial Control, friendly pieces, or a besieged enemy fort let the trace pass.
 				if (
-					!is_friendly &&
-					!is_besieged_enemy &&
-					!has_friendly_pieces &&
-					!has_partial_control &&
-					!enemy_transit_allowed &&
-					!is_cp_neutral_afghanistan_source
+					!can_trace_supply_through_space(game, next, faction, context, {
+						is_friendly,
+						is_besieged_enemy,
+						enemy_transit_allowed,
+						is_cp_neutral_afghanistan_source
+					})
 				)
 					continue
 
@@ -4701,6 +4728,7 @@ module.exports = function (Engine) {
 					visited_clean.add(next)
 				}
 				if (enemy_controlled_contested_region && !enemy_transit_allowed) continue
+				if (!can_expand_supply_trace_from_space(game, next, faction)) continue
 				queue.push({ s: next, disrupted: next_disrupted })
 			}
 		}

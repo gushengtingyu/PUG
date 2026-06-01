@@ -112,7 +112,7 @@ test("Treachery at Fort Rupel lets CP units adjacent to Doiran or Ft. Rupel choo
 	game = rules.action(game, CP_ROLE, "space", doiran)
 
 	expect(game.pieces[velesUnit]).toBe(doiran)
-	expect(Engine.map.get_space_controller(game, doiran)).toBe(CP)
+	expect(Engine.map.get_space_controller(game, doiran)).toBe("neutral")
 	expect(game.trenches_2).toContain(doiran)
 	expect(Engine.game_utils.has_trench(game, doiran)).toBe(2)
 	expect(Engine.game_utils.get_trench_owner(game, doiran)).toBe(CP)

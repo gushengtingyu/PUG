@@ -2818,7 +2818,8 @@ exports.register = function (states, Engine, context) {
 		let can_gain_control =
 			can_unit_gain_control(p) &&
 			!Engine.map.contains_enemy_pieces(game, to_space, CP) &&
-			!combat.has_undestroyed_fort(game, to_space, AP)
+			!combat.has_undestroyed_fort(game, to_space, AP) &&
+			Engine.can_set_control(game, to_space, CP)
 
 		game.pieces[p] = to_space
 		if (can_gain_control) game.control[to_space] = CP

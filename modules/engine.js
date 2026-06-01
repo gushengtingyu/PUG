@@ -178,6 +178,25 @@ const Engine = {
 		Engine.sync_vp_state(game, s, previous_override, options)
 	},
 
+	can_set_control(game, s, faction, options) {
+		if (!Engine.neutral || typeof Engine.neutral.can_set_control !== "function") return true
+		return Engine.neutral.can_set_control(game, s, faction, options)
+	},
+
+	normalize_control(game) {
+		if (!game || !Array.isArray(game.control)) return
+		for (let s = 1; s < data.spaces.length; s++) {
+			let faction = game.control[s]
+			if (faction !== constants.AP && faction !== constants.CP) continue
+			if (!Engine.can_set_control(game, s, faction)) game.control[s] = null
+		}
+	},
+
+	on_piece_rebuilt(game, p, s) {
+		if (!Engine.neutral || typeof Engine.neutral.on_piece_rebuilt !== "function") return
+		Engine.neutral.on_piece_rebuilt(game, p, s)
+	},
+
 	get_jihad_city_effective_owner(game, s) {
 		if (!Engine.jihad || typeof Engine.jihad.get_jihad_city_effective_owner !== "function") return 0
 		return Engine.jihad.get_jihad_city_effective_owner(game, s)
@@ -298,7 +317,8 @@ const Engine = {
 		}
 	},
 
-	set_control(game, s, faction) {
+	set_control(game, s, faction, options) {
+		if (!Engine.can_set_control(game, s, faction, options)) return
 		if (
 			Engine.map &&
 			typeof Engine.map.is_potential_beachhead_space === "function" &&

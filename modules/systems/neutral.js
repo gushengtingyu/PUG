@@ -13,6 +13,7 @@ module.exports = function (Engine) {
 	const LEMNOS = find_space("Lemnos")
 	const SALONIKA = find_space("Salonika")
 	const ATHENS = find_space("ATHENS")
+	const FORT_RUPEL = find_space("Ft. Rupel")
 	const BELGRADE = find_space("BELGRADE")
 	const NIS = find_space("Nis")
 	const NEUTRAL_PERSIA_FIRST_ENTRY_PENALTY = "neutral_persia_first_entry_penalty"
@@ -101,6 +102,23 @@ module.exports = function (Engine) {
 		let info = data.spaces[s]
 		if (!info) return false
 		return info.name === "Salonika" || info.name === "SALONIKA"
+	}
+
+	function can_set_control(game, s, faction, options = {}) {
+		let info = data.spaces[s]
+		if (!info || info.nation !== "gr" || !is_greece_neutral(game)) return true
+		if (faction !== AP && faction !== CP) return true
+
+		if (options.greece_entry && is_athens_space(s)) return true
+
+		// Rule 19.2.5: neutral Salonika may become an AP-controlled port.
+		if (faction === AP && is_salonika_space(s)) return true
+
+		// TREACHERY AT FORT RUPEL explicitly transfers the fort to CP control.
+		// Once transferred, it remains an ordinary contested control space.
+		if (s === FORT_RUPEL && game.events && game.events["rupel"]) return true
+
+		return false
 	}
 
 	function should_trigger_greece_entry_on_beachhead(game, space_id, faction) {
@@ -294,15 +312,19 @@ module.exports = function (Engine) {
 		return has_nation_entered(game, nation)
 	}
 
-	function is_neutral_greece_supply_passable(game, s, faction) {
+	function get_neutral_greece_supply_access(game, s, faction) {
 		const { map } = Engine
-		if (!is_greece_neutral(game)) return false
-		if (data.spaces[s].nation !== "gr") return false
-		if (faction === AP) return true
-		if (faction === CP) {
-			return map.get_pieces_in_space(game, s).length === 0
-		}
-		return false
+		if (!is_greece_neutral(game)) return null
+		if (data.spaces[s].nation !== "gr") return null
+		let pieces = map.get_pieces_in_space(game, s)
+		if (pieces.length === 0) return faction === AP || faction === CP ? "transit" : "blocked"
+		if (faction === AP && pieces.every((p) => is_greek_piece(p))) return "transit"
+		if (pieces.some((p) => game_utils.get_piece_effective_faction(game, p) === faction)) return "terminal"
+		return "blocked"
+	}
+
+	function is_neutral_greece_supply_passable(game, s, faction) {
+		return get_neutral_greece_supply_access(game, s, faction) === "transit"
 	}
 
 	function is_persian_supply_unit(p) {
@@ -455,6 +477,19 @@ module.exports = function (Engine) {
 		}
 	}
 
+	function on_piece_rebuilt(game, p, space_id) {
+		if (!is_greek_piece(p)) return false
+		let space = data.spaces[space_id]
+		if (!space || space.nation !== "gr") return false
+
+		let faction = game_utils.get_piece_effective_faction(game, p)
+		if (faction !== AP && faction !== CP) return false
+		if (Engine.map.is_controlled_by(game, space_id, faction)) return false
+
+		Engine.set_control(game, space_id, faction)
+		return true
+	}
+
 	function check_constantine_entry_conditions(game) {
 		const { map } = Engine
 		let larissa = find_space("Larissa")
@@ -489,7 +524,7 @@ module.exports = function (Engine) {
 	function apply_greek_entry_athens_control(game, faction) {
 		if (ATHENS < 0 || !data.spaces[ATHENS]) return
 		if (is_athens_occupied_by_enemy_of_greek_ally(game, faction)) return
-		Engine.set_control(game, ATHENS, faction)
+		Engine.set_control(game, ATHENS, faction, { greece_entry: true })
 	}
 
 	function align_greek_trench_owners_on_entry(game, faction) {
@@ -1177,6 +1212,7 @@ module.exports = function (Engine) {
 		is_nation_neutral,
 		is_athens_space,
 		is_salonika_space,
+		can_set_control,
 		should_trigger_greece_entry_on_beachhead,
 		violates_neutral_greece_movement_restriction,
 		is_greek_cnd,
@@ -1192,6 +1228,7 @@ module.exports = function (Engine) {
 		can_piece_participate_for_faction,
 		get_space_default_controller,
 		can_piece_enter_neutral_space,
+		get_neutral_greece_supply_access,
 		is_neutral_greece_supply_passable,
 		is_persian_supply_unit,
 		has_home_supply_privilege,
@@ -1199,6 +1236,7 @@ module.exports = function (Engine) {
 		is_supply_trace_source_friendly_for_piece,
 		has_home_supply_for_attrition,
 		can_rebuild_balkan_unit_in_space,
+		on_piece_rebuilt,
 		can_end_move_in_neutral_greece,
 		is_on_bulgaria_entry_display,
 		check_constantine_entry_conditions,

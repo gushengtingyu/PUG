@@ -483,6 +483,7 @@ module.exports = function (Engine) {
 		if (state.tu_rp_recovery_pool === undefined) state.tu_rp_recovery_pool = 0
 		if (state.tu_rp_ge_converted === undefined) state.tu_rp_ge_converted = 0
 		if (!state.events) state.events = {}
+		Engine.normalize_control(state)
 		if (state.cp_auto_victory_marker === undefined) {
 			state.cp_auto_victory_marker = null
 		} else if (state.cp_auto_victory_marker !== null) {

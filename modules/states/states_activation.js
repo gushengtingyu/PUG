@@ -2287,7 +2287,8 @@ exports.register = function (states, Engine, context) {
 				!has_undestroyed_fort(game, target, other_faction(moving_faction)) &&
 				!is_controlled_by(game, target, moving_faction) &&
 				pieces_moving.some((p) => data.pieces[p].type === "regular") &&
-				!enemy_holds_contested_region
+				!enemy_holds_contested_region &&
+				Engine.can_set_control(game, target, moving_faction)
 
 			// Sync VP and jihad BEFORE set_control so the previous controller is still the old one
 			if (should_sync_vp_and_jihad_on_entry(pieces_moving)) {

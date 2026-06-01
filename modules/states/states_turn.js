@@ -1487,6 +1487,7 @@ exports.register = function (states, Engine, context) {
 			if (!spaces.has(s)) return
 			game.pieces[p] = s
 			set_add(game.reduced, p)
+			Engine.on_piece_rebuilt(game, p, s)
 			delete game.rebuild_piece
 			game.state = "rp_phase"
 		},
