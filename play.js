@@ -6251,6 +6251,7 @@ ensure_popup(
 	<li class="separator">
 	<li data-action="activate_move"> Activate to Move
 	<li data-action="activate_attack"> Activate to Attack
+	<li data-action="activate_attack_with_br"> Attack with BR (+1 VP)
 	<li data-action="deactivate"> Deactivate
 `
 )

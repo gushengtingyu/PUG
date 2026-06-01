@@ -76,20 +76,23 @@ test("CP sea SR from an Ottoman port does not add Jihad", () => {
 	clearBoard(game)
 
 	let tuDiv = place(game, CP, "TU DIV #1", "Haifa")
+	let haifa = findSpace("Haifa")
+	let kuwait = findSpace("Kuwait")
 	for (let name of ["Haifa", "Kuwait", "Suez"]) control(game, name, CP)
 	delete game.events.royal_navy_blockade
 	game.jihad = 0
 
-	expect(Engine.map.can_sr_to_space(game, tuDiv, findSpace("Kuwait"), CP)).toBe(true)
+	expect(Engine.map.can_sr_to_space(game, tuDiv, kuwait, CP)).toBe(true)
 
 	game.active = CP
 	game.state = "sr_move"
 	game.sr_piece = tuDiv
 	game.sr = 3
-	game = rules.action(game, CP_ROLE, "space", findSpace("Kuwait"))
+	game = rules.action(game, CP_ROLE, "space", kuwait)
 
-	expect(game.pieces[tuDiv]).toBe(findSpace("Kuwait"))
+	expect(game.pieces[tuDiv]).toBe(kuwait)
 	expect(game.jihad).toBe(0)
+	expect(game.log).toContain(`P${tuDiv} 战略调整：s${haifa} → s${kuwait}`)
 })
 
 test("AP sea SR away from the last Ottoman port supply unit still adds Jihad", () => {
